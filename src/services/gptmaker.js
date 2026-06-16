@@ -1,0 +1,154 @@
+const TOKEN = import.meta.env.VITE_GPTMAKER_TOKEN
+const WS = import.meta.env.VITE_GPTMAKER_WORKSPACE
+const BASE = 'https://api.gptmaker.ai'
+
+const headers = () => ({
+  'Authorization': `Bearer ${TOKEN}`,
+  'Content-Type': 'application/json',
+})
+
+async function request(path, options = {}) {
+  const res = await fetch(`${BASE}${path}`, { ...options, headers: headers() })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Erro na API GPT Maker')
+  return data
+}
+
+export async function listAgents() {
+  const data = await request(`/v2/workspace/${WS}/agents`)
+  return data.data || []
+}
+
+export async function getAgent(agentId) {
+  return request(`/v2/workspace/${WS}/agents/${agentId}`)
+}
+
+export async function updateAgent(agentId, body) {
+  return request(`/v2/workspace/${WS}/agents/${agentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function createAgent(body) {
+  return request(`/v2/workspace/${WS}/agents`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function deleteAgent(agentId) {
+  return request(`/v2/workspace/${WS}/agents/${agentId}`, { method: 'DELETE' })
+}
+
+export async function activateAgent(agentId) {
+  return request(`/v2/workspace/${WS}/agents/${agentId}/activate`, { method: 'POST' })
+}
+
+export async function deactivateAgent(agentId) {
+  return request(`/v2/workspace/${WS}/agents/${agentId}/inactivate`, { method: 'POST' })
+}
+
+export async function listChannels() {
+  const data = await request(`/v2/workspace/${WS}/channels`)
+  return data.data || []
+}
+
+export async function listChats(agentId, page = 1, pageSize = 50) {
+  const q = agentId ? `&agentId=${agentId}` : ''
+  const data = await request(`/v2/workspace/${WS}/chats?page=${page}&pageSize=${pageSize}${q}`)
+  return Array.isArray(data) ? data : (data.data || [])
+}
+
+export async function getChatMessages(chatId) {
+  return request(`/v2/chat/${chatId}/messages`)
+}
+
+export async function sendMessage(chatId, text) {
+  return request(`/v2/chat/${chatId}/send-message`, {
+    method: 'POST',
+    body: JSON.stringify({ message: text, type: 'text' }),
+  })
+}
+
+export async function assumeChat(chatId) {
+  const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/start-attendance`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+  })
+  if (!res.ok && res.status !== 204) throw new Error('Erro ao assumir chat')
+  return true
+}
+
+export async function releaseChat(chatId) {
+  const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/return-to-agent`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+  })
+  if (!res.ok && res.status !== 204) throw new Error('Erro ao voltar pro agente')
+  return true
+}
+
+export async function finishChat(chatId) {
+  return request(`/v2/chat/${chatId}/finish`, { method: 'POST' })
+}
+
+export async function listContacts(page = 1, pageSize = 20) {
+  const data = await request(`/v2/workspace/${WS}/contacts?page=${page}&pageSize=${pageSize}`)
+  return data.data || []
+}
+
+// Dashboard
+function dashboardUrl(path, startDate, endDate) {
+  return `/dashboard/workspace/${WS}/${path}?startDate=${startDate}&endDate=${endDate}`
+}
+
+export async function getDashboardData(startDate, endDate) {
+  const [
+    resolved,
+    credits,
+    contacts,
+    appointments,
+    creditsByPeriod,
+    creditsByModel,
+    assistantsPerf,
+    contactsPerf,
+  ] = await Promise.all([
+    request(dashboardUrl('interactions/resolved/count', startDate, endDate)),
+    request(dashboardUrl('credits/consumption/amount', startDate, endDate)),
+    request(dashboardUrl('contacts/new/count', startDate, endDate)),
+    request(dashboardUrl('appointments/scheduled/count', startDate, endDate)),
+    request(dashboardUrl('credits/consumption/by-period', startDate, endDate)),
+    request(dashboardUrl('credits/consumption/by-model', startDate, endDate)),
+    request(dashboardUrl('assistants/performance', startDate, endDate)),
+    request(dashboardUrl('contacts/performance', startDate, endDate)),
+  ])
+  return { resolved, credits, contacts, appointments, creditsByPeriod, creditsByModel, assistantsPerf, contactsPerf }
+}
+
+// Treinamentos
+export async function listTrainings(agentId, type = '', page = 1, pageSize = 50) {
+  const t = type ? `&type=${type}` : ''
+  const data = await request(`/v2/agent/${agentId}/trainings?page=${page}&pageSize=${pageSize}${t}`)
+  return data.data || []
+}
+
+export async function createTraining(agentId, body) {
+  return request(`/v2/agent/${agentId}/trainings`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function updateTraining(trainingId, body) {
+  return request(`/v2/training/${trainingId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function deleteTraining(trainingId) {
+  return request(`/v2/training/${trainingId}`, { method: 'DELETE' })
+}

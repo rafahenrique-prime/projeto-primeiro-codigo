@@ -1,0 +1,15 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  background: #F0F0F0;
+  color: #0A0A0A;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #E5E5E5; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+button { cursor: pointer; font-family: inherit; }
+textarea, input { font-family: inherit; }

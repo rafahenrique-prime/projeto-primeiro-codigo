@@ -1,0 +1,33 @@
+{
+  "name": "projeto-do-claudecode",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafahenrique-prime/projeto-primeiro-codigo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/rafahenrique-prime/projeto-primeiro-codigo/issues"
+  },
+  "homepage": "https://github.com/rafahenrique-prime/projeto-primeiro-codigo#readme",
+  "dependencies": {
+    "@base44/sdk": "^0.8.32",
+    "lucide-react": "^1.18.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.16"
+  }
+}
