@@ -1,141 +1,347 @@
-import { useState } from 'react'
-import { conversations } from '../data/mockData'
+import { useState, useEffect, useMemo } from 'react'
+import { listContacts } from '../services/gptmaker'
+import { useTheme } from '../theme.jsx'
 
-const contacts = conversations.map((c, i) => ({
-  id: c.id,
-  name: c.name,
-  initials: c.initials,
-  color: c.color,
-  phone: c.phone || '+55 11 9' + (9000 + i * 1234).toString().substring(0, 4) + '-' + (1000 + i * 567).toString().substring(0, 4),
-  city: c.city || ['São Paulo, SP', 'Rio de Janeiro, RJ', 'Belo Horizonte, MG', 'Curitiba, PR', 'Porto Alegre, RS', 'Campinas, SP'][i % 6],
-  orders: c.orders || Math.floor(Math.random() * 5) + 1,
-  totalSpent: [1290, 450, 870, 220, 3100, 680][i % 6],
-  channel: c.channelLabel,
-  tags: c.tags || [],
-  lastSeen: c.time,
-  aiSummary: c.aiSummary,
-  messages: c.messages,
-  objective_progress: c.objective_progress,
-}))
+const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
+function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h%AVATAR_COLORS.length] }
+function initialsFor(name) { return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() }
+function daysAgo(dateStr) {
+  if (!dateStr) return null
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+}
+
+function normalizeContact(c) {
+  const name = c.name || c.username || c.phone || 'Sem nome'
+  const channelType = c.type === 'INSTAGRAM' ? 'instagram' : c.type === 'Z_API' ? 'whatsapp' : 'other'
+  return {
+    id: c.id,
+    name,
+    initials: initialsFor(name),
+    color: colorFor(name),
+    phone: c.phone || c.whatsappPhone || null,
+    email: c.email || null,
+    city: c.city || null,
+    channel: channelType,
+    channelLabel: channelType === 'instagram' ? 'Instagram' : channelType === 'whatsapp' ? 'WhatsApp' : c.type || '—',
+    picture: c.picture || null,
+    createdAt: c.createdAt || null,
+    createdAtLabel: c.createdAt ? new Date(c.createdAt).toLocaleDateString('pt-BR') : '—',
+    daysOld: daysAgo(c.createdAt),
+    tags: c.tags || [],
+    raw: c,
+  }
+}
+
+const PERIOD_FILTERS = [
+  { id: 'all', label: 'Todos' },
+  { id: '3d', label: 'Últimos 3 dias', days: 3 },
+  { id: '7d', label: '7 dias', days: 7 },
+  { id: '30d', label: '30 dias', days: 30 },
+  { id: '90d', label: '3 meses', days: 90 },
+]
+const CHANNEL_FILTERS = [
+  { id: 'all', label: 'Todos canais' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'instagram', label: 'Instagram' },
+]
 
 export default function ContactsPage() {
+  const { theme: t } = useTheme()
+  const [contacts, setContacts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState(contacts[0])
+  const [selected, setSelected] = useState(null)
   const [tab, setTab] = useState('info')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [periodFilter, setPeriodFilter] = useState('all')
+  const [channelFilter, setChannelFilter] = useState('all')
+  const [hasEmailFilter, setHasEmailFilter] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
-  const filtered = contacts.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
-  )
+  useEffect(() => { load(1) }, [])
+
+  async function syncContacts() {
+    setSyncing(true)
+    await load(1)
+    setSyncing(false)
+  }
+
+  async function load(p) {
+    if (p === 1) setLoading(true)
+    else setLoadingMore(true)
+    try {
+      const data = await listContacts(p, 50)
+      const normalized = data.map(normalizeContact)
+      if (p === 1) { setContacts(normalized); if (normalized.length > 0) setSelected(normalized[0]) }
+      else setContacts(prev => [...prev, ...normalized])
+      setHasMore(data.length === 50)
+      setPage(p)
+    } catch (e) { setError('Erro ao carregar contatos') }
+    finally { setLoading(false); setLoadingMore(false) }
+  }
+
+  const filtered = useMemo(() => {
+    const periodDays = PERIOD_FILTERS.find(f => f.id === periodFilter)?.days
+    return contacts.filter(c => {
+      if (search && !c.name.toLowerCase().includes(search.toLowerCase()) &&
+          !c.phone?.includes(search) && !c.email?.toLowerCase().includes(search.toLowerCase())) return false
+      if (channelFilter !== 'all' && c.channel !== channelFilter) return false
+      if (hasEmailFilter && !c.email) return false
+      if (periodDays != null && (c.daysOld == null || c.daysOld > periodDays)) return false
+      return true
+    })
+  }, [contacts, search, channelFilter, hasEmailFilter, periodFilter])
+
+  if (loading) return <Centered t={t}><span style={{color:t.textMuted,fontSize:14}}>Carregando contatos...</span></Centered>
+  if (error) return <Centered t={t}><span style={{color:'#EF4444',fontSize:14}}>{error}</span></Centered>
 
   return (
-    <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden' }}>
+    <div style={{ flex:1, display:'flex', gap:14, overflow:'hidden', minHeight:0 }}>
 
-      {/* Lista de contatos */}
-      <div style={{ width: 280, background: '#fff', borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
-        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #E5E5E5' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A', marginBottom: 10 }}>Contatos <span style={{ fontSize: 12, fontWeight: 400, color: '#82829B' }}>({contacts.length})</span></div>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome ou telefone..." style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 10px', fontSize: 13, color: '#0A0A0A', outline: 'none', boxSizing: 'border-box' }} />
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filtered.map(contact => (
-            <div key={contact.id} onClick={() => setSelected(contact)}
-              style={{ padding: '10px 14px', borderBottom: '1px solid #E5E5E5', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', background: selected?.id === contact.id ? '#F7F7F7' : '#fff' }}>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', background: contact.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{contact.initials}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#0A0A0A', marginBottom: 2 }}>{contact.name}</div>
-                <div style={{ fontSize: 11, color: '#82829B' }}>{contact.phone} · {contact.city?.split(',')[0]}</div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#0EC331' }}>R${contact.totalSpent.toLocaleString('pt-BR')}</div>
-                <div style={{ fontSize: 10, color: '#82829B' }}>{contact.orders} pedido{contact.orders !== 1 ? 's' : ''}</div>
-              </div>
+      {/* ── COLUNA LISTA ── */}
+      <div style={{ width:340, display:'flex', flexDirection:'column', gap:0, overflow:'hidden', background:t.bg, borderRadius:12, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', flexShrink:0 }}>
+
+        {/* Topo busca */}
+        <div style={{ padding:'14px 14px 10px', borderBottom:`1px solid ${t.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+            <div style={{ position:'relative', flex:1 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position:'absolute', left:9, top:'50%', transform:'translateY(-50%)' }}>
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar contato..."
+                style={{ width:'100%', background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:8, padding:'7px 28px 7px 28px', fontSize:12, color:t.text, outline:'none', boxSizing:'border-box' }}/>
+              {search && <button onClick={()=>setSearch('')} style={{ position:'absolute', right:7, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:t.textMuted, fontSize:15, lineHeight:1 }}>×</button>}
             </div>
-          ))}
+            {/* Botão sync */}
+            <button onClick={syncContacts} title="Sincronizar contatos" style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', background:t.bgSecondary, border:`1px solid ${t.border}`, borderRadius:8, cursor:'pointer', flexShrink:0, transition:'opacity 0.2s', opacity: syncing ? 0.5 : 1 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMid} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }}>
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+            </button>
+            {/* Contagem */}
+            <span style={{ fontSize:11, fontWeight:700, color:t.textMuted, flexShrink:0 }}>{filtered.length}</span>
+          </div>
+
+          {/* Filtros — linha única compacta */}
+          <div style={{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' }}>
+            {PERIOD_FILTERS.map(f => (
+              <MiniChip key={f.id} active={periodFilter===f.id} onClick={()=>setPeriodFilter(f.id)} t={t}>{f.label}</MiniChip>
+            ))}
+            <div style={{ width:1, height:14, background:t.border, margin:'0 3px' }}/>
+            <MiniChip active={channelFilter==='whatsapp'} onClick={()=>setChannelFilter(v=>v==='whatsapp'?'all':'whatsapp')} t={t} color="#25D366">WA</MiniChip>
+            <MiniChip active={channelFilter==='instagram'} onClick={()=>setChannelFilter(v=>v==='instagram'?'all':'instagram')} t={t} color="#E1306C">IG</MiniChip>
+            <MiniChip active={hasEmailFilter} onClick={()=>setHasEmailFilter(v=>!v)} t={t}>✉</MiniChip>
+          </div>
+        </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+
+        {/* Lista */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {filtered.length === 0
+            ? <div style={{ textAlign:'center', color:t.textMuted, fontSize:13, padding:'40px 20px' }}>Nenhum contato encontrado</div>
+            : filtered.map(contact => (
+              <ContactRow key={contact.id} contact={contact} isActive={selected?.id===contact.id}
+                onClick={()=>{ setSelected(contact); setTab('info') }} t={t}/>
+            ))
+          }
+          {hasMore && (
+            <div style={{ padding:14, textAlign:'center' }}>
+              <button onClick={()=>load(page+1)} disabled={loadingMore}
+                style={{ background:t.bgTertiary, border:`1px solid ${t.border}`, borderRadius:9, padding:'7px 20px', fontSize:12, color:t.textMid, cursor:'pointer', fontWeight:600 }}>
+                {loadingMore ? 'Carregando...' : 'Carregar mais'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Detalhe do contato */}
-      {selected && (
-        <div style={{ flex: 1, background: '#fff', borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ── PAINEL DETALHE ── */}
+      {selected ? (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:t.bg, borderRadius:12, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', minWidth:0 }}>
+
           {/* Header */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', background: selected.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: '#fff' }}>{selected.initials}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#0A0A0A' }}>{selected.name}</div>
-              <div style={{ fontSize: 12, color: '#82829B', marginTop: 2 }}>{selected.phone} · {selected.city}</div>
-              <div style={{ display: 'flex', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
-                {selected.tags.map(t => (
-                  <span key={t.label} style={{ background: t.color + '22', color: t.color, borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 500 }}>{t.label}</span>
-                ))}
+          <div style={{ padding:'24px 28px 20px', borderBottom:`1px solid ${t.border}`, background: t.bgSecondary }}>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:18 }}>
+              <Avatar contact={selected} size={64} fontSize={22}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:20, fontWeight:800, color:t.text, marginBottom:4 }}>{selected.name}</div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+                  {selected.phone && <InfoTag icon="📱" value={selected.phone}/>}
+                  {selected.email && <InfoTag icon="✉️" value={selected.email}/>}
+                  {selected.city && <InfoTag icon="🏙️" value={selected.city.split(',')[0]}/>}
+                </div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <ChannelBadge channel={selected.channel} label={selected.channelLabel}/>
+                  {selected.createdAt && (
+                    <span style={{ fontSize:12, color:t.textMuted, background:t.bgTertiary, borderRadius:6, padding:'3px 10px' }}>
+                      Desde {selected.createdAtLabel}
+                    </span>
+                  )}
+                  {selected.tags.map((tag,i) => (
+                    <span key={i} style={{ fontSize:11, background:'#F3F4F6', color:'#6B7280', borderRadius:9999, padding:'3px 10px', fontWeight:500 }}>{tag.label||tag}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button style={{ background: '#EFFDF4', border: '1px solid #B9F8CF', borderRadius: 8, padding: '6px 12px', fontSize: 12, color: '#0EC331', fontWeight: 600, cursor: 'pointer' }}>💬 Conversar</button>
+              <button style={{ background:'#0EC331', color:'#fff', border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                💬 Conversar
+              </button>
             </div>
           </div>
 
-          {/* Stats rápidos */}
-          <div style={{ padding: '12px 20px', borderBottom: '1px solid #E5E5E5', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {[['💰', 'Gasto Total', 'R$' + selected.totalSpent.toLocaleString('pt-BR')], ['🛍️', 'Pedidos', selected.orders], ['📊', 'Progresso', selected.objective_progress + '%'], ['📱', 'Canal', selected.channel]].map(([ic, label, val]) => (
-              <div key={label} style={{ background: '#F7F7F7', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 18 }}>{ic}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A', margin: '3px 0 2px' }}>{val}</div>
-                <div style={{ fontSize: 10, color: '#82829B' }}>{label}</div>
-              </div>
-            ))}
+          {/* Stats cards */}
+          <div style={{ padding:'16px 28px', borderBottom:`1px solid ${t.border}`, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+            <StatCard icon="📱" label="Canal" value={selected.channelLabel} t={t}/>
+            <StatCard icon="📅" label="Cadastrado" value={selected.createdAtLabel} t={t}/>
+            <StatCard icon="🏙️" label="Cidade" value={selected.city?.split(',')[0]||'—'} t={t}/>
           </div>
 
           {/* Tabs */}
-          <div style={{ padding: '0 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', gap: 0 }}>
-            {[['info', '📋 Informações'], ['history', '💬 Histórico'], ['summary', '🤖 IA']].map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)}
-                style={{ border: 'none', borderBottom: tab === id ? '2px solid #0EC331' : '2px solid transparent', background: 'none', padding: '10px 14px', fontSize: 13, fontWeight: tab === id ? 600 : 400, color: tab === id ? '#0EC331' : '#82829B', cursor: 'pointer' }}>
-                {label}
-              </button>
+          <div style={{ padding:'0 28px', borderBottom:`1px solid ${t.border}`, display:'flex', gap:0 }}>
+            {[['info','📋 Informações'],['extra','🔍 Dados extras']].map(([id,label])=>(
+              <TabBtn key={id} active={tab===id} onClick={()=>setTab(id)} t={t}>{label}</TabBtn>
             ))}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-            {tab === 'info' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {[['Nome completo', selected.name], ['Telefone / WhatsApp', selected.phone], ['Cidade', selected.city], ['Canal principal', selected.channel], ['Último contato', selected.lastSeen]].map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-                    <div style={{ fontSize: 13, color: '#141413' }}>{val}</div>
+          {/* Conteúdo da tab */}
+          <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
+            {tab==='info' && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:18 }}>
+                {[
+                  ['Nome completo', selected.name],
+                  ['Telefone / WhatsApp', selected.phone||'—'],
+                  ['Email', selected.email||'—'],
+                  ['Cidade', selected.city||'—'],
+                  ['Canal principal', selected.channelLabel],
+                  ['Cadastrado em', selected.createdAtLabel],
+                ].map(([label,val])=>(
+                  <div key={label} style={{ display:'flex', flexDirection:'column', gap:6, padding:'14px 16px', background:t.bgSecondary, borderRadius:10, border:`1px solid ${t.border}` }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.6px' }}>{label}</div>
+                    <div style={{ fontSize:14, color:t.text, fontWeight:500, wordBreak:'break-all' }}>{val}</div>
                   </div>
                 ))}
               </div>
             )}
-            {tab === 'history' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {selected.messages.map((msg, i) => (
-                  <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row' : 'row-reverse', gap: 8, alignItems: 'flex-end' }}>
-                    <div style={{ maxWidth: '75%', background: msg.role === 'user' ? '#fff' : '#D8FDD2', border: '1px solid #E5E5E5', borderRadius: msg.role === 'user' ? '16px 16px 16px 2px' : '16px 16px 2px 16px', padding: '8px 12px', fontSize: 13, color: '#141413', lineHeight: 1.5 }}>
-                      {msg.content}
-                      {msg.time && <div style={{ fontSize: 10, color: '#82829B', marginTop: 4, textAlign: 'right' }}>{msg.time}</div>}
+            {tab==='extra' && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                {Object.entries(selected.raw)
+                  .filter(([k,v])=>v && typeof v!=='object' && !['id','name','phone','email','city','type','picture','createdAt','updatedAt','whatsappPhone','username'].includes(k))
+                  .map(([k,v])=>(
+                    <div key={k} style={{ background:t.bgSecondary, borderRadius:10, padding:'12px 16px', border:`1px solid ${t.border}` }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>{k}</div>
+                      <div style={{ fontSize:13, color:t.text, wordBreak:'break-all' }}>{String(v)}</div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {tab === 'summary' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: '#EFFDF4', border: '1px solid #B9F8CF', borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#0EC331', marginBottom: 6 }}>🤖 Resumo IA</div>
-                  <div style={{ fontSize: 13, color: '#141413', lineHeight: 1.7 }}>{selected.aiSummary}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Progresso do Objetivo</div>
-                  <div style={{ background: '#F7F7F7', borderRadius: 9999, height: 8, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: selected.objective_progress + '%', background: 'linear-gradient(90deg, #D863E1 0%, #FFB25B 100%)', borderRadius: 9999 }} />
-                  </div>
-                  <div style={{ fontSize: 12, color: '#82829B', marginTop: 4, textAlign: 'right' }}>{selected.objective_progress}%</div>
-                </div>
+                  ))}
+                {Object.entries(selected.raw).filter(([k,v])=>v&&typeof v!=='object'&&!['id','name','phone','email','city','type','picture','createdAt','updatedAt','whatsappPhone','username'].includes(k)).length===0 && (
+                  <div style={{ gridColumn:'1/-1', color:t.textMuted, fontSize:13, padding:20 }}>Nenhum dado extra disponível.</div>
+                )}
               </div>
             )}
           </div>
         </div>
+      ) : (
+        <Centered t={t}><span style={{color:t.textMuted,fontSize:14}}>Selecione um contato</span></Centered>
       )}
+    </div>
+  )
+}
+
+// ── Sub-components ──
+
+function Avatar({ contact, size=38, fontSize=13 }) {
+  return contact.picture
+    ? <img src={contact.picture} alt="" style={{ width:size, height:size, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} onError={e=>e.target.style.display='none'}/>
+    : <div style={{ width:size, height:size, borderRadius:'50%', background:contact.color, display:'flex', alignItems:'center', justifyContent:'center', fontSize, fontWeight:800, color:'#fff', flexShrink:0 }}>{contact.initials}</div>
+}
+
+function ContactRow({ contact, isActive, onClick, t }) {
+  return (
+    <div onClick={onClick} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', cursor:'pointer', background:isActive?t.bgSecondary:'transparent', borderLeft:`3px solid ${isActive?'#0EC331':'transparent'}`, transition:'background 0.1s' }}
+      onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.background=t.bgSecondary }}
+      onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.background='transparent' }}>
+      <Avatar contact={contact} size={42}/>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:t.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:155 }}>{contact.name}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+            {contact.picture && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" title="Tem foto">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+            )}
+            <ChannelDot channel={contact.channel}/>
+          </div>
+        </div>
+        <div style={{ fontSize:11, color:t.textMuted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {contact.phone || contact.email || contact.channelLabel}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Chip({ children, active, onClick, t, color }) {
+  const activeColor = color || '#0EC331'
+  return (
+    <button onClick={onClick} style={{ fontSize:11, padding:'4px 11px', borderRadius:9999, border:`1px solid ${active?activeColor:t.border}`, cursor:'pointer', background:active?activeColor:t.bgSecondary, color:active?'#fff':t.textMid, fontWeight:active?700:500, transition:'all 0.12s', whiteSpace:'nowrap' }}>
+      {children}
+    </button>
+  )
+}
+
+function MiniChip({ children, active, onClick, t, color }) {
+  const activeColor = color || '#0EC331'
+  return (
+    <button onClick={onClick} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${active?activeColor:t.border}`, cursor:'pointer', background:active?activeColor:'transparent', color:active?'#fff':t.textMuted, fontWeight:active?700:500, transition:'all 0.1s', whiteSpace:'nowrap', lineHeight:1.4 }}>
+      {children}
+    </button>
+  )
+}
+
+function StatCard({ icon, label, value, t }) {
+  return (
+    <div style={{ background:t.bgSecondary, borderRadius:10, padding:'14px 16px', border:`1px solid ${t.border}` }}>
+      <div style={{ fontSize:20, marginBottom:6 }}>{icon}</div>
+      <div style={{ fontSize:15, fontWeight:700, color:t.text, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={value||'—'}>{value||'—'}</div>
+      <div style={{ fontSize:11, color:t.textMuted }}>{label}</div>
+    </div>
+  )
+}
+
+function TabBtn({ children, active, onClick, t }) {
+  return (
+    <button onClick={onClick} style={{ border:'none', borderBottom:active?'2px solid #0EC331':'2px solid transparent', background:'none', padding:'12px 16px', fontSize:13, fontWeight:active?700:400, color:active?'#0EC331':t.textMuted, cursor:'pointer', transition:'color 0.12s' }}>{children}</button>
+  )
+}
+
+function InfoTag({ icon, value }) {
+  return (
+    <span style={{ fontSize:12, color:'#374151', background:'#F3F4F6', borderRadius:6, padding:'3px 10px', display:'flex', alignItems:'center', gap:4 }}>
+      {icon} {value}
+    </span>
+  )
+}
+
+function ChannelBadge({ channel, label }) {
+  const color = channel==='whatsapp'?'#25D366':channel==='instagram'?'#E1306C':'#6B7280'
+  return (
+    <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:color, borderRadius:6, padding:'3px 10px' }}>{label}</span>
+  )
+}
+
+function ChannelDot({ channel }) {
+  const color = channel==='whatsapp'?'#25D366':channel==='instagram'?'#E1306C':'#9CA3AF'
+  return <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }}/>
+}
+
+function Centered({ t, children }) {
+  return (
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:t.bg, borderRadius:12 }}>
+      {children}
     </div>
   )
 }

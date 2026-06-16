@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from './theme.jsx'
 import LeftNav from './components/LeftNav'
 import InboxList from './components/InboxList'
@@ -17,6 +17,31 @@ function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt
 function initialsFor(name) { return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() }
 function fmtTime(ts) { if(!ts) return ''; const d=new Date(ts); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) }
 
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.35)
+  } catch {}
+}
+
+function showNotification(name, msg) {
+  if (Notification.permission === 'granted') {
+    new Notification(`Nova mensagem de ${name}`, {
+      body: msg || 'Nova mensagem',
+      icon: '/favicon.ico',
+      silent: true,
+    })
+  }
+}
+
 function normalizeChat(c) {
   return {
     ...c,
@@ -25,8 +50,10 @@ function normalizeChat(c) {
     lastMsg: c.conversation || '',
     channelLabel: c.type === 'INSTAGRAM' ? 'Instagram' : c.type === 'Z_API' ? 'WhatsApp' : c.type || '',
     channelSub: c.username || c.whatsappPhone || '',
+    igChannelId: c.channelId || '',
     channel: c.type === 'INSTAGRAM' ? 'instagram' : 'whatsapp',
     time: fmtTime(c.time),
+    rawTime: c.time || null,
     unread: c.unReadCount || 0,
     objective_progress: 0,
     mode: c.humanTalk ? 'copilot' : 'autopilot',
@@ -49,21 +76,60 @@ export default function App() {
   const [conversations, setConversations] = useState([])
   const [activeConv, setActiveConv] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const chatRef = useRef(null)
+  const convsRef = useRef([])
+  const initialLoadDone = useRef(false)
 
-  useEffect(() => { loadChats() }, [])
+  useEffect(() => {
+    Notification.requestPermission()
+    loadChats(true)
+  }, [])
 
-  async function loadChats() {
-    setLoading(true)
+  // Auto-refresh a cada 30s
+  useEffect(() => {
+    const timer = setInterval(() => loadChats(false), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  async function loadChats(isFirst = false) {
+    if (isFirst) setLoading(true)
     try {
       const raw = await listChats()
       const normalized = raw.map(normalizeChat)
-      setConversations(normalized)
-      if (normalized.length > 0) setActiveConv(normalized[0])
+
+      if (!isFirst && initialLoadDone.current) {
+        // Detecta novas mensagens comparando com estado anterior
+        const prev = convsRef.current
+        for (const conv of normalized) {
+          const old = prev.find(c => c.id === conv.id)
+          if (old && conv.unread > old.unread) {
+            playBeep()
+            showNotification(conv.name, conv.lastMsg)
+            break
+          }
+          if (!old && conv.unread > 0) {
+            playBeep()
+            showNotification(conv.name, conv.lastMsg)
+            break
+          }
+        }
+      }
+
+      // Preserva unread zerado manualmente pelo usuário
+      setConversations(prev => {
+        const manuallyRead = new Set(prev.filter(c => c.unread === 0 && normalized.find(n => n.id === c.id)?.unread > 0).map(c => c.id))
+        return normalized.map(c => manuallyRead.has(c.id) ? { ...c, unread: 0 } : c)
+      })
+
+      convsRef.current = normalized
+      initialLoadDone.current = true
+      if (isFirst && normalized.length > 0) setActiveConv(normalized[0])
     } catch (e) {
       console.error('Erro ao carregar chats:', e)
     } finally {
-      setLoading(false)
+      if (isFirst) setLoading(false)
     }
   }
 
@@ -74,11 +140,20 @@ export default function App() {
     }
   }
 
+  const fillChatInput = useCallback((text) => {
+    chatRef.current?.fill(text)
+  }, [])
+
   const filtered = conversations.filter(c => {
     if (filter === 'unread') return c.unread > 0
     if (filter === 'wa') return c.channel === 'whatsapp'
     if (filter === 'ig') return c.channel === 'instagram'
+    if (filter.startsWith('ig:')) return c.channel === 'instagram' && (c.igChannelId || c.channelId) === filter.slice(3)
     return true
+  }).filter(c => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return c.name?.toLowerCase().includes(q) || c.lastMsg?.toLowerCase().includes(q)
   })
 
   return (
@@ -91,9 +166,10 @@ export default function App() {
               <div style={{ fontSize: 14, color: t.textMuted }}>Carregando conversas...</div>
             </div>
           ) : <>
-            <InboxList conversations={filtered} active={activeConv} onSelect={selectConv} filter={filter} setFilter={setFilter} />
-            {activeConv && <ChatArea conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
-            {activeConv && <RightPanel conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
+            <InboxList conversations={filtered} allConversations={conversations} active={activeConv} onSelect={selectConv}
+              filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} />
+            {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
+            {activeConv && <RightPanel conv={activeConv} onConvUpdate={c => setActiveConv(c)} onFillInput={fillChatInput} />}
           </>
         )}
         {page === 'channels' && <ChannelsPage />}

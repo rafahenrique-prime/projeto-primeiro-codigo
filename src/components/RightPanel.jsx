@@ -12,7 +12,7 @@ function calcProgress(msgs = [], lastMsg = '') {
   return 5
 }
 
-export default function RightPanel({ conv, onConvUpdate }) {
+export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
   const { theme: t } = useTheme()
   const [msgs, setMsgs] = useState([])
   const [resposta, setResposta] = useState(null)
@@ -200,6 +200,9 @@ export default function RightPanel({ conv, onConvUpdate }) {
                       }}
                     >{enviando ? '...' : '↑ Enviar'}</ActionBtn>
                     <ActionBtn color="#FEF3C7" textColor="#D97706" onClick={() => { setTextoEditado(resposta.resposta); setEditando(true) }}>✏ Editar</ActionBtn>
+                    {onFillInput && (
+                      <ActionBtn color="#EEF2FF" textColor="#6366F1" onClick={() => { onFillInput(resposta.resposta); setShowResposta(false) }}>✎ Usar</ActionBtn>
+                    )}
                     <ActionBtn color="#F3F4F6" textColor="#6B7280" onClick={() => setShowResposta(false)}>Eu respondo</ActionBtn>
                   </>
                 )}

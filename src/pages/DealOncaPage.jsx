@@ -16,13 +16,18 @@ export default function DealOncaPage({ conversations = [] }) {
   const [richConversations, setRichConversations] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyProgress, setHistoryProgress] = useState(0)
-  const [messages, setMessages] = useState([
-    {
-      id: 0, from: 'oncca',
-      text: 'Olá, Rafael! Sou o **DealOnça**, seu Diretor Comercial com IA. 🐆\n\nEstou conectado a todos os canais e conversas da PRIME STORE. Pode me perguntar qualquer coisa — analiso os dados em tempo real e respondo com precisão.',
-      suggestions: SUGGESTIONS.slice(0, 4),
-    }
-  ])
+  const WELCOME = {
+    id: 0, from: 'oncca',
+    text: 'Olá, Rafael! Sou o **Deal Claude**, seu Diretor Comercial com IA.\n\nEstou conectado a todos os canais e conversas da PRIME STORE. Pode me perguntar qualquer coisa — analiso os dados em tempo real e respondo com precisão.',
+    suggestions: SUGGESTIONS.slice(0, 4),
+  }
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dealclaude_history')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return [WELCOME]
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -30,6 +35,14 @@ export default function DealOncaPage({ conversations = [] }) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
   useEffect(() => { listChannels().then(setChannels).catch(() => {}) }, [])
+  useEffect(() => {
+    try { localStorage.setItem('dealclaude_history', JSON.stringify(messages)) } catch {}
+  }, [messages])
+
+  const clearHistory = () => {
+    localStorage.removeItem('dealclaude_history')
+    setMessages([WELCOME])
+  }
 
   // Carrega histórico completo de todas as conversas
   useEffect(() => {
@@ -90,11 +103,13 @@ export default function DealOncaPage({ conversations = [] }) {
 
         {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#0EC331,#04BE23)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🐆</div>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF3EE', border: '2px solid #E8714A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ClawdIcon size={26} />
+          </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A' }}>DealOnça</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A' }}>Deal Claude</div>
             <div style={{ fontSize: 12, color: '#82829B', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 7, height: 7, background: '#0EC331', borderRadius: '50%', display: 'inline-block' }} />
+              <span style={{ width: 7, height: 7, background: '#E8714A', borderRadius: '50%', display: 'inline-block' }} />
               Diretor Comercial IA · PRIME STORE · Groq / Llama 3.1
             </div>
           </div>
@@ -111,6 +126,10 @@ export default function DealOncaPage({ conversations = [] }) {
               </span>
             )}
             <span style={{ background: '#FFF8E1', border: '1px solid #FFC300', borderRadius: 9999, padding: '4px 12px', fontSize: 12, color: '#856404' }}>🔔 {conversations.filter(c => c.unread > 0).length} não lidas</span>
+            <button onClick={clearHistory} title="Limpar histórico" style={{ background: 'none', border: '1px solid #E5E5E5', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#82829B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              Limpar
+            </button>
           </div>
         </div>
 
@@ -204,7 +223,7 @@ function ChatMessage({ msg, onSuggestion }) {
 
   return (
     <div style={{ alignSelf: 'flex-start', maxWidth: '88%', display: 'flex', gap: 10 }}>
-      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#0EC331,#04BE23)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, marginTop: 2 }}>🐆</div>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#FEF3EE', border: '1.5px solid #E8714A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}><ClawdIcon size={20} /></div>
       <div style={{ flex: 1 }}>
         <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '12px 16px', fontSize: 14, color: '#0A0A0A', lineHeight: 1.7 }}>
           <Markdown text={msg.text} />
@@ -257,7 +276,7 @@ function InlineFormat({ text }) {
 function TypingIndicator() {
   return (
     <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 10 }}>
-      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#0EC331,#04BE23)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🐆</div>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#FEF3EE', border: '1.5px solid #E8714A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ClawdIcon size={20} /></div>
       <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '14px 18px', display: 'flex', gap: 5, alignItems: 'center' }}>
         {[0, 0.18, 0.36].map((d, i) => (
           <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#0EC331', animation: `blink 1s ${d}s infinite` }} />
@@ -266,5 +285,19 @@ function TypingIndicator() {
       </div>
       <style>{`@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}`}</style>
     </div>
+  )
+}
+
+function ClawdIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shapeRendering="crispEdges">
+      <rect x="4" y="4" width="8" height="6" fill="#E8714A"/>
+      <rect x="2" y="5" width="2" height="3" fill="#E8714A"/>
+      <rect x="12" y="5" width="2" height="3" fill="#E8714A"/>
+      <rect x="5" y="6" width="2" height="2" fill="#1a1a1a"/>
+      <rect x="9" y="6" width="2" height="2" fill="#1a1a1a"/>
+      <rect x="5" y="10" width="2" height="3" fill="#E8714A"/>
+      <rect x="9" y="10" width="2" height="3" fill="#E8714A"/>
+    </svg>
   )
 }

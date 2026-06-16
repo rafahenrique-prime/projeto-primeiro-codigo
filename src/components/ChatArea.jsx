@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat } from '../services/gptmaker'
 import { useTheme } from '../theme.jsx'
 
@@ -10,10 +10,14 @@ function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function ChatArea({ conv, onConvUpdate }) {
+const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const { theme: t } = useTheme()
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
+
+  useImperativeHandle(ref, () => ({
+    fill: (text) => setInput(text)
+  }))
   const [mode, setMode] = useState(conv.mode || 'autopilot')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -149,7 +153,9 @@ export default function ChatArea({ conv, onConvUpdate }) {
       </div>
     </div>
   )
-}
+})
+
+export default ChatArea
 
 function IconBtn({ children, title, color }) {
   return (

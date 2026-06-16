@@ -1,7 +1,33 @@
 import { useTheme } from '../theme.jsx'
 
-export default function InboxList({ conversations, active, onSelect, filter, setFilter }) {
+function timeSince(rawTime) {
+  if (!rawTime) return null
+  const diff = Math.floor((Date.now() - new Date(rawTime).getTime()) / 1000 / 60)
+  if (diff < 1) return 'agora'
+  if (diff < 60) return `${diff}m`
+  const h = Math.floor(diff / 60)
+  if (h < 24) return `${h}h`
+  return `${Math.floor(h / 24)}d`
+}
+
+const IG_COLORS = ['#E1306C', '#4F8EF7']
+
+function igColorMap(conversations) {
+  const map = {}
+  let idx = 0
+  for (const c of conversations) {
+    const key = c.igChannelId || c.channelId
+    if (c.channel === 'instagram' && key && !(key in map)) {
+      map[key] = IG_COLORS[idx % IG_COLORS.length]
+      idx++
+    }
+  }
+  return map
+}
+
+export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch }) {
   const { theme: t } = useTheme()
+  const igColors = igColorMap(allConversations || conversations)
 
   return (
     <div style={{ width: 300, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -16,13 +42,17 @@ export default function InboxList({ conversations, active, onSelect, filter, set
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
-            style={{ width: '100%', background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '7px 12px 7px 30px', fontSize: 13, color: t.textSecondary, outline: 'none', boxSizing: 'border-box' }}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '7px 12px 7px 30px', fontSize: 13, color: t.text, outline: 'none', boxSizing: 'border-box' }}
             placeholder="Buscar conversa..."
-            readOnly
           />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 14, lineHeight: 1 }}>×</button>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {[['all','Todos'],['unread','Não lidas'],['wa','WhatsApp'],['ig','Instagram']].map(([k, label]) => (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {[['all','Todos'],['unread','Não lidas'],['wa','WhatsApp']].map(([k, label]) => (
             <button key={k} onClick={() => setFilter(k)} style={{
               fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: 'none', cursor: 'pointer',
               background: filter === k ? '#0EC331' : t.bgTertiary,
@@ -31,6 +61,32 @@ export default function InboxList({ conversations, active, onSelect, filter, set
               transition: 'all 0.12s',
             }}>{label}</button>
           ))}
+          {Object.entries(igColors).map(([channelId, color], i) => {
+            const key = `ig:${channelId}`
+            const isActive = filter === key
+            return (
+              <button key={key} onClick={() => setFilter(isActive ? 'all' : key)} style={{
+                fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: `1.5px solid ${isActive ? color : 'transparent'}`,
+                cursor: 'pointer', background: isActive ? color : t.bgTertiary,
+                color: isActive ? '#fff' : t.textMid,
+                fontWeight: isActive ? 700 : 500, transition: 'all 0.12s',
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}>
+                <IgIcon color={isActive ? '#fff' : color} />
+                {i + 1}
+              </button>
+            )
+          })}
+          <button onClick={() => setFilter(filter === 'ig' ? 'all' : 'ig')} style={{
+            fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+            background: filter === 'ig' ? '#E1306C' : t.bgTertiary,
+            color: filter === 'ig' ? '#fff' : t.textMid,
+            fontWeight: filter === 'ig' ? 700 : 500, transition: 'all 0.12s',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <IgIcon color={filter === 'ig' ? '#fff' : '#E1306C'} />
+            Instagram
+          </button>
         </div>
       </div>
 
@@ -38,17 +94,24 @@ export default function InboxList({ conversations, active, onSelect, filter, set
 
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {conversations.map(conv => (
-          <ConvItem key={conv.id} conv={conv} isActive={active?.id === conv.id} onClick={() => onSelect(conv)} t={t} />
-        ))}
+        {conversations.length === 0
+          ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Nenhuma conversa encontrada</div>
+          : conversations.map(conv => (
+            <ConvItem key={conv.id} conv={conv} isActive={active?.id === conv.id} onClick={() => onSelect(conv)} t={t} igColors={igColors} />
+          ))
+        }
       </div>
     </div>
   )
 }
 
-function ConvItem({ conv, isActive, onClick, t }) {
+function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
   const progress = conv.objective_progress || 0
   const isWa = conv.channel === 'whatsapp'
+  const igBadgeColor = igColors[conv.igChannelId || conv.channelId] || '#E1306C'
+  const ringColor = isWa ? '#0EC331' : igBadgeColor
+  const waitTime = conv.unread > 0 ? timeSince(conv.rawTime) : null
+  const isLong = waitTime && !['agora','1m','2m','3m','4m','5m'].includes(waitTime)
 
   return (
     <div
@@ -67,7 +130,7 @@ function ConvItem({ conv, isActive, onClick, t }) {
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: `conic-gradient(#0EC331 ${progress * 3.6}deg, ${t.borderLight} ${progress * 3.6}deg)`,
+          background: `conic-gradient(${ringColor} ${progress * 3.6}deg, ${t.borderLight} ${progress * 3.6}deg)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {conv.picture
@@ -78,7 +141,7 @@ function ConvItem({ conv, isActive, onClick, t }) {
         <div style={{
           position: 'absolute', bottom: -1, right: -1,
           width: 16, height: 16, borderRadius: '50%',
-          background: isWa ? '#25D366' : '#E1306C',
+          background: isWa ? '#25D366' : igBadgeColor,
           border: `2px solid ${t.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {isWa
@@ -101,11 +164,30 @@ function ConvItem({ conv, isActive, onClick, t }) {
             background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4',
             borderRadius: 4, padding: '1px 6px',
           }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
-          {conv.unread > 0 && (
-            <span style={{ background: '#0EC331', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{conv.unread}</span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {waitTime && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px',
+                background: isLong ? '#FEE2E2' : '#FEF3C7',
+                color: isLong ? '#DC2626' : '#D97706',
+              }}>⏱ {waitTime}</span>
+            )}
+            {conv.unread > 0 && (
+              <span style={{ background: '#0EC331', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{conv.unread}</span>
+            )}
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function IgIcon({ color = '#E1306C' }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill={color}/>
+      <circle cx="12" cy="12" r="4" fill="none" stroke="white" strokeWidth="2.5"/>
+      <circle cx="17.5" cy="6.5" r="1.3" fill="white"/>
+    </svg>
   )
 }
