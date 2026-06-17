@@ -17,15 +17,25 @@ export default function CatalogPage() {
   })
 
   useEffect(() => {
-    // Carregar produtos do localStorage ou do catálogo padrão
+    // Sempre mescla catalog.js (fonte de verdade) com localStorage
+    const defaultProducts = getAllProducts()
     const stored = localStorage.getItem('products_catalog')
-    if (stored) {
-      setProducts(JSON.parse(stored))
-    } else {
-      const defaultProducts = getAllProducts()
-      setProducts(defaultProducts)
-      saveToStorage(defaultProducts)
-    }
+    const storedProducts = stored ? JSON.parse(stored) : []
+
+    // Pega IDs do localStorage para não perder edições manuais
+    const storedById = {}
+    storedProducts.forEach(p => { storedById[p.id] = p })
+
+    // Mescla: catalog.js como base + substitui se usuário editou no localStorage
+    const merged = defaultProducts.map(p => storedById[p.id] ? storedById[p.id] : p)
+
+    // Adiciona produtos extras que vieram do Extrator (IDs maiores que catalog.js)
+    const maxDefaultId = Math.max(...defaultProducts.map(p => p.id), 0)
+    const extras = storedProducts.filter(p => p.id > maxDefaultId)
+
+    const final = [...merged, ...extras]
+    setProducts(final)
+    saveToStorage(final)
   }, [])
 
   const saveToStorage = (data) => {
