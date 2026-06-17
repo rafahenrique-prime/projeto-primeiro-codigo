@@ -6,6 +6,8 @@ const workItems = [
   { id: 'agents',    label: 'Agentes' },
   { id: 'channels',  label: 'Canais' },
   { id: 'simulador', label: '🎭 Simulador', badge: false },
+  { id: 'catalogo',  label: '📦 Catálogo', badge: false },
+  { id: 'importar',  label: '🔗 Importar', badge: false },
 ]
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
@@ -23,6 +25,8 @@ function getIcon(id) {
     case 'dealonca':   return <Da />
     case 'relatorios': return <Rep />
     case 'simulador':  return <Sim />
+    case 'catalogo':   return <Cat />
+    case 'importar':   return <Imp />
     default:           return <Dot />
   }
 }
@@ -215,6 +219,8 @@ function ClawdIcon({ size = 20, active = false }) {
 }
 function Rep()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> }
 function Sim()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg> }
+function Cat()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6-6 6 6M3 9h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><rect x="5" y="12" width="4" height="4"/><rect x="15" y="12" width="4" height="4"/></svg> }
+function Imp()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 19h18a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/></svg> }
 function Dot() { return <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg> }
 function DashIcon({ active }) {
   const c = active ? '#fff' : '#E8192C'

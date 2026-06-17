@@ -14,6 +14,8 @@ import AgentsPage from './pages/AgentsPage'
 import KnowledgePage from './pages/KnowledgePage'
 import ContactsPage from './pages/ContactsPage'
 import SimuladorClientePage from './pages/SimuladorClientePage'
+import CatalogPage from './pages/CatalogPage'
+import ImportCatalogPage from './pages/ImportCatalogPage'
 import { listChats } from './services/gptmaker'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
@@ -211,6 +213,8 @@ export default function App() {
           {page === 'agents'   && <AgentsPage />}
           {page === 'knowledge'&& <KnowledgePage />}
           {page === 'simulador' && <SimuladorClientePage />}
+          {page === 'catalogo' && <CatalogPage />}
+          {page === 'importar' && <ImportCatalogPage />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
         </div>
 
