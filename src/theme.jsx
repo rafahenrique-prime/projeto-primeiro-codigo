@@ -1,22 +1,25 @@
 import { createContext, useContext, useState } from 'react'
 
 export const light = {
-  appBg:       '#F3F4F6',
+  appBg:       '#EDEDEE',
   bg:          '#ffffff',
-  bgSecondary: '#F9FAFB',
-  bgTertiary:  '#F3F4F6',
-  border:      '#EBEBEB',
-  borderLight: '#E5E7EB',
-  borderMid:   '#D1D5DB',
-  text:        '#0A0A0A',
-  textSecondary: '#374151',
-  textMid:     '#6B7280',
-  textMuted:   '#9CA3AF',
-  inputBg:     '#F7F7F7',
+  bgSecondary: '#F7F7F8',
+  bgTertiary:  '#F0F0F1',
+  border:      '#e5e5e5',
+  borderLight: '#eeeeee',
+  borderMid:   '#d0d0d0',
+  text:        '#111111',
+  textSecondary: '#333333',
+  textMid:     '#666666',
+  textMuted:   '#999999',
+  inputBg:     '#f5f5f5',
   bubbleUser:  '#ffffff',
-  bubbleAI:    '#DCFCE7',
+  bubbleAI:    '#fff0f0',
   navBg:       '#ffffff',
-  scrollThumb: '#E5E5E5',
+  scrollThumb: '#e0e0e0',
+  primary:     '#E8192C',
+  primaryBg:   '#fff5f5',
+  primaryLight:'#fff0f0',
 }
 
 export const dark = {
@@ -36,13 +39,23 @@ export const dark = {
   bubbleAI:    '#1a3a2a',
   navBg:       '#1a1a2a',
   scrollThumb: '#2e2e42',
+  primary:     '#E8192C',
+  primaryBg:   '#2a1520',
+  primaryLight:'#3a1a22',
+  respostaBg:  '#1e2a1a',
+  respostaBorder: '#2d4a25',
+  respostaText:'#d1fae5',
 }
 
 const ThemeCtx = createContext({ theme: light, dark: false, toggle: () => {} })
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(false)
-  const toggle = () => setIsDark(v => !v)
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark')
+  const toggle = () => setIsDark(v => {
+    const next = !v
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+    return next
+  })
   return (
     <ThemeCtx.Provider value={{ theme: isDark ? dark : light, dark: isDark, toggle }}>
       {children}

@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat } from '../services/gptmaker'
+import { detectProductRequest } from '../services/groq'
+import { findBestMatch, searchProduct } from '../services/catalog'
+import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
@@ -11,9 +14,15 @@ function fmtTime(ts) {
 }
 
 const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
-  const { theme: t } = useTheme()
+  const { theme: t, dark } = useTheme()
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
+  const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null)
+  const [autoSending, setAutoSending] = useState(false)
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [photoSearch, setPhotoSearch] = useState('')
+  const [photoResults, setPhotoResults] = useState([])
+  const [sendingPhoto, setSendingPhoto] = useState(false)
 
   useImperativeHandle(ref, () => ({
     fill: (text) => setInput(text)
@@ -27,22 +36,84 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   useEffect(() => {
     setMode(conv.mode || 'autopilot')
     loadMessages()
+    const interval = setInterval(() => loadMessages(true), 5000)
+    return () => clearInterval(interval)
   }, [conv.id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs])
 
-  async function loadMessages() {
-    setLoading(true)
+  async function loadMessages(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const data = await getChatMessages(conv.id)
-      setMsgs(Array.isArray(data) ? data : [])
+      const msgList = Array.isArray(data) ? data : []
+      setMsgs(msgList)
+
+      // Detecção automática de pedido de foto
+      if (msgList.length > 0 && !autoSending) {
+        const lastMsg = msgList[msgList.length - 1]
+
+        // Verifica se é mensagem nova do cliente e não foi processada
+        if (lastMsg.role === 'user' && lastMsg.id !== lastProcessedMsgId) {
+          setLastProcessedMsgId(lastMsg.id)
+
+          // Detecta se é pedido de foto
+          const detection = detectProductRequest(lastMsg.text || lastMsg.content || '')
+
+          if (detection.temPedidoFoto && detection.nomeProduto) {
+            setAutoSending(true)
+            try {
+              const produto = findBestMatch(detection.nomeProduto)
+              if (produto) {
+                // Envia a foto automático
+                await sendMessage(conv.id, produto.nome, produto.imagem)
+
+                // Envia mensagem com preço e link
+                setTimeout(() => {
+                  sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(() => {})
+                }, 500)
+
+                // Registra no histórico
+                addPhotoToHistory({
+                  produto: produto.nome,
+                  cliente: conv.name,
+                  canal: conv.channelLabel,
+                  tipo: 'automático',
+                  sucesso: true,
+                })
+              } else {
+                // Produto detectado mas não encontrado no catálogo
+                addPhotoToHistory({
+                  produto: detection.nomeProduto,
+                  cliente: conv.name,
+                  canal: conv.channelLabel,
+                  tipo: 'automático',
+                  sucesso: false,
+                  erro: 'Produto não encontrado no catálogo',
+                })
+              }
+            } catch (err) {
+              console.error('Erro ao enviar foto automático:', err)
+              addPhotoToHistory({
+                produto: detection.nomeProduto,
+                cliente: conv.name,
+                canal: conv.channelLabel,
+                tipo: 'automático',
+                sucesso: false,
+                erro: err.message,
+              })
+            } finally {
+              setAutoSending(false)
+            }
+          }
+        }
+      }
     } catch (e) {
       console.error('Erro ao carregar mensagens:', e)
-      setMsgs([])
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -68,6 +139,52 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
       onConvUpdate({ ...conv, finished: true })
     } catch (e) {
       console.error('Erro ao finalizar:', e)
+    }
+  }
+
+  const handlePhotoSearch = (query) => {
+    setPhotoSearch(query)
+    if (query.trim().length >= 2) {
+      setPhotoResults(searchProduct(query))
+    } else {
+      setPhotoResults([])
+    }
+  }
+
+  const sendPhotoManual = async (produto) => {
+    setSendingPhoto(true)
+    try {
+      await sendMessage(conv.id, produto.nome, produto.imagem)
+      setTimeout(() => {
+        sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(() => {})
+      }, 500)
+
+      // Registra no histórico
+      addPhotoToHistory({
+        produto: produto.nome,
+        cliente: conv.name,
+        canal: conv.channelLabel,
+        tipo: 'manual',
+        sucesso: true,
+      })
+
+      setShowPhotoModal(false)
+      setPhotoSearch('')
+      setPhotoResults([])
+    } catch (e) {
+      console.error('Erro ao enviar foto:', e)
+
+      // Registra erro no histórico
+      addPhotoToHistory({
+        produto: produto.nome,
+        cliente: conv.name,
+        canal: conv.channelLabel,
+        tipo: 'manual',
+        sucesso: false,
+        erro: e.message,
+      })
+    } finally {
+      setSendingPhoto(false)
     }
   }
 
@@ -104,9 +221,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 
       {/* Hint de modo */}
       {modeHint && (
-        <div style={{ background: '#FEF3C7', borderBottom: '1px solid #FDE68A', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#92400E', flexShrink: 0 }}>
+        <div style={{ background: dark ? '#2a2010' : '#FEF3C7', borderBottom: `1px solid ${dark ? '#4a3a10' : '#FDE68A'}`, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: dark ? '#FCD34D' : '#92400E', flexShrink: 0 }}>
           <span>⚡ {modeHint}</span>
-          <a href={GPTMAKER_URL} target="_blank" rel="noreferrer" style={{ color: '#D97706', fontWeight: 700, textDecoration: 'none', marginLeft: 8 }}>Abrir GPT Maker →</a>
+          <a href={GPTMAKER_URL} target="_blank" rel="noreferrer" style={{ color: dark ? '#FBBF24' : '#D97706', fontWeight: 700, textDecoration: 'none', marginLeft: 8 }}>Abrir GPT Maker →</a>
         </div>
       )}
 
@@ -133,13 +250,56 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
             style={{ background: 'transparent', border: 'none', fontSize: 14, color: t.text, outline: 'none', resize: 'none', width: '100%', fontFamily: 'inherit', lineHeight: 1.5 }}
           />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4, position: 'relative' }}>
               <IconBtn title="Anexo" color={t.textMuted}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </IconBtn>
               <IconBtn title="Emoji" color={t.textMuted}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
               </IconBtn>
+
+              {/* Botão Enviar Foto */}
+              <button
+                onClick={() => setShowPhotoModal(!showPhotoModal)}
+                title="Enviar Foto"
+                style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center', fontSize: 16 }}
+              >
+                📸
+              </button>
+
+              {/* Modal Enviar Foto */}
+              {showPhotoModal && (
+                <div style={{ position: 'absolute', bottom: 40, left: 0, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10, minWidth: 200, maxWidth: 250, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000 }}>
+                  <input
+                    type="text"
+                    placeholder="Buscar produto..."
+                    value={photoSearch}
+                    onChange={e => handlePhotoSearch(e.target.value)}
+                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '6px 8px', fontSize: 12, marginBottom: 8 }}
+                  />
+                  {photoResults.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                      {photoResults.map(prod => (
+                        <button
+                          key={prod.id}
+                          onClick={() => sendPhotoManual(prod)}
+                          disabled={sendingPhoto}
+                          style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 6, padding: '6px 8px', textAlign: 'left', cursor: sendingPhoto ? 'not-allowed' : 'pointer', fontSize: 11, opacity: sendingPhoto ? 0.5 : 1 }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f0f0f0'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                        >
+                          <div style={{ fontWeight: 600, color: t.text }}>{prod.nome}</div>
+                          <div style={{ fontSize: 10, color: t.textMuted }}>{prod.preco}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {photoSearch && photoResults.length === 0 && (
+                    <div style={{ fontSize: 11, color: t.textMuted, textAlign: 'center', padding: 8 }}>Nenhum produto encontrado</div>
+                  )}
+                </div>
+              )}
+
               <button style={{ background: 'linear-gradient(135deg, #0EC331, #10B981)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 Gerar
@@ -229,6 +389,14 @@ function Bubble({ msg, conv, t }) {
             <svg width="12" height="8" viewBox="0 0 16 10" fill={t.textMuted}><path d="M1 5l4 4L15 1M6 5l4 4"/></svg>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (msg.role === 'system') {
+    return (
+      <div style={{ alignSelf: 'center', fontSize: 11, color: t.textMuted, background: t.bgSecondary, borderRadius: 20, padding: '4px 12px', border: `1px solid ${t.borderLight}`, maxWidth: '80%', textAlign: 'center' }}>
+        {text}
       </div>
     )
   }

@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { askDealOnca } from '../services/groq'
+import { askDealOnca, detectProductRequest } from '../services/groq'
 import { listChannels, getChatMessages } from '../services/gptmaker'
+import { searchProduct, findBestMatch } from '../services/catalog'
 
 const SUGGESTIONS = [
-  'Mostre os leads mais quentes',
-  'Quantos clientes perguntaram sobre frete e não responderam?',
-  'Quem está mais perto de comprar hoje?',
-  'Analise as principais objeções',
-  'Gere o playbook de vendas da loja',
-  'Quais clientes sumiram e precisam de follow-up?',
+  'Quantas pessoas chamaram hoje no Instagram?',
+  'Quem está mais perto de comprar agora?',
+  'Quais clientes estão sem resposta há mais tempo?',
+  'Quem pediu preço e não respondeu mais?',
+  'Quais são as principais objeções hoje?',
+  'Liste os leads quentes do Instagram',
+  'Quem pediu desconto ou frete?',
+  'Resumo rápido do funil de vendas',
 ]
 
 export default function DealOncaPage({ conversations = [] }) {
@@ -18,7 +21,7 @@ export default function DealOncaPage({ conversations = [] }) {
   const [historyProgress, setHistoryProgress] = useState(0)
   const WELCOME = {
     id: 0, from: 'oncca',
-    text: 'Olá, Rafael! Sou o **Deal Claude**, seu Diretor Comercial com IA.\n\nEstou conectado a todos os canais e conversas da PRIME STORE. Pode me perguntar qualquer coisa — analiso os dados em tempo real e respondo com precisão.',
+    text: 'Olá, Rafael! Sou o **Deal Claude**, seu Diretor Comercial com IA.\n\nEstou conectado às conversas da PRIME STORE e respondo com base nos dados reais — **sem inventar números**.\n\n✅ Sei responder: quem chamou por canal, leads quentes, funil, objeções, follow-up, quem sumiu\n❌ Não tenho: vendas realizadas, valores financeiros, pagamentos\n\nPergunte uma coisa por vez para uma análise mais precisa.',
     suggestions: SUGGESTIONS.slice(0, 4),
   }
   const [messages, setMessages] = useState(() => {
@@ -31,6 +34,11 @@ export default function DealOncaPage({ conversations = [] }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [catalogResults, setCatalogResults] = useState([])
+  const [testClientMsg, setTestClientMsg] = useState('')
+  const [testResult, setTestResult] = useState(null)
+  const [testLoading, setTestLoading] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
@@ -38,6 +46,60 @@ export default function DealOncaPage({ conversations = [] }) {
   useEffect(() => {
     try { localStorage.setItem('dealclaude_history', JSON.stringify(messages)) } catch {}
   }, [messages])
+
+  const handleCatalogSearch = (query) => {
+    setCatalogSearch(query)
+    if (query.trim().length >= 2) {
+      setCatalogResults(searchProduct(query))
+    } else {
+      setCatalogResults([])
+    }
+  }
+
+  const testAutoSendPhoto = async () => {
+    if (!testClientMsg.trim()) return
+    setTestLoading(true)
+    setTestResult(null)
+
+    try {
+      // Detecta se é pedido de foto
+      const detection = await detectProductRequest(testClientMsg)
+
+      if (detection.temPedidoFoto && detection.nomeProduto) {
+        // Encontra o produto
+        const produto = findBestMatch(detection.nomeProduto)
+        if (produto) {
+          setTestResult({
+            sucesso: true,
+            deteccao: `✅ Detectado: "${detection.nomeProduto}"`,
+            produto: `📦 ${produto.nome}`,
+            preco: `💰 ${produto.preco}`,
+            mensagem: `Foto seria enviada via GPT Maker`,
+            imagem: produto.imagem
+          })
+        } else {
+          setTestResult({
+            sucesso: false,
+            deteccao: `✅ Detectado: "${detection.nomeProduto}"`,
+            mensagem: '❌ Produto não encontrado no catálogo'
+          })
+        }
+      } else {
+        setTestResult({
+          sucesso: false,
+          deteccao: '❌ Não é um pedido de foto',
+          mensagem: 'Sistema não detectou pedido de imagem'
+        })
+      }
+    } catch (err) {
+      setTestResult({
+        sucesso: false,
+        mensagem: `Erro: ${err.message}`
+      })
+    } finally {
+      setTestLoading(false)
+    }
+  }
 
   const clearHistory = () => {
     localStorage.removeItem('dealclaude_history')
@@ -171,15 +233,16 @@ export default function DealOncaPage({ conversations = [] }) {
       <div style={{ width: 240, padding: '20px 16px', overflowY: 'auto', background: '#F7F7F7', flexShrink: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Perguntas exemplo</div>
         {[
-          { icon: '🔥', label: 'Leads quentes agora',         cmd: 'Quem está mais perto de comprar agora?' },
-          { icon: '📦', label: 'Dúvidas sobre frete',         cmd: 'Quantos clientes perguntaram sobre frete e não responderam?' },
-          { icon: '🌡️', label: 'Clientes que sumiram',       cmd: 'Quais clientes pararam de responder e precisam de follow-up?' },
-          { icon: '💸', label: 'Objeções de preço',          cmd: 'Quais clientes tiveram objeção de preço ou pediram desconto?' },
-          { icon: '📊', label: 'Resumo do dia',               cmd: 'Faça um resumo completo dos atendimentos de hoje' },
-          { icon: '🧠', label: 'Análise de objeções',        cmd: 'Quais são as principais objeções dos clientes?' },
-          { icon: '📋', label: 'Playbook de vendas',         cmd: 'Gere o playbook de vendas baseado nos melhores atendimentos' },
-          { icon: '📅', label: 'Follow-ups urgentes',        cmd: 'Quem precisa de follow-up urgente agora?' },
-          { icon: '🏆', label: 'Melhor atendimento',         cmd: 'Qual foi o melhor atendimento da semana e por quê?' },
+          { icon: '📸', label: 'Instagram hoje',              cmd: 'Quantas pessoas chamaram hoje no Instagram?' },
+          { icon: '💬', label: 'WhatsApp hoje',               cmd: 'Quantas pessoas chamaram hoje no WhatsApp?' },
+          { icon: '🔥', label: 'Leads quentes',               cmd: 'Quem está mais perto de comprar agora?' },
+          { icon: '📭', label: 'Sem resposta',                cmd: 'Quais clientes estão aguardando resposta há mais tempo?' },
+          { icon: '💸', label: 'Pediram desconto',            cmd: 'Quem pediu desconto ou contestou o preço?' },
+          { icon: '🚚', label: 'Pediram frete',               cmd: 'Quem perguntou sobre frete e não finalizou?' },
+          { icon: '📊', label: 'Funil de vendas',             cmd: 'Qual o estado atual do funil de vendas?' },
+          { icon: '📅', label: 'Follow-up urgente',           cmd: 'Quem precisa de follow-up urgente agora?' },
+          { icon: '🧠', label: 'Objeções do dia',             cmd: 'Quais são as principais objeções de hoje?' },
+          { icon: '🏆', label: 'Top compradores',             cmd: 'Quem tem maior chance de comprar hoje?' },
         ].map(item => (
           <button
             key={item.label}
@@ -204,6 +267,53 @@ export default function DealOncaPage({ conversations = [] }) {
             </div>
           ))
         }
+
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '20px 0 10px' }}>📦 Buscar Produtos</div>
+        <input
+          type="text"
+          placeholder="Nike, New Balance..."
+          value={catalogSearch}
+          onChange={e => handleCatalogSearch(e.target.value)}
+          style={{ width: '100%', borderRadius: 8, border: '1px solid #E5E5E5', padding: '8px 10px', fontSize: 12, marginBottom: 8 }}
+        />
+        {catalogResults.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', marginBottom: 16 }}>
+            {catalogResults.map(prod => (
+              <div key={prod.id} style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 6, padding: '8px', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#EFFDF4'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#0A0A0A' }}>{prod.nome}</div>
+                <div style={{ fontSize: 11, color: '#82829B' }}>{prod.preco}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 10px', paddingTop: 12, borderTop: '1px solid #E5E5E5' }}>🤖 Teste Automático</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            placeholder="manda foto do tênis"
+            value={testClientMsg}
+            onChange={e => setTestClientMsg(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') testAutoSendPhoto() }}
+            style={{ flex: 1, borderRadius: 6, border: '1px solid #E5E5E5', padding: '6px 8px', fontSize: 11 }}
+          />
+          <button
+            onClick={testAutoSendPhoto}
+            disabled={testLoading}
+            style={{ borderRadius: 6, border: '1px solid #0EC331', background: '#0EC331', color: '#fff', padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: testLoading ? 'not-allowed' : 'pointer', opacity: testLoading ? 0.7 : 1 }}
+          >
+            {testLoading ? '⏳' : '▶'}
+          </button>
+        </div>
+        {testResult && (
+          <div style={{ background: testResult.sucesso ? '#EFFDF4' : '#FEE2E2', border: `1px solid ${testResult.sucesso ? '#B9F8CF' : '#FECACA'}`, borderRadius: 6, padding: 10, marginTop: 8, fontSize: 11, color: testResult.sucesso ? '#0B5E20' : '#7F1D1D' }}>
+            {testResult.deteccao && <div style={{ marginBottom: 4, fontWeight: 600 }}>{testResult.deteccao}</div>}
+            {testResult.produto && <div style={{ marginBottom: 2 }}>{testResult.produto}</div>}
+            {testResult.preco && <div style={{ marginBottom: 2 }}>{testResult.preco}</div>}
+            <div>{testResult.mensagem}</div>
+            {testResult.imagem && <div style={{ marginTop: 8, fontSize: 10, color: testResult.sucesso ? '#0B5E20' : '#7F1D1D' }}>🖼️ URL da foto carregada</div>}
+          </div>
+        )}
       </div>
     </div>
   )

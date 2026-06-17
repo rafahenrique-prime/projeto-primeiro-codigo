@@ -55,7 +55,7 @@ export default function InboxList({ conversations, allConversations, active, onS
           {[['all','Todos'],['unread','Não lidas'],['wa','WhatsApp']].map(([k, label]) => (
             <button key={k} onClick={() => setFilter(k)} style={{
               fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: 'none', cursor: 'pointer',
-              background: filter === k ? '#0EC331' : t.bgTertiary,
+              background: filter === k ? (t.primary || '#E8192C') : t.bgTertiary,
               color: filter === k ? '#fff' : t.textMid,
               fontWeight: filter === k ? 700 : 500,
               transition: 'all 0.12s',
@@ -119,8 +119,8 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 14px', cursor: 'pointer',
-        background: isActive ? '#F0FDF4' : 'transparent',
-        borderLeft: isActive ? '3px solid #0EC331' : '3px solid transparent',
+        background: isActive ? (t.primaryBg || '#fff5f5') : 'transparent',
+        borderLeft: isActive ? `3px solid ${t.primary || '#E8192C'}` : '3px solid transparent',
         transition: 'background 0.1s',
       }}
       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = t.bgSecondary }}
@@ -160,7 +160,7 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
         <div style={{ fontSize: 12, color: t.textMid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{conv.lastMsg || 'Sem mensagens'}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{
-            fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#0EC331',
+            fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F',
             background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4',
             borderRadius: 4, padding: '1px 6px',
           }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
@@ -173,7 +173,7 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
               }}>⏱ {waitTime}</span>
             )}
             {conv.unread > 0 && (
-              <span style={{ background: '#0EC331', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{conv.unread}</span>
+              <span style={{ background: t.primary || '#E8192C', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{conv.unread}</span>
             )}
           </div>
         </div>

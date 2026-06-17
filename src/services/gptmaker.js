@@ -1,4 +1,5 @@
 const TOKEN = import.meta.env.VITE_GPTMAKER_TOKEN
+const USER_TOKEN = import.meta.env.VITE_GPTMAKER_USER_TOKEN
 const WS = import.meta.env.VITE_GPTMAKER_WORKSPACE
 const BASE = 'https://api.gptmaker.ai'
 
@@ -64,18 +65,21 @@ export async function getChatMessages(chatId) {
   return request(`/v2/chat/${chatId}/messages`)
 }
 
-export async function sendMessage(chatId, text) {
+export async function sendMessage(chatId, text, imageUrl = null) {
+  const body = imageUrl
+    ? { message: text, image: imageUrl }
+    : { message: text, type: 'text' }
+
   return request(`/v2/chat/${chatId}/send-message`, {
     method: 'POST',
-    body: JSON.stringify({ message: text, type: 'text' }),
+    body: JSON.stringify(body),
   })
 }
 
 export async function assumeChat(chatId) {
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/start-attendance`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${USER_TOKEN}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao assumir chat')
   return true
@@ -84,8 +88,7 @@ export async function assumeChat(chatId) {
 export async function releaseChat(chatId) {
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/return-to-agent`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${USER_TOKEN}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao voltar pro agente')
   return true
@@ -100,7 +103,16 @@ export async function listContacts(page = 1, pageSize = 20) {
   return data.data || []
 }
 
-// Dashboard
+// Dashboard — usa USER_TOKEN (endpoints /dashboard/ exigem sessão de usuário)
+async function dashboardRequest(path) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Authorization': `Bearer ${USER_TOKEN}`, 'Content-Type': 'application/json' },
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || data.message || 'Erro na API Dashboard')
+  return data
+}
+
 function dashboardUrl(path, startDate, endDate) {
   return `/dashboard/workspace/${WS}/${path}?startDate=${startDate}&endDate=${endDate}`
 }
@@ -115,17 +127,21 @@ export async function getDashboardData(startDate, endDate) {
     creditsByModel,
     assistantsPerf,
     contactsPerf,
+    byHour,
+    byChannel,
   ] = await Promise.all([
-    request(dashboardUrl('interactions/resolved/count', startDate, endDate)),
-    request(dashboardUrl('credits/consumption/amount', startDate, endDate)),
-    request(dashboardUrl('contacts/new/count', startDate, endDate)),
-    request(dashboardUrl('appointments/scheduled/count', startDate, endDate)),
-    request(dashboardUrl('credits/consumption/by-period', startDate, endDate)),
-    request(dashboardUrl('credits/consumption/by-model', startDate, endDate)),
-    request(dashboardUrl('assistants/performance', startDate, endDate)),
-    request(dashboardUrl('contacts/performance', startDate, endDate)),
+    dashboardRequest(dashboardUrl('interactions/resolved/count', startDate, endDate)),
+    dashboardRequest(dashboardUrl('credits/consumption/amount', startDate, endDate)),
+    dashboardRequest(dashboardUrl('contacts/new/count', startDate, endDate)),
+    dashboardRequest(dashboardUrl('appointments/scheduled/count', startDate, endDate)),
+    dashboardRequest(dashboardUrl('credits/consumption/by-period', startDate, endDate)),
+    dashboardRequest(dashboardUrl('credits/consumption/by-model', startDate, endDate)),
+    dashboardRequest(dashboardUrl('assistants/performance', startDate, endDate)),
+    dashboardRequest(dashboardUrl('contacts/performance', startDate, endDate)),
+    dashboardRequest(dashboardUrl('interactions/by-hour', startDate, endDate)),
+    dashboardRequest(dashboardUrl('credits/consumption/by-channel', startDate, endDate)),
   ])
-  return { resolved, credits, contacts, appointments, creditsByPeriod, creditsByModel, assistantsPerf, contactsPerf }
+  return { resolved, credits, contacts, appointments, creditsByPeriod, creditsByModel, assistantsPerf, contactsPerf, byHour, byChannel }
 }
 
 // Treinamentos

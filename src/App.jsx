@@ -4,12 +4,16 @@ import LeftNav from './components/LeftNav'
 import InboxList from './components/InboxList'
 import ChatArea from './components/ChatArea'
 import RightPanel from './components/RightPanel'
+import PhotoHistoryPanel from './components/PhotoHistoryPanel'
 import ChannelsPage from './pages/ChannelsPage'
 import DealOncaPage from './pages/DealOncaPage'
 import DashboardPage from './pages/DashboardPage'
+import DashboardNewPage from './pages/DashboardNewPage'
+import RelatoriosPage from './pages/RelatoriosPage'
 import AgentsPage from './pages/AgentsPage'
 import KnowledgePage from './pages/KnowledgePage'
 import ContactsPage from './pages/ContactsPage'
+import SimuladorClientePage from './pages/SimuladorClientePage'
 import { listChats } from './services/gptmaker'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
@@ -78,9 +82,11 @@ export default function App() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [showPhotoHistory, setShowPhotoHistory] = useState(false)
   const chatRef = useRef(null)
   const convsRef = useRef([])
   const initialLoadDone = useRef(false)
+  const manuallyReadRef = useRef(new Set())
 
   useEffect(() => {
     Notification.requestPermission()
@@ -117,11 +123,16 @@ export default function App() {
         }
       }
 
-      // Preserva unread zerado manualmente pelo usuário
-      setConversations(prev => {
-        const manuallyRead = new Set(prev.filter(c => c.unread === 0 && normalized.find(n => n.id === c.id)?.unread > 0).map(c => c.id))
-        return normalized.map(c => manuallyRead.has(c.id) ? { ...c, unread: 0 } : c)
-      })
+      // Remove do set quando API confirma unread=0 (plataforma registrou como lido)
+      for (const c of normalized) {
+        if (manuallyReadRef.current.has(c.id) && c.unread === 0) {
+          manuallyReadRef.current.delete(c.id)
+        }
+      }
+      // Usa dados da API direto, exceto conversas que o usuário clicou explicitamente
+      setConversations(normalized.map(c =>
+        manuallyReadRef.current.has(c.id) ? { ...c, unread: 0 } : c
+      ))
 
       convsRef.current = normalized
       initialLoadDone.current = true
@@ -136,6 +147,7 @@ export default function App() {
   function selectConv(conv) {
     setActiveConv(conv)
     if (conv.unread > 0) {
+      manuallyReadRef.current.add(conv.id)
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread: 0 } : c))
     }
   }
@@ -156,29 +168,83 @@ export default function App() {
     return c.name?.toLowerCase().includes(q) || c.lastMsg?.toLowerCase().includes(q)
   })
 
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
+
   return (
-    <div style={{ display: 'flex', height: '100vh', background: t.appBg, overflow: 'hidden' }}>
-      <LeftNav page={page} setPage={setPage} unreadCount={conversations.reduce((sum, c) => sum + (c.unread || 0), 0)} />
-      <div style={{ flex: 1, display: 'flex', gap: 10, padding: '10px 12px', overflow: 'hidden' }}>
-        {page === 'inbox' && (
-          loading ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.bg, borderRadius: 8 }}>
-              <div style={{ fontSize: 14, color: t.textMuted }}>Carregando conversas...</div>
-            </div>
-          ) : <>
-            <InboxList conversations={filtered} allConversations={conversations} active={activeConv} onSelect={selectConv}
-              filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} />
-            {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
-            {activeConv && <RightPanel conv={activeConv} onConvUpdate={c => setActiveConv(c)} onFillInput={fillChatInput} />}
-          </>
-        )}
-        {page === 'channels' && <ChannelsPage />}
-        {page === 'dealonca' && <DealOncaPage conversations={conversations} />}
-        {page === 'contacts' && <ContactsPage />}
-        {page === 'reports'  && <DashboardPage conversations={conversations} />}
-        {page === 'agents'   && <AgentsPage />}
-        {page === 'knowledge'&& <KnowledgePage />}
-        {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: t.appBg, overflow: 'hidden' }}>
+      {/* Ticker bar */}
+      <div style={{
+        background: '#E8192C', color: '#fff', fontSize: 11, fontWeight: 600,
+        fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.8px',
+        padding: '4px 16px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0,
+        textTransform: 'uppercase',
+      }}>
+        <span>/// Sistema online · Deal Claude ativo</span>
+        <span style={{ opacity: 0.5 }}>///</span>
+        <span>{conversations.length} conversas abertas</span>
+        {totalUnread > 0 && <><span style={{ opacity: 0.5 }}>///</span><span>{totalUnread} não lidas</span></>}
+      </div>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <LeftNav page={page} setPage={setPage} unreadCount={totalUnread} />
+        <div style={{ flex: 1, display: 'flex', gap: 10, padding: '10px 12px', overflow: 'hidden' }}>
+          {page === 'inbox' && (
+            loading ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.bg, borderRadius: 8 }}>
+                <div style={{ fontSize: 14, color: t.textMuted }}>Carregando conversas...</div>
+              </div>
+            ) : <>
+              <InboxList conversations={filtered} allConversations={conversations} active={activeConv} onSelect={selectConv}
+                filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} />
+              {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
+              {activeConv && <RightPanel conv={activeConv} onConvUpdate={c => {
+                setActiveConv(c)
+                setConversations(prev => prev.map(p => p.id === c.id ? { ...p, mode: c.mode } : p))
+              }} onFillInput={fillChatInput} />}
+            </>
+          )}
+          {page === 'channels' && <ChannelsPage />}
+          {page === 'dealonca' && <DealOncaPage conversations={conversations} />}
+          {page === 'contacts' && <ContactsPage />}
+          {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
+          {page === 'reports'    && <DashboardPage conversations={conversations} />}
+          {page === 'relatorios' && <RelatoriosPage />}
+          {page === 'agents'   && <AgentsPage />}
+          {page === 'knowledge'&& <KnowledgePage />}
+          {page === 'simulador' && <SimuladorClientePage />}
+          {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
+        </div>
+
+        {/* Botão flutuante Histórico de Fotos */}
+        <button
+          onClick={() => setShowPhotoHistory(true)}
+          title="Histórico de Fotos"
+          style={{
+            position: 'fixed',
+            bottom: 20,
+            right: 20,
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            background: '#0EC331',
+            border: 'none',
+            color: '#fff',
+            fontSize: 24,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          📸
+        </button>
+
+        {/* Painel de Histórico */}
+        <PhotoHistoryPanel isOpen={showPhotoHistory} onClose={() => setShowPhotoHistory(false)} theme={t} />
       </div>
     </div>
   )
