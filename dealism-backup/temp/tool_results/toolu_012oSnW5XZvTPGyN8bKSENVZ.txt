@@ -1,0 +1,16 @@
+✓ 已编辑文件: workspace/memory/knowledge/guide.md
+替换了 1 处内容
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/faq.md]
+     "**Horário de funcionamento**
+Segunda a Sexta: 10h às 20h. Sábado: 9h às 16h. Fec"
+  2. [knowledge/policy.md]
+     "**Entrega no mesmo dia disponível**
+A loja oferece entrega no mesmo dia para cli"
+  3. [knowledge/product-info.md]
+     "Informações da Prime Store Men (4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png)"
+  4. [knowledge/policy.md]
+     "**Serviço de entrega terceirizada**
+Loja oferece entrega terceirizada com taxa ("
+建议用 edit_file 更新或删除旧文件中的过时内容。

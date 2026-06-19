@@ -1,0 +1,28 @@
+{
+  "bindings": {
+    "buyer_Winny_role_play": "default",
+    "buyer_272854_whatsapp": "default",
+    "buyer_272855_whatsapp": "default",
+    "buyer_272856_whatsapp": "default",
+    "buyer_272841__system": "default",
+    "buyer_273278_whatsapp": "default",
+    "buyer_278218_instagram": "default",
+    "buyer_278221_instagram": "default",
+    "buyer_278222_instagram": "default",
+    "buyer_278223_instagram": "default",
+    "buyer_278225_instagram": "default",
+    "buyer_278228_instagram": "default",
+    "buyer_278224_instagram": "default",
+    "buyer_278226_instagram": "default",
+    "buyer_278227_instagram": "default",
+    "buyer_278377_instagram": "default",
+    "buyer_278688_instagram": "default",
+    "buyer_278718_instagram": "default",
+    "buyer_278730_instagram": "default",
+    "buyer_278731_instagram": "default",
+    "buyer_278735_instagram": "default",
+    "buyer_278748_instagram": "default",
+    "buyer_280038_whatsapp": "default"
+  },
+  "default_config": "Gabriela_CJ5jR64o"
+}

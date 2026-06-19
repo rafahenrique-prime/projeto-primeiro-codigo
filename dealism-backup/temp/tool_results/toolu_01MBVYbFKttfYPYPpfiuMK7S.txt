@@ -1,0 +1,44 @@
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 545d49cf23de4f059ef6c45b8b847e61
+**file_path**: knowledge/faq.md
+**content_hash**: 9aea0a27bb752bd5ed21740f1369728221c4a7caaa3c5a712da9431c2865d2ab
+**category**: faq
+**content_category_tags**: faq
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Horário de funcionamento**
+Segunda a Sexta: 10h às 20h. Sábado: 9h às 16h. Fechado aos domingos.
+
+### 2026-05-06 [store-info] [onboarding-upload]
+**chunk_id**: 44add188e44442f1a69d880e67b42589
+**file_path**: knowledge/faq.md
+**content_hash**: 57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a
+**category**: knowledge
+**content_category_tags**: faq
+**product_or_service**: store_location
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Endereço da loja**
+PRIME STORE TIBERY
+Av. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040
+Avaliação: 5,0 (17 avaliações no Google)
+
+**Site oficial**
+www.primestoremen.com.br
+
+### 2026-05-06 [payment-info] [onboarding-upload]
+**chunk_id**: 36feab170178434fa86b7acd5bfecc14
+**file_path**: knowledge/faq.md
+**content_hash**: ec72da2d91a6e334bcb9a8c876bddf51b8334a6e6932c04bf39c8d3b8eddc439
+**category**: knowledge
+**content_category_tags**: faq
+**product_or_service**: payment_methods
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Formas de pagamento**
+Aceitamos cartão de crédito com parcelamento disponível. Consulte as condições de parcelamento na loja ou pelo WhatsApp.

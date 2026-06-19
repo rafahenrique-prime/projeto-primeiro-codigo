@@ -1,0 +1,19 @@
+[stdout]
+2026-05-06 13:22:40,737 [INFO] storage.local_backend: 本地对象存储已初始化: /mnt/s3files
+2026-05-06 13:22:40,737 [INFO] storage.external_write_sinks.routing_sink: Creating RoutingSink with base_url: http://blibee-prod-service:8000/buyer-seller/api
+2026-05-06 13:22:40,743 [INFO] core.buyer_config: BA Config: fuzzy matched 'CJ5jR64o' → 'Gabriela_CJ5jR64o' (users/38537/buyer_agent_configs/config_Gabriela_CJ5jR64o.json)
+2026-05-06 13:22:40,759 [INFO] core.buyer_config: BA Config: updated users/38537/buyer_agent_configs/config_Gabriela_CJ5jR64o.json
+2026-05-06 13:22:40,759 [INFO] storage.external_write_sinks.buyer_agent_config_api_sink: 🚀 [DualWrite] 正在将 BuyerAgent Config (config_id=CJ5jR64o) 同步为 agent 到 SQL...
+2026-05-06 13:22:40,779 [INFO] storage.external_write_sinks.buyer_agent_config_api_sink: BuyerAgentConfigApiSink complete_knowledge_tasks ok: user=38537 blibee_agent_id=33318 updated=0
+2026-05-06 13:22:40,779 [INFO] storage.external_write_sinks.buyer_agent_config_api_sink: ✅ [DualWrite] BuyerAgentConfigApiSink: saved user=38537 config=CJ5jR64o created=False agent_id=33318 (0.020s)
+
+============================================================
+  Update Buyer Agent Config
+============================================================
+  Seller:    38537
+  Config ID: CJ5jR64o
+  Fields:    {"others": "1. Sem Garantia de Solução: Não prometa que erros técnicos serão resolvidos na hora.\n2. Regras: Não prometa reembolsos fora da política da empresa.\n3. Segurança: NUNCA peça senhas ou código do cartão de crédito.\n4. Links: SEMPRE envie links COMPLETOS (com https://) para produtos. NUNCA abrevie, encurte ou omita o protocolo (https://)."}
+============================================================
+
+Config updated and renamed: CJ5jR64o → Gabriela_CJ5jR64o
+✅ [SQL Sync] Buyer Agent 'CJ5jR64o' successfully synced! Agent ID: 33318

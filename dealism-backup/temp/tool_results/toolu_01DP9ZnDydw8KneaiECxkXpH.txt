@@ -1,0 +1,32 @@
+[stdout]
+{
+  "30min": [
+    {
+      "buyer_id": "272854",
+      "channel": "whatsapp",
+      "inactive_mins": 43
+    },
+    {
+      "buyer_id": "272856",
+      "channel": "whatsapp",
+      "inactive_mins": 44
+    },
+    {
+      "buyer_id": "273278",
+      "channel": "whatsapp",
+      "inactive_mins": 43
+    },
+    {
+      "buyer_id": "278218",
+      "channel": "instagram",
+      "inactive_mins": 43
+    },
+    {
+      "buyer_id": "280038",
+      "channel": "whatsapp",
+      "inactive_mins": 44
+    }
+  ],
+  "23h45min": [],
+  "24h": []
+}

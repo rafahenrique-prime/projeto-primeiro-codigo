@@ -1,0 +1,16 @@
+✓ 已追加到文件: workspace/memory/strategy/sales-tactics.md (1660 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  2. [knowledge/playbook-vendas-completo.md]
+     "# 🤖 PLAYBOOK COMPLETO - AGENTE GABRIELA (VERSÃO OTIMIZADA 10/10)
+## PRIME STORE "
+  3. [strategy/follow-up.md]
+     "**format**: TEXTO
+**script**: "Oi! Sou eu, Gabriela 😊
+**product_or_service**: ge"
+  4. [strategy/follow-up.md]
+     "Alguns modelos têm saída rápida, então se você tiver interesse posso verificar o"
+建议用 edit_file 更新或删除旧文件中的过时内容。

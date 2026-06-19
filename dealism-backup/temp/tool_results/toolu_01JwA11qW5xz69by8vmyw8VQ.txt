@@ -1,0 +1,19 @@
+✓ 已追加到文件: workspace/memory/knowledge/pricing.md (613 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "**Catálogo de Óculos**
+Preço: a partir de R$ 129
+
+Link do catálogo de óculos dis"
+  2. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  3. [knowledge/general.md]
+     "msg 91149464 image (part 6/7): The provided content consists of corrupted binary"
+  4. [knowledge/general.md]
+     "msg 91149446 image (part 4/7): The provided content appears to be corrupted bina"
+  5. [knowledge/playbook-vendas-completo.md]
+     "# 🤖 PLAYBOOK COMPLETO - AGENTE GABRIELA (VERSÃO OTIMIZADA 10/10)
+## PRIME STORE "
+建议用 edit_file 更新或删除旧文件中的过时内容。

@@ -1,0 +1,115 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "c6e94d02c6f64c8ba6125aba5c349a95",
+      "chunk_id": "c6e94d02c6f64c8ba6125aba5c349a95",
+      "content_hash": "adf82333759e868b4c08d49128f67be0907f8078c6672535599fb2161072a15e",
+      "file_path": "strategy/follow-up.md",
+      "file": "strategy/follow-up.md",
+      "content": "**Notificação proativa de reposição**",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 160,
+      "line_end": 175,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 9.0189,
+      "_source": "keyword",
+      "_rrf_score": 0.0303,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "d8a279afcdaf4c73bfe18e0683559982",
+      "chunk_id": "d8a279afcdaf4c73bfe18e0683559982",
+      "content_hash": "29bd059b313586a21c884ce57345725e7d4ce5e4d1490b392bb39afacf1c80c2",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "**upload_id**: 8702\n**strategy**: Upsell imediato com desconto progressivo\n**scenario**: Quando o cliente pergunta se a loja vende determinado produto e existem opções de kit ou combo\n**script**: Sim! Temos [Produto] das marcas [Marca A] e [Marca B]. A unidade sai por [Preço Unitário], mas temos um combo especial de 4 unidades por [Preço Combo]. Nos tamanhos [Tamanhos]. Quer aproveitar e levar o combo?\n\nVendedor oferece combo promocional imediatamente após confirmar a disponibilidade das cuecas premium importadas Calvin Klein e Tommy Hilfiger.\n\nPreço: Unidade R$30 | Combo 4: R$100\nPergunta de fechamento: 'Quer levar o combo?'",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 736,
+      "line_end": 756,
+      "asset_path": "workspace/assets/71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg",
+      "source_type": "image",
+      "product_or_service": "Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)",
+      "_bm25_score": 9.0735,
+      "_source": "keyword",
+      "_rrf_score": 0.0297,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "f3075e1d487f493ca9acecb81338abf0",
+      "chunk_id": "f3075e1d487f493ca9acecb81338abf0",
+      "content_hash": "8bfbc25226b415ca6a977e112e5d37e88010cbb300a2f2e413b29ff84d528406",
+      "file_path": "strategy/objection-handling.md",
+      "file": "strategy/objection-handling.md",
+      "content": "**category**: strategy\n**content_category_tags**: objection_handling\n\n**strategy**: Transparência sobre autenticidade + destaque de custo-benefício\n**scenario**: Quando cliente pergunta se o produto é original/autêntico da marca\n\n---\n\n## **CLIENTE PERGUNTA SE É ORIGINAL** [chat]\n\n**Gatilhos (quando cliente perguntar):**\n- \"É original?\"\n- \"É autêntico?\"\n- \"É da marca mesmo?\"\n- \"É Nike/Adidas/New Balance original?\"\n- \"Vem da fábrica?\"\n- \"Tem nota fiscal da marca?\"\n- \"É legítimo?\"\n- \"É verdadeiro?\"\n- \"É de marca?\"\n- \"É falsificado?\"\n\n**script**:\n```\nVou ser bem transparente com você! 😊\n\nNossos tênis são LINHA PREMIUM importados.\n\nO que isso significa?\n\n✅ CUSTO-BENEFÍCIO\n✅ Qualidade EXCELENTE\n✅ Materiais de primeira\n✅ Acabamento impecável\n✅ Durabilidade comprovada\n\nNão são originais de marca, mas nossos clientes AMAM! ⭐⭐⭐⭐⭐\n\nTemos mais de 8 anos no mercado e 5 estrelas no Google justamente pela qualidade!\n\nQuer conhecer melhor? Posso te enviar fotos reais do produto!\n\nCaso queira também posso te enviar nosso link no site pra você ver as recomendações de quem comprou nossos produtos! 😊\n```\n\n---\n\n## **REGRAS CRÍTICAS DE TRANSPARÊNCIA** [chat]\n\n**❌ NUNCA diga:**\n- \"É original sim\"\n- \"É autêntico da marca\"\n- \"É legítimo\"\n- \"Vem da fábrica oficial\"\n- \"É 100% original\"\n- \"É Nike/Adidas/New Balance oficial\"\n\n**✅ SEMPRE:**\n- Seja transparente: \"Linha premium importado, não é original de marca\"\n- Destaque: CUSTO-BENEFÍCIO, qualidade excelente, 8 anos no mercado, 5 estrelas\n- Ofereça: fotos reais + link do site com avaliações\n\n**✅ Após enviar a resposta, SEMPRE ofereça enviar:**\n1. Fotos reais do produto\n2. Link do site: https://www.primestoremen.com.br\n\n---\n\n## **SE CLIENTE PEDIR PARA VER AVALIAÇÕES** [chat]\n\n**script**:\n```\nClaro! 😊\n\nAqui está nosso site com todas as avaliações dos clientes:\n👉 https://www.primestoremen.com.br\n\nE você também pode ver nossas 5 estrelas no Google:\n👉 https://maps.app.goo.gl/1S1bj5KPVbhbkRbv8\n\nNossos clientes adoram! ⭐⭐⭐⭐⭐\n\nQuer que eu envie fotos reais do tênis também?\n```\n\n---\n\n## **SE CLIENTE INSISTIR QUE QUER ORIGINAL DE MARCA** [chat]\n\n**script**:\n```\nEntendo! 😊\n\nOriginais de marca custam entre R$ 800-1.500.\n\nNossa linha premium oferece:\n✅ Mesma qualidade de material\n✅ Mesmo conforto\n✅ Mesmo visual impecável\n💰 Preço MUITO melhor (R$ 229-449)\n\nMuitos clientes que procuravam original acabaram levando nosso premium e ficaram super satisfeitos! ⭐⭐⭐⭐⭐\n\nVale muito a pena conhecer! Posso te enviar fotos reais?\n```\n\n---\n\n## **SE CLIENTE PERGUNTAR: \"Então é falsificado?\"** [chat]\n\n**script**:\n```\nNão! 😊\n\nNossos produtos são LINHA PREMIUM importados.\n\nA diferença:\n❌ Falsificado: qualidade ruim, tenta enganar o cliente\n✅ Premium: qualidade alta, preço justo, transparência total\n\nTrabalhamos com honestidade há mais de 8 anos!\n\nVocê pode conferir nossas avaliações 5 estrelas no Google:\nhttps://maps.app.goo.gl/1S1bj5KPVbhbkRbv8\n\nQuer conhecer melhor? 😊\n```\n\n---\n\n## **IMPORTANTE - COMPLIANCE LEGAL** [chat]\n\n- Nunca usar logos oficiais das marcas em anúncios\n- Sempre deixar claro que é \"linha premium, não original de marca\"\n- Nunca anunciar como \"Nike original\" ou \"Adidas autêntico\"\n- Termo \"importado\" sempre vem acompanhado de \"linha premium, não original\"\n- Transparência total em TODOS os canais de comunicação\n**upload_id**: 8699",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 50,
+      "line_end": 201,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Tênis linha premium",
+      "_bm25_score": 7.1415,
+      "_source": "keyword",
+      "_rrf_score": 0.0297,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "41381671039148bab16304e07635a2b7",
+      "chunk_id": "41381671039148bab16304e07635a2b7",
+      "content_hash": "deb24ac517f18cb80f1fd42f264673170a872121bb3ec5624972bec318a8dccd",
+      "file_path": "strategy/objection-handling.md",
+      "file": "strategy/objection-handling.md",
+      "content": "**upload_id**: 8699\n**strategy**: Redirecionamento para Marca Disponível\n**scenario**: Quando o cliente pergunta por uma marca que não temos no estoque (ex: Lupo)\n**script**: Não temos essa marca no momento. Trabalhamos exclusivamente com as marcas [Marca A] e [Marca B]. Temos uma promoção de combo de 4 unidades por [Preço]! Posso demonstrar para você?\n\nVendedor informa a indisponibilidade da marca Lupo e imediatamente redireciona o cliente para as marcas disponíveis (Calvin Klein e Tommy Hilfiger), reforçando a oferta do combo promocional para manter o interesse de compra.\n\nCliente: Lupo boxer cueca voce tem?\nVendedor: Não temos Lupo. Trabalhamos com Calvin Klein e Tommy Hilfiger apenas. Combo 4 und por R$ 100,00! Posso te ajudar?",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 202,
+      "line_end": 222,
+      "asset_path": "workspace/assets/988cb70d59984b0fa422cc4bf9abd26e_1778164178.png",
+      "source_type": "image",
+      "product_or_service": "Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)",
+      "_bm25_score": 8.7637,
+      "_source": "keyword",
+      "_rrf_score": 0.0294,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "afedc59cd1804a6bacfd24be7b845bb6",
+      "chunk_id": "afedc59cd1804a6bacfd24be7b845bb6",
+      "content_hash": "cd4212eeda0cdf13be672a8d8dacd7c62960c8b9d612686824199dcd8a4b440f",
+      "file_path": "strategy/follow-up.md",
+      "file": "strategy/follow-up.md",
+      "content": "**format**: ÁUDIO (única exceção - todas as outras mensagens são texto)\n**script_audio**: \"Consegui uma condição especial pra você naquele produto que você demonstrou interesse. Posso te enviar os detalhes?\"\n**product_or_service**: general\n**asset_path**: workspace/unknown\n**script**: [Enviar áudio com voz feminina amigável] Oi! Passando para ver se você conseguiu ver o que conversamos e se ficou com alguma dúvida. Estou à disposição!\n\nIMPORTANTE:\n- Este é o ÚNICO momento em que o agente envia áudio\n- Usar text_to_speech com voz feminina e tom amigável/cheerful\n- Enviar após exatamente 23h45min de silêncio\n- Após enviar o áudio, aguardar 15 minutos\n- Se cliente NÃO responder em 15min → enviar automaticamente a mensagem de texto de 24h\n- Se cliente RESPONDER → enviar a mensagem de texto de 24h imediatamente",
+      "category": "strategy",
+      "similarity": 0.77662253,
+      "line_start": 107,
+      "line_end": 129,
+      "asset_path": "",
+      "source_type": "text",
+      "product_or_service": "",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 5,
+  "query": "strategy 32274"
+}

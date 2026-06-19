@@ -1,0 +1,52 @@
+[stdout]
+=== VERIFICAÇÃO 5: SISTEMA DE FOLLOW-UP ===
+#!/usr/bin/env python3
+"""
+Worker de monitoramento automático de follow-ups - COM CONTROLE DE ENVIO ÚNICO
+"""
+import json
+import os
+import re
+from datetime import datetime
+
+BINDINGS_PATH = "buyer_agents/bindings.json"
+WORKSPACE_BASE = "buyer_agents"
+SELLER_ID = "38537"
+STATE_FILE = "workspace/memory/followup_sent_state.json"
+
+def parse_buyer_key(key):
+    match = re.match(r'buyer_(\d+)_(\w+)', key)
+    if match:
+        return match.group(1), match.group(2)
+    return None, None
+
+def load_sent_state():
+    """Carrega estado de follow-ups já enviados"""
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                return json.load(f)
+        return {'sent': {}}
+    except:
+        return {'sent': {}}
+
+def save_sent_state(state):
+    """Salva estado de follow-ups enviados"""
+    try:
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f, indent=2)
+    except:
+        pass
+
+def was_sent(buyer_id, channel, stage, state):
+    """Verifica se já enviou follow-up nesse stage"""
+    key = f"{buyer_id}_{channel}_{stage}"
+    return key in state['sent']
+
+def mark_as_sent(buyer_id, channel, stage, state):
+    """Marca follow-up como enviado"""
+    key = f"{buyer_id}_{channel}_{stage}"
+    state['sent'][key] = {
+        'timestamp': datetime.now().isoformat(),
+        'buyer_id': buyer_id,

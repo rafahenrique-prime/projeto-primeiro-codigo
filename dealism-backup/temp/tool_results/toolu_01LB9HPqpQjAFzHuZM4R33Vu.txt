@@ -1,0 +1,247 @@
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: b99bdd47f6af46f3a385b31d4448fc9e
+**file_path**: knowledge/pricing.md
+**content_hash**: b0f9217eef4ffc10ccf14e56b66cb137a2b10c0693343224c4ec077c464bf422
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Solicitação de valores sem contexto**
+Compradores frequentemente perguntam preços diretamente sem especificar produto. Importante qualificar qual item antes de responder para evitar confusão e direcionar para produto adequado.
+
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: 1ae39e9aa8bd4a6cbd6ac1e7c18a29a9
+**file_path**: knowledge/pricing.md
+**content_hash**: 83f1abe618d3fcbcb8934afe6af086f17a43cb325321bf539af51f08c4166070
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: Desconto por espera do cliente
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Desconto por espera do cliente**
+Oferecer desconto (de 289 para 249) como compensação quando o cliente precisa esperar pela chegada do produto demonstra valorização do tempo do cliente e pode fechar a venda.
+
+### 2026-05-06 20:12 [onboarding-history]
+**chunk_id**: d9734760d91a47a89aee61d58f235798
+**file_path**: knowledge/pricing.md
+**content_hash**: 29ebefb11b515c25ec50424a5eaa21dcc01055126be0111f216984d377693949
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: New Balance 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Desconto com cupom de 20%**
+Produto New Balance 9060 com preço base de R$449, aplicando cupom PHIETRA20 sai por R$359,90 (20% de desconto). Estratégia de cupom nomeado para rastreamento.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: b8f5de7b6a7a4763a2c01012c0a2f4b6
+**file_path**: knowledge/pricing.md
+**content_hash**: b1937536d9cd321ac8e795d2c6f98bc027fdc7c1acddc7d1489f8f297d7eb893
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Confirmação de preço solicitada**
+Compradores frequentemente iniciam conversas confirmando o preço exibido antes de prosseguir com perguntas adicionais ou decisão de compra.
+
+### 2026-05-06 20:15 [onboarding-history]
+**chunk_id**: 5bea052bd14c4e388c1104b8b3740138
+**file_path**: knowledge/pricing.md
+**content_hash**: 38e0884df563f9c3b949fb752cc8213a63f96dc9716b9367212db8bcc161a12c
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: Promoção mensal
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Promoção mensal com desconto significativo**
+Preço promocional de R$349,00 (reduzido de R$499,00) válido apenas durante o mês atual. Parcelamento disponível em até 6x sem juros.
+
+### 2026-05-06 [preco-new-balance-9060-todas-cores] [chat]
+**chunk_id**: 12230384c29e4803842d87ba4abba9a1
+**file_path**: knowledge/pricing.md
+**content_hash**: 954fafe669e4baef399c9ab1cc1117adb52add71cdfce1ec86d5fca1d058343e
+**category**: knowledge
+**content_category_tags**: pricing
+**product_or_service**: New Balance 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**New Balance 9060 - Todas as Cores**
+
+**PREÇO PADRÃO PARA TODOS OS MODELOS 9060:**
+
+💳 **Cartão de Crédito:**
+- R$ 449,00 em até 6x sem juros
+- Parcela: R$ 74,83/mês
+
+💰 **PIX:**
+- R$ 399,00
+- **Economia de R$ 50,00!**
+
+**Tamanhos disponíveis:**
+- 34 ao 43 (grade completa)
+
+**Cores disponíveis:**
+- Capuccino (feminino - mais vendida entre mulheres)
+- [outras cores conforme estoque]
+
+**Observação:** Todos os modelos New Balance 9060 seguem a mesma tabela de preços, independente da cor. Tamanhos disponíveis: 34 ao 43.
+
+### 2026-05-06 [cupom-phietra] [chat]
+**chunk_id**: 9fe671c57f26447aa1de652e80737be3
+**file_path**: knowledge/pricing.md
+**content_hash**: 140d6d9766d36c2ff71806d807c8247b0902548025830783073e3329a4994c2a
+**category**: knowledge
+**content_category_tags**: pricing
+**product_or_service**: Cupom PHIETRA
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**CUPOM DE DESCONTO: PHIETRA**
+
+**Desconto:** 10% em toda a loja
+
+**Válido para:**
+- ✅ TODOS os produtos da loja
+- ✅ Múltiplos usos (sem limite por cliente)
+- ✅ Desconto aplicado APENAS no valor dos produtos (não no frete)
+
+**Forma de pagamento:**
+- ✅ **Válido APENAS no PIX no WhatsApp**
+- ❌ Não válido no cartão pelo WhatsApp
+- ✅ Para usar no cartão: cliente deve acessar www.primestoremen.com.br
+
+**Validade:**
+- ✅ Sem data de validade (permanente)
+
+---
+
+**REGRAS IMPORTANTES:**
+
+❌ **NUNCA:**
+- Oferecer cupom proativamente
+- Perguntar "você tem cupom?"
+- Mencionar cupom sem cliente pedir
+
+✅ **SEMPRE:**
+- Aguardar cliente mencionar que tem cupom
+- Pedir o código quando cliente disser
+- Aplicar automaticamente quando for "PHIETRA"
+- Verificar se pagamento será PIX
+
+---
+
+**COMO APLICAR:**
+
+**1️⃣ Cliente menciona cupom:**
+```
+Ótimo! Qual o código do seu cupom? 😊
+```
+
+**2️⃣ Cliente informa "PHIETRA":**
+```
+Perfeito! Cupom PHIETRA válido! 🎉
+
+✅ 10% de desconto aplicado
+**IMPORTANTE:** Válido apenas para PIX aqui no WhatsApp.
+
+[Continue com o produto/tamanho]
+```
+
+**3️⃣ Ao calcular valor final:**
+```
+💰 Valor PIX: R$ [X],00
+🎟️ Cupom PHIETRA (-10%): -R$ [desconto],00
+━━━━━━━━━━━━━━━━━━━━━━━
+💵 Total produto: R$ [novo valor],00
+🚚 Frete: R$ [15 ou 38],00
+━━━━━━━━━━━━━━━━━━━━━━━
+📍 Total a pagar no PIX: R$ [total final],00
+
+Chave PIX: primestoremen@hotmail.com
+```
+
+---
+
+**SE CLIENTE QUISER CARTÃO COM CUPOM:**
+
+**Primeira tentativa - convencer PIX:**
+```
+Entendo! O cupom PHIETRA é válido apenas para PIX aqui no WhatsApp 😊
+
+Mas olha a vantagem do PIX com cupom:
+💰 Com PHIETRA: R$ [X] (10% OFF - economiza R$ [Y]!)
+💳 Cartão sem cupom: R$ [Z] em 6x sem juros
+
+Vale muito mais a pena o PIX! Fechamos assim? 🔥
+```
+
+**Se cliente insistir no cartão:**
+```
+Sem problema! 😊
+
+Você pode usar o cupom PHIETRA no cartão através do nosso site:
+👉 www.primestoremen.com.br
+
+Lá você:
+✅ Aplica o cupom no carrinho
+✅ Paga no cartão em 6x sem juros
+
+Ou posso finalizar aqui no PIX com cupom agora mesmo! O que prefere?
+```
+
+---
+
+**CÁLCULO DO DESCONTO:**
+
+✅ Aplicar 10% APENAS no valor PIX dos produtos
+✅ NÃO aplicar no frete
+✅ Calcular desconto ANTES de somar o frete
+
+**Exemplo:**
+- Produto PIX: R$ 399
+- Cupom 10%: R$ 39,90
+- Total produto: R$ 359,10
+- Frete: R$ 15
+- **Total final: R$ 374,10**
+
+**Múltiplos produtos:**
+- Somar todos os produtos
+- Aplicar 10% no total
+- Depois somar frete
+
+---
+
+**Importante:**
+- Sempre tentar convencer PIX primeiro (melhor pra você)
+- Só direcionar pro site se cliente insistir no cartão
+- Lembrar que cupom = 10% só no valor dos produtos, não no frete
+**upload_id**: 8649
+
+### 2026-05-07 [preco-oculos] [chat]
+**chunk_id**: auto-generated
+**file_path**: knowledge/pricing.md
+**category**: knowledge
+**content_category_tags**: pricing
+**product_or_service**: Óculos
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Óculos / Oculos (com ou sem acento)**
+
+**PREÇO:**
+💰 **A partir de R$ 159,00**
+
+**Observações:**
+- Produto disponível na loja
+- Voltado principalmente para público feminino
+- Cliente pode escrever "óculos" (com acento) ou "oculos" (sem acento) - reconhecer ambos
+
+**Importante:** Sempre confirmar modelo/estilo específico com o cliente antes de finalizar venda.

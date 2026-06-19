@@ -1,0 +1,70 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "44add188e44442f1a69d880e67b42589",
+      "chunk_id": "44add188e44442f1a69d880e67b42589",
+      "content_hash": "57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Endereço da loja**\nPRIME STORE TIBERY\nAv. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040\nAvaliação: 5,0 (17 avaliações no Google)\n\n**Site oficial**\nwww.primestoremen.com.br",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 15,
+      "line_end": 32,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "store_location",
+      "_bm25_score": 30.4321,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "545d49cf23de4f059ef6c45b8b847e61",
+      "chunk_id": "545d49cf23de4f059ef6c45b8b847e61",
+      "content_hash": "9aea0a27bb752bd5ed21740f1369728221c4a7caaa3c5a712da9431c2865d2ab",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Horário de funcionamento**\nSegunda a Sexta: 10h às 20h. Sábado: 9h às 16h. Fechado aos domingos.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 14,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 15.2492,
+      "_source": "keyword",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "keyword"
+      ]
+    },
+    {
+      "doc_id": "ad540fee00d849039805783b467d17bd",
+      "chunk_id": "ad540fee00d849039805783b467d17bd",
+      "content_hash": "9bce2cd7778e5a31918aac4563187e651a4f0fb6dd6621d3cece5586aee3e303",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "Informações da Prime Store Men (4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png): A loja Prime Store Men atende de Segunda a Sexta das 10h às 20h e Sábados das 9h às 16h. O site oficial é www.primestoremen.com.br. A loja oferece produtos como a Sandália Gucci e opções de parcelamento no cartão de crédito sob consulta com a equipe.",
+      "category": "knowledge",
+      "similarity": 0.84204876,
+      "line_start": 54,
+      "line_end": 68,
+      "asset_path": "workspace/assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png",
+      "source_type": "image",
+      "product_or_service": "Sandália Gucci",
+      "_source": "semantic",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "endereço loja localização PRIME STORE"
+}

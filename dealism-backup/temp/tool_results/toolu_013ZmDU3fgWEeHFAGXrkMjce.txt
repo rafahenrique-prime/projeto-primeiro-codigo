@@ -1,0 +1,118 @@
+{
+  "buyers": [
+    {
+      "buyer_id": "272854",
+      "channel": "whatsapp",
+      "display_name": "Ageubot"
+    },
+    {
+      "buyer_id": "272855",
+      "channel": "whatsapp",
+      "display_name": ""
+    },
+    {
+      "buyer_id": "272856",
+      "channel": "whatsapp",
+      "display_name": "Rafael Henrique"
+    },
+    {
+      "buyer_id": "272841",
+      "channel": "_system",
+      "display_name": "Michael Davis",
+      "phone": ""
+    },
+    {
+      "buyer_id": "273278",
+      "channel": "whatsapp",
+      "display_name": "Vendas",
+      "phone": "553497257499"
+    },
+    {
+      "buyer_id": "278218",
+      "channel": "instagram",
+      "display_name": "PRIME STORE  TIBERY • Uberlândia - MG",
+      "phone": ""
+    },
+    {
+      "buyer_id": "278221",
+      "channel": "instagram",
+      "display_name": "danielcunha_treinador"
+    },
+    {
+      "buyer_id": "278222",
+      "channel": "instagram",
+      "display_name": "luiz_henrique_solar"
+    },
+    {
+      "buyer_id": "278223",
+      "channel": "instagram",
+      "display_name": "Gustavo Henrique"
+    },
+    {
+      "buyer_id": "278225",
+      "channel": "instagram",
+      "display_name": "alessandroseabrapereira"
+    },
+    {
+      "buyer_id": "278228",
+      "channel": "instagram",
+      "display_name": "bruno abdao amui"
+    },
+    {
+      "buyer_id": "278224",
+      "channel": "instagram",
+      "display_name": "ferola_1983"
+    },
+    {
+      "buyer_id": "278226",
+      "channel": "instagram",
+      "display_name": "murilonunesk"
+    },
+    {
+      "buyer_id": "278227",
+      "channel": "instagram",
+      "display_name": "luciana_cruzz"
+    },
+    {
+      "buyer_id": "278377",
+      "channel": "instagram",
+      "display_name": "br_nessa"
+    },
+    {
+      "buyer_id": "278688",
+      "channel": "instagram",
+      "display_name": "Daniel Abadio da Silva"
+    },
+    {
+      "buyer_id": "278718",
+      "channel": "instagram",
+      "display_name": "Kellem Anchieta"
+    },
+    {
+      "buyer_id": "278730",
+      "channel": "instagram",
+      "display_name": "Sara Souza"
+    },
+    {
+      "buyer_id": "278731",
+      "channel": "instagram",
+      "display_name": "guilherme12guih"
+    },
+    {
+      "buyer_id": "278735",
+      "channel": "instagram",
+      "display_name": "caioalvessc_"
+    },
+    {
+      "buyer_id": "278748",
+      "channel": "instagram",
+      "display_name": "Iago Camargos Maia"
+    },
+    {
+      "buyer_id": "280038",
+      "channel": "whatsapp",
+      "display_name": "Assesoria Phietra Marques",
+      "phone": "553498436205"
+    }
+  ]
+}

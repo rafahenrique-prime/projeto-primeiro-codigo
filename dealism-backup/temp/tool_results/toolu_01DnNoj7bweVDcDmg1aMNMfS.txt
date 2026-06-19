@@ -1,0 +1,71 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "chunk_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "content_hash": "1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Sandália Gucci / Plataforma Gucci**\nPreço: R$ 349,00 em até 6x sem juros no cartão\nPreço à vista no PIX: R$ 319,00\n\nLink com fotos do produto:\nhttps://www.primestoremen.com.br/plataforma-gucci-femina\n\nIMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.\n**upload_id**: 8581",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 34,
+      "line_end": 53,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Sandália Gucci",
+      "_bm25_score": 35.1458,
+      "_source": "keyword",
+      "_rrf_score": 0.0323,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "44add188e44442f1a69d880e67b42589",
+      "chunk_id": "44add188e44442f1a69d880e67b42589",
+      "content_hash": "57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Endereço da loja**\nPRIME STORE TIBERY\nAv. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040\nAvaliação: 5,0 (17 avaliações no Google)\n\n**Site oficial**\nwww.primestoremen.com.br",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 15,
+      "line_end": 32,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "store_location",
+      "_bm25_score": 20.2616,
+      "_source": "keyword",
+      "_rrf_score": 0.0308,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "chunk_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "content_hash": "4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "1️⃣ Conhecer nossos serviços/produtos\n2️⃣ Solicitar um orçamento\n3️⃣ Agendar um horário\n4️⃣ Tirar dúvidas\n5️⃣ Falar com um atendente\n\n_Digite o número da opção desejada_\n\n**Menu estruturado com emojis**\nBot usa menu numerado (1-5) com emojis para organizar opções de atendimento: conhecer serviços, orçamento, agendamento, dúvidas e atendente humano.",
+      "category": "strategy",
+      "similarity": 0.7208615,
+      "line_start": 34,
+      "line_end": 57,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "upload_id 8581 task_id 7242ff79af8b"
+}

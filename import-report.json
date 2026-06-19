@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-06-19T06:57:30.493Z",
+  "status": "IMPORTED",
+  "currentProducts": 48,
+  "newProducts": 13,
+  "totalAfterImport": 61,
+  "newProductsList": [
+    {
+      "id": 49,
+      "nome": "Nike Air Max 90",
+      "preco": "R$ 899,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Tênis",
+      "estoque": 45
+    },
+    {
+      "id": 50,
+      "nome": "Adidas Ultraboost",
+      "preco": "R$ 1299,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Tênis",
+      "estoque": 32
+    },
+    {
+      "id": 51,
+      "nome": "New Balance 9060",
+      "preco": "R$ 1099,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Tênis",
+      "estoque": 28
+    },
+    {
+      "id": 52,
+      "nome": "Puma RS-X",
+      "preco": "R$ 749,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Tênis",
+      "estoque": 35
+    },
+    {
+      "id": 53,
+      "nome": "Asics Gel Kayano",
+      "preco": "R$ 999,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Tênis",
+      "estoque": 22
+    },
+    {
+      "id": 54,
+      "nome": "Camiseta Básica",
+      "preco": "R$ 89,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Roupas",
+      "estoque": 120
+    },
+    {
+      "id": 55,
+      "nome": "Moletom",
+      "preco": "R$ 199,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Roupas",
+      "estoque": 65
+    },
+    {
+      "id": 56,
+      "nome": "Calça Cargo",
+      "preco": "R$ 259,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Roupas",
+      "estoque": 48
+    },
+    {
+      "id": 57,
+      "nome": "Jaqueta Corta-Vento",
+      "preco": "R$ 349,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Roupas",
+      "estoque": 30
+    },
+    {
+      "id": 58,
+      "nome": "Boné",
+      "preco": "R$ 79,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Acessórios",
+      "estoque": 85
+    },
+    {
+      "id": 59,
+      "nome": "Mochila",
+      "preco": "R$ 189,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Acessórios",
+      "estoque": 40
+    },
+    {
+      "id": 60,
+      "nome": "Meias Esportivas",
+      "preco": "R$ 29,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Acessórios",
+      "estoque": 200
+    },
+    {
+      "id": 61,
+      "nome": "Carteira",
+      "preco": "R$ 149,00",
+      "imagem": "",
+      "link": "",
+      "categoria": "Acessórios",
+      "estoque": 55
+    }
+  ]
+}

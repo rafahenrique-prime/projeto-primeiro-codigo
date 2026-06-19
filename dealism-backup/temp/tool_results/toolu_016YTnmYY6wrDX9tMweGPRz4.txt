@@ -1,0 +1,20 @@
+✓ 已追加到文件: workspace/memory/knowledge/faq.md (510 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [strategy/sales-tactics.md]
+     "1️⃣ Conhecer nossos serviços/produtos
+2️⃣ Solicitar um orçamento
+3️⃣ Agendar um "
+  2. [strategy/objection-handling.md]
+     "**Cliente não responde com número do menu**
+Quando cliente não digita número do "
+  3. [strategy/sales-tactics.md]
+     "**Qualificação por preferência de estilo**
+Após apresentar preço, perguntar pref"
+  4. [strategy/sales-tactics.md]
+     "**Convite à loja física**
+Quando cliente pergunta sobre disponibilidade online o"
+  5. [knowledge/policy.md]
+     "**Política de atendimento presencial**
+Loja física prioritária para experimentaç"
+建议用 edit_file 更新或删除旧文件中的过时内容。

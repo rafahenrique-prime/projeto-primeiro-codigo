@@ -1,0 +1,17 @@
+✓ 已追加到文件: workspace/memory/knowledge/pricing.md (798 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "**Tênis 9060 - Produto Mais Vendido**
+Preço: R$ 449,00 em até 6x sem juros no ca"
+  2. [knowledge/product-info.md]
+     "**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New "
+  3. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  4. [knowledge/product-info.md]
+     "**Catálogo Completo PRIME STORE - Moda e Acessórios**
+
+Trabalhamos com produtos "
+建议用 edit_file 更新或删除旧文件中的过时内容。

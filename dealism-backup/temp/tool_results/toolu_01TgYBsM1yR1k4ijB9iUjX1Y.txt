@@ -1,0 +1,26 @@
+✓ 已追加到文件: workspace/memory/2026-05-07.md (850 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "**Catálogo de Óculos**
+Preço: a partir de R$ 159,00
+
+Link do catálogo de óculos "
+  2. [knowledge/product-info.md]
+     "**Catálogo Completo PRIME STORE - Moda e Acessórios**
+
+Trabalhamos com produtos "
+  3. [knowledge/pricing.md]
+     "**Desconto com cupom de 20%**
+Produto New Balance 9060 com preço base de R$449, "
+  4. [knowledge/pricing.md]
+     "**New Balance 9060 - Todas as Cores**
+
+**PREÇO:**
+- Cartão: R$ 449,00 em até 6x "
+  5. [knowledge/product-info.md]
+     "**New Balance 9060 - Produto Mais Vendido**
+
+**RESPOSTA PADRÃO PARA CLIENTE:**
+`"
+建议用 edit_file 更新或删除旧文件中的过时内容。

@@ -1,0 +1,13 @@
+[stdout]
+=== VERIFICAÇÃO 3: CONFLITO DE PREÇOS CUECA LUPO DETECTADO ===
+**index_text**: Cuecas masculinas Lupo: Unitária R$ 59 ou kit 3 unidades R$ 150 PIX / R$ 159 Cartão. Tamanhos M, G, GG, G1. Cores variadas. Link: https://www.primestoremen.com.br/produtos?q=cueca+lupo
+- **Unitária:** R$ 59,00
+  - 💰 PIX: R$ 150,00
+💳 Cartão: R$ 59,00 em até 6x sem juros (R$ 9,83/mês)
+💰 PIX: R$ 59,00
+💳 Cartão: R$ 159,00 em até 6x sem juros (R$ 26,50/mês)
+💰 PIX: R$ 150,00
+- 💰 **UNITÁRIA:** R$ 59,00
+- 🔥 **KIT COM 3 UNIDADES:** R$ 150,00
+💰 Unitária: R$ 59,00
+🔥 Kit 3 unidades: R$ 150,00

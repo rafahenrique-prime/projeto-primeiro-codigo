@@ -1,0 +1,59 @@
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 58894d030c054d73a6895a1427031b43
+**file_path**: strategy/follow-up.md
+**content_hash**: 762174ac2a7c52accd18044d2c8db36ea6da500f0b9b5ebec854cb4c5ea1a537
+**category**: follow_up_strategy
+**content_category_tags**: follow_up_strategy
+**strategy**: Facilitar confirmação de visita
+**scenario**: Quando cliente demonstra intenção de visitar loja
+**script**: Boa! Se quiser vir conferir de perto, será um prazer te receber! Nosso endereço é: [endereço completo]. Pode vir tranquilo que eu e a equipe estamos te esperando! 🔥
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Confirmação de visita presencial**
+Após interesse do cliente em visitar, oferecer confirmação de endereço proativamente e reforçar disponibilidade da equipe para atendimento.
+
+### 2026-05-06 [follow-up-30min] [chat]
+**chunk_id**: f963152332c943a199e1a48720d84912
+**file_path**: strategy/follow-up.md
+**content_hash**: 17b76689076997b83f8c04c8dfc26fc8bd9f80a9c81bff0d308c815f4f9d2e74
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up de urgência após inatividade
+**scenario**: Quando o cliente demora 30 minutos ou mais para responder após demonstrar interesse em algum produto
+**script**: "Oi! Passando aqui rapidinho 😄
+**product_or_service**: general
+**asset_path**: workspace/unknown
+
+Alguns modelos têm saída rápida, então se você tiver interesse posso verificar o estoque pra você e já deixar reservado!"
+
+IMPORTANTE: Este follow-up cria senso de urgência e incentiva o cliente a tomar decisão rapidamente. Usar após 30 minutos de silêncio do cliente.
+
+### 2026-05-06 [follow-up-24h-desconto] [chat]
+**chunk_id**: 948eb04253714bdcbd915458a1ea65ed
+**file_path**: strategy/follow-up.md
+**content_hash**: afc875c7f72afb74df9e69ef2485faffa40233650b85b2f3475af126d6b4f39c
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up com desconto de 10% após 24 horas de inatividade
+**scenario**: Quando o cliente demonstrou interesse em algum produto mas ficou 24 horas sem responder
+**script**: "Oi! Tudo bem? 😊
+**product_or_service**: general
+**asset_path**: workspace/unknown
+
+Passando aqui pra te dar uma ajudinha: consegui liberar um desconto especial de 10% pra você no(a) [NOME DO PRODUTO] que você viu ontem.
+
+Se ainda tiver interesse, posso aplicar pra você agora mesmo — mas é por tempo limitado, tá? 😉
+
+Me chama aqui que já te ajudo a finalizar!"
+
+IMPORTANTE: 
+- Substituir [NOME DO PRODUTO] pelo produto específico que o cliente demonstrou interesse
+- Ser educado, amigável e natural
+- Criar leve senso de urgência sem pressionar
+- Usar apenas após 24 horas de silêncio do cliente
+- O desconto de 10% deve ser aplicado sobre o preço à vista (PIX) ou parcelado

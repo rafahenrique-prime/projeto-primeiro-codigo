@@ -1,0 +1,682 @@
+2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 966fb1104e894bf1b55c07a7837ce22f
+**file_path**: knowledge/product-info.md
+**content_hash**: 0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Estoque de tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.
+
+### 2026-05-06 [best-seller] [onboarding-upload]
+**chunk_id**: c4a8c9ea02e24524b656d61f05d9f6c2
+**file_path**: knowledge/product-info.md
+**content_hash**: f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Tênis 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**New Balance 9060 - Produto Mais Vendido**
+
+**RESPOSTA PADRÃO PARA CLIENTE:**
+```
+New Balance 9060 👟
+
+💳 Cartão: R$ 449,00 em até 6x sem juros (R$ 74,83/mês)
+💰 PIX: R$ 399,00 (economiza R$ 50!)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/produtos?q=9060
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### 2026-05-06 [product-sandalia-gucci] [onboarding-upload]
+**chunk_id**: 6e1a22cc92c8488eaf0cc5958400c16c
+**file_path**: knowledge/product-info.md
+**content_hash**: 1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Sandália Gucci
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Sandália Gucci / Plataforma Gucci**
+
+**RESPOSTA PADRÃO PARA CLIENTE:**
+```
+Sandália Gucci 👡
+
+💳 Cartão: R$ 349,00 em até 6x sem juros (R$ 58,17/mês)
+💰 PIX: R$ 319,00 (economiza R$ 30!)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/plataforma-gucci-femina
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+IMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.
+**upload_id**: 8581
+
+### 2026-05-06 13:35 [chunk-1] [chat]
+**chunk_id**: ad540fee00d849039805783b467d17bd
+**file_path**: knowledge/product-info.md
+**content_hash**: 9bce2cd7778e5a31918aac4563187e651a4f0fb6dd6621d3cece5586aee3e303
+**category**: knowledge
+**content_category_tags**: product_info, guide, other
+**product_or_service**: Sandália Gucci
+**search_keys**: Prime Store Men, Sandália Gucci, horário de funcionamento, parcelamento cartão, endereço loja
+**index_text**: Informações de contato e horários da Prime Store Men, incluindo site oficial e disponibilidade de parcelamento para produtos como a Sandália Gucci.
+**source_type**: image
+**asset_path**: workspace/assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png
+**upload_id**: 8581
+
+Informações da Prime Store Men (4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png): A loja Prime Store Men atende de Segunda a Sexta das 10h às 20h e Sábados das 9h às 16h. O site oficial é www.primestoremen.com.br. A loja oferece produtos como a Sandália Gucci e opções de parcelamento no cartão de crédito sob consulta com a equipe.
+
+### 2026-05-06 [catalogo-tenis] [chat]
+**chunk_id**: ebcc954672d24b0e90d89dc412aeae12
+**file_path**: knowledge/product-info.md
+**content_hash**: 0f667b8be5cb6cc4d5b7cdc360ac01256fca280c7073606a9bd713821cbfec67
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo de Tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo Completo de Tênis**
+
+Numeração disponível: 34 ao 43 (todos os modelos)
+Organização: dividido por marcas em pastas separadas (NEW BALANCE, PRADA, LACOSTE, etc.)
+
+**RESPOSTA PADRÃO PARA CLIENTE:**
+```
+Tênis a partir de R$ 229,00 👟
+
+🔗 Segue o link dos modelos:
+https://drive.google.com/drive/folders/1qimgz4TSl4gsZ7-3QKH8szKJsMoNdwz6
+
+O catálogo está organizado por marcas em pastas. Temos do 34 ao 43! 😊
+
+Me envia a foto ou nome do modelo que te passo o valor certinho!
+```
+
+### 2026-05-06 [catalogo-completo] [chat]
+**chunk_id**: 789faf3048cb4e6c9dc776ffdec8b1df
+**file_path**: knowledge/product-info.md
+**content_hash**: b77daacd34f90571f98b703f284e0be8039c458f13df66768fa146f07e3348e0
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo Geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo Completo PRIME STORE - Moda e Acessórios**
+
+Trabalhamos com produtos de qualidade com ótimo custo-benefício. Confira nossos produtos:
+
+👕 **Camisetas básicas** - a partir de R$ 129
+🕶️ **Óculos** - a partir de R$ 159,90
+🧢 **Bonés** - a partir de R$ 79
+🧢 **Bonés linha Itals** - a partir de R$ 159
+👖 **Calças jeans premium** - a partir de R$ 199
+💐 **Perfumes** - a partir de R$ 149
+👟 **Tênis** (diversos modelos) - a partir de R$ 229
+👛 **Carteiras** - a partir de R$ 119
+⚫ **Cintos** - a partir de R$ 119
+⚽ **Camisetas de times** - a partir de R$ 169
+🩴 **Chinelos** - a partir de R$ 89
+
+IMPORTANTE: Sempre consultar disponibilidade de cores, tamanhos e estoque com o cliente. Trabalhamos com variedade de modelos e novidades frequentes.
+
+### 2026-05-06 [catalogo-oculos] [chat]
+**chunk_id**: b4748bd7f41e4939a2203addd87b98ac
+**file_path**: knowledge/product-info.md
+**content_hash**: d0d34cfbcfa9fec9a6d22bed1806ec375d28fe0ed4d030b30521102dc692bfcd
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Óculos
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo de Óculos**
+Preço: a partir de R$ 159,90
+
+Link do catálogo de óculos disponíveis:
+https://www.primestoremen.com.br/produtos?q=oculos
+
+IMPORTANTE: Quando cliente pedir para ver óculos SEM modelo específico, usar a resposta padrão:
+
+```
+Óculos a partir de R$ 159,90 😎
+
+🔗 Segue o link dos modelos:
+https://www.primestoremen.com.br/produtos?q=oculos
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### 2026-05-06 [publico-alvo] [chat]
+**chunk_id**: 5ca3eb2f6db04220acaa30fc192f1788
+**file_path**: knowledge/product-info.md
+**content_hash**: 6efb24be6d0570c96903e54bc2b97ef156b556824eec5284daa2e2d1d822737d
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Público-alvo e Variedade
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Público-alvo PRIME STORE**
+
+🎯 **Foco Principal: Moda Masculina**
+Nossa loja é especializada em moda masculina, com grande variedade de:
+- Roupas (camisetas, calças jeans, camisas)
+- Tênis (diversos modelos e marcas)
+- Acessórios (bonés, cintos, carteiras, óculos)
+- Perfumes masculinos
+
+👩 **Também atendemos público feminino** com opções de:
+- Óculos femininos
+- Perfumes femininos
+- Sandálias femininas (como Plataforma Gucci)
+- Tênis femininos
+(Variedade menor comparado ao masculino)
+
+IMPORTANTE: Quando cliente feminino perguntar sobre produtos, informar:
+"Nossa loja é especializada em moda masculina, oferecendo uma grande variedade de roupas e acessórios com foco no público masculino. No entanto, também trabalhamos com algumas opções para o público feminino, como óculos, perfumes, sandálias e tênis. Atendemos tanto homens quanto mulheres, mas nosso principal foco está na moda masculina, onde temos maior variedade de produtos, modelos e novidades."
+**upload_id**: 8596
+
+### 2026-05-06 16:16 [chunk-1] [chat]
+**chunk_id**: b644e9c388764e5c8e05cfc6b1c30dda
+**file_path**: knowledge/product-info.md
+**content_hash**: 592912f18c70a5054597117d0b325807694a8242e28c0ec904baf3dc85b52049
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo de Tênis
+**search_keys**: Vans UltraRange, Vans sneaker, black and white Vans, textured sole shoes
+**index_text**: Vans UltraRange sneaker features: black and white design with the iconic side stripe and a thick textured white sole for lifestyle and performance.
+**source_type**: image
+**asset_path**: workspace/assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg
+**upload_id**: 8596
+
+Vans UltraRange Sneaker: This product is a black and white Vans UltraRange sneaker featuring the iconic white side stripe and a thick, textured white sole designed for comfort and durability. The image showcases the shoe's design and branding, including the Vans and Diesel logos, highlighting its lifestyle and performance appeal.
+
+### 2026-05-06 [vans-ultrarange-preco] [chat]
+**chunk_id**: 86d7d866cfc34910b4bd619501ffc69d
+**file_path**: knowledge/product-info.md
+**content_hash**: 1ba8fd652893e0507d84ea9a4a4ba077d6560ed6be3bb2bd5729fd7a0f9509c5
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Vans UltraRange
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Vans UltraRange - Um dos Tênis Mais Vendidos**
+Preço: R$ 289,00 (valor bem acessível!)
+Numeração disponível: 34 ao 43
+
+Modelo: preto e branco com faixa lateral branca icônica, solado grosso texturizado para conforto e durabilidade.
+
+IMPORTANTE: Quando cliente perguntar sobre Vans UltraRange ou enviar foto deste tênis, informar o preço de R$ 289,00 e destacar que é um dos produtos mais vendidos da loja com valor acessível.
+**upload_id**: 8607
+
+### 2026-05-06 19:11 [chunk-1] [chat]
+**chunk_id**: aa00bf0204cb4054b8bf90b8183d1fc8
+**file_path**: knowledge/product-info.md
+**content_hash**: 5ef40c26c8c2faca43c9d8a1bb077eb860f81fa9094826cc0cca3b0e9b6d5bd3
+**category**: knowledge
+**content_category_tags**: product_info, usecase
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel tank top, ribbed top, logo cutout, wide-leg jeans, gray tank top
+**index_text**: Visual demonstration of the Diesel logo cutout ribbed tank top in gray paired with light blue wide-leg jeans.
+**source_type**: image
+**asset_path**: workspace/assets/ebce392bd58d4ff7bb212596c8dd090d_1778094608.jpg
+**upload_id**: 8609
+
+Product Showcase: Diesel Ribbed Tank Top and Wide-Leg Jeans. This outfit features a gray ribbed tank top characterized by a distinctive Diesel logo cutout on the chest, paired with light blue wide-leg denim jeans. The styling demonstrates a contemporary casual look suitable for the PRIME STORE collection.
+**upload_id**: 8610
+
+### 2026-05-06 19:11 [chunk-1] [chat]
+**chunk_id**: d9083d3ada644b08b8a7cb067f9436f9
+**file_path**: knowledge/product-info.md
+**content_hash**: 4150b9450b1ba890a6b3da6cd88725c665db4f110be6239956c2a48cec65acfe
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel crop top, silver ribbed top, gold Diesel logo, Diesel fashion
+**index_text**: Diesel silver ribbed crop top features: includes a prominent gold Diesel logo and ribbed texture, suitable for fashion-forward styling.
+**source_type**: image
+**asset_path**: workspace/assets/d1207a5a3a58463a9fc3069b03dc0c17_1778094608.jpg
+**upload_id**: 8610
+
+Product details for the Diesel silver ribbed crop top: This fashion piece features a silver, ribbed texture fabric with a prominent gold Diesel logo centered on the chest. It is a crop top style designed for a modern aesthetic, often paired with light blue jeans for a complete look as seen in Diesel brand advertising.
+**upload_id**: 8611
+
+### 2026-05-06 [produto-regata-diesel-feminina] [chat]
+**chunk_id**: 7f6176fafcdd4191bd308dd375f5924a
+**file_path**: knowledge/product-info.md
+**content_hash**: 923fd176ed7ec2df52335dc8ac9562898d4efd9932dc6bdff3a59e0c9bd9a7f5
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Regata Diesel Preta
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Produto:** Regata Diesel Preta (Sem Mangas)
+**Categoria:** Feminina (ÚNICO produto feminino de roupa disponível)
+**Tamanhos:** P e M
+**Preço:**
+- 💳 Cartão: R$ 299,00 em até 6x sem juros (R$ 49,83/mês)
+- 💰 PIX: R$ 254,15 (15% de desconto - economiza R$ 44,85!)
+
+**Observação importante:** Esta é a ÚNICA peça de roupa feminina disponível na loja. Para outros produtos femininos, temos apenas óculos, perfumes, sandálias e tênis.
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: f50d902171824f5e881e0400408716b5
+**file_path**: knowledge/product-info.md
+**content_hash**: 08858aaf27e09c518007cc04b253cc22c501810f1beb06ac4b569bd8123c185f
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Tamanho GG
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Tamanhos GG têm alta demanda**
+Clientes frequentemente perguntam sobre disponibilidade de tamanho GG, indicando que este tamanho pode esgotar rapidamente e requer atenção especial no controle de estoque.
+### 2026-05-06 20:08 [chunk-2] [chat]
+**chunk_id**: 1c7671f8b0ac46a3844f4125469a4447
+**file_path**: knowledge/product-info.md
+**content_hash**: fc2ba484552a3c9a65923f8bf51692e4b3b7c0446fec6703a510992ea3327000
+**category**: knowledge
+**content_category_tags**: product_info, other
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: catálogo masculino, marcas de luxo, tamanhos P ao GG, acessórios masculinos
+**index_text**: Catálogo geral da PRIME STORE com foco em moda masculina, incluindo marcas como Diesel, Gucci e Vans, com tamanhos do P ao GG.
+**source_type**: text
+**asset_path**: workspace/assets/url_20260506_200753_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt
+
+PRIME STORE - Moda Masculina e Acessórios: Catálogo Geral e Variedade de Produtos. A loja oferece uma ampla gama de produtos masculinos, incluindo camisetas, regatas (como a Regata Diesel Preta), óculos, calçados (Tênis 9060, Vans UltraRange, Sandália Gucci) e acessórios diversos. O público-alvo foca no estilo masculino contemporâneo, oferecendo tamanhos que abrangem do P ao GG para atender diferentes perfis de clientes.
+### 2026-05-06 20:15 [onboarding-history]
+**chunk_id**: 366768797cd4405687b1cdf9e9ca50b0
+**file_path**: knowledge/product-info.md
+**content_hash**: bf73195f71627ce16faccc4191d83c011c2325b883db780a067bb83907b811d2
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: produto
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Disponibilidade de tamanhos**
+O produto está disponível nos tamanhos 34 ao 40. Clientes frequentemente perguntam sobre tamanhos específicos (como M) e disponibilidade de modelos masculinos.
+
+### 2026-05-06 [marcas-tenis-premium] [chat]
+**chunk_id**: 8379b60f59124264890730bdd0239b7d
+**file_path**: knowledge/product-info.md
+**content_hash**: bacdcedf1cffce2c8f385a5fbeb750f77b97c2a9f0de29f9cc5b71e2fee4fe48
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Marcas de Tênis - Linha Premium
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Marcas de Tênis - Linha Premium**
+
+A PRIME STORE trabalha exclusivamente com marcas premium e importadas de alta qualidade.
+
+**Marcas disponíveis:**
+Adidas, Armani, Balmain, Dolce & Gabbana, Gucci, Hugo Boss, Lacoste, Louis Vuitton, Alexander McQueen, Mizuno, Mizuno Pro 14, New Balance, Nike, On Running, On Cloud, Osklen, Philipp Plein, Prada, Puma, Reserva, Vans, Zara
+
+**Posicionamento e Diferenciais:**
+- Linha premium com alta qualidade de materiais
+- Excelente acabamento e atenção aos detalhes
+- Máximo conforto para uso diário
+- Ótimo custo-benefício (qualidade justifica o preço)
+- Garantia da loja em todos os produtos
+
+**Quando apresentar produtos:**
+- Sempre destacar a qualidade premium
+- Mencionar o acabamento impecável
+- Reforçar o conforto
+- Criar desejo mostrando que são modelos muito procurados
+- Usar gatilhos de urgência quando apropriado
+**upload_id**: 8631
+
+### 2026-05-06 [new-balance-9060-capuccino-feminino] [chat]
+**chunk_id**: edcd50dce13e4517aa431ab9fdd9e795
+**file_path**: knowledge/product-info.md
+**content_hash**: 769eb9a6fd3199313540764ff0c26ef5010c79b8702623ca8dcf67f486449262
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: New Balance 9060 Capuccino
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Produto:** New Balance 9060 - Cor Capuccino
+
+**Categoria:** Feminino (cor mais procurada por mulheres)
+
+**Tamanhos disponíveis:** 34 ao 39
+
+**Observações:**
+- ✅ REPOSIÇÃO CHEGOU HOJE (2026-05-06)
+- 🔥 Modelo MUITO PROCURADO
+- 👩 Cor específica para público feminino (Capuccino é a que mais vende para mulheres)
+- 📸 Imagens cadastradas no sistema (reconhecimento automático disponível)
+
+**Status:** EM ESTOQUE (reposição recente)
+
+**Preço:**
+- 💳 Cartão: R$ 449 em até 6x sem juros (R$ 74,83/mês)
+- 💰 PIX: R$ 399 (economiza R$ 50!)
+
+**Gatilhos de venda para este modelo:**
+- "Acabou de chegar reposição hoje!"
+- "Essa cor é a MAIS VENDIDA entre as mulheres! 🔥"
+- "New Balance 9060 Capuccino - modelo que SEMPRE esgota rápido"
+- "Temos do 34 ao 39 disponível agora"
+**upload_id**: 8634
+
+### 2026-05-06 23:48 [chunk-1] [chat]
+**chunk_id**: 8e2f9e8d44cd4af8941bb6d74ed36341
+**file_path**: knowledge/product-info.md
+**content_hash**: 2c9a75deaa2c454f6aac23e69edf66c68360d70dbeee99d3b456e9cc25726a46
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: produtos masculinos
+**search_keys**: Tommy Hilfiger, Modern Essentials, Celana dalam pria, Underwear katun
+**index_text**: Informasi produk celana dalam pria Tommy Hilfiger Modern Essentials: bahan katun stretch, tersedia dalam set warna merah, abu-abu, dan hitam dengan kemasan kotak.
+**source_type**: image
+**asset_path**: workspace/assets/fca660d25a0a477192573a51b847e769_1778111300.jpeg
+**upload_id**: 8636
+
+Produk Modern Essentials dari Tommy Hilfiger ini adalah celana dalam pria (underwear) berbahan katun stretch (en coton avec extension) yang nyaman. Paket ini mencakup tiga pilihan warna yaitu merah, abu-abu, dan hitam, masing-masing dilengkapi dengan ban pinggang elastis bertuliskan logo ikonik 'TOMMY HILFIGER'. Produk ini dijual lengkap dengan kotak kemasan eksklusif Tommy Hilfiger.
+**upload_id**: 8637
+
+### 2026-05-06 [cuecas-premium-importadas] [chat]
+**chunk_id**: 2aae84907d3c4ac49831ed557000ee6c
+**file_path**: knowledge/product-info.md
+**content_hash**: ae5038662d153834d8d02a259fbaaabee248b44a83187dae275b3ba4e856b750
+**category**: knowledge
+**content_category_tags**: pricing
+**product_or_service**: Cuecas Premium Importadas
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Produto:** Cuecas Premium Importadas
+
+**Marcas disponíveis:**
+- Calvin Klein
+- Tommy Hilfiger
+
+**Categoria:** Masculino
+
+**Tamanhos disponíveis:** M, G, GG
+
+**Preços:**
+- 💰 **Unidade:** R$ 30,00
+- 🔥 **COMBO 4 UNIDADES:** R$ 100,00 (economiza R$ 20!)
+  - Preço unitário no combo: R$ 25,00 cada
+
+**Observações:**
+- ✅ Linha premium importada
+- ✅ Alta qualidade de material
+- ✅ Marcas reconhecidas internacionalmente
+- 📸 5 imagens cadastradas no sistema (reconhecimento automático disponível)
+
+**Gatilhos de venda:**
+- "Cuecas importadas Calvin e Tommy Hilfiger!"
+- "Compre 4 e pague R$ 100 - economiza R$ 20! 🔥"
+- "Qualidade premium com ótimo custo-benefício"
+- "Marcas originais, conforto garantido"
+
+**Formas de pagamento:**
+- Aceita PIX e Cartão
+- Preços fixos (não tem desconto adicional no PIX)
+- **Desconto exclusivo:** Apenas no combo 4 unidades (R$ 100 vs R$ 120 unitário)
+**upload_id**: 8639
+
+### 2026-05-06 [jaqueta-armani-inverno] [chat]
+**chunk_id**: 9d4f7cbed43446e1bf6a5a516a1e6953
+**file_path**: knowledge/product-info.md
+**content_hash**: f22dee28f9c438f78ef1d703724add32fda8f7220b49f8a2899483c768e85b54
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Jaqueta Armani
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Produto:** Jaqueta Armani (Jaqueta de Frio)
+
+**Marca:** Armani
+
+**Categoria:** Masculino
+
+**Cor disponível:** Preto
+
+**Tamanhos disponíveis:** M, G, GG
+
+**Preços:**
+- 💳 **Cartão:** R$ 449,00 em até 6x sem juros (R$ 74,83/mês)
+- 💰 **PIX:** R$ 429,00 (economiza R$ 20!)
+
+**Observações:**
+- ✅ Jaqueta de frio - ideal para inverno
+- ✅ Linha premium Armani importada
+- ✅ Alta qualidade de material e acabamento
+- ✅ Elegante e versátil
+- 📸 2 imagens cadastradas no sistema (reconhecimento automático disponível)
+
+**Linha de Produto:**
+Temos JAQUETAS DE FRIO disponíveis - preços conforme modelo e marca.
+
+**Gatilhos de venda:**
+- "Jaqueta Armani premium - perfeita pro frio! 🔥"
+- "Linha importada com acabamento impecável"
+- "Elegância e conforto térmico garantidos"
+- "Ideal pra usar no dia a dia ou em ocasiões especiais"
+**upload_id**: 8641
+
+### 2026-05-07 00:54 [chunk-1] [chat]
+**chunk_id**: 5e3f22155bae49078bbd07b06a3bc6e0
+**file_path**: knowledge/product-info.md
+**content_hash**: 609e8f88eca546fdc4113db707a7f5d710ade1d4523aad26486a1372b0f0a8ee
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: New Balance
+**search_keys**: New Balance, sepatu hitam, sneakers sol tebal, sepatu olahraga
+**index_text**: Informasi produk sepatu New Balance hitam dengan sol tebal dan logo 'N', termasuk detail desain dan kemasan kotak sepatu.
+**source_type**: image
+**asset_path**: workspace/assets/b630812861784375893f16656b4485ba_1778115282.jpeg
+**upload_id**: 8642
+
+Produk ini adalah sepatu olahraga New Balance berwarna hitam dengan desain stylish yang menampilkan sol tebal dan logo ikonik 'N' di bagian samping. Sepatu New Balance ini hadir dengan kotak sepatu orisinal dan memiliki estetika modern yang cocok untuk gaya hidup aktif maupun kasual.
+**upload_id**: 8643
+
+### 2026-05-06 [cuecas-premium-estoque-ativo] [chat]
+**chunk_id**: 5c2f4d9743304cbdb59e7587c7529d19
+**file_path**: knowledge/product-info.md
+**content_hash**: e4a454fcb5d378e1c4ac4ae81ade59d57cd33430801b87b425ae02f14bef988b
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**PRODUTO DISPONÍVEL: CUECAS PREMIUM IMPORTADAS**
+
+**Marcas:**
+- Calvin Klein
+- Tommy Hilfiger
+
+**Descrição:**
+Cuecas masculinas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Linha de alta qualidade com acabamento impecável e conforto garantido. Marcas reconhecidas internacionalmente.
+
+**Público:** Masculino
+
+**Tamanhos disponíveis:** M, G, GG
+
+**PREÇOS:**
+- 💵 **Unidade:** R$ 30,00
+- 🔥 **COMBO 4 UNIDADES:** R$ 100,00 (economiza R$ 20!)
+  - Valor unitário no combo: R$ 25,00 cada
+
+**Formas de pagamento:**
+- PIX: R$ 30 (unidade) / R$ 100 (combo 4)
+- Cartão: R$ 30 (unidade) / R$ 100 (combo 4) - pode parcelar em até 6x sem juros
+- Preços fixos (não tem desconto adicional no PIX)
+
+**Estoque:** DISPONÍVEL (5 imagens cadastradas com reconhecimento automático)
+
+**Gatilhos de venda:**
+- "Cuecas importadas Calvin Klein e Tommy Hilfiger!"
+- "Compre 4 e pague R$ 100 - economiza R$ 20! 🔥"
+- "Qualidade premium com ótimo custo-benefício"
+- "Alta qualidade de material e acabamento"
+- "Vale muito mais a pena o combo!"
+
+**Importante:** Sempre empurrar o combo 4 unidades (melhor margem).
+
+### 2026-05-07 13:25 [chunk-1] [chat]
+**chunk_id**: 88b0eeb3c2da41548025ff4a01e066b7
+**file_path**: knowledge/product-info.md
+**content_hash**: 1e7b9aaf7769394e632fefc08138039dac1249ad72ee329c753564be0e11f8a5
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/09edbb960af148e49c622fa828facf86_1778160293.png
+**upload_id**: 8680
+
+**upload_id**: 8681
+
+### 2026-05-07 13:26 [chunk-1] [chat]
+**chunk_id**: 4fe7738aa5f24291a789533ef9e5fb7a
+**file_path**: knowledge/product-info.md
+**content_hash**: bd8e184be68fa0c537c97e6b5ea30b9fbc76a5137d223b2d542d80d92800efed
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Cuecas Premium Importadas
+**search_keys**: black boxer briefs, striped waistband boxer, men's underwear, black boxers
+**index_text**: Product details for black boxer briefs featuring a blue and gray striped waistband and minimalist design.
+**source_type**: image
+**asset_path**: workspace/assets/f351029da31d454e919127137455bb19_1778160293.png
+**upload_id**: 8681
+
+Product description for black boxer briefs with a blue and gray stripe at the waistband. These boxers feature a comfortable elastic waistband and are designed for a sleek, monochromatic look suitable for everyday wear or athletic use.
+**upload_id**: 8682
+
+### 2026-05-07 13:26 [chunk-1] [chat]
+**chunk_id**: 938e72a17da04e2cb6d9043a78fb0216
+**file_path**: knowledge/product-info.md
+**content_hash**: c7e192807ea48c333399acbae8117c6d3219a9a5e2aa87978df0c85330b197be
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/06efcd90d0994e89849f63da331c7635_1778160294.png
+**upload_id**: 8683
+
+**upload_id**: 8684
+
+### 2026-05-07 13:26 [chunk-1] [chat]
+**chunk_id**: 476955f6e38847f381a2eba0d92b9b34
+**file_path**: knowledge/product-info.md
+**content_hash**: 866e66a5bc7132332c024c2aa86f8fe66e8fa83f68df99f7d825477bf4d5e06b
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/b409eb66284f4b239d10bba5337f5a7f_1778160294.png
+**upload_id**: 8684
+
+**upload_id**: 8685
+
+### 2026-05-07 13:27 [chunk-1] [chat]
+**chunk_id**: 56980ff1ec6a40f28ccabbc70eef4825
+**file_path**: knowledge/product-info.md
+**content_hash**: ec6436faecab8cde8718bd25a22a27d61f7462646ab556807f7c04dcdb4feaf9
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/9785cb08b8874e5a8620f75865e683db_1778160294.jpg
+**upload_id**: 8687
+
+**upload_id**: 8690
+
+### 2026-05-07 13:27 [chunk-1] [chat]
+**chunk_id**: 77db6ada11694a6d954ba96a51753e50
+**file_path**: knowledge/product-info.md
+**content_hash**: 9c1b06270d2db8ed4a1081dea77e05f58c5763ad1e24ccf74244f08871f54c89
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/8c29f09239a543efb0b7732e79a46282_1778160294.jpeg
+**upload_id**: 8690
+
+**upload_id**: 8689
+
+### 2026-05-07 13:27 [chunk-1] [chat]
+**chunk_id**: 350de221d6124636b69877cacf5501f1
+**file_path**: knowledge/product-info.md
+**content_hash**: fdf75fbea1f8da48d58e6e4be9250ff2ecf38506e19edb27ae9e934649e0152d
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/1fdbf4f090144490ae5b9a1465e4cf48_1778160294.jpeg
+**upload_id**: 8688
+
+**upload_id**: 8686
+
+### 2026-05-07 13:27 [chunk-1] [chat]
+**chunk_id**: efc3c54f13dc47d487a85bf4878305d6
+**file_path**: knowledge/product-info.md
+**content_hash**: 6c6e18bf5ddcec67d3b44d632ae79f40b4e254e686986ffa197f1403f9c1b516
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/ec853074b01c4f61bd12b678681aaa53_1778160294.jpg
+**upload_id**: 8686
+
+**upload_id**: 8691
+
+### 2026-05-07 13:27 [chunk-1] [chat]
+**chunk_id**: e4b8c69b63534a7e90bb22db4ecb0713
+**file_path**: knowledge/product-info.md
+**content_hash**: da8cfc9e2f07fc46285f4779cc71a845483009018d4e119957b4049fae6a6eca
+**category**: knowledge
+**content_category_tags**: product_info
+**source_type**: image
+**asset_path**: workspace/assets/3add31f6e13b42f6bff684cbc010cf5e_1778160294.png
+**upload_id**: 8691
+
+
+### 2026-05-07 14:29 [chunk-1] [chat]
+**chunk_id**: fa4f2b2102a34b18a1faedeabd386fa1
+**file_path**: knowledge/product-info.md
+**content_hash**: f69ae66d437e864897c035a456f218930680442e6ba79ba0c0176e6984ea84dd
+**category**: knowledge
+**content_category_tags**: product_info, pricing
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+**search_keys**: cueca, Calvin Klein, Tommy Hilfiger, preço cueca, tamanhos
+**index_text**: Preços e marcas de cuecas na PRIME STORE: Calvin Klein e Tommy Hilfiger por R$ 30,00 a unidade ou combo de 4 por R$ 100,00 nos tamanhos M, G e GG.
+**source_type**: image
+**asset_path**: workspace/assets/988cb70d59984b0fa422cc4bf9abd26e_1778164178.png
+**upload_id**: 8699
+
+**upload_id**: 8702
+
+### 2026-05-07 14:59 [chunk-1] [chat]
+**chunk_id**: 4edbff20aac94e3795c7c123f3f7a459
+**file_path**: knowledge/product-info.md
+**content_hash**: 5b18af6254ff0468c50c0d70d10b0fcde5bf534d7eebcc584986e6bba805bdcc
+**category**: knowledge
+**content_category_tags**: product_info, pricing
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+**search_keys**: cuecas, Calvin Klein, Tommy Hilfiger, combo cuecas, tamanhos cuecas
+**index_text**: Informações sobre cuecas premium (Calvin Klein e Tommy Hilfiger): Preço unitário R$30, combo com 4 por R$100, nos tamanhos M, G e GG.
+**source_type**: image
+**asset_path**: workspace/assets/71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg
+**upload_id**: 8702
+
+A PRIME STORE vende cuecas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Preços: Unidade por R$30 ou Combo com 4 unidades por R$100. Tamanhos disponíveis: M, G e GG.

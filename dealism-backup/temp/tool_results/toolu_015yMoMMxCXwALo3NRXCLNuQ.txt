@@ -1,0 +1,11 @@
+[stderr]
+usage: update_buyer_agent_config.py [-h] [--seller-id SELLER_ID] --config-id
+                                    CONFIG_ID --fields FIELDS [--verbose]
+update_buyer_agent_config.py: error: unrecognized arguments: --value Saudação inicial: Responda sempre 'Olá! 😊 Sou a Gabriela, Consultora de Vendas da PRIME STORE! Como posso te ajudar hoje?' na primeira mensagem do cliente.
+
+1. Ouvir: Entenda qual é a dúvida ou reclamação.
+2. Entender: Peça detalhes se não estiver claro.
+3. Resolver: Dê a resposta ou passo a passo de forma natural e direta.
+
+
+[退出码: 2]

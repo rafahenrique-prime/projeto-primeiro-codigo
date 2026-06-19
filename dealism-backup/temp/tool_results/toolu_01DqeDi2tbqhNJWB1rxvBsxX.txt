@@ -1,0 +1,117 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "b14b00c353c94b97a003580a47727940",
+      "chunk_id": "b14b00c353c94b97a003580a47727940",
+      "content_hash": "cd833575a9eba55fcb24be9e9e0329f99494f563df7e353ca6cec202ec56ad09",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8634\n\nCalvin Klein 男士内裤三条装 (3 PACK)。该产品包含三条不同颜色的男士内裤，分别为白色、黑色和灰色。每条内裤的腰带上均印有清晰的 Calvin Klein 品牌标识。产品配有原装包装盒，包装盒上也印有 Calvin Klein 字样，适合自用或作为礼品。\n**upload_id**: 8635",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 726,
+      "line_end": 741,
+      "asset_path": "workspace/assets/3e95f76bdf804a5297f6a547932e58e3_1778111300.jpeg",
+      "source_type": "image",
+      "product_or_service": "Calvin Klein 内裤",
+      "_bm25_score": 84.0649,
+      "_source": "keyword",
+      "_rrf_score": 0.032,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "1c778883add849708eb6cef0b0c02e79",
+      "chunk_id": "1c778883add849708eb6cef0b0c02e79",
+      "content_hash": "08a8b5468a8ffcb0fe3cdceff72563c5d87d002fdfe47f784f31d68520051c82",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8638\n\nProduk Tommy Hilfiger Men's Underwear (Celana Dalam Pria). Produk ini tersedia dalam set isi tiga warna yaitu hitam, putih, dan abu-abu. Setiap celana dalam memiliki ikat pinggang elastis dengan cetakan nama merek dan logo Tommy Hilfiger yang ikonik. Produk dilengkapi dengan kotak kemasan (packaging box) berwarna biru khas Tommy Hilfiger.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 790,
+      "line_end": 804,
+      "asset_path": "workspace/assets/3404a76711ed47f4bad8ba6a3ec0af9b_1778111300.jpeg",
+      "source_type": "image",
+      "product_or_service": "Tommy Hilfiger 内裤",
+      "_bm25_score": 75.315,
+      "_source": "keyword",
+      "_rrf_score": 0.032,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "8e2f9e8d44cd4af8941bb6d74ed36341",
+      "chunk_id": "8e2f9e8d44cd4af8941bb6d74ed36341",
+      "content_hash": "2c9a75deaa2c454f6aac23e69edf66c68360d70dbeee99d3b456e9cc25726a46",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8636\n\nProduk Modern Essentials dari Tommy Hilfiger ini adalah celana dalam pria (underwear) berbahan katun stretch (en coton avec extension) yang nyaman. Paket ini mencakup tiga pilihan warna yaitu merah, abu-abu, dan hitam, masing-masing dilengkapi dengan ban pinggang elastis bertuliskan logo ikonik 'TOMMY HILFIGER'. Produk ini dijual lengkap dengan kotak kemasan eksklusif Tommy Hilfiger.\n**upload_id**: 8637",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 758,
+      "line_end": 773,
+      "asset_path": "workspace/assets/fca660d25a0a477192573a51b847e769_1778111300.jpeg",
+      "source_type": "image",
+      "product_or_service": "produtos masculinos",
+      "_bm25_score": 73.0891,
+      "_source": "keyword",
+      "_rrf_score": 0.0315,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "5c2f4d9743304cbdb59e7587c7529d19",
+      "chunk_id": "5c2f4d9743304cbdb59e7587c7529d19",
+      "content_hash": "e4a454fcb5d378e1c4ac4ae81ade59d57cd33430801b87b425ae02f14bef988b",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**PRODUTO DISPONÍVEL: CUECAS PREMIUM IMPORTADAS**\n\n**Marcas:**\n- Calvin Klein\n- Tommy Hilfiger\n\n**Descrição:**\nCuecas masculinas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Linha de alta qualidade com acabamento impecável e conforto garantido. Marcas reconhecidas internacionalmente.\n\n**Público:** Masculino\n\n**Tamanhos disponíveis:** M, G, GG\n\n**PREÇOS:**\n- 💵 **Unidade:** R$ 30,00\n- 🔥 **COMBO 4 UNIDADES:** R$ 100,00 (economiza R$ 20!)\n  - Valor unitário no combo: R$ 25,00 cada\n\n**Formas de pagamento:**\n- PIX: R$ 30 (unidade) / R$ 100 (combo 4)\n- Cartão: R$ 30 (unidade) / R$ 100 (combo 4) - pode parcelar em até 6x sem juros\n- Preços fixos (não tem desconto adicional no PIX)\n\n**Estoque:** DISPONÍVEL (5 imagens cadastradas com reconhecimento automático)\n\n**Gatilhos de venda:**\n- \"Cuecas importadas Calvin Klein e Tommy Hilfiger!\"\n- \"Compre 4 e pague R$ 100 - economiza R$ 20! 🔥\"\n- \"Qualidade premium com ótimo custo-benefício\"\n- \"Alta qualidade de material e acabamento\"\n- \"Vale muito mais a pena o combo!\"\n\n**Importante:** Sempre empurrar o combo 4 unidades (melhor margem).",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 967,
+      "line_end": 1010,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)",
+      "_bm25_score": 82.614,
+      "_source": "keyword",
+      "_rrf_score": 0.0315,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "59326c8667064839b9c91bbebc405bac",
+      "chunk_id": "59326c8667064839b9c91bbebc405bac",
+      "content_hash": "cd264190ad829a69f787cf54534140a0e16babe363d4e11196a74364169a7a97",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8637\n\nTommy Hilfiger 男士内裤套装详情：该产品为 Tommy Hilfiger 品牌的男士内裤，包含四种经典颜色：黑色、白色、红色和深蓝色。每条内裤的腰带上均印有明显的“TOMMY HILFIGER”品牌字样及标志性的品牌 Logo。产品配有原装黑色品牌包装盒，盒身上同样印有 Tommy Hilfiger 标识，适合自用或作为礼品。\n**upload_id**: 8638",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 774,
+      "line_end": 789,
+      "asset_path": "workspace/assets/5f584455b9204eb1ac3f6a6c39703248_1778111300.jpeg",
+      "source_type": "image",
+      "product_or_service": "Tommy Hilfiger 内裤",
+      "_bm25_score": 69.6553,
+      "_source": "keyword",
+      "_rrf_score": 0.0306,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    }
+  ],
+  "count": 5,
+  "query": "cueca Calvin Klein Tommy Hilfiger kit 3 pack"
+}

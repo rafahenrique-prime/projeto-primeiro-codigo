@@ -1,0 +1,15 @@
+✓ 已追加到文件: workspace/memory/strategy/objection-handling.md (4113 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  2. [knowledge/general.md]
+     "msg 91149455 image (part 6/7): The provided input contains corrupted binary data"
+  3. [knowledge/general.md]
+     "msg 91132716 image (part 2/6): The provided content appears to be raw binary dat"
+  4. [knowledge/general.md]
+     "msg 91149464 image (part 6/7): The provided content consists of corrupted binary"
+  5. [knowledge/general.md]
+     "msg 91149446 image (part 6/7): The provided input contains corrupted binary data"
+建议用 edit_file 更新或删除旧文件中的过时内容。

@@ -1,0 +1,67 @@
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 966fb1104e894bf1b55c07a7837ce22f
+**file_path**: knowledge/product-info.md
+**content_hash**: 0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Estoque de tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.
+
+### 2026-05-06 [best-seller] [onboarding-upload]
+**chunk_id**: c4a8c9ea02e24524b656d61f05d9f6c2
+**file_path**: knowledge/product-info.md
+**content_hash**: f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Tênis 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Tênis 9060 - Produto Mais Vendido**
+Preço: R$ 449,00 em até 6x sem juros no cartão
+Preço à vista no PIX: R$ 399,00
+
+Link com fotos do produto:
+https://www.primestoremen.com.br/produtos?q=9060 
+
+Sempre indicar este link quando o cliente pedir fotos ou quiser ver o produto.
+
+### 2026-05-06 [product-sandalia-gucci] [onboarding-upload]
+**chunk_id**: 6e1a22cc92c8488eaf0cc5958400c16c
+**file_path**: knowledge/product-info.md
+**content_hash**: 1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Sandália Gucci
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Sandália Gucci / Plataforma Gucci**
+Preço: R$ 349,00 em até 6x sem juros no cartão
+Preço à vista no PIX: R$ 319,00
+
+Link com fotos do produto:
+https://www.primestoremen.com.br/plataforma-gucci-femina
+
+IMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.
+**upload_id**: 8581
+
+### 2026-05-06 13:35 [chunk-1] [chat]
+**chunk_id**: ad540fee00d849039805783b467d17bd
+**file_path**: knowledge/product-info.md
+**content_hash**: 9bce2cd7778e5a31918aac4563187e651a4f0fb6dd6621d3cece5586aee3e303
+**category**: knowledge
+**content_category_tags**: product_info, guide, other
+**product_or_service**: Sandália Gucci
+**search_keys**: Prime Store Men, Sandália Gucci, horário de funcionamento, parcelamento cartão, endereço loja
+**index_text**: Informações de contato e horários da Prime Store Men, incluindo site oficial e disponibilidade de parcelamento para produtos como a Sandália Gucci.
+**source_type**: image
+**asset_path**: workspace/assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png
+**upload_id**: 8581
+
+Informações da Prime Store Men (4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png): A loja Prime Store Men atende de Segunda a Sexta das 10h às 20h e Sábados das 9h às 16h. O site oficial é www.primestoremen.com.br. A loja oferece produtos como a Sandália Gucci e opções de parcelamento no cartão de crédito sob consulta com a equipe.

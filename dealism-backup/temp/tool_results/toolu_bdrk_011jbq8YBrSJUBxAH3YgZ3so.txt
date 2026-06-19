@@ -1,0 +1,15 @@
+[stdout]
+workspace/memory/knowledge/product-info.md-### 2026-05-07 14:59 [chunk-1] [chat]
+workspace/memory/knowledge/product-info.md-**chunk_id**: 4edbff20aac94e3795c7c123f3f7a459
+workspace/memory/knowledge/product-info.md-**file_path**: knowledge/product-info.md
+workspace/memory/knowledge/product-info.md-**content_hash**: 5b18af6254ff0468c50c0d70d10b0fcde5bf534d7eebcc584986e6bba805bdcc
+workspace/memory/knowledge/product-info.md-**category**: knowledge
+workspace/memory/knowledge/product-info.md-**content_category_tags**: product_info, pricing
+workspace/memory/knowledge/product-info.md-**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+workspace/memory/knowledge/product-info.md-**search_keys**: cuecas, Calvin Klein, Tommy Hilfiger, combo cuecas, tamanhos cuecas
+workspace/memory/knowledge/product-info.md-**index_text**: Informações sobre cuecas premium (Calvin Klein e Tommy Hilfiger): Preço unitário R$30, combo com 4 por R$100, nos tamanhos M, G e GG.
+workspace/memory/knowledge/product-info.md-**source_type**: image
+workspace/memory/knowledge/product-info.md:**asset_path**: workspace/assets/71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg
+workspace/memory/knowledge/product-info.md-**upload_id**: 8702
+workspace/memory/knowledge/product-info.md-
+workspace/memory/knowledge/product-info.md-A PRIME STORE vende cuecas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Preços: Unidade por R$30 ou Combo com 4 unidades por R$100. Tamanhos disponíveis: M, G e GG.

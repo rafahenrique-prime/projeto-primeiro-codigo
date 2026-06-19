@@ -1,0 +1,1933 @@
+[stdout]
+{
+  "backup_timestamp": "2026-05-12T10:31:13.149768",
+  "backup_version": "1.0",
+  "system_state": "complete_snapshot",
+  "files_inventory": {
+    "AGENTS.md": {
+      "path": "workspace/AGENTS.md",
+      "size": 27209,
+      "type": ".md"
+    },
+    "TOOLS.md": {
+      "path": "workspace/TOOLS.md",
+      "size": 106,
+      "type": ".md"
+    },
+    "USER.md": {
+      "path": "workspace/USER.md",
+      "size": 485,
+      "type": ".md"
+    },
+    "SOUL.md": {
+      "path": "workspace/SOUL.md",
+      "size": 3299,
+      "type": ".md"
+    },
+    "MEMORY.md": {
+      "path": "workspace/MEMORY.md",
+      "size": 440,
+      "type": ".md"
+    },
+    "BOOTSTRAP.md": {
+      "path": "workspace/BOOTSTRAP.md",
+      "size": 13045,
+      "type": ".md"
+    },
+    "PRIME_STORE_Configuracao_Completa.md": {
+      "path": "workspace/PRIME_STORE_Configuracao_Completa.md",
+      "size": 8902,
+      "type": ".md"
+    },
+    "scripts/close_conversation.py": {
+      "path": "workspace/scripts/close_conversation.py",
+      "size": 2045,
+      "type": ".py"
+    },
+    "scripts/monitor_followups_v2.py": {
+      "path": "workspace/scripts/monitor_followups_v2.py",
+      "size": 2479,
+      "type": ".py"
+    },
+    "scripts/monitor_followups.py": {
+      "path": "workspace/scripts/monitor_followups.py",
+      "size": 5018,
+      "type": ".py"
+    },
+    "assets/384f51d4e2db430c9389b530f650f523_1778111300.jpeg": {
+      "path": "workspace/assets/384f51d4e2db430c9389b530f650f523_1778111300.jpeg",
+      "size": 221086,
+      "type": ".jpeg"
+    },
+    "assets/ebce392bd58d4ff7bb212596c8dd090d_1778094608.jpg": {
+      "path": "workspace/assets/ebce392bd58d4ff7bb212596c8dd090d_1778094608.jpg",
+      "size": 1086838,
+      "type": ".jpg"
+    },
+    "assets/ec853074b01c4f61bd12b678681aaa53_1778160294.jpg": {
+      "path": "workspace/assets/ec853074b01c4f61bd12b678681aaa53_1778160294.jpg",
+      "size": 31202,
+      "type": ".jpg"
+    },
+    "assets/507f1b429f304744bf72d5b3e85a664e_1778160294.png": {
+      "path": "workspace/assets/507f1b429f304744bf72d5b3e85a664e_1778160294.png",
+      "size": 433452,
+      "type": ".png"
+    },
+    "assets/url_20260506_201448_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201448_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 229515,
+      "type": ".txt"
+    },
+    "assets/url_20260506_200432_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200432_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 13245626,
+      "type": ".txt"
+    },
+    "assets/06efcd90d0994e89849f63da331c7635_1778160294.png": {
+      "path": "workspace/assets/06efcd90d0994e89849f63da331c7635_1778160294.png",
+      "size": 284289,
+      "type": ".png"
+    },
+    "assets/url_20260506_200328_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200328_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 13245626,
+      "type": ".txt"
+    },
+    "assets/8985b3eee7f646b5a5eb42d3b5846532_1778094873.jpg": {
+      "path": "workspace/assets/8985b3eee7f646b5a5eb42d3b5846532_1778094873.jpg",
+      "size": 898855,
+      "type": ".jpg"
+    },
+    "assets/74399f33e9504039919270153864504f_1778160293.jpeg": {
+      "path": "workspace/assets/74399f33e9504039919270153864504f_1778160293.jpeg",
+      "size": 224117,
+      "type": ".jpeg"
+    },
+    "assets/fca660d25a0a477192573a51b847e769_1778111300.jpeg": {
+      "path": "workspace/assets/fca660d25a0a477192573a51b847e769_1778111300.jpeg",
+      "size": 188760,
+      "type": ".jpeg"
+    },
+    "assets/d1207a5a3a58463a9fc3069b03dc0c17_1778094608.jpg": {
+      "path": "workspace/assets/d1207a5a3a58463a9fc3069b03dc0c17_1778094608.jpg",
+      "size": 1683607,
+      "type": ".jpg"
+    },
+    "assets/4ecef61b2f2c47cfaa22bb8539881b00_1778171437.png": {
+      "path": "workspace/assets/4ecef61b2f2c47cfaa22bb8539881b00_1778171437.png",
+      "size": 765586,
+      "type": ".png"
+    },
+    "assets/url_20260506_200958_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200958_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 4165704,
+      "type": ".txt"
+    },
+    "assets/b409eb66284f4b239d10bba5337f5a7f_1778160294.png": {
+      "path": "workspace/assets/b409eb66284f4b239d10bba5337f5a7f_1778160294.png",
+      "size": 311445,
+      "type": ".png"
+    },
+    "assets/url_20260506_200753_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_200753_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 230526,
+      "type": ".txt"
+    },
+    "assets/8c29f09239a543efb0b7732e79a46282_1778160294.jpeg": {
+      "path": "workspace/assets/8c29f09239a543efb0b7732e79a46282_1778160294.jpeg",
+      "size": 58158,
+      "type": ".jpeg"
+    },
+    "assets/a103ab29d8ef4804acc52ffb752b0c6b_1778109225.jpeg": {
+      "path": "workspace/assets/a103ab29d8ef4804acc52ffb752b0c6b_1778109225.jpeg",
+      "size": 194800,
+      "type": ".jpeg"
+    },
+    "assets/38565d1f8ea54ac7bff714ca83cf4207_1778114529.jpeg": {
+      "path": "workspace/assets/38565d1f8ea54ac7bff714ca83cf4207_1778114529.jpeg",
+      "size": 327861,
+      "type": ".jpeg"
+    },
+    "assets/71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg": {
+      "path": "workspace/assets/71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg",
+      "size": 108655,
+      "type": ".jpeg"
+    },
+    "assets/url_20260506_201335_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201335_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 110040,
+      "type": ".txt"
+    },
+    "assets/65a8596fd7514b0795597818e70d3b7f_1778094635.jpg": {
+      "path": "workspace/assets/65a8596fd7514b0795597818e70d3b7f_1778094635.jpg",
+      "size": 1133921,
+      "type": ".jpg"
+    },
+    "assets/3e95f76bdf804a5297f6a547932e58e3_1778111300.jpeg": {
+      "path": "workspace/assets/3e95f76bdf804a5297f6a547932e58e3_1778111300.jpeg",
+      "size": 229809,
+      "type": ".jpeg"
+    },
+    "assets/a70ea222af504d9ca1d9990e6ff76525_1778160293.jpeg": {
+      "path": "workspace/assets/a70ea222af504d9ca1d9990e6ff76525_1778160293.jpeg",
+      "size": 15663,
+      "type": ".jpeg"
+    },
+    "assets/988cb70d59984b0fa422cc4bf9abd26e_1778164178.png": {
+      "path": "workspace/assets/988cb70d59984b0fa422cc4bf9abd26e_1778164178.png",
+      "size": 339896,
+      "type": ".png"
+    },
+    "assets/ec90e156b45a432992d5819486a17d34_1778094873.jpg": {
+      "path": "workspace/assets/ec90e156b45a432992d5819486a17d34_1778094873.jpg",
+      "size": 1133921,
+      "type": ".jpg"
+    },
+    "assets/3add31f6e13b42f6bff684cbc010cf5e_1778160294.png": {
+      "path": "workspace/assets/3add31f6e13b42f6bff684cbc010cf5e_1778160294.png",
+      "size": 765586,
+      "type": ".png"
+    },
+    "assets/a3d56b491239446bbcae14d724c81ce6_1778111890.jpeg": {
+      "path": "workspace/assets/a3d56b491239446bbcae14d724c81ce6_1778111890.jpeg",
+      "size": 173407,
+      "type": ".jpeg"
+    },
+    "assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png": {
+      "path": "workspace/assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png",
+      "size": 596130,
+      "type": ".png"
+    },
+    "assets/2b9691155f164840802d51abdda15b68_1778171421.png": {
+      "path": "workspace/assets/2b9691155f164840802d51abdda15b68_1778171421.png",
+      "size": 401719,
+      "type": ".png"
+    },
+    "assets/99c7460518884088bb153746b607efdd_1778094873.jpg": {
+      "path": "workspace/assets/99c7460518884088bb153746b607efdd_1778094873.jpg",
+      "size": 1031178,
+      "type": ".jpg"
+    },
+    "assets/48d15d5107e548d68133477c05d73331_1778171409.png": {
+      "path": "workspace/assets/48d15d5107e548d68133477c05d73331_1778171409.png",
+      "size": 311445,
+      "type": ".png"
+    },
+    "assets/d0ba114af23a43b9ab4bb3d44656c277_1778094608.jpg": {
+      "path": "workspace/assets/d0ba114af23a43b9ab4bb3d44656c277_1778094608.jpg",
+      "size": 1133921,
+      "type": ".jpg"
+    },
+    "assets/5f584455b9204eb1ac3f6a6c39703248_1778111300.jpeg": {
+      "path": "workspace/assets/5f584455b9204eb1ac3f6a6c39703248_1778111300.jpeg",
+      "size": 269926,
+      "type": ".jpeg"
+    },
+    "assets/url_20260506_201312_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201312_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 3288111,
+      "type": ".txt"
+    },
+    "assets/63fa517a4ecd4ea1bb9afc70fa0e4eef_1778094608.jpg": {
+      "path": "workspace/assets/63fa517a4ecd4ea1bb9afc70fa0e4eef_1778094608.jpg",
+      "size": 1031178,
+      "type": ".jpg"
+    },
+    "assets/692526d5657d4e69bc01b3f9a9184d98_1778094873.jpg": {
+      "path": "workspace/assets/692526d5657d4e69bc01b3f9a9184d98_1778094873.jpg",
+      "size": 1047362,
+      "type": ".jpg"
+    },
+    "assets/cfca3cdf13bf4366a7449b2ca6a3faf7_1778094608.jpg": {
+      "path": "workspace/assets/cfca3cdf13bf4366a7449b2ca6a3faf7_1778094608.jpg",
+      "size": 898855,
+      "type": ".jpg"
+    },
+    "assets/421408ee2f4f4fff802266f467e6198c_1778094873.jpg": {
+      "path": "workspace/assets/421408ee2f4f4fff802266f467e6198c_1778094873.jpg",
+      "size": 1391443,
+      "type": ".jpg"
+    },
+    "assets/8ee60a9edc9e450e8d9f23a44f2c85b9_1778092111.jpg": {
+      "path": "workspace/assets/8ee60a9edc9e450e8d9f23a44f2c85b9_1778092111.jpg",
+      "size": 1133921,
+      "type": ".jpg"
+    },
+    "assets/product_1778239698.jpg": {
+      "path": "workspace/assets/product_1778239698.jpg",
+      "size": 404184,
+      "type": ".jpg"
+    },
+    "assets/1fdbf4f090144490ae5b9a1465e4cf48_1778160294.jpeg": {
+      "path": "workspace/assets/1fdbf4f090144490ae5b9a1465e4cf48_1778160294.jpeg",
+      "size": 68515,
+      "type": ".jpeg"
+    },
+    "assets/f351029da31d454e919127137455bb19_1778160293.png": {
+      "path": "workspace/assets/f351029da31d454e919127137455bb19_1778160293.png",
+      "size": 320053,
+      "type": ".png"
+    },
+    "assets/30ba792099c9450c99eb14c860d33765_1778094608.jpg": {
+      "path": "workspace/assets/30ba792099c9450c99eb14c860d33765_1778094608.jpg",
+      "size": 935796,
+      "type": ".jpg"
+    },
+    "assets/b3dd53c996fb4a59be75e0a2f8f162e5_1778094873.jpg": {
+      "path": "workspace/assets/b3dd53c996fb4a59be75e0a2f8f162e5_1778094873.jpg",
+      "size": 935796,
+      "type": ".jpg"
+    },
+    "assets/09edbb960af148e49c622fa828facf86_1778160293.png": {
+      "path": "workspace/assets/09edbb960af148e49c622fa828facf86_1778160293.png",
+      "size": 401719,
+      "type": ".png"
+    },
+    "assets/3404a76711ed47f4bad8ba6a3ec0af9b_1778111300.jpeg": {
+      "path": "workspace/assets/3404a76711ed47f4bad8ba6a3ec0af9b_1778111300.jpeg",
+      "size": 187405,
+      "type": ".jpeg"
+    },
+    "assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 13245626,
+      "type": ".txt"
+    },
+    "assets/dbe02a07149542fb9151be20ca4b3f4c_1778171427.png": {
+      "path": "workspace/assets/dbe02a07149542fb9151be20ca4b3f4c_1778171427.png",
+      "size": 433452,
+      "type": ".png"
+    },
+    "assets/url_20260506_200854_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200854_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 4165704,
+      "type": ".txt"
+    },
+    "assets/2e7526023ad74fc591ad91a41c9f7a7f_1778171381.png": {
+      "path": "workspace/assets/2e7526023ad74fc591ad91a41c9f7a7f_1778171381.png",
+      "size": 284289,
+      "type": ".png"
+    },
+    "assets/cfc92f90a75b4f3aaf00fe9a320a494d_1778160293.jpeg": {
+      "path": "workspace/assets/cfc92f90a75b4f3aaf00fe9a320a494d_1778160293.jpeg",
+      "size": 31671,
+      "type": ".jpeg"
+    },
+    "assets/90758364e5184e45b24b70b4ea05df11_1778109225.jpeg": {
+      "path": "workspace/assets/90758364e5184e45b24b70b4ea05df11_1778109225.jpeg",
+      "size": 148340,
+      "type": ".jpeg"
+    },
+    "assets/1571da73f891440db93982f1a44555b8_1778115653.jpeg": {
+      "path": "workspace/assets/1571da73f891440db93982f1a44555b8_1778115653.jpeg",
+      "size": 600888,
+      "type": ".jpeg"
+    },
+    "assets/c18f42bc90b84188b5728196e48e6b28_1778074425.png": {
+      "path": "workspace/assets/c18f42bc90b84188b5728196e48e6b28_1778074425.png",
+      "size": 3980,
+      "type": ".png"
+    },
+    "assets/url_20260506_201211_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201211_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 3288111,
+      "type": ".txt"
+    },
+    "assets/af2c964fd0df47edb7736df5db85a986_1778094608.jpg": {
+      "path": "workspace/assets/af2c964fd0df47edb7736df5db85a986_1778094608.jpg",
+      "size": 1391443,
+      "type": ".jpg"
+    },
+    "assets/8e8090e67d8c4ccbbb661d8bf6ed1624_1778243107.jpeg": {
+      "path": "workspace/assets/8e8090e67d8c4ccbbb661d8bf6ed1624_1778243107.jpeg",
+      "size": 818272,
+      "type": ".jpeg"
+    },
+    "assets/2cb7fb39c38b43c6a52ef13eb901dda4_1778095701.png": {
+      "path": "workspace/assets/2cb7fb39c38b43c6a52ef13eb901dda4_1778095701.png",
+      "size": 471743,
+      "type": ".png"
+    },
+    "assets/3d79b8fdc77e4321a4fe7e496d67afb5_1778094608.jpg": {
+      "path": "workspace/assets/3d79b8fdc77e4321a4fe7e496d67afb5_1778094608.jpg",
+      "size": 1047362,
+      "type": ".jpg"
+    },
+    "assets/url_20260506_201336_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201336_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 277544,
+      "type": ".txt"
+    },
+    "assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg": {
+      "path": "workspace/assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg",
+      "size": 202297,
+      "type": ".jpeg"
+    },
+    "assets/url_20260506_200754_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt": {
+      "path": "workspace/assets/url_20260506_200754_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_vid.txt",
+      "size": 4165704,
+      "type": ".txt"
+    },
+    "assets/url_20260506_201417_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_201417_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 3288111,
+      "type": ".txt"
+    },
+    "assets/835a1f17d3d54e03960907bd9a57f35b_1778160294.jpeg": {
+      "path": "workspace/assets/835a1f17d3d54e03960907bd9a57f35b_1778160294.jpeg",
+      "size": 55891,
+      "type": ".jpeg"
+    },
+    "assets/9785cb08b8874e5a8620f75865e683db_1778160294.jpg": {
+      "path": "workspace/assets/9785cb08b8874e5a8620f75865e683db_1778160294.jpg",
+      "size": 67743,
+      "type": ".jpg"
+    },
+    "assets/67c16d7f542b42d28b78b05be8a30ec0_1778125862.png": {
+      "path": "workspace/assets/67c16d7f542b42d28b78b05be8a30ec0_1778125862.png",
+      "size": 103289,
+      "type": ".png"
+    },
+    "assets/1322367b751b43d495870d5d23e9ab9b_1778171450.png": {
+      "path": "workspace/assets/1322367b751b43d495870d5d23e9ab9b_1778171450.png",
+      "size": 320053,
+      "type": ".png"
+    },
+    "assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt": {
+      "path": "workspace/assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "size": 609299,
+      "type": ".txt"
+    },
+    "assets/31917de4bc3c467caa732f287ac6cfe6_1778240692.jpeg": {
+      "path": "workspace/assets/31917de4bc3c467caa732f287ac6cfe6_1778240692.jpeg",
+      "size": 470385,
+      "type": ".jpeg"
+    },
+    "assets/92ca88b570814cd0a14aad0efa17f620_1778160294.jpg": {
+      "path": "workspace/assets/92ca88b570814cd0a14aad0efa17f620_1778160294.jpg",
+      "size": 5779,
+      "type": ".jpg"
+    },
+    "assets/b630812861784375893f16656b4485ba_1778115282.jpeg": {
+      "path": "workspace/assets/b630812861784375893f16656b4485ba_1778115282.jpeg",
+      "size": 199372,
+      "type": ".jpeg"
+    },
+    "assets/9513fc81eab94d3fba307d643c07b35a_1778094873.jpg": {
+      "path": "workspace/assets/9513fc81eab94d3fba307d643c07b35a_1778094873.jpg",
+      "size": 1683607,
+      "type": ".jpg"
+    },
+    "assets/e422826559d34fbea1cbfa4c1998884e_1778114984.jpg": {
+      "path": "workspace/assets/e422826559d34fbea1cbfa4c1998884e_1778114984.jpg",
+      "size": 259393,
+      "type": ".jpg"
+    },
+    "memory/2026-05-06.md": {
+      "path": "workspace/memory/2026-05-06.md",
+      "size": 12501,
+      "type": ".md"
+    },
+    "memory/2026-05-07.md": {
+      "path": "workspace/memory/2026-05-07.md",
+      "size": 60469,
+      "type": ".md"
+    },
+    "memory/2026-05-09.md": {
+      "path": "workspace/memory/2026-05-09.md",
+      "size": 7557,
+      "type": ".md"
+    },
+    "memory/2026-05-10.md": {
+      "path": "workspace/memory/2026-05-10.md",
+      "size": 2323,
+      "type": ".md"
+    },
+    "memory/onboarding_state.json": {
+      "path": "workspace/memory/onboarding_state.json",
+      "size": 793,
+      "type": ".json"
+    },
+    "memory/2026-01-22.md": {
+      "path": "workspace/memory/2026-01-22.md",
+      "size": 1118,
+      "type": ".md"
+    },
+    "memory/2026-05-08.md": {
+      "path": "workspace/memory/2026-05-08.md",
+      "size": 19862,
+      "type": ".md"
+    },
+    "memory/followup_sent_state.json": {
+      "path": "workspace/memory/followup_sent_state.json",
+      "size": 5126,
+      "type": ".json"
+    },
+    "memory/2026-05-11.md": {
+      "path": "workspace/memory/2026-05-11.md",
+      "size": 3504,
+      "type": ".md"
+    },
+    "memory/meta/ingest_stats.jsonl": {
+      "path": "workspace/memory/meta/ingest_stats.jsonl",
+      "size": 4523,
+      "type": ".jsonl"
+    },
+    "memory/strategy/link-response-template.md": {
+      "path": "workspace/memory/strategy/link-response-template.md",
+      "size": 4551,
+      "type": ".md"
+    },
+    "memory/strategy/sales-tactics.md": {
+      "path": "workspace/memory/strategy/sales-tactics.md",
+      "size": 33795,
+      "type": ".md"
+    },
+    "memory/strategy/follow-up.md": {
+      "path": "workspace/memory/strategy/follow-up.md",
+      "size": 8221,
+      "type": ".md"
+    },
+    "memory/strategy/color-selection.md": {
+      "path": "workspace/memory/strategy/color-selection.md",
+      "size": 2023,
+      "type": ".md"
+    },
+    "memory/strategy/diesel-sales-script.md": {
+      "path": "workspace/memory/strategy/diesel-sales-script.md",
+      "size": 7602,
+      "type": ".md"
+    },
+    "memory/strategy/pricing-rules.md": {
+      "path": "workspace/memory/strategy/pricing-rules.md",
+      "size": 5149,
+      "type": ".md"
+    },
+    "memory/strategy/mensagem-grupo-vip.md": {
+      "path": "workspace/memory/strategy/mensagem-grupo-vip.md",
+      "size": 1848,
+      "type": ".md"
+    },
+    "memory/strategy/objection-handling.md": {
+      "path": "workspace/memory/strategy/objection-handling.md",
+      "size": 8393,
+      "type": ".md"
+    },
+    "memory/knowledge/faq.md": {
+      "path": "workspace/memory/knowledge/faq.md",
+      "size": 8002,
+      "type": ".md"
+    },
+    "memory/knowledge/brand-info.md": {
+      "path": "workspace/memory/knowledge/brand-info.md",
+      "size": 6137,
+      "type": ".md"
+    },
+    "memory/knowledge/guide.md": {
+      "path": "workspace/memory/knowledge/guide.md",
+      "size": 1400,
+      "type": ".md"
+    },
+    "memory/knowledge/pricing.md": {
+      "path": "workspace/memory/knowledge/pricing.md",
+      "size": 8661,
+      "type": ".md"
+    },
+    "memory/knowledge/policy.md": {
+      "path": "workspace/memory/knowledge/policy.md",
+      "size": 14236,
+      "type": ".md"
+    },
+    "memory/knowledge/playbook-vendas.md": {
+      "path": "workspace/memory/knowledge/playbook-vendas.md",
+      "size": 18221,
+      "type": ".md"
+    },
+    "memory/knowledge/conversation-closure.md": {
+      "path": "workspace/memory/knowledge/conversation-closure.md",
+      "size": 3251,
+      "type": ".md"
+    },
+    "memory/knowledge/playbook-vendas-completo.md": {
+      "path": "workspace/memory/knowledge/playbook-vendas-completo.md",
+      "size": 10151,
+      "type": ".md"
+    },
+    "memory/knowledge/diesel-brand.md": {
+      "path": "workspace/memory/knowledge/diesel-brand.md",
+      "size": 5225,
+      "type": ".md"
+    },
+    "memory/knowledge/general.md": {
+      "path": "workspace/memory/knowledge/general.md",
+      "size": 47642,
+      "type": ".md"
+    },
+    "memory/knowledge/product-info.md": {
+      "path": "workspace/memory/knowledge/product-info.md",
+      "size": 43307,
+      "type": ".md"
+    },
+    "memory/agendas/231149c1.md": {
+      "path": "workspace/memory/agendas/231149c1.md",
+      "size": 252,
+      "type": ".md"
+    },
+    "memory/agendas/3f100179.md": {
+      "path": "workspace/memory/agendas/3f100179.md",
+      "size": 272,
+      "type": ".md"
+    },
+    "memory/agendas/3513eb51.md": {
+      "path": "workspace/memory/agendas/3513eb51.md",
+      "size": 275,
+      "type": ".md"
+    },
+    "memory/agendas/7add919d.md": {
+      "path": "workspace/memory/agendas/7add919d.md",
+      "size": 288,
+      "type": ".md"
+    },
+    "skills/channel-diagnosis/SKILL.md": {
+      "path": "workspace/skills/channel-diagnosis/SKILL.md",
+      "size": 2339,
+      "type": ".md"
+    },
+    "skills/channel-diagnosis/scripts/run_diagnosis.py": {
+      "path": "workspace/skills/channel-diagnosis/scripts/run_diagnosis.py",
+      "size": 8552,
+      "type": ".py"
+    },
+    "skills/buyer-response-evaluator/SKILL.md": {
+      "path": "workspace/skills/buyer-response-evaluator/SKILL.md",
+      "size": 8253,
+      "type": ".md"
+    },
+    "skills/buyer-response-evaluator/scripts/probe_buyer.py": {
+      "path": "workspace/skills/buyer-response-evaluator/scripts/probe_buyer.py",
+      "size": 7461,
+      "type": ".py"
+    },
+    "skills/sales-summary/SKILL.md": {
+      "path": "workspace/skills/sales-summary/SKILL.md",
+      "size": 27998,
+      "type": ".md"
+    },
+    "skills/platform-guide/SKILL.md": {
+      "path": "workspace/skills/platform-guide/SKILL.md",
+      "size": 13785,
+      "type": ".md"
+    },
+    "skills/manage-hitl-triggers/SKILL.md": {
+      "path": "workspace/skills/manage-hitl-triggers/SKILL.md",
+      "size": 6795,
+      "type": ".md"
+    },
+    "skills/manage-buyer-agent/SKILL.md": {
+      "path": "workspace/skills/manage-buyer-agent/SKILL.md",
+      "size": 3539,
+      "type": ".md"
+    },
+    "skills/instagram-comments/SKILL.md": {
+      "path": "workspace/skills/instagram-comments/SKILL.md",
+      "size": 13259,
+      "type": ".md"
+    },
+    "skills/instagram-comments/scripts/get_posts.py": {
+      "path": "workspace/skills/instagram-comments/scripts/get_posts.py",
+      "size": 3573,
+      "type": ".py"
+    },
+    "skills/instagram-comments/scripts/get_comments.py": {
+      "path": "workspace/skills/instagram-comments/scripts/get_comments.py",
+      "size": 3555,
+      "type": ".py"
+    },
+    "skills/instagram-comments/scripts/batch_reply.py": {
+      "path": "workspace/skills/instagram-comments/scripts/batch_reply.py",
+      "size": 3396,
+      "type": ".py"
+    },
+    "skills/instagram-comments/scripts/reply_comment.py": {
+      "path": "workspace/skills/instagram-comments/scripts/reply_comment.py",
+      "size": 2274,
+      "type": ".py"
+    },
+    "temp/rafael_phone_investigation.md": {
+      "path": "workspace/temp/rafael_phone_investigation.md",
+      "size": 4966,
+      "type": ".md"
+    },
+    "temp/product-info-backup-20260507-163244.md": {
+      "path": "workspace/temp/product-info-backup-20260507-163244.md",
+      "size": 39831,
+      "type": ".md"
+    },
+    "temp/crm_issue_analysis.md": {
+      "path": "workspace/temp/crm_issue_analysis.md",
+      "size": 4377,
+      "type": ".md"
+    },
+    "temp/diagnostic_report.md": {
+      "path": "workspace/temp/diagnostic_report.md",
+      "size": 5249,
+      "type": ".md"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T133739.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T133739.jsonl",
+      "size": 161619,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T153047.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T153047.jsonl",
+      "size": 133731,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T005557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T005557.jsonl",
+      "size": 300930,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T062035.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T062035.jsonl",
+      "size": 111806,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260511T230557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260511T230557.jsonl",
+      "size": 256030,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T010937.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T010937.jsonl",
+      "size": 156075,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T184558.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T184558.jsonl",
+      "size": 224126,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T065634.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T065634.jsonl",
+      "size": 102860,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T061029.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T061029.jsonl",
+      "size": 104158,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T132716.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T132716.jsonl",
+      "size": 172392,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T164650.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T164650.jsonl",
+      "size": 184707,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T135557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T135557.jsonl",
+      "size": 161619,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T133604.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T133604.jsonl",
+      "size": 72743,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T183557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T183557.jsonl",
+      "size": 222458,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260509T201627.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260509T201627.jsonl",
+      "size": 209900,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T141557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T141557.jsonl",
+      "size": 110519,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T141803.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T141803.jsonl",
+      "size": 183500,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260506T191401.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260506T191401.jsonl",
+      "size": 132630,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T033921.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T033921.jsonl",
+      "size": 120934,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T003557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T003557.jsonl",
+      "size": 300930,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260511T083057.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260511T083057.jsonl",
+      "size": 251703,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T082107.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T082107.jsonl",
+      "size": 232478,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T064516.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T064516.jsonl",
+      "size": 126813,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260509T093557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260509T093557.jsonl",
+      "size": 202528,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260506T201508.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260506T201508.jsonl",
+      "size": 206707,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260510T141557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260510T141557.jsonl",
+      "size": 247577,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T160856.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T160856.jsonl",
+      "size": 140811,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T024710.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T024710.jsonl",
+      "size": 121791,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T054557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T054557.jsonl",
+      "size": 160664,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T140557.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T140557.jsonl",
+      "size": 50533,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260509T200057.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260509T200057.jsonl",
+      "size": 209549,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260508T133820.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260508T133820.jsonl",
+      "size": 147044,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260506T171636.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260506T171636.jsonl",
+      "size": 153095,
+      "type": ".jsonl"
+    },
+    "temp/compaction_archives/seller:38537:agent:main/20260507T060057.jsonl": {
+      "path": "workspace/temp/compaction_archives/seller:38537:agent:main/20260507T060057.jsonl",
+      "size": 107433,
+      "type": ".jsonl"
+    },
+    "temp/tool_results/toolu_01LB9HPqpQjAFzHuZM4R33Vu.txt": {
+      "path": "workspace/temp/tool_results/toolu_01LB9HPqpQjAFzHuZM4R33Vu.txt",
+      "size": 7532,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SEcXCRJZfDGTcrTXn4zUB4.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SEcXCRJZfDGTcrTXn4zUB4.txt",
+      "size": 1345,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_012FFFRbbsrwmqLsMjvaiq6f.txt": {
+      "path": "workspace/temp/tool_results/toolu_012FFFRbbsrwmqLsMjvaiq6f.txt",
+      "size": 2075,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Wg8ZCeaXXzbf1XG8CTVF3R.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Wg8ZCeaXXzbf1XG8CTVF3R.txt",
+      "size": 1324,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SjR8T3VPa5kP7K8tx4HyDf.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SjR8T3VPa5kP7K8tx4HyDf.txt",
+      "size": 2562,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01K9ZdQmpLfmbw5eznetGocz.txt": {
+      "path": "workspace/temp/tool_results/toolu_01K9ZdQmpLfmbw5eznetGocz.txt",
+      "size": 18221,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019EdfdSBR8XWGtAptBEpcLW.txt": {
+      "path": "workspace/temp/tool_results/toolu_019EdfdSBR8XWGtAptBEpcLW.txt",
+      "size": 1534,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01K6iTNuQDj1VHMcQQU6tvU4.txt": {
+      "path": "workspace/temp/tool_results/toolu_01K6iTNuQDj1VHMcQQU6tvU4.txt",
+      "size": 2581,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01QqGi6XE5YjdEDLKSzxYrKq.txt": {
+      "path": "workspace/temp/tool_results/toolu_01QqGi6XE5YjdEDLKSzxYrKq.txt",
+      "size": 826,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_018TVjj6kRDpE15VGvSMK54P.txt": {
+      "path": "workspace/temp/tool_results/toolu_018TVjj6kRDpE15VGvSMK54P.txt",
+      "size": 27209,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01FL34B34j2V3MpitWW39Fcd.txt": {
+      "path": "workspace/temp/tool_results/toolu_01FL34B34j2V3MpitWW39Fcd.txt",
+      "size": 25046,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011PsbwXYipaUjPSNmUAPvcR.txt": {
+      "path": "workspace/temp/tool_results/toolu_011PsbwXYipaUjPSNmUAPvcR.txt",
+      "size": 11558,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01RwtndLKfAzoKbvXM9TrG2A.txt": {
+      "path": "workspace/temp/tool_results/toolu_01RwtndLKfAzoKbvXM9TrG2A.txt",
+      "size": 1214,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013H56krP5yMs5Y8iMbTMVyP.txt": {
+      "path": "workspace/temp/tool_results/toolu_013H56krP5yMs5Y8iMbTMVyP.txt",
+      "size": 706,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013rwwqEXYNLMUtVJCXBF7JR.txt": {
+      "path": "workspace/temp/tool_results/toolu_013rwwqEXYNLMUtVJCXBF7JR.txt",
+      "size": 9348,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016oyrb7dzR26yEMBiwRKmEA.txt": {
+      "path": "workspace/temp/tool_results/toolu_016oyrb7dzR26yEMBiwRKmEA.txt",
+      "size": 998,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01BGJktMZMHzP7U5AG8fyjYs.txt": {
+      "path": "workspace/temp/tool_results/toolu_01BGJktMZMHzP7U5AG8fyjYs.txt",
+      "size": 998,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01966ZYhsbFXJ2xR1BxA9XBp.txt": {
+      "path": "workspace/temp/tool_results/toolu_01966ZYhsbFXJ2xR1BxA9XBp.txt",
+      "size": 44579,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01JKNxtzNxmEkxwTGPLPztkv.txt": {
+      "path": "workspace/temp/tool_results/toolu_01JKNxtzNxmEkxwTGPLPztkv.txt",
+      "size": 24269,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01FgfXpgrdkdPHVJCujX3vk4.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01FgfXpgrdkdPHVJCujX3vk4.txt",
+      "size": 1189,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01QgDXpqBeaZqQKAuUyUkFs1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01QgDXpqBeaZqQKAuUyUkFs1.txt",
+      "size": 44579,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_012oSnW5XZvTPGyN8bKSENVZ.txt": {
+      "path": "workspace/temp/tool_results/toolu_012oSnW5XZvTPGyN8bKSENVZ.txt",
+      "size": 682,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01MKpTEvrUWAudd1Y2KdP44D.txt": {
+      "path": "workspace/temp/tool_results/toolu_01MKpTEvrUWAudd1Y2KdP44D.txt",
+      "size": 838,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011du36jbRGvuQ24YUME6uiW.txt": {
+      "path": "workspace/temp/tool_results/toolu_011du36jbRGvuQ24YUME6uiW.txt",
+      "size": 793,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01PAwPi5Rq67wuesivw8W42a.txt": {
+      "path": "workspace/temp/tool_results/toolu_01PAwPi5Rq67wuesivw8W42a.txt",
+      "size": 26950,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01NDh48UVgM5eP2r9Ywm9TYk.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01NDh48UVgM5eP2r9Ywm9TYk.txt",
+      "size": 149960,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01QarneVu1htoUb5BL8LaKw2.txt": {
+      "path": "workspace/temp/tool_results/toolu_01QarneVu1htoUb5BL8LaKw2.txt",
+      "size": 60272,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011qXJob5T4G78fN2XbqxR9U.txt": {
+      "path": "workspace/temp/tool_results/toolu_011qXJob5T4G78fN2XbqxR9U.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01VLUkgiWKDmvoT5qr57M9kM.txt": {
+      "path": "workspace/temp/tool_results/toolu_01VLUkgiWKDmvoT5qr57M9kM.txt",
+      "size": 3078,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01HFoed6mcB441pvsoGExh3h.txt": {
+      "path": "workspace/temp/tool_results/toolu_01HFoed6mcB441pvsoGExh3h.txt",
+      "size": 1593,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01VQgdiK6h3KbxFzESDQeDmW.txt": {
+      "path": "workspace/temp/tool_results/toolu_01VQgdiK6h3KbxFzESDQeDmW.txt",
+      "size": 703,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01VSRMu6DbNHMjbBkFThvyRz.txt": {
+      "path": "workspace/temp/tool_results/toolu_01VSRMu6DbNHMjbBkFThvyRz.txt",
+      "size": 1229,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01CBN6c2Zp4SaVtGCQLcmVu5.txt": {
+      "path": "workspace/temp/tool_results/toolu_01CBN6c2Zp4SaVtGCQLcmVu5.txt",
+      "size": 1907,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01AKefNcKKkwEedBUoUxqPeE.txt": {
+      "path": "workspace/temp/tool_results/toolu_01AKefNcKKkwEedBUoUxqPeE.txt",
+      "size": 775,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_018KEDHA8Csa9Xxn48V5opHX.txt": {
+      "path": "workspace/temp/tool_results/toolu_018KEDHA8Csa9Xxn48V5opHX.txt",
+      "size": 21338,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01KVkbjyEuaHoKojnTAup6Cd.txt": {
+      "path": "workspace/temp/tool_results/toolu_01KVkbjyEuaHoKojnTAup6Cd.txt",
+      "size": 4235,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01U6J7RCvBkGv72rd8y8Dj1v.txt": {
+      "path": "workspace/temp/tool_results/toolu_01U6J7RCvBkGv72rd8y8Dj1v.txt",
+      "size": 1759,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SX3TaKqyiuS4jVG45EUGAQ.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SX3TaKqyiuS4jVG45EUGAQ.txt",
+      "size": 688,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016YTnmYY6wrDX9tMweGPRz4.txt": {
+      "path": "workspace/temp/tool_results/toolu_016YTnmYY6wrDX9tMweGPRz4.txt",
+      "size": 836,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01J25Tsdu2uSwd9Bs5SYMNJi.txt": {
+      "path": "workspace/temp/tool_results/toolu_01J25Tsdu2uSwd9Bs5SYMNJi.txt",
+      "size": 804,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01YRW5wbo7bFkXxHp7GzyRVs.txt": {
+      "path": "workspace/temp/tool_results/toolu_01YRW5wbo7bFkXxHp7GzyRVs.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01HbdZnPkZ15NeHu48Smb249.txt": {
+      "path": "workspace/temp/tool_results/toolu_01HbdZnPkZ15NeHu48Smb249.txt",
+      "size": 7743,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013UJ54CznscKJRksAokRin3.txt": {
+      "path": "workspace/temp/tool_results/toolu_013UJ54CznscKJRksAokRin3.txt",
+      "size": 25052,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01XBMtMsTv2YhhZvTGRaKeRd.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01XBMtMsTv2YhhZvTGRaKeRd.txt",
+      "size": 3265,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011VmzcXBXVkpUQHVZt5qmtk.txt": {
+      "path": "workspace/temp/tool_results/toolu_011VmzcXBXVkpUQHVZt5qmtk.txt",
+      "size": 541,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01K7vAaVd3VuyESayhf6zu3T.txt": {
+      "path": "workspace/temp/tool_results/toolu_01K7vAaVd3VuyESayhf6zu3T.txt",
+      "size": 2139,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Q3EP2B4s9RAX6jdeGcenyo.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Q3EP2B4s9RAX6jdeGcenyo.txt",
+      "size": 29079,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01YCUc1fdoshQb7hXXmEK6ZJ.txt": {
+      "path": "workspace/temp/tool_results/toolu_01YCUc1fdoshQb7hXXmEK6ZJ.txt",
+      "size": 1912,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01GsEYR8rfxTUP2uMZ8udmj4.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01GsEYR8rfxTUP2uMZ8udmj4.txt",
+      "size": 819,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01HUqkAvJpdZbFUyhR17dNty.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01HUqkAvJpdZbFUyhR17dNty.txt",
+      "size": 621,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01GZT6dWBqZrwDGqdWkinNz8.txt": {
+      "path": "workspace/temp/tool_results/toolu_01GZT6dWBqZrwDGqdWkinNz8.txt",
+      "size": 41628,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013ZmDU3fgWEeHFAGXrkMjce.txt": {
+      "path": "workspace/temp/tool_results/toolu_013ZmDU3fgWEeHFAGXrkMjce.txt",
+      "size": 2562,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_018cP3TcZ2BZEfzZHsqMvKe1.txt": {
+      "path": "workspace/temp/tool_results/toolu_018cP3TcZ2BZEfzZHsqMvKe1.txt",
+      "size": 1433,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01D2c9btPpG6ExVeY1odXcCy.txt": {
+      "path": "workspace/temp/tool_results/toolu_01D2c9btPpG6ExVeY1odXcCy.txt",
+      "size": 1222,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_0157ZSpbfpCYwttuLKwfezwg.txt": {
+      "path": "workspace/temp/tool_results/toolu_0157ZSpbfpCYwttuLKwfezwg.txt",
+      "size": 698,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01W3vmEXTLSiZMBysBYpX9Fg.txt": {
+      "path": "workspace/temp/tool_results/toolu_01W3vmEXTLSiZMBysBYpX9Fg.txt",
+      "size": 23729,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_015utzdx7okGYoA3yPxMEdtV.txt": {
+      "path": "workspace/temp/tool_results/toolu_015utzdx7okGYoA3yPxMEdtV.txt",
+      "size": 23083,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_012woa2myQeVyZrrNByQLgkG.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_012woa2myQeVyZrrNByQLgkG.txt",
+      "size": 2480,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014gj2trAxwfLfJXwUjAWU5V.txt": {
+      "path": "workspace/temp/tool_results/toolu_014gj2trAxwfLfJXwUjAWU5V.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014gq3LmfhDcp1MgRtyHYrhi.txt": {
+      "path": "workspace/temp/tool_results/toolu_014gq3LmfhDcp1MgRtyHYrhi.txt",
+      "size": 648,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011Kttj4Ee76A7TAw4p34ndE.txt": {
+      "path": "workspace/temp/tool_results/toolu_011Kttj4Ee76A7TAw4p34ndE.txt",
+      "size": 2948,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SziBFdtqKfxnGugXrLkut1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SziBFdtqKfxnGugXrLkut1.txt",
+      "size": 2840,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_0171puFmmvkQjxhJL8i36hfe.txt": {
+      "path": "workspace/temp/tool_results/toolu_0171puFmmvkQjxhJL8i36hfe.txt",
+      "size": 1486,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019SaYCxR2MkXwSwjaKahv5F.txt": {
+      "path": "workspace/temp/tool_results/toolu_019SaYCxR2MkXwSwjaKahv5F.txt",
+      "size": 39409,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01KHsDSZUrig6hiVANiuSms5.txt": {
+      "path": "workspace/temp/tool_results/toolu_01KHsDSZUrig6hiVANiuSms5.txt",
+      "size": 738,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01QV2Jr2bgQqc4qni3KNjRPz.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01QV2Jr2bgQqc4qni3KNjRPz.txt",
+      "size": 834,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01RqHpYUkPRjEa8ZgL6UzPW9.txt": {
+      "path": "workspace/temp/tool_results/toolu_01RqHpYUkPRjEa8ZgL6UzPW9.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01ESqxRm6MjKwhaHuCz6vM68.txt": {
+      "path": "workspace/temp/tool_results/toolu_01ESqxRm6MjKwhaHuCz6vM68.txt",
+      "size": 52913,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_014AXqbTLgV7VymoRCsfCE6K.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_014AXqbTLgV7VymoRCsfCE6K.txt",
+      "size": 5318,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01AYAJi7BKeCjehGQ8PJMvVg.txt": {
+      "path": "workspace/temp/tool_results/toolu_01AYAJi7BKeCjehGQ8PJMvVg.txt",
+      "size": 715,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01DsjapDZZjGeS5dPikE9Et1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01DsjapDZZjGeS5dPikE9Et1.txt",
+      "size": 808,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01E94J9Tmjw9JBH4ViHhVfSV.txt": {
+      "path": "workspace/temp/tool_results/toolu_01E94J9Tmjw9JBH4ViHhVfSV.txt",
+      "size": 2805,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01VpmL1ejJXArEiouF9a2YXp.txt": {
+      "path": "workspace/temp/tool_results/toolu_01VpmL1ejJXArEiouF9a2YXp.txt",
+      "size": 682,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013j97fwP2pTLDgGxmo6VG5f.txt": {
+      "path": "workspace/temp/tool_results/toolu_013j97fwP2pTLDgGxmo6VG5f.txt",
+      "size": 690,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01HASS3BZNgpergCU38Wuvmf.txt": {
+      "path": "workspace/temp/tool_results/toolu_01HASS3BZNgpergCU38Wuvmf.txt",
+      "size": 9591,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01VJqCVSQbinmpMjSTUSndGa.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01VJqCVSQbinmpMjSTUSndGa.txt",
+      "size": 3291,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01DP9ZnDydw8KneaiECxkXpH.txt": {
+      "path": "workspace/temp/tool_results/toolu_01DP9ZnDydw8KneaiECxkXpH.txt",
+      "size": 541,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01SmCH6bo1rXSXMogKq5RQ6t.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01SmCH6bo1rXSXMogKq5RQ6t.txt",
+      "size": 13785,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_018uD1ZWKk9msda9Yfr72bra.txt": {
+      "path": "workspace/temp/tool_results/toolu_018uD1ZWKk9msda9Yfr72bra.txt",
+      "size": 6795,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01MjT7JXTiyCfW5tsL1gzj66.txt": {
+      "path": "workspace/temp/tool_results/toolu_01MjT7JXTiyCfW5tsL1gzj66.txt",
+      "size": 7263,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01KFFUeYhP5W9osngHF8gFDA.txt": {
+      "path": "workspace/temp/tool_results/toolu_01KFFUeYhP5W9osngHF8gFDA.txt",
+      "size": 23981,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_017wLG7SuiYwNhJbBW2J6Sza.txt": {
+      "path": "workspace/temp/tool_results/toolu_017wLG7SuiYwNhJbBW2J6Sza.txt",
+      "size": 2948,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01YFymwXXvQhE6TyiuvFwT1X.txt": {
+      "path": "workspace/temp/tool_results/toolu_01YFymwXXvQhE6TyiuvFwT1X.txt",
+      "size": 42053,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SW2QAWEHwyviRu8aemsKKo.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SW2QAWEHwyviRu8aemsKKo.txt",
+      "size": 22898,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_0198mHY5XJjarUbPLCVupaQh.txt": {
+      "path": "workspace/temp/tool_results/toolu_0198mHY5XJjarUbPLCVupaQh.txt",
+      "size": 27604,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_012yUuLLHbX9hAaG7V2mceqP.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_012yUuLLHbX9hAaG7V2mceqP.txt",
+      "size": 1899,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01BMANcJpGprRf9YTwBU5EsE.txt": {
+      "path": "workspace/temp/tool_results/toolu_01BMANcJpGprRf9YTwBU5EsE.txt",
+      "size": 707,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01QatubFQVXZz2xCrz74VTGU.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01QatubFQVXZz2xCrz74VTGU.txt",
+      "size": 53025,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01XfPxb7cT5KvGZmmnFTCJGP.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01XfPxb7cT5KvGZmmnFTCJGP.txt",
+      "size": 710,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01TzMEQwVx5rK46cMadiK753.txt": {
+      "path": "workspace/temp/tool_results/toolu_01TzMEQwVx5rK46cMadiK753.txt",
+      "size": 1764,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01D64dU6wh5fhQbXCPzqs9Li.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01D64dU6wh5fhQbXCPzqs9Li.txt",
+      "size": 817,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01TPRQ1BmDS6hsuaVRAuyVHL.txt": {
+      "path": "workspace/temp/tool_results/toolu_01TPRQ1BmDS6hsuaVRAuyVHL.txt",
+      "size": 1370,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01KfgR1FnVkvY6hVFuT2XT4e.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01KfgR1FnVkvY6hVFuT2XT4e.txt",
+      "size": 2810,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01AQLZJyrKKrm1X22bFmfFiX.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01AQLZJyrKKrm1X22bFmfFiX.txt",
+      "size": 23746,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01FpgbHcfR8i5jheGK6SEV16.txt": {
+      "path": "workspace/temp/tool_results/toolu_01FpgbHcfR8i5jheGK6SEV16.txt",
+      "size": 27998,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01UJ4obWQTcBkqAHQTxVsMGY.txt": {
+      "path": "workspace/temp/tool_results/toolu_01UJ4obWQTcBkqAHQTxVsMGY.txt",
+      "size": 541,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01VzaX9SFfirBYGxS6NL5vnA.txt": {
+      "path": "workspace/temp/tool_results/toolu_01VzaX9SFfirBYGxS6NL5vnA.txt",
+      "size": 825,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_015EtN5nQkBTfEVupAn9X8wW.txt": {
+      "path": "workspace/temp/tool_results/toolu_015EtN5nQkBTfEVupAn9X8wW.txt",
+      "size": 822,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01NUjzQ6RVGBLV1zsFcUYoM6.txt": {
+      "path": "workspace/temp/tool_results/toolu_01NUjzQ6RVGBLV1zsFcUYoM6.txt",
+      "size": 4757,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01M5y4NVsHERWfivbut86QVr.txt": {
+      "path": "workspace/temp/tool_results/toolu_01M5y4NVsHERWfivbut86QVr.txt",
+      "size": 36957,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01WPp1zRfw4TRCn3SEvjVLcf.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01WPp1zRfw4TRCn3SEvjVLcf.txt",
+      "size": 2771,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014mycf5WcZtFPAbnK1iZVod.txt": {
+      "path": "workspace/temp/tool_results/toolu_014mycf5WcZtFPAbnK1iZVod.txt",
+      "size": 2892,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Ss1KGmPNa8L6hBhWpEBgMe.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Ss1KGmPNa8L6hBhWpEBgMe.txt",
+      "size": 5227,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Jo33SpyNuxmZXMUgRbS7K7.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Jo33SpyNuxmZXMUgRbS7K7.txt",
+      "size": 801,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_017whRpRX6bf5CPo1RG11eZQ.txt": {
+      "path": "workspace/temp/tool_results/toolu_017whRpRX6bf5CPo1RG11eZQ.txt",
+      "size": 2948,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01LW7NNxQiBXkYVzrGZenjQQ.txt": {
+      "path": "workspace/temp/tool_results/toolu_01LW7NNxQiBXkYVzrGZenjQQ.txt",
+      "size": 2810,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_018PvbN7yJwFtC7y5hjxf1xT.txt": {
+      "path": "workspace/temp/tool_results/toolu_018PvbN7yJwFtC7y5hjxf1xT.txt",
+      "size": 19360,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016avVyfxy798zNvqii4g2fN.txt": {
+      "path": "workspace/temp/tool_results/toolu_016avVyfxy798zNvqii4g2fN.txt",
+      "size": 998,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Q9LF7dX7Qg36UbfBUuG62Q.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Q9LF7dX7Qg36UbfBUuG62Q.txt",
+      "size": 13785,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_017ggGMC79xcmN4Nt1RGXGz2.txt": {
+      "path": "workspace/temp/tool_results/toolu_017ggGMC79xcmN4Nt1RGXGz2.txt",
+      "size": 6077,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01VdP6HeGBTwJ2PUBCyEM6xo.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01VdP6HeGBTwJ2PUBCyEM6xo.txt",
+      "size": 10043,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013e39s4Upgtrc5MkDhGUgH9.txt": {
+      "path": "workspace/temp/tool_results/toolu_013e39s4Upgtrc5MkDhGUgH9.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01AdbpEnMzTawbosnguExiPk.txt": {
+      "path": "workspace/temp/tool_results/toolu_01AdbpEnMzTawbosnguExiPk.txt",
+      "size": 722,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01TgPRFVxbDRV59tEiUMh4xc.txt": {
+      "path": "workspace/temp/tool_results/toolu_01TgPRFVxbDRV59tEiUMh4xc.txt",
+      "size": 1926,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019e4vHsSJUE5yEMgKe4qFqt.txt": {
+      "path": "workspace/temp/tool_results/toolu_019e4vHsSJUE5yEMgKe4qFqt.txt",
+      "size": 42934,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01KQNB4N7eCuoEGogQ5Bdzvi.txt": {
+      "path": "workspace/temp/tool_results/toolu_01KQNB4N7eCuoEGogQ5Bdzvi.txt",
+      "size": 45553,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019HpNETVHhruDg5vZmq9Vu8.txt": {
+      "path": "workspace/temp/tool_results/toolu_019HpNETVHhruDg5vZmq9Vu8.txt",
+      "size": 1966,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01A5hqnMH2y26QZm4XasvbXE.txt": {
+      "path": "workspace/temp/tool_results/toolu_01A5hqnMH2y26QZm4XasvbXE.txt",
+      "size": 1907,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01E7sire7QSyuhVieNPD8pKn.txt": {
+      "path": "workspace/temp/tool_results/toolu_01E7sire7QSyuhVieNPD8pKn.txt",
+      "size": 835,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01LYdrkyFNkphKwx2CQexaet.txt": {
+      "path": "workspace/temp/tool_results/toolu_01LYdrkyFNkphKwx2CQexaet.txt",
+      "size": 5217,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01TFQq59JgWQrKjtMj4nGBQC.txt": {
+      "path": "workspace/temp/tool_results/toolu_01TFQq59JgWQrKjtMj4nGBQC.txt",
+      "size": 828,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01BTLT5cypBq2osrC2DGGkLJ.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01BTLT5cypBq2osrC2DGGkLJ.txt",
+      "size": 826,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01TgYBsM1yR1k4ijB9iUjX1Y.txt": {
+      "path": "workspace/temp/tool_results/toolu_01TgYBsM1yR1k4ijB9iUjX1Y.txt",
+      "size": 807,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01AYN7Kxn8xed5rEbZepGGb1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01AYN7Kxn8xed5rEbZepGGb1.txt",
+      "size": 4479,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01MDfjxsVuSxwxiauq9Ua7gL.txt": {
+      "path": "workspace/temp/tool_results/toolu_01MDfjxsVuSxwxiauq9Ua7gL.txt",
+      "size": 2948,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01Tp7Z2RC3R1G3jJg5TkPX9m.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01Tp7Z2RC3R1G3jJg5TkPX9m.txt",
+      "size": 149295,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013Q1e4T81ZTCdURxdJtVFeJ.txt": {
+      "path": "workspace/temp/tool_results/toolu_013Q1e4T81ZTCdURxdJtVFeJ.txt",
+      "size": 18412,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Sd24z3ySCeZstQ9oPY8swM.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Sd24z3ySCeZstQ9oPY8swM.txt",
+      "size": 76161,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_013WvHUzrub6DDgk8jboJR92.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_013WvHUzrub6DDgk8jboJR92.txt",
+      "size": 835,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01DnNoj7bweVDcDmg1aMNMfS.txt": {
+      "path": "workspace/temp/tool_results/toolu_01DnNoj7bweVDcDmg1aMNMfS.txt",
+      "size": 3086,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014mNStNrXyHtPpYjCHTRRip.txt": {
+      "path": "workspace/temp/tool_results/toolu_014mNStNrXyHtPpYjCHTRRip.txt",
+      "size": 1437,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019ZupJqAbcnFLitPkpdsPza.txt": {
+      "path": "workspace/temp/tool_results/toolu_019ZupJqAbcnFLitPkpdsPza.txt",
+      "size": 2071,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Q9x74rbMLKNN46mmWrSvFm.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Q9x74rbMLKNN46mmWrSvFm.txt",
+      "size": 804,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01LeKka5d83WYQ7dngMuMQ7g.txt": {
+      "path": "workspace/temp/tool_results/toolu_01LeKka5d83WYQ7dngMuMQ7g.txt",
+      "size": 23683,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011FKBudpKcJb8divnLMdp5m.txt": {
+      "path": "workspace/temp/tool_results/toolu_011FKBudpKcJb8divnLMdp5m.txt",
+      "size": 1926,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Q8qSPD4bjfc9umGf2vDKyc.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Q8qSPD4bjfc9umGf2vDKyc.txt",
+      "size": 3097,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_0121NDvbtyKJUgbzWCmCQMBV.txt": {
+      "path": "workspace/temp/tool_results/toolu_0121NDvbtyKJUgbzWCmCQMBV.txt",
+      "size": 719,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01FgvEqibCav7iuFfHnV6nVz.txt": {
+      "path": "workspace/temp/tool_results/toolu_01FgvEqibCav7iuFfHnV6nVz.txt",
+      "size": 45553,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Bu7BdDqNfrzmVdbWbGobmp.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Bu7BdDqNfrzmVdbWbGobmp.txt",
+      "size": 1949,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01XQrdFK5BLZevXt9zj9xDdU.txt": {
+      "path": "workspace/temp/tool_results/toolu_01XQrdFK5BLZevXt9zj9xDdU.txt",
+      "size": 2993,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01NZ1ub4TYWC3HAwoFZR1Lna.txt": {
+      "path": "workspace/temp/tool_results/toolu_01NZ1ub4TYWC3HAwoFZR1Lna.txt",
+      "size": 716,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01Dg5BQaNfCTXZUQBoXGYB8d.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01Dg5BQaNfCTXZUQBoXGYB8d.txt",
+      "size": 16957,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01H2HXSRftC1ZABT4jhZvytA.txt": {
+      "path": "workspace/temp/tool_results/toolu_01H2HXSRftC1ZABT4jhZvytA.txt",
+      "size": 809,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Qedx3GeaVHVTKQ7m42Y5MA.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Qedx3GeaVHVTKQ7m42Y5MA.txt",
+      "size": 704,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01C5VWS44inuRqBdEXfAWFp1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01C5VWS44inuRqBdEXfAWFp1.txt",
+      "size": 1735,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016qwjmCDfi3UwoAZM19b1aJ.txt": {
+      "path": "workspace/temp/tool_results/toolu_016qwjmCDfi3UwoAZM19b1aJ.txt",
+      "size": 29297,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_015yMoMMxCXwALo3NRXCLNuQ.txt": {
+      "path": "workspace/temp/tool_results/toolu_015yMoMMxCXwALo3NRXCLNuQ.txt",
+      "size": 584,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_011jbq8YBrSJUBxAH3YgZ3so.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_011jbq8YBrSJUBxAH3YgZ3so.txt",
+      "size": 1523,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_015WUjo5VFBZHkg6rrAEDAAU.txt": {
+      "path": "workspace/temp/tool_results/toolu_015WUjo5VFBZHkg6rrAEDAAU.txt",
+      "size": 5276,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Y5spjFHpo5CqVSQJahATxf.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Y5spjFHpo5CqVSQJahATxf.txt",
+      "size": 698,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01PtwEBMdseafpoqrNMuMyQS.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01PtwEBMdseafpoqrNMuMyQS.txt",
+      "size": 707,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01QQbexqH5WFGHXNHw8nFzhK.txt": {
+      "path": "workspace/temp/tool_results/toolu_01QQbexqH5WFGHXNHw8nFzhK.txt",
+      "size": 6333,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011LeguScDE8F2uTHYJL5muz.txt": {
+      "path": "workspace/temp/tool_results/toolu_011LeguScDE8F2uTHYJL5muz.txt",
+      "size": 837,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01CxyWpcd8Ap7d7hihPg5AGK.txt": {
+      "path": "workspace/temp/tool_results/toolu_01CxyWpcd8Ap7d7hihPg5AGK.txt",
+      "size": 3790,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SuWFL5enpxuP6AoCsbr4Ge.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SuWFL5enpxuP6AoCsbr4Ge.txt",
+      "size": 2170,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01WijV8XBGrD3c1jNbHvp5ci.txt": {
+      "path": "workspace/temp/tool_results/toolu_01WijV8XBGrD3c1jNbHvp5ci.txt",
+      "size": 1199,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01MdEtNKNgiCwQNPxUmdqxoR.txt": {
+      "path": "workspace/temp/tool_results/toolu_01MdEtNKNgiCwQNPxUmdqxoR.txt",
+      "size": 1189,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01WoLgbuAeaYhtb3K1mYbAk5.txt": {
+      "path": "workspace/temp/tool_results/toolu_01WoLgbuAeaYhtb3K1mYbAk5.txt",
+      "size": 124816,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_011HLUzEEth2XrjzMHsVarrH.txt": {
+      "path": "workspace/temp/tool_results/toolu_011HLUzEEth2XrjzMHsVarrH.txt",
+      "size": 135295,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013auR6P5BuBQm39JUzWJFd5.txt": {
+      "path": "workspace/temp/tool_results/toolu_013auR6P5BuBQm39JUzWJFd5.txt",
+      "size": 659,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01LYhGxrSKWcB49Kq79VQmCs.txt": {
+      "path": "workspace/temp/tool_results/toolu_01LYhGxrSKWcB49Kq79VQmCs.txt",
+      "size": 13785,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Wb7CzQCfQbT4a5HpTv9bLB.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Wb7CzQCfQbT4a5HpTv9bLB.txt",
+      "size": 5660,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01U3ptELmr1xsMAeDW2p226a.txt": {
+      "path": "workspace/temp/tool_results/toolu_01U3ptELmr1xsMAeDW2p226a.txt",
+      "size": 1607,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_015m7bZ6jw7RUcRVYcYxDwgA.txt": {
+      "path": "workspace/temp/tool_results/toolu_015m7bZ6jw7RUcRVYcYxDwgA.txt",
+      "size": 23520,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01VQ7zH6eSyubeQLramaBTXa.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01VQ7zH6eSyubeQLramaBTXa.txt",
+      "size": 10412,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01MBVYbFKttfYPYPpfiuMK7S.txt": {
+      "path": "workspace/temp/tool_results/toolu_01MBVYbFKttfYPYPpfiuMK7S.txt",
+      "size": 1520,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01JwA11qW5xz69by8vmyw8VQ.txt": {
+      "path": "workspace/temp/tool_results/toolu_01JwA11qW5xz69by8vmyw8VQ.txt",
+      "size": 829,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016XTobj9DcdgAbLxDtKVWe8.txt": {
+      "path": "workspace/temp/tool_results/toolu_016XTobj9DcdgAbLxDtKVWe8.txt",
+      "size": 5768,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01WEdxpueRE2UqeVmedf83Pa.txt": {
+      "path": "workspace/temp/tool_results/toolu_01WEdxpueRE2UqeVmedf83Pa.txt",
+      "size": 6095,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014axkWgc29YRocwf5LKdBf7.txt": {
+      "path": "workspace/temp/tool_results/toolu_014axkWgc29YRocwf5LKdBf7.txt",
+      "size": 3886,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01PzQYALkTveX6KGdiQ4LTDX.txt": {
+      "path": "workspace/temp/tool_results/toolu_01PzQYALkTveX6KGdiQ4LTDX.txt",
+      "size": 819,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01YbfgxqcMX7nWozcxwjXB6F.txt": {
+      "path": "workspace/temp/tool_results/toolu_01YbfgxqcMX7nWozcxwjXB6F.txt",
+      "size": 707,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_013oeRsQrt1LbjG7w8PjG8X9.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_013oeRsQrt1LbjG7w8PjG8X9.txt",
+      "size": 829,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_019HN31EaVQ6CMLf4uw28fyk.txt": {
+      "path": "workspace/temp/tool_results/toolu_019HN31EaVQ6CMLf4uw28fyk.txt",
+      "size": 1915,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_015ioDNBz9KT4QWpFq3WKgSW.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_015ioDNBz9KT4QWpFq3WKgSW.txt",
+      "size": 57094,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01KZ8VbY1pHUF8ARVpoH34ao.txt": {
+      "path": "workspace/temp/tool_results/toolu_01KZ8VbY1pHUF8ARVpoH34ao.txt",
+      "size": 41045,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01PKT2mcAokrPsvZpbZUvTsB.txt": {
+      "path": "workspace/temp/tool_results/toolu_01PKT2mcAokrPsvZpbZUvTsB.txt",
+      "size": 10362,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_0183r82FxmZAgdWFbP6a9Ahz.txt": {
+      "path": "workspace/temp/tool_results/toolu_0183r82FxmZAgdWFbP6a9Ahz.txt",
+      "size": 21302,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01GspJ5Aksg8ApD8CFgTJU4K.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01GspJ5Aksg8ApD8CFgTJU4K.txt",
+      "size": 2026,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_012B4G2bcLeisVar7zQHcHmZ.txt": {
+      "path": "workspace/temp/tool_results/toolu_012B4G2bcLeisVar7zQHcHmZ.txt",
+      "size": 841,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_013fwVvqRR7JbNW92JMJwv4r.txt": {
+      "path": "workspace/temp/tool_results/toolu_013fwVvqRR7JbNW92JMJwv4r.txt",
+      "size": 5692,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_014VjbVFEa1iHVbqCFqgw85s.txt": {
+      "path": "workspace/temp/tool_results/toolu_014VjbVFEa1iHVbqCFqgw85s.txt",
+      "size": 615,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01JXugwyUJgna6TDGZK4Asi9.txt": {
+      "path": "workspace/temp/tool_results/toolu_01JXugwyUJgna6TDGZK4Asi9.txt",
+      "size": 5168,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01T3LCCfmfURQx5csPyv3fuw.txt": {
+      "path": "workspace/temp/tool_results/toolu_01T3LCCfmfURQx5csPyv3fuw.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01NeEfT2cgBqKtbvW1Vj2Wc5.txt": {
+      "path": "workspace/temp/tool_results/toolu_01NeEfT2cgBqKtbvW1Vj2Wc5.txt",
+      "size": 1051,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01SMdpPpdUss4gTfPamzkbE2.txt": {
+      "path": "workspace/temp/tool_results/toolu_01SMdpPpdUss4gTfPamzkbE2.txt",
+      "size": 2562,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01RZGgrPmvw3BHoiG7cZV861.txt": {
+      "path": "workspace/temp/tool_results/toolu_01RZGgrPmvw3BHoiG7cZV861.txt",
+      "size": 693,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01PgyaVoZwsb6yMLq5zaDPsC.txt": {
+      "path": "workspace/temp/tool_results/toolu_01PgyaVoZwsb6yMLq5zaDPsC.txt",
+      "size": 2914,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Qi2oEcCaMBRdVErG7uTGt3.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Qi2oEcCaMBRdVErG7uTGt3.txt",
+      "size": 941,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_016kPnd45CM1oTofBYGdQin3.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_016kPnd45CM1oTofBYGdQin3.txt",
+      "size": 620,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01DqeDi2tbqhNJWB1rxvBsxX.txt": {
+      "path": "workspace/temp/tool_results/toolu_01DqeDi2tbqhNJWB1rxvBsxX.txt",
+      "size": 6565,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_016Awi1dH3UsUnnrEv95Rx2J.txt": {
+      "path": "workspace/temp/tool_results/toolu_016Awi1dH3UsUnnrEv95Rx2J.txt",
+      "size": 7855,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_bdrk_01N729mKHtg4Ktg1wFHj3fig.txt": {
+      "path": "workspace/temp/tool_results/toolu_bdrk_01N729mKHtg4Ktg1wFHj3fig.txt",
+      "size": 24089,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01Wn4ZRzHa9hf1gv5kbktNV3.txt": {
+      "path": "workspace/temp/tool_results/toolu_01Wn4ZRzHa9hf1gv5kbktNV3.txt",
+      "size": 4147,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01RScfnqsi7eddrgroomV4RT.txt": {
+      "path": "workspace/temp/tool_results/toolu_01RScfnqsi7eddrgroomV4RT.txt",
+      "size": 33927,
+      "type": ".txt"
+    },
+    "temp/tool_results/toolu_01FG3VJW2KbprBVqYXYypAu1.txt": {
+      "path": "workspace/temp/tool_results/toolu_01FG3VJW2KbprBVqYXYypAu1.txt",
+      "size": 798,
+      "type": ".txt"
+    },
+    "audio/tts_20260506_1778085267.webm": {
+      "path": "workspace/audio/tts_20260506_1778085267.webm",
+      "size": 115444,
+      "type": ".webm"
+    },
+    "audio/tts_20260507_1778122315.webm": {
+      "path": "workspace/audio/tts_20260507_1778122315.webm",
+      "size": 132766,
+      "type": ".webm"
+    },
+    "ingest_logs/ing_774e4b7fca6f.jsonl": {
+      "path": "workspace/ingest_logs/ing_774e4b7fca6f.jsonl",
+      "size": 497,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_1177c1cc8bdb.jsonl": {
+      "path": "workspace/ingest_logs/ing_1177c1cc8bdb.jsonl",
+      "size": 467,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_f991a9d5daa0.jsonl": {
+      "path": "workspace/ingest_logs/ing_f991a9d5daa0.jsonl",
+      "size": 435,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_e856bb139e71.jsonl": {
+      "path": "workspace/ingest_logs/ing_e856bb139e71.jsonl",
+      "size": 523,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_9fbb4ccb6a14.jsonl": {
+      "path": "workspace/ingest_logs/ing_9fbb4ccb6a14.jsonl",
+      "size": 435,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_31d610de8a62.jsonl": {
+      "path": "workspace/ingest_logs/ing_31d610de8a62.jsonl",
+      "size": 597,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_24ab45334474.jsonl": {
+      "path": "workspace/ingest_logs/ing_24ab45334474.jsonl",
+      "size": 465,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_3014fe78f7ca.jsonl": {
+      "path": "workspace/ingest_logs/ing_3014fe78f7ca.jsonl",
+      "size": 497,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_966613c7b442.jsonl": {
+      "path": "workspace/ingest_logs/ing_966613c7b442.jsonl",
+      "size": 280,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_22a20ab8b790.jsonl": {
+      "path": "workspace/ingest_logs/ing_22a20ab8b790.jsonl",
+      "size": 629,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_3dae4809d391.jsonl": {
+      "path": "workspace/ingest_logs/ing_3dae4809d391.jsonl",
+      "size": 756,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_26bcab485a48.jsonl": {
+      "path": "workspace/ingest_logs/ing_26bcab485a48.jsonl",
+      "size": 497,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_616d5c73164a.jsonl": {
+      "path": "workspace/ingest_logs/ing_616d5c73164a.jsonl",
+      "size": 498,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_5e8412f6b4f6.jsonl": {
+      "path": "workspace/ingest_logs/ing_5e8412f6b4f6.jsonl",
+      "size": 497,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_6f4aefcd298b.jsonl": {
+      "path": "workspace/ingest_logs/ing_6f4aefcd298b.jsonl",
+      "size": 435,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_7c07f35c832e.jsonl": {
+      "path": "workspace/ingest_logs/ing_7c07f35c832e.jsonl",
+      "size": 435,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_cd51eb3260b9.jsonl": {
+      "path": "workspace/ingest_logs/ing_cd51eb3260b9.jsonl",
+      "size": 524,
+      "type": ".jsonl"
+    },
+    "ingest_logs/ing_4532ab773aa9.jsonl": {
+      "path": "workspace/ingest_logs/ing_4532ab773aa9.jsonl",
+      "size": 497,
+      "type": ".jsonl"
+    },
+    "hitl/global.json": {
+      "path": "workspace/hitl/global.json",
+      "size": 1215,
+      "type": ".json"
+    }
+  }
+}

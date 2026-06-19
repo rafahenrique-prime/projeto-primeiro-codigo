@@ -1,0 +1,21 @@
+[stdout]
+**product_or_service**: Marca Lupo
+**search_keys**: Lupo, cueca boxer, moda masculina, cueca azul marinho
+**index_text**: Informações sobre cueca boxer Lupo: modelo na cor azul marinho com cós cinza e logotipo da marca em destaque.
+A marca Lupo oferece cuecas boxer masculinas, como o modelo na cor azul marinho com cós cinza apresentado nesta imagem. O produto apresenta o logotipo LUPO em destaque no cós e faz parte da linha de moda íntima masculina da marca, focada em conforto e estilo.
+**product_or_service**: Marca Lupo
+**search_keys**: Lupo, cueca boxer, moda masculina, roupa íntima
+**index_text**: Disponibilidade e visual das cuecas boxer da marca Lupo: modelo azul com logotipo no elástico.
+A marca Lupo oferece cuecas boxer masculinas, como demonstrado pelo modelo vestindo uma cueca boxer azul com o nome 'LUPO' estampado no elástico da cintura. O produto faz parte da linha de moda íntima masculina da marca.
+**product_or_service**: Marca Lupo
+**search_keys**: Lupo, cueca boxer, moda masculina, cueca branca, cós neon
+**index_text**: Informações sobre cuecas masculinas da marca Lupo: modelo boxer branca com cós neon amarelo e azul, destacando conforto e design premium.
+A marca Lupo oferece cuecas boxer masculinas de linha premium, como o modelo destacado na cor branca com cós elástico em cores vibrantes neon (amarelo e azul). As cuecas Lupo são conhecidas pelo conforto, design moderno e a presença do logotipo da marca no elástico da cintura.
+**product_or_service**: Marca Lupo
+**search_keys**: LUPO, cueca Lupo, cueca branca, moda masculina
+**index_text**: Detalhes visuais da cueca Lupo: modelo masculino branco com elástico xadrez azul e a marca Lupo escrita no cós.
+A marca Lupo oferece cuecas masculinas com foco em estilo e conforto. Este modelo específico de cueca Lupo é na cor branca, apresentando um cós elástico com padronagem xadrez azul e o logotipo da marca 'LUPO' em destaque.
+**product_or_service**: Cueca Lupo
+**search_keys**: LUPO UNDERWEAR, cueca boxer, cueca preta, Lupo
+**index_text**: Lupo Underwear product description: black men's boxer briefs with a gray branded waistband and minimalist design.
+LUPO UNDERWEAR. This product is a pair of black men's boxer briefs from the brand Lupo. The underwear features a light gray waistband with the 'LUPO UNDERWEAR' brand name printed in a dark gray font. The design is clean and minimalist, representing the standard style of Lupo's premium underwear line.

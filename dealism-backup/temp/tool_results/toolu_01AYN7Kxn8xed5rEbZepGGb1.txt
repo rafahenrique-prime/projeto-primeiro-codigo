@@ -1,0 +1,139 @@
+### 2026-05-07 [template-resposta-links] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/link-response-template.md
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: Template de Resposta com Links
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Padronização de Respostas com Links
+**scenario**: Quando o cliente pergunta sobre produtos ou catálogo sem especificar um modelo
+**script**: [Nome do Produto] a partir de R$ [Preço] [Emoji]. 🔗 Segue o link dos modelos: [URL]. Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+
+**TEMPLATE PADRÃO DE RESPOSTA COM LINKS**
+
+**strategy**: Padronização de Respostas com Links de Produtos
+**scenario**: Quando cliente pergunta sobre produto/catálogo sem especificar modelo
+**script**: Template universal para envio de links de produtos
+
+---
+
+## **📝 TEMPLATE UNIVERSAL:** [chat]
+
+```
+[Nome do Produto] a partir de R$ [Preço] [Emoji do produto]
+
+🔗 Segue o link dos modelos:
+[URL completa - sempre com https://]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **🎯 QUANDO USAR:** [chat]
+
+✅ **USAR quando:**
+- Cliente pergunta "tem [produto]?" sem especificar modelo
+- Cliente quer "ver modelos" / "catálogo"
+- Primeira interação sobre um produto
+- Cliente pede link de produtos
+
+❌ **NÃO USAR quando:**
+- Cliente JÁ SABE o produto específico (ex: "Quero o NB 9060 preto")
+- Está finalizando venda (momento de fechar, não de mandar link)
+- Cliente perguntou PREÇO específico de produto conhecido (responder direto, link é opcional)
+
+---
+
+## **📋 REGRAS DE FORMATAÇÃO:** [chat]
+
+1. **Preço:** Sempre com espaço após R$ (ex: R$ 159,90)
+2. **Link:** Linha separada com emoji 🔗
+3. **URL:** Sempre completa com https:// (NUNCA abreviar)
+4. **Tom:** Usar "valor certinho" (não "preço exato")
+5. **Emoji:** Escolher emoji relacionado ao produto:
+   - 😎 Óculos
+   - 👟 Tênis
+   - 👡 Sandálias
+   - 🧢 Bonés
+   - 👕 Camisetas
+   - 👖 Calças
+   - 💐 Perfumes
+   - 👛 Carteiras/Acessórios
+
+---
+
+## **✅ BENEFÍCIOS DESTE FORMATO:** [chat]
+
+1. **Consistência** - Cliente sempre recebe o mesmo estilo
+2. **Mobile-friendly** - Linhas curtas funcionam melhor no WhatsApp
+3. **Conversão** - Link destacado + convite à interação
+4. **Profissionalismo** - Identidade visual da marca
+5. **Clareza** - Estrutura facilita leitura e clique
+
+---
+
+## **📌 EXEMPLOS PRÁTICOS:** [chat]
+
+### **Óculos:** [chat]
+**chunk_id**: 2d072d3799f6416ba937b6ffde809407
+**file_path**: strategy/link-response-template.md
+**content_hash**: 139d44feb5f80b57c504e99f01c9148fcf6f77e2b23c163b0db988aee7648d6b
+```
+Óculos a partir de R$ 159,90 😎
+
+🔗 Segue o link dos modelos:
+https://www.primestoremen.com.br/produtos?q=oculos
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **Tênis (catálogo geral):** [chat]
+**chunk_id**: 39f5029f57a04c5e984912bdcbce5f55
+**file_path**: strategy/link-response-template.md
+**content_hash**: d5c06afd616dbf029e14f8812bef20cc641a117a6e2a6c81a043b5225e4de3a4
+```
+Tênis a partir de R$ 229,00 👟
+
+🔗 Segue o link dos modelos:
+https://drive.google.com/drive/folders/1qimgz4TSl4gsZ7-3QKH8szKJsMoNdwz6
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **New Balance 9060:** [chat]
+**chunk_id**: b074ae3e114d4887a0a2cbab29d57809
+**file_path**: strategy/link-response-template.md
+**content_hash**: a31291934b67f250a639f2d74b4fbe353bf3afea3f7917c2b04a66a14865e463
+```
+New Balance 9060 a partir de R$ 399,00 no PIX 👟
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/produtos?q=9060
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **Sandália Gucci:** [chat]
+**chunk_id**: 4238a2f3c33748a2a96d08dc64ecaf54
+**file_path**: strategy/link-response-template.md
+**content_hash**: 0aafd84469905f2a3453ca9de320f0c27ec9cb1957b9a823ba74b6948b30c21e
+```
+Sandália Gucci por R$ 319,00 no PIX 👡
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/plataforma-gucci-femina
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **⚠️ IMPORTANTE:** [chat]
+
+- SEMPRE usar quebras de linha (mais legível no mobile)
+- SEMPRE incluir emoji 🔗 antes de "Segue o link"
+- SEMPRE terminar com convite à interação
+- NUNCA usar formatação markdown do link (ex: [texto](url))
+- SEMPRE URL completa em texto simples

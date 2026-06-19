@@ -1,0 +1,70 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "b644e9c388764e5c8e05cfc6b1c30dda",
+      "chunk_id": "b644e9c388764e5c8e05cfc6b1c30dda",
+      "content_hash": "592912f18c70a5054597117d0b325807694a8242e28c0ec904baf3dc85b52049",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8596\n\nVans UltraRange Sneaker: This product is a black and white Vans UltraRange sneaker featuring the iconic white side stripe and a thick, textured white sole designed for comfort and durability. The image showcases the shoe's design and branding, including the Vans and Diesel logos, highlighting its lifestyle and performance appeal.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 188,
+      "line_end": 202,
+      "asset_path": "workspace/assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg",
+      "source_type": "image",
+      "product_or_service": "Catálogo de Tênis",
+      "_bm25_score": 34.118,
+      "_source": "keyword",
+      "_rrf_score": 0.0323,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "chunk_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "content_hash": "4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "1️⃣ Conhecer nossos serviços/produtos\n2️⃣ Solicitar um orçamento\n3️⃣ Agendar um horário\n4️⃣ Tirar dúvidas\n5️⃣ Falar com um atendente\n\n_Digite o número da opção desejada_\n\n**Menu estruturado com emojis**\nBot usa menu numerado (1-5) com emojis para organizar opções de atendimento: conhecer serviços, orçamento, agendamento, dúvidas e atendente humano.",
+      "category": "strategy",
+      "similarity": 0.7207327,
+      "line_start": 34,
+      "line_end": 57,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "chunk_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "content_hash": "1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Sandália Gucci / Plataforma Gucci**\nPreço: R$ 349,00 em até 6x sem juros no cartão\nPreço à vista no PIX: R$ 319,00\n\nLink com fotos do produto:\nhttps://www.primestoremen.com.br/plataforma-gucci-femina\n\nIMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.\n**upload_id**: 8581",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 34,
+      "line_end": 53,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Sandália Gucci",
+      "_bm25_score": 29.2872,
+      "_source": "keyword",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "keyword"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "upload_id 8596 task_id 2cf28b2ffb25"
+}

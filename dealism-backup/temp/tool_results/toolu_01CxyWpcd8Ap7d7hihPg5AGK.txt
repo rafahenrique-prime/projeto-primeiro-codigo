@@ -1,0 +1,58 @@
+{
+  "mode": "keyword",
+  "results": [
+    {
+      "doc_id": "b4748bd7f41e4939a2203addd87b98ac",
+      "chunk_id": "b4748bd7f41e4939a2203addd87b98ac",
+      "content_hash": "d0d34cfbcfa9fec9a6d22bed1806ec375d28fe0ed4d030b30521102dc692bfcd",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Catálogo de Óculos**\nPreço: a partir de R$ 129\n\nLink do catálogo de óculos disponíveis:\nhttps://www.primestoremen.com.br/produtos?q=oculos\n\nIMPORTANTE: Quando cliente pedir para ver óculos SEM modelo específico, enviar este link e informar:\n\"Aqui estão os óculos disponíveis! Você pode fechar a venda direto no site ou por aqui mesmo. Se precisar de mais informações sobre algum modelo, é só me enviar a foto ou o nome do produto!\"",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 119,
+      "line_end": 137,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Óculos",
+      "_bm25_score": 50.6028,
+      "_source": "keyword"
+    },
+    {
+      "doc_id": "789faf3048cb4e6c9dc776ffdec8b1df",
+      "chunk_id": "789faf3048cb4e6c9dc776ffdec8b1df",
+      "content_hash": "b77daacd34f90571f98b703f284e0be8039c458f13df66768fa146f07e3348e0",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Catálogo Completo PRIME STORE - Moda e Acessórios**\n\nTrabalhamos com produtos de qualidade com ótimo custo-benefício. Confira nossos produtos:\n\n👕 **Camisetas básicas** - a partir de R$ 129\n🕶️ **Óculos** - a partir de R$ 129\n🧢 **Bonés** - a partir de R$ 79\n🧢 **Bonés linha Itals** - a partir de R$ 159\n👖 **Calças jeans premium** - a partir de R$ 199\n💐 **Perfumes** - a partir de R$ 149\n👟 **Tênis** (diversos modelos) - a partir de R$ 229\n👛 **Carteiras** - a partir de R$ 119\n⚫ **Cintos** - a partir de R$ 119\n⚽ **Camisetas de times** - a partir de R$ 169\n🩴 **Chinelos** - a partir de R$ 89\n\nIMPORTANTE: Sempre consultar disponibilidade de cores, tamanhos e estoque com o cliente. Trabalhamos com variedade de modelos e novidades frequentes.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 91,
+      "line_end": 118,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Catálogo Geral",
+      "_bm25_score": 44.7613,
+      "_source": "keyword"
+    },
+    {
+      "doc_id": "ebcc954672d24b0e90d89dc412aeae12",
+      "chunk_id": "ebcc954672d24b0e90d89dc412aeae12",
+      "content_hash": "0f667b8be5cb6cc4d5b7cdc360ac01256fca280c7073606a9bd713821cbfec67",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Catálogo Completo de Tênis**\nLink do catálogo no Google Drive:\nhttps://drive.google.com/drive/folders/1qimgz4TSl4gsZ7-3QKH8szKJsMoNdwz6\n\nNumeração disponível: 34 ao 43 (todos os modelos)\n\nOrganização do catálogo: dividido por marcas em pastas separadas (NEW BALANCE, PRADA, LACOSTE, etc.)\n\nIMPORTANTE: Quando o cliente pedir o catálogo ou perguntar \"quais tênis vocês têm?\", enviar este link e explicar:\n1. O catálogo está organizado por marcas em pastas\n2. Numeração disponível: 34 ao 43\n3. Após escolher o modelo, pedir que envie a foto do produto escolhido para passar mais informações (preço, disponibilidade)",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 68,
+      "line_end": 90,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Catálogo de Tênis",
+      "_bm25_score": 37.2863,
+      "_source": "keyword"
+    }
+  ],
+  "count": 3,
+  "query": "Catálogo de Óculos R$ 129"
+}

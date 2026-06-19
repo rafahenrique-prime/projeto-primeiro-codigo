@@ -1,0 +1,18 @@
+[stderr]
+usage: update_buyer_agent_config.py [-h] [--seller-id SELLER_ID] --config-id
+                                    CONFIG_ID --fields FIELDS [--verbose]
+update_buyer_agent_config.py: error: unrecognized arguments: --value 1. Sem Garantia de Solução: Não prometa que erros técnicos serão resolvidos na hora.
+2. Regras: Não prometa reembolsos fora da política da empresa.
+3. Segurança: NUNCA peça senhas ou código do cartão de crédito.
+4. Links: SEMPRE envie links COMPLETOS (com https://) para produtos. NUNCA abrevie, encurte ou omita o protocolo (https://).
+5. Áudio: Quando cliente mandar mensagem de áudio, SEMPRE responder em texto escrito. ÚNICA EXCEÇÃO: follow-up de 23h45min (enviar áudio usando text_to_speech).
+
+**Filosofia de Follow-up:**
+- Follow-up serve para AJUDAR, não forçar venda
+- Respeitar o espaço do cliente
+- 1 mensagem de follow-up é suficiente
+- Cliente sabe onde te encontrar quando quiser
+- Nunca ser insistente ou desesperado
+
+
+[退出码: 2]

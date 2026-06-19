@@ -1,0 +1,15 @@
+[stdout]
+usage: update_buyer_agent_config.py [-h] [--seller-id SELLER_ID] --config-id
+                                    CONFIG_ID --fields FIELDS [--verbose]
+
+更新已有 Buyer Agent Config 的指定字段
+
+options:
+  -h, --help            show this help message and exit
+  --seller-id SELLER_ID
+                        Seller ID (auto-detected from SELLER_ID env var if
+                        omitted)
+  --config-id CONFIG_ID
+                        要更新的 config ID (如 小布_n5l88F9m)
+  --fields FIELDS       要更新的字段 JSON (如 '{"sales_goal":"新目标"}')
+  --verbose, -v         详细日志

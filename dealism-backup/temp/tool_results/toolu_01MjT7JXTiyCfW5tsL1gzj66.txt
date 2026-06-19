@@ -1,0 +1,58 @@
+{
+  "mode": "keyword",
+  "results": [
+    {
+      "doc_id": "auto-generated",
+      "chunk_id": "auto-generated",
+      "content_hash": "",
+      "file_path": "knowledge/brand-info.md",
+      "file": "knowledge/brand-info.md",
+      "content": "**MARCA AUSTIN - Calças Jeans**\n\n**Diferenciais:**\n- 👖 Ótimo caimento\n- ✅ Conforto no dia a dia\n- ✅ Modelagem moderna\n- ✅ Acabamento diferenciado/premium\n- ✅ Tecido com elastano (flexibilidade e conforto)\n- 😎 Estilo casual/street\n- 🔥 Ideal pro dia a dia e pra sair\n\n**Características dos produtos:**\n- Modelagem moderna\n- Jeans confortável\n- Ótimo caimento\n- Estilo casual/street\n- Acabamento premium\n- Elastano no tecido (mais flexibilidade)\n\n---\n\n## **RESPOSTA PADRÃO - Quando cliente perguntar sobre a marca Austin:** [chat]\n\n```\nAs calças jeans da Austin são muito procuradas pelo conforto e pelo caimento 😎\n\nOs modelos têm:\n✅ Ótima modelagem\n✅ Tecido confortável com elastano\n✅ Acabamento premium 🔥\n\nQual modelo você procura? Temos slim, skinny e reta!\n```\n\n---\n\n## **RESPOSTA CURTA - Cliente já interessado:** [chat]\n\n```\nJeans Austin - conforto e caimento perfeitos! 😎\n\n✅ Modelagem moderna\n✅ Elastano (super confortável)\n✅ Acabamento premium\n\nQual numeração você usa?\n```\n\n---\n\n## **ESTRATÉGIA DE CONVERSA:** [chat]\n\n**Sempre continuar a conversa perguntando:**\n1. Qual modelo ele procura?\n2. Qual numeração usa?\n3. Prefere slim, skinny ou reta?\n4. Ou oferecendo os modelos disponíveis\n\n**Exemplo de fluxo:**\n- Cliente: \"Tem calça jeans?\"\n- Gabriela: Resposta padrão + pergunta sobre modelo/numeração\n- Cliente: Responde\n- Gabriela: Oferece opções + envia link\n\n---\n\n## **FORMATO DE LINK (OBRIGATÓRIO):** [chat]\n\nSempre usar exatamente esta frase:\n```\nSegue o link dos modelos:\n[URL]\n```\n\n❌ NÃO usar: \"Segue o link com fotos:\"\n❌ NÃO usar: \"🔗 Segue o link dos modelos:\"\n✅ USAR: \"Segue o link dos modelos:\" (sem emoji)\n\n---\n\n## **REGRAS IMPORTANTES:** [chat]\n\n1. ✅ Resposta simples e vendedora (não técnica)\n2. ✅ Sempre destacar: caimento, conforto, modelagem\n3. ✅ Mencionar elastano (flexibilidade)\n4. ✅ Estilo casual/street\n5. ✅ Perguntar modelo/numeração/preferência\n6. ❌ Evitar respostas longas ou técnicas\n7. ✅ Tom natural e conversacional\n\n---\n\n## **EXEMPLOS DE CONVERSA:** [chat]\n\n### **Exemplo 1:** [chat]\n**chunk_id**: e29c2404ada3455188535feacb68c9d5\n**file_path**: knowledge/brand-info.md\n**content_hash**: f404ed134caa542022cba99ae092a656b0d90d9a1c9eada600351112e1ca947f\n**Cliente:** \"Tem calça jeans?\"\n\n**Gabriela:**\n```\nTemos sim! As calças jeans da Austin são muito procuradas pelo conforto e pelo caimento 😎\n\nOs modelos têm ótima modelagem, tecido confortável com elastano e acabamento premium 🔥\n\nQual modelo você procura? Temos slim, skinny e reta!\n```\n\n### **Exemplo 2:** [chat]\n**chunk_id**: 78ce6d7d1ef94e53971fdc86be427fd9\n**file_path**: knowledge/brand-info.md\n**content_hash**: e286a9e507ed1fd20a2fe62bbb342a3037f67617acd6572db2318f950214e92c\n**Cliente:** \"Austin é boa marca?\"\n\n**Gabriela:**\n```\nMuito boa! As calças jeans da Austin são muito procuradas pelo conforto e pelo caimento 😎\n\n✅ Modelagem moderna\n✅ Tecido com elastano (super flexível)\n✅ Acabamento premium\n✅ Ideal pro dia a dia e pra sair\n\nQual numeração você usa?\n```\n\n### **Exemplo 3 (com link):** [chat]\n**chunk_id**: c9144d266bff4bc3a44fbe5a7eab139b\n**file_path**: knowledge/brand-info.md\n**content_hash**: 9493e7e646ab6607cf9430db1318707d32b251d1fa9bcaa912eb3c0267c1daf4\n**Cliente:** \"Quero ver os modelos\"\n\n**Gabriela:**\n```\nCalça Jeans Austin 👖\n\n💳 Cartão: R$ [valor] em até 6x sem juros (R$ [parcela]/mês)\n💰 PIX: R$ [valor]\n\nSegue o link dos modelos:\n[URL]\n\nQual numeração você usa? 😊\n```",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 99,
+      "line_end": 253,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Marca Austin - Calças Jeans",
+      "_bm25_score": 33.1741,
+      "_source": "keyword"
+    },
+    {
+      "doc_id": "29987facbc0e4a40b39ad83597adbecb",
+      "chunk_id": "29987facbc0e4a40b39ad83597adbecb",
+      "content_hash": "3e6ae0ae19dadd474dc8dbfb43e2bf11372739659d84190c1777728ce0897c52",
+      "file_path": "knowledge/general.md",
+      "file": "knowledge/general.md",
+      "content": "**upload_id**: 8626\n\nInformações de interface de chat com a cliente Gabriela. O status da cliente Gabriela aparece como 'Ativo' e ela está 'Digitando' no momento da captura de tela. Esta imagem serve como registro de interação em tempo real no canal de atendimento.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 4,
+      "line_end": 17,
+      "asset_path": "workspace/assets/2cb7fb39c38b43c6a52ef13eb901dda4_1778095701.png",
+      "source_type": "image",
+      "product_or_service": "general",
+      "_bm25_score": 32.8643,
+      "_source": "keyword"
+    },
+    {
+      "doc_id": "auto-generated",
+      "chunk_id": "auto-generated",
+      "content_hash": "",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Cueca Lupo - Marca Mais Vendida do Brasil**\n\n**Preços:**\n- Unitária: R$ 59,00\n- Kit c/ 3 unidades: R$ 150,00\n\n**Tamanhos disponíveis:**\n- M, G, GG, G1\n\n**Características:**\n- ✅ Marca mais vendida do Brasil\n- ✅ Marca de referência em qualidade\n- ✅ Quem compra sempre volta\n- ✅ Qualidade garantida\n- ✅ Fundada em 1921 (mais de 100 anos!)\n- ✅ Conforto superior\n- ✅ Cuecas sem costura\n\n**RESPOSTA PADRÃO PARA CLIENTE - Unitária:**\n```\nCueca Lupo - marca mais vendida do Brasil! 🔥\n\n💳 Cartão: R$ 59,00 em até 6x sem juros (R$ 9,83/mês)\n💰 PIX: R$ 59,00\n\n✅ Marca de referência em qualidade\n✅ Fundada em 1921 (mais de 100 anos!)\n\nTamanhos: M, G, GG, G1\n\nQual tamanho você precisa? 😊\n```\n\n**RESPOSTA PADRÃO PARA CLIENTE - Kit 3 unidades:**\n```\nCueca Lupo - Kit com 3 unidades! 🔥\n\n💳 Cartão: R$ 150,00 em até 6x sem juros (R$ 25,00/mês)\n💰 PIX: R$ 150,00\n\n✅ Marca mais vendida do Brasil\n✅ Levando 3, você economiza R$ 27!\n✅ Fundada em 1921 (tradição brasileira!)\n\nTamanhos: M, G, GG, G1\n\nQual tamanho você usa? 😊\n```\n\n**ESTRATÉGIA DE VENDA:**\n- Quando cliente perguntar preço de 1: Informar R$ 59 e já oferecer kit de 3\n- Sempre destacar que levando 3 economiza R$ 27 (comparado a comprar 3 unitárias: 3 x 59 = 177 vs kit 150)\n- Sempre mencionar que é a marca mais vendida do Brasil\n- Sempre perguntar tamanho (M, G, GG, G1)\n- Sempre sugerir kit de 3 unidades para maximizar venda\n- Destacar tradição (fundada em 1921)",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 543,
+      "line_end": 608,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Cueca Lupo",
+      "_bm25_score": 31.3101,
+      "_source": "keyword"
+    }
+  ],
+  "count": 3,
+  "query": "71040ab3f2c946048ccac2c5d9958b9a_1778165985.jpeg cueca resposta Gabriela"
+}

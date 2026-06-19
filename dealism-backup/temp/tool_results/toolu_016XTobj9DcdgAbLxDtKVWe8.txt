@@ -1,0 +1,116 @@
+
+### 2026-05-06 [follow-up-30min] [chat]
+**chunk_id**: ed9ea74348f24847b89feadcfbfdc4f9
+**file_path**: strategy/follow-up.md
+**content_hash**: 17b76689076997b83f8c04c8dfc26fc8bd9f80a9c81bff0d308c815f4f9d2e74
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up de urgência após inatividade
+**scenario**: Quando o cliente demora 30 minutos ou mais para responder após demonstrar interesse em algum produto
+**script**: "Oi! Passando aqui rapidinho 😄
+**product_or_service**: general
+**asset_path**: workspace/unknown
+
+Alguns modelos têm saída rápida, então se você tiver interesse posso verificar o estoque pra você e já deixar reservado!"
+
+IMPORTANTE: Este follow-up cria senso de urgência e incentiva o cliente a tomar decisão rapidamente. Usar após 30 minutos de silêncio do cliente.
+
+### 2026-05-06 [follow-up-23h45-audio] [chat]
+**chunk_id**: afedc59cd1804a6bacfd24be7b845bb6
+**file_path**: strategy/follow-up.md
+**content_hash**: cd4212eeda0cdf13be672a8d8dacd7c62960c8b9d612686824199dcd8a4b440f
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up em ÁUDIO após 23h45min de inatividade
+**scenario**: Quando o cliente demonstrou interesse em algum produto mas ficou 23h45min sem responder
+**format**: ÁUDIO (única exceção - todas as outras mensagens são texto)
+**script_audio**: "Consegui uma condição especial pra você naquele produto que você demonstrou interesse. Posso te enviar os detalhes?"
+**product_or_service**: general
+**asset_path**: workspace/unknown
+**script**: [Enviar áudio com voz feminina amigável] Oi! Passando para ver se você conseguiu ver o que conversamos e se ficou com alguma dúvida. Estou à disposição!
+
+IMPORTANTE:
+- Este é o ÚNICO momento em que o agente envia áudio
+- Usar text_to_speech com voz feminina e tom amigável/cheerful
+- Enviar após exatamente 23h45min de silêncio
+- Após enviar o áudio, aguardar 15 minutos
+- Se cliente NÃO responder em 15min → enviar automaticamente a mensagem de texto de 24h
+- Se cliente RESPONDER → enviar a mensagem de texto de 24h imediatamente
+
+### 2026-05-06 [follow-up-24h-desconto-texto] [chat]
+**chunk_id**: e90f1e452a8f4b63960e57288f149b16
+**file_path**: strategy/follow-up.md
+**content_hash**: 7bddf828690096150dcb40cce7dff245b1aa50077b835b61ad3880675bfed022
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up com desconto de 10% após áudio de 23h45min
+**scenario**: Enviado 15 minutos após o áudio de 23h45min (independente de resposta) OU imediatamente se cliente responder
+**format**: TEXTO
+**script**: "Oi! Sou eu, Gabriela 😊
+**product_or_service**: general
+**asset_path**: workspace/unknown
+
+Passando aqui pra te dar uma ajudinha: consegui liberar um desconto especial de 10% pra você no(a) [NOME DO PRODUTO] que você viu ontem.
+
+Se ainda tiver interesse, posso aplicar pra você agora mesmo — mas é por tempo limitado, tá? 😉
+
+Me chama aqui que já te ajudo a finalizar!"
+
+IMPORTANTE: 
+- Substituir [NOME DO PRODUTO] pelo produto específico que o cliente demonstrou interesse
+- Enviar automaticamente 15min após o áudio (se cliente não respondeu) OU imediatamente (se cliente respondeu)
+- Ser educado, amigável e natural
+- Criar leve senso de urgência sem pressionar
+- O desconto de 10% deve ser aplicado sobre o preço à vista (PIX) ou parcelado
+- Sempre se apresentar como "Sou eu, Gabriela" no início da mensagem
+
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: c6e94d02c6f64c8ba6125aba5c349a95
+**file_path**: strategy/follow-up.md
+**content_hash**: adf82333759e868b4c08d49128f67be0907f8078c6672535599fb2161072a15e
+**category**: follow_up_strategy
+**content_category_tags**: follow_up_strategy
+**strategy**: Avisar quando chegar o tamanho
+**scenario**: Quando o tamanho desejado está esgotado mas há previsão de reposição
+**script**: Quando chegar mais você me fala. Sexta chega mais? Aí já passo aí pra ver no corpo.
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Notificação proativa de reposição**
+
+
+### 2026-05-06 20:07 [onboarding-history]
+**chunk_id**: ded4b07bff434eddb740764ed7bb7c58
+**file_path**: strategy/follow-up.md
+**content_hash**: b0783feb158ff786d487ea2b25533ec919e8ab0653e39910cede65e8af266d1c
+**category**: follow_up_strategy
+**content_category_tags**: follow_up_strategy
+**strategy**: Aguardar retorno pós-compromisso
+**scenario**: Quando o cliente menciona que está saindo (almoço, reunião) e voltará depois
+**script**: Sem problemas! Estarei aqui quando você voltar. Aproveite o almoço! 😊
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Aguardar retorno do cliente após compromisso**
+Cliente indica que está saindo para almoço e retornará depois. Momento ideal para aguardar pacientemente e estar disponível quando o cliente voltar, sem pressionar.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: 0b167ae92b804c05867d6ddc679708ed
+**file_path**: strategy/follow-up.md
+**content_hash**: 5b8aec8c4e45278d2cd0f95f2b51597a4f8762d5f1a6778a76f66b9f081243d6
+**category**: follow_up_strategy
+**content_category_tags**: follow_up_strategy
+**strategy**: Aviso proativo de chegada
+**scenario**: Quando produto encomendado chega na loja
+**script**: ola boa tarde! ja chegou a sandalia se quiser vim exprimentar e pegar ela!
+**product_or_service**: sandália
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Notificar chegada de produto**
+Avisar proativamente quando produto chega ('ja chegou a sandalia se quiser vim exprimentar') gera senso de urgência e facilita conversão.

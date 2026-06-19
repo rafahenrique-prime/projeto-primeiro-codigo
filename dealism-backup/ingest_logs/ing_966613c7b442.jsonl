@@ -1,0 +1,2 @@
+{"ts": "2026-05-06T20:12:10.078803+00:00", "step": "batch_start", "source": "whatsapp", "session_id": "seller:38537:agent:main", "buyer_count": 1, "is_final": false}
+{"ts": "2026-05-06T20:47:42.233269+00:00", "step": "abandoned", "reason": "worker_restart", "source": "whatsapp"}

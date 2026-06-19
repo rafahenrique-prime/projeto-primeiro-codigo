@@ -1,0 +1,28 @@
+[stdout]
+=== VERIFICAÇÃO 2: PRODUTOS DE CUECA CADASTRADOS ===
+- "Cuecas importadas Calvin e Tommy Hilfiger!"
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+Cuecas masculinas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Linha de alta qualidade com acabamento impecável e conforto garantido. Marcas reconhecidas internacionalmente.
+- "Cuecas importadas Calvin Klein e Tommy Hilfiger!"
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+**search_keys**: cueca, Calvin Klein, Tommy Hilfiger, preço cueca, tamanhos
+**index_text**: Preços e marcas de cuecas na PRIME STORE: Calvin Klein e Tommy Hilfiger por R$ 30,00 a unidade ou combo de 4 por R$ 100,00 nos tamanhos M, G e GG.
+**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+**search_keys**: cuecas, Calvin Klein, Tommy Hilfiger, combo cuecas, tamanhos cuecas
+**index_text**: Informações sobre cuecas premium (Calvin Klein e Tommy Hilfiger): Preço unitário R$30, combo com 4 por R$100, nos tamanhos M, G e GG.
+A PRIME STORE vende cuecas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Preços: Unidade por R$30 ou Combo com 4 unidades por R$100. Tamanhos disponíveis: M, G e GG.
+**product_or_service**: Cuecas Lupo
+**index_text**: Cuecas masculinas Lupo: Unitária R$ 59 ou kit 3 unidades R$ 150 PIX / R$ 159 Cartão. Tamanhos M, G, GG, G1. Cores variadas. Link: https://www.primestoremen.com.br/produtos?q=cueca+lupo
+**Cueca Lupo - Marca Mais Vendida do Brasil**
+Trabalhamos com vários modelos de cuecas Lupo disponíveis 🔥
+Cueca Lupo - marca mais vendida do Brasil! 🔥
+Cueca Lupo - Kit com 3 unidades! 🔥
+**product_or_service**: Cueca Lupo / Cueca Boxer Lupo
+**Cueca Lupo / Cueca Boxer Lupo** ⭐ **PRODUTO DISPONÍVEL NA LOJA**
+- Cueca Lupo
+- Cuecas Lupo
+- Boxer Lupo
+- Cueca Boxer Lupo
+- Cueca Masculina Lupo
+Cueca Lupo disponível! 🩲
+- ✅ NÓS VENDEMOS Cueca Lupo

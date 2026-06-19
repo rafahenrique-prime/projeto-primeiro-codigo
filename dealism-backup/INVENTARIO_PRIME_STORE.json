@@ -1,0 +1,124 @@
+{
+  "data_geracao": "2025-05-12T15:30:00Z",
+  "loja": "Prime Store",
+  "total_produtos": 150,
+  "categorias": [
+    {
+      "categoria": "Tênis",
+      "produtos": [
+        {
+          "modelo": "Nike Air Max 90",
+          "tamanhos_disponiveis": ["38", "39", "40", "41", "42"],
+          "cores": ["Preto", "Branco", "Azul"],
+          "preco": 899.00,
+          "estoque_total": 45
+        },
+        {
+          "modelo": "Adidas Ultraboost",
+          "tamanhos_disponiveis": ["39", "40", "41", "42", "43"],
+          "cores": ["Preto/Branco", "Cinza"],
+          "preco": 1299.00,
+          "estoque_total": 32
+        },
+        {
+          "modelo": "New Balance 9060",
+          "tamanhos_disponiveis": ["38", "39", "40", "41", "42"],
+          "cores": ["Bege", "Cinza", "Preto"],
+          "preco": 1099.00,
+          "estoque_total": 28
+        },
+        {
+          "modelo": "Puma RS-X",
+          "tamanhos_disponiveis": ["39", "40", "41", "42"],
+          "cores": ["Branco/Azul", "Preto/Vermelho"],
+          "preco": 749.00,
+          "estoque_total": 35
+        },
+        {
+          "modelo": "Asics Gel Kayano",
+          "tamanhos_disponiveis": ["40", "41", "42", "43"],
+          "cores": ["Azul", "Preto"],
+          "preco": 999.00,
+          "estoque_total": 22
+        }
+      ]
+    },
+    {
+      "categoria": "Roupas",
+      "produtos": [
+        {
+          "tipo": "Camiseta Básica",
+          "tamanhos_disponiveis": ["P", "M", "G", "GG"],
+          "cores": ["Preto", "Branco", "Cinza", "Azul Marinho"],
+          "preco": 89.00,
+          "estoque_total": 120
+        },
+        {
+          "tipo": "Moletom",
+          "tamanhos_disponiveis": ["M", "G", "GG"],
+          "cores": ["Preto", "Cinza Mescla"],
+          "preco": 199.00,
+          "estoque_total": 65
+        },
+        {
+          "tipo": "Calça Cargo",
+          "tamanhos_disponiveis": ["38", "40", "42", "44"],
+          "cores": ["Verde Militar", "Bege", "Preto"],
+          "preco": 259.00,
+          "estoque_total": 48
+        },
+        {
+          "tipo": "Jaqueta Corta-Vento",
+          "tamanhos_disponiveis": ["M", "G", "GG"],
+          "cores": ["Preto", "Azul"],
+          "preco": 349.00,
+          "estoque_total": 30
+        }
+      ]
+    },
+    {
+      "categoria": "Acessórios",
+      "produtos": [
+        {
+          "tipo": "Boné",
+          "modelos": ["Aba Reta", "Aba Curva"],
+          "cores": ["Preto", "Branco", "Azul"],
+          "preco": 79.00,
+          "estoque_total": 85
+        },
+        {
+          "tipo": "Mochila",
+          "tamanhos": ["Média", "Grande"],
+          "cores": ["Preto", "Cinza"],
+          "preco": 189.00,
+          "estoque_total": 40
+        },
+        {
+          "tipo": "Meias Esportivas",
+          "tamanhos": ["Único"],
+          "cores": ["Preto", "Branco", "Colorido"],
+          "preco": 29.00,
+          "estoque_total": 200
+        },
+        {
+          "tipo": "Carteira",
+          "modelos": ["Bifold", "Slim"],
+          "cores": ["Preto", "Marrom"],
+          "preco": 149.00,
+          "estoque_total": 55
+        }
+      ]
+    }
+  ],
+  "politicas": {
+    "pagamento": ["PIX", "Cartão Crédito", "Cartão Débito", "Transferência"],
+    "parcelamento": "Até 3x sem juros no cartão",
+    "troca": "7 dias para troca",
+    "entrega": {
+      "prazo_medio": "5-7 dias úteis",
+      "frete_gratis_acima": 299.00,
+      "regioes_atendidas": ["Sudeste", "Sul", "Centro-Oeste", "Nordeste", "Norte"]
+    }
+  },
+  "observacoes": "Inventário baseado em análise de conversas do WhatsApp. Dados aproximados extraídos das interações com clientes."
+}

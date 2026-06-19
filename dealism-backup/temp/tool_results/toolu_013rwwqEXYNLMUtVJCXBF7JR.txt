@@ -1,0 +1,201 @@
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 966fb1104e894bf1b55c07a7837ce22f
+**file_path**: knowledge/product-info.md
+**content_hash**: 0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Estoque de tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.
+
+### 2026-05-06 [best-seller] [onboarding-upload]
+**chunk_id**: c4a8c9ea02e24524b656d61f05d9f6c2
+**file_path**: knowledge/product-info.md
+**content_hash**: f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Tênis 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Tênis 9060 - Produto Mais Vendido**
+Preço: R$ 449,00 em até 6x sem juros no cartão
+Preço à vista no PIX: R$ 399,00
+
+Link com fotos do produto:
+https://www.primestoremen.com.br/produtos?q=9060 
+
+Sempre indicar este link quando o cliente pedir fotos ou quiser ver o produto.
+
+### 2026-05-06 [product-sandalia-gucci] [onboarding-upload]
+**chunk_id**: 6e1a22cc92c8488eaf0cc5958400c16c
+**file_path**: knowledge/product-info.md
+**content_hash**: 1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Sandália Gucci
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Sandália Gucci / Plataforma Gucci**
+Preço: R$ 349,00 em até 6x sem juros no cartão
+Preço à vista no PIX: R$ 319,00
+
+Link com fotos do produto:
+https://www.primestoremen.com.br/plataforma-gucci-femina
+
+IMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.
+**upload_id**: 8581
+
+### 2026-05-06 13:35 [chunk-1] [chat]
+**chunk_id**: ad540fee00d849039805783b467d17bd
+**file_path**: knowledge/product-info.md
+**content_hash**: 9bce2cd7778e5a31918aac4563187e651a4f0fb6dd6621d3cece5586aee3e303
+**category**: knowledge
+**content_category_tags**: product_info, guide, other
+**product_or_service**: Sandália Gucci
+**search_keys**: Prime Store Men, Sandália Gucci, horário de funcionamento, parcelamento cartão, endereço loja
+**index_text**: Informações de contato e horários da Prime Store Men, incluindo site oficial e disponibilidade de parcelamento para produtos como a Sandália Gucci.
+**source_type**: image
+**asset_path**: workspace/assets/4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png
+**upload_id**: 8581
+
+Informações da Prime Store Men (4f0ae30e48b9481495e2cde6aa1cfb55_1778074537.png): A loja Prime Store Men atende de Segunda a Sexta das 10h às 20h e Sábados das 9h às 16h. O site oficial é www.primestoremen.com.br. A loja oferece produtos como a Sandália Gucci e opções de parcelamento no cartão de crédito sob consulta com a equipe.
+
+### 2026-05-06 [catalogo-tenis] [chat]
+**chunk_id**: ebcc954672d24b0e90d89dc412aeae12
+**file_path**: knowledge/product-info.md
+**content_hash**: 0f667b8be5cb6cc4d5b7cdc360ac01256fca280c7073606a9bd713821cbfec67
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo de Tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo Completo de Tênis**
+Link do catálogo no Google Drive:
+https://drive.google.com/drive/folders/1qimgz4TSl4gsZ7-3QKH8szKJsMoNdwz6
+
+Numeração disponível: 34 ao 43 (todos os modelos)
+
+Organização do catálogo: dividido por marcas em pastas separadas (NEW BALANCE, PRADA, LACOSTE, etc.)
+
+IMPORTANTE: Quando o cliente pedir o catálogo ou perguntar "quais tênis vocês têm?", enviar este link e explicar:
+1. O catálogo está organizado por marcas em pastas
+2. Numeração disponível: 34 ao 43
+3. Após escolher o modelo, pedir que envie a foto do produto escolhido para passar mais informações (preço, disponibilidade)
+
+### 2026-05-06 [catalogo-completo] [chat]
+**chunk_id**: 789faf3048cb4e6c9dc776ffdec8b1df
+**file_path**: knowledge/product-info.md
+**content_hash**: b77daacd34f90571f98b703f284e0be8039c458f13df66768fa146f07e3348e0
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo Geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo Completo PRIME STORE - Moda e Acessórios**
+
+Trabalhamos com produtos de qualidade com ótimo custo-benefício. Confira nossos produtos:
+
+👕 **Camisetas básicas** - a partir de R$ 129
+🕶️ **Óculos** - a partir de R$ 129
+🧢 **Bonés** - a partir de R$ 79
+🧢 **Bonés linha Itals** - a partir de R$ 159
+👖 **Calças jeans premium** - a partir de R$ 199
+💐 **Perfumes** - a partir de R$ 149
+👟 **Tênis** (diversos modelos) - a partir de R$ 229
+👛 **Carteiras** - a partir de R$ 119
+⚫ **Cintos** - a partir de R$ 119
+⚽ **Camisetas de times** - a partir de R$ 169
+🩴 **Chinelos** - a partir de R$ 89
+
+IMPORTANTE: Sempre consultar disponibilidade de cores, tamanhos e estoque com o cliente. Trabalhamos com variedade de modelos e novidades frequentes.
+
+### 2026-05-06 [catalogo-oculos] [chat]
+**chunk_id**: b4748bd7f41e4939a2203addd87b98ac
+**file_path**: knowledge/product-info.md
+**content_hash**: d0d34cfbcfa9fec9a6d22bed1806ec375d28fe0ed4d030b30521102dc692bfcd
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Óculos
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo de Óculos**
+Preço: a partir de R$ 129
+
+Link do catálogo de óculos disponíveis:
+https://www.primestoremen.com.br/produtos?q=oculos
+
+IMPORTANTE: Quando cliente pedir para ver óculos SEM modelo específico, enviar este link e informar:
+"Aqui estão os óculos disponíveis! Você pode fechar a venda direto no site ou por aqui mesmo. Se precisar de mais informações sobre algum modelo, é só me enviar a foto ou o nome do produto!"
+
+### 2026-05-06 [catalogo-camisetas] [chat]
+**chunk_id**: 626f1f146d4549ada47dcbe051cfa88c
+**file_path**: knowledge/product-info.md
+**content_hash**: 17bc7c38b3297ef487989af7655dff8579febf5032ddc38ffbfc9c646b6310e0
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Camisetas
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Catálogo de Camisetas/Camisas**
+Preço: a partir de R$ 129
+
+Link do catálogo de camisetas disponíveis:
+https://www.primestoremen.com.br/produtos?q=camiset&limit=24
+
+IMPORTANTE: Quando cliente pedir para ver camisetas ou camisas SEM modelo específico, enviar este link e informar:
+"Aqui estão as camisetas disponíveis! Você pode fechar a venda direto no site ou por aqui mesmo. Se precisar de mais informações sobre algum modelo, é só me enviar a foto ou o nome do produto!"
+
+### 2026-05-06 [publico-alvo] [chat]
+**chunk_id**: 5ca3eb2f6db04220acaa30fc192f1788
+**file_path**: knowledge/product-info.md
+**content_hash**: 6efb24be6d0570c96903e54bc2b97ef156b556824eec5284daa2e2d1d822737d
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Público-alvo e Variedade
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Público-alvo PRIME STORE**
+
+🎯 **Foco Principal: Moda Masculina**
+Nossa loja é especializada em moda masculina, com grande variedade de:
+- Roupas (camisetas, calças jeans, camisas)
+- Tênis (diversos modelos e marcas)
+- Acessórios (bonés, cintos, carteiras, óculos)
+- Perfumes masculinos
+
+👩 **Também atendemos público feminino** com opções de:
+- Óculos femininos
+- Perfumes femininos
+- Sandálias femininas (como Plataforma Gucci)
+- Tênis femininos
+(Variedade menor comparado ao masculino)
+
+IMPORTANTE: Quando cliente feminino perguntar sobre produtos, informar:
+"Nossa loja é especializada em moda masculina, oferecendo uma grande variedade de roupas e acessórios com foco no público masculino. No entanto, também trabalhamos com algumas opções para o público feminino, como óculos, perfumes, sandálias e tênis. Atendemos tanto homens quanto mulheres, mas nosso principal foco está na moda masculina, onde temos maior variedade de produtos, modelos e novidades."
+**upload_id**: 8596
+
+### 2026-05-06 16:16 [chunk-1] [chat]
+**chunk_id**: b644e9c388764e5c8e05cfc6b1c30dda
+**file_path**: knowledge/product-info.md
+**content_hash**: 592912f18c70a5054597117d0b325807694a8242e28c0ec904baf3dc85b52049
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Catálogo de Tênis
+**search_keys**: Vans UltraRange, Vans sneaker, black and white Vans, textured sole shoes
+**index_text**: Vans UltraRange sneaker features: black and white design with the iconic side stripe and a thick textured white sole for lifestyle and performance.
+**source_type**: image
+**asset_path**: workspace/assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg
+**upload_id**: 8596
+
+Vans UltraRange Sneaker: This product is a black and white Vans UltraRange sneaker featuring the iconic white side stripe and a thick, textured white sole designed for comfort and durability. The image showcases the shoe's design and branding, including the Vans and Diesel logos, highlighting its lifestyle and performance appeal.

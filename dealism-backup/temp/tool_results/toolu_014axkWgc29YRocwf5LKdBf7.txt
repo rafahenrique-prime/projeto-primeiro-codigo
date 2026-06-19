@@ -1,0 +1,72 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "b644e9c388764e5c8e05cfc6b1c30dda",
+      "chunk_id": "b644e9c388764e5c8e05cfc6b1c30dda",
+      "content_hash": "592912f18c70a5054597117d0b325807694a8242e28c0ec904baf3dc85b52049",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8596\n\nVans UltraRange Sneaker: This product is a black and white Vans UltraRange sneaker featuring the iconic white side stripe and a thick, textured white sole designed for comfort and durability. The image showcases the shoe's design and branding, including the Vans and Diesel logos, highlighting its lifestyle and performance appeal.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 188,
+      "line_end": 202,
+      "asset_path": "workspace/assets/b28a5a0e5e7349b79a5e1a61f9e9f64d_1778084193.jpeg",
+      "source_type": "image",
+      "product_or_service": "Catálogo de Tênis",
+      "_bm25_score": 43.0992,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "c4a8c9ea02e24524b656d61f05d9f6c2",
+      "chunk_id": "c4a8c9ea02e24524b656d61f05d9f6c2",
+      "content_hash": "f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Tênis 9060 - Produto Mais Vendido**\nPreço: R$ 449,00 em até 6x sem juros no cartão\nPreço à vista no PIX: R$ 399,00\n\nLink com fotos do produto:\nhttps://www.primestoremen.com.br/produtos?q=9060 \n\nSempre indicar este link quando o cliente pedir fotos ou quiser ver o produto.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 15,
+      "line_end": 33,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Tênis 9060",
+      "_bm25_score": 17.2564,
+      "_source": "keyword",
+      "_rrf_score": 0.031,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "5ca3eb2f6db04220acaa30fc192f1788",
+      "chunk_id": "5ca3eb2f6db04220acaa30fc192f1788",
+      "content_hash": "6efb24be6d0570c96903e54bc2b97ef156b556824eec5284daa2e2d1d822737d",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Público-alvo PRIME STORE**\n\n🎯 **Foco Principal: Moda Masculina**\nNossa loja é especializada em moda masculina, com grande variedade de:\n- Roupas (camisetas, calças jeans, camisas)\n- Tênis (diversos modelos e marcas)\n- Acessórios (bonés, cintos, carteiras, óculos)\n- Perfumes masculinos\n\n👩 **Também atendemos público feminino** com opções de:\n- Óculos femininos\n- Perfumes femininos\n- Sandálias femininas (como Plataforma Gucci)\n- Tênis femininos\n(Variedade menor comparado ao masculino)\n\nIMPORTANTE: Quando cliente feminino perguntar sobre produtos, informar:\n\"Nossa loja é especializada em moda masculina, oferecendo uma grande variedade de roupas e acessórios com foco no público masculino. No entanto, também trabalhamos com algumas opções para o público feminino, como óculos, perfumes, sandálias e tênis. Atendemos tanto homens quanto mulheres, mas nosso principal foco está na moda masculina, onde temos maior variedade de produtos, modelos e novidades.\"\n**upload_id**: 8596",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 158,
+      "line_end": 187,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Público-alvo e Variedade",
+      "_bm25_score": 22.7811,
+      "_source": "keyword",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "keyword"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "Vans UltraRange upload_id 8596"
+}

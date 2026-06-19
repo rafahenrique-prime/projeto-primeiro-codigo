@@ -1,0 +1,69 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "444d5973e01f4286bc93a3e150706fba",
+      "chunk_id": "444d5973e01f4286bc93a3e150706fba",
+      "content_hash": "91fb5f159735da33a637c51eea3cf210d4fab622a348df687e905cf5e665d3bc",
+      "file_path": "strategy/mensagem-grupo-vip.md",
+      "file": "strategy/mensagem-grupo-vip.md",
+      "content": "**category**: strategy\n**content_category_tags**: sales_tactic, group_engagement\n**strategy**: Mensagem Automática VIP - Sexta-feira\n**scenario**: Envio semanal às sextas-feiras 10h no grupo VIP para aumentar engajamento e respostas no privado\n**script**: Bom dia VIPs 😃✨\n\nSEXTOU! 🎉🔥\n\nJá iniciamos nossos atendimentos e hoje os membros do grupo têm prioridade no atendimento 🚀\n\n💎 Benefícios do grupo VIP:\n• Atendimento prioritário\n• Acesso antecipado às novidades\n• Promoções e oportunidades exclusivas\n\n⏰ Atendimento hoje:\n10:00h às 20:00h\n📅 Sexta-feira [data]\n\n⚠️ Algumas peças possuem estoque limitado!\n\nQuer ver as novidades e lançamentos primeiro? Chama no privado! 😍\n\nBom fim de semana a todos 🔥✨\n\n---\n\n**Configuração Técnica:**\n- **ID do Grupo:** 120363407011579852@g.us\n- **Nome do Grupo:** VIP - TESTE\n- **Frequência:** Apenas sexta-feira\n- **Horário:** 10:00h da manhã\n- **Enviar:** 1 vez por semana\n\n**Estratégia:**\n- Gerar sensação de exclusividade VIP\n- Reforçar prioridade no atendimento\n- Estimular cliente a chamar no privado\n- Criar urgência leve (estoque limitado)\n- Aumentar engajamento sem pressão excessiva\n\n**Nota de Avaliação:** 8,7/10 - Mensagem premium com alta eficácia comercial",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 1,
+      "line_end": 56,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 15.6174,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "afedc59cd1804a6bacfd24be7b845bb6",
+      "chunk_id": "afedc59cd1804a6bacfd24be7b845bb6",
+      "content_hash": "cd4212eeda0cdf13be672a8d8dacd7c62960c8b9d612686824199dcd8a4b440f",
+      "file_path": "strategy/follow-up.md",
+      "file": "strategy/follow-up.md",
+      "content": "**format**: ÁUDIO (única exceção - todas as outras mensagens são texto)\n**script_audio**: \"Consegui uma condição especial pra você naquele produto que você demonstrou interesse. Posso te enviar os detalhes?\"\n**product_or_service**: general\n**asset_path**: workspace/unknown\n**script**: [Enviar áudio com voz feminina amigável] Oi! Passando para ver se você conseguiu ver o que conversamos e se ficou com alguma dúvida. Estou à disposição!\n\nIMPORTANTE:\n- Este é o ÚNICO momento em que o agente envia áudio\n- Usar text_to_speech com voz feminina e tom amigável/cheerful\n- Enviar após exatamente 23h45min de silêncio\n- Após enviar o áudio, aguardar 15 minutos\n- Se cliente NÃO responder em 15min → enviar automaticamente a mensagem de texto de 24h\n- Se cliente RESPONDER → enviar a mensagem de texto de 24h imediatamente",
+      "category": "strategy",
+      "similarity": 0.8347604,
+      "line_start": 107,
+      "line_end": 129,
+      "asset_path": "",
+      "source_type": "text",
+      "product_or_service": "",
+      "_source": "semantic",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "e90f1e452a8f4b63960e57288f149b16",
+      "chunk_id": "e90f1e452a8f4b63960e57288f149b16",
+      "content_hash": "7bddf828690096150dcb40cce7dff245b1aa50077b835b61ad3880675bfed022",
+      "file_path": "strategy/follow-up.md",
+      "file": "strategy/follow-up.md",
+      "content": "**format**: TEXTO\n**script**: \"Oi! Sou eu, Gabriela 😊\n**product_or_service**: general\n**asset_path**: workspace/unknown\n\nPassando aqui pra te dar uma ajudinha: consegui liberar uma CONDIÇÃO ESPECIAL pra você no(a) [NOME DO PRODUTO] que você viu ontem.\n\nSe ainda tiver interesse, posso aplicar pra você agora mesmo! 😉\n\nMe chama aqui que já te ajudo a finalizar!\"\n\nIMPORTANTE: \n- Substituir [NOME DO PRODUTO] pelo produto específico que o cliente demonstrou interesse\n- Enviar automaticamente 15min após o áudio (se cliente não respondeu) OU imediatamente (se cliente respondeu)\n- Ser educado, amigável e natural\n- Criar leve senso de urgência sem pressionar\n- \"Condição especial\" = flexibilidade para negociar (desconto, parcelamento especial, brinde, etc.)\n- Não especificar % de desconto na mensagem inicial\n- Sempre se apresentar como \"Sou eu, Gabriela\" no início da mensagem\n- Se cliente perguntar sobre a condição, pode oferecer desconto de até 10% ou outra vantagem",
+      "category": "strategy",
+      "similarity": 0.7962532,
+      "line_start": 130,
+      "line_end": 159,
+      "asset_path": "",
+      "source_type": "text",
+      "product_or_service": "",
+      "_source": "semantic",
+      "_rrf_score": 0.0159,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "sexta-feira grupo VIP mensagem automática"
+}

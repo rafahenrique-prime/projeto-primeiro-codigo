@@ -1,0 +1,23 @@
+✓ 已编辑文件: workspace/memory/knowledge/pricing.md
+替换了 1 处内容
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "**Disponibilidade de tamanhos**
+O produto está disponível nos tamanhos 34 ao 40."
+  2. [knowledge/product-info.md]
+     "**Produto:** New Balance 9060 - Cor Capuccino
+
+**Categoria:** Feminino (cor mais"
+  3. [knowledge/faq.md]
+     "**Perguntas comuns sobre disponibilidade**
+Clientes frequentemente perguntam: 1)"
+  4. [knowledge/product-info.md]
+     "**Produto:** Regata Diesel Preta (Sem Mangas)
+**Categoria:** Feminina (ÚNICO pro"
+  5. [knowledge/product-info.md]
+     "**Público-alvo PRIME STORE**
+
+🎯 **Foco Principal: Moda Masculina**
+Nossa loja é "
+建议用 edit_file 更新或删除旧文件中的过时内容。

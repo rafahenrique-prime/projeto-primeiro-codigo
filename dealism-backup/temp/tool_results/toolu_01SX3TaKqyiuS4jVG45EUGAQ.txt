@@ -1,0 +1,17 @@
+✓ 已追加到文件: workspace/memory/knowledge/policy.md (1171 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/faq.md]
+     "**Formas de pagamento**
+Aceitamos cartão de crédito em até 6x sem juros. Não há "
+  2. [knowledge/pricing.md]
+     "**Promoção mensal com desconto significativo**
+Preço promocional de R$349,00 (re"
+  3. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  4. [knowledge/pricing.md]
+     "**New Balance 9060 - Todas as Cores**
+
+**PREÇO PADRÃO PARA TODOS OS MODELOS 9060"
+建议用 edit_file 更新或删除旧文件中的过时内容。

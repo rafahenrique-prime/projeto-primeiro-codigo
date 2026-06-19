@@ -1,0 +1,101 @@
+[stdout]
+**file_path**: knowledge/product-info.md
+**content_hash**: 1a89eabc3d6255038aaff0aca0f70b4306c75b8851fa0f01145b7af3e08d2c4e
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel, 黑色无袖上衣, 金属标志, 品牌服饰
+**index_text**: Diesel 黑色无袖上衣产品详情：包含黑色无袖设计、胸前椭圆形金属品牌标志等外观特征。
+**source_type**: image
+**asset_path**: workspace/assets/8ee60a9edc9e450e8d9f23a44f2c85b9_1778092111.jpg
+**upload_id**: 8607
+
+Diesel 品牌黑色无袖上衣产品展示：这款上衣采用黑色无袖剪裁设计，胸前配有椭圆形的金属 Diesel 品牌标志。搭配浅蓝色牛仔裤展示，呈现出时尚且具有品牌辨识度的穿搭效果。
+**upload_id**: 8607
+
+### 2026-05-06 19:10 [chunk-1] [chat]
+**chunk_id**: e68e6eb9d8294fd29b3ad629c47457a7
+**file_path**: knowledge/product-info.md
+**content_hash**: d3ec2a65761fd0f0b9fc303a7f633afc44a2d1dc9822752100dee1f5d0754adc
+**category**: knowledge
+**content_category_tags**: product_info, usecase
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel 上衣, 黑色无袖上衣, 镂空 Logo, Diesel 穿搭, 品牌标志
+**index_text**: Diesel 黑色无袖镂空上衣的产品外观与穿搭展示，包含胸前椭圆形 Logo 镂空设计细节。
+**source_type**: image
+**asset_path**: workspace/assets/8ee60a9edc9e450e8d9f23a44f2c85b9_1778092111.jpg
+**upload_id**: 8607
+
+Diesel 黑色无袖镂空上衣搭配浅蓝色牛仔裤穿搭展示：这款 Diesel 黑色无袖上衣设计独特，胸前配有品牌标志性的椭圆形镂空 Logo 标识。模特展示了将该上衣与浅蓝色牛仔裤搭配的时尚效果，整体风格简约且具有品牌辨识度。
+**upload_id**: 8607
+
+### 2026-05-06 19:11 [chunk-1] [chat]
+**chunk_id**: f77cb38eaf994db380c0d967a95ee44c
+**file_path**: knowledge/product-info.md
+**content_hash**: d3ec2a65761fd0f0b9fc303a7f633afc44a2d1dc9822752100dee1f5d0754adc
+**category**: knowledge
+**content_category_tags**: product_info, usecase
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel 上衣, 黑色无袖上衣, 镂空 Logo, Diesel 穿搭, 品牌标志
+**index_text**: Diesel 黑色无袖镂空上衣的产品外观与穿搭展示，包含胸前椭圆形 Logo 镂空设计细节。
+**source_type**: image
+**asset_path**: workspace/assets/8ee60a9edc9e450e8d9f23a44f2c85b9_1778092111.jpg
+**upload_id**: 8607
+
+Diesel 黑色无袖镂空上衣搭配浅蓝色牛仔裤穿搭展示：这款 Diesel 黑色无袖上衣设计独特，胸前配有品牌标志性的椭圆形镂空 Logo 标识。模特展示了将该上衣与浅蓝色牛仔裤搭配的时尚效果，整体风格简约且具有品牌辨识度。
+**upload_id**: 8609
+
+### 2026-05-06 19:11 [chunk-1] [chat]
+**chunk_id**: aa00bf0204cb4054b8bf90b8183d1fc8
+**file_path**: knowledge/product-info.md
+--
+**file_path**: knowledge/product-info.md
+**content_hash**: 04a3c201783eafa08ae617e509db822e0fa9355c329307dd92c9f613688761ba
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: 黑色露脐上衣, 镂空设计, 阔腿牛仔裤, 时尚穿搭, 女装展示
+**index_text**: 黑色露脐镂空上衣与浅蓝色阔腿牛仔裤的搭配展示，包含产品设计细节如胸前椭圆形镂空和阔腿剪裁。
+**source_type**: image
+**asset_path**: workspace/assets/cfca3cdf13bf4366a7449b2ca6a3faf7_1778094608.jpg
+**upload_id**: 8611
+
+产品展示：黑色露脐上衣配浅蓝色阔腿牛仔裤。这款黑色露脐上衣采用胸前椭圆形镂空设计，展现时尚个性；搭配的浅蓝色牛仔裤为宽松阔腿剪裁，整体风格简约时尚，适合日常穿搭或时尚街拍。
+**upload_id**: 8614
+
+### 2026-05-06 19:12 [chunk-1] [chat]
+**chunk_id**: dbfcda9bc92a4b33a31b7dccfadee9b8
+**file_path**: knowledge/product-info.md
+**content_hash**: e9d9f1f45c8a37948f94cb61a2edd09110e151c82bcfa8c9d46c361ab9eaf05a
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel 背心, 亮片露脐装, Diesel 镂空标志, 银色背心
+**index_text**: Diesel 银色亮片露脐背心产品详情：展示了带有镂空 Diesel 标志的亮片背心外观与搭配效果。
+**source_type**: image
+**asset_path**: workspace/assets/af2c964fd0df47edb7736df5db85a986_1778094608.jpg
+**upload_id**: 8614
+
+产品展示：Diesel 镂空标志银色亮片露脐背心。这款背心采用全件银色亮片设计，胸前带有经典的 Diesel 镂空标志，款式为露脐短款背心（Crop Top），适合搭配浅蓝色牛仔裤等休闲时尚装扮。
+**upload_id**: 8618
+
+### 2026-05-06 19:12 [chunk-1] [chat]
+**chunk_id**: 388dabc932bd47118040696ead5390ff
+**file_path**: knowledge/product-info.md
+**content_hash**: 214ee8366341ac5b9fba1cbf6a2c0902df0cb2e0704d07bfebe4465f6038ba4c
+**category**: knowledge
+**content_category_tags**: product_info, usecase
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**search_keys**: Diesel 上衣, 镂空标志上衣, 黑色无袖背心, Diesel 穿搭, 品牌 Logo 上衣
+**index_text**: Diesel 黑色无袖镂空标志上衣的产品外观与穿搭展示，包含胸前椭圆镂空 Logo 设计细节。
+**source_type**: image
+**asset_path**: workspace/assets/65a8596fd7514b0795597818e70d3b7f_1778094635.jpg
+**upload_id**: 8618
+
+Diesel 品牌时尚穿搭展示：这款黑色无袖上衣在胸前设计有椭圆形镂空，并嵌入了经典的 Diesel 标志。搭配浅蓝色牛仔裤，展现出简约而时尚的都市风格。该上衣采用修身剪裁，适合日常休闲或时尚搭配。
+**upload_id**: 8613
+
+### 2026-05-06 19:12 [chunk-1] [chat]
+**chunk_id**: e02b8f3e9b8e482090f3e20918e8085a
+**file_path**: knowledge/product-info.md
+**content_hash**: 410029d1eb70f1920cf4eb41a1c2897f29f8fdb0a583ac713be3f0ab6ea817d1

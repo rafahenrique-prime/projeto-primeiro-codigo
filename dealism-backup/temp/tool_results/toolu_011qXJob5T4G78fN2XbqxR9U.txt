@@ -1,0 +1,15 @@
+✓ 已编辑文件: workspace/memory/knowledge/product-info.md
+替换了 1 处内容
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/general.md]
+     "msg 91149455 image (part 6/7): The provided input contains corrupted binary data"
+  2. [knowledge/general.md]
+     "msg 91149464 image (part 6/7): The provided content consists of corrupted binary"
+  3. [knowledge/general.md]
+     "msg 91149446 image (part 6/7): The provided input contains corrupted binary data"
+  4. [knowledge/general.md]
+     "msg 91138221 image (part 1/4): The provided content appears to be raw binary dat"
+  5. [knowledge/general.md]
+     "msg 91149446 image (part 1/7): The provided input contains binary image data (JF"
+建议用 edit_file 更新或删除旧文件中的过时内容。

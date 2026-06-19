@@ -1,0 +1,14 @@
+✓ 已写入文件: workspace/memory/knowledge/diesel-brand.md (5073 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "Diesel 品牌黑色无袖上衣产品展示：这款上衣采用黑色无袖剪裁设计，胸前配有椭圆形的金属 Diesel 品牌标志。搭配浅蓝色牛仔裤展示，呈现出时尚且具有品牌辨"
+  2. [knowledge/product-info.md]
+     "Diesel品牌时尚女装展示：一名年轻女子穿着Diesel米色无袖上衣，上衣中心印有品牌经典的椭圆形标志（Oval D logo），搭配浅蓝色牛仔裤。整体风格偏"
+  3. [knowledge/product-info.md]
+     "Diesel 品牌时尚穿搭展示：这款黑色无袖上衣在胸前设计有椭圆形镂空，并嵌入了经典的 Diesel 标志。搭配浅蓝色牛仔裤，展现出简约而时尚的都市风格。该上衣"
+  4. [knowledge/product-info.md]
+     "Diesel 品牌黑色无袖上衣产品展示：这款上衣采用黑色无袖设计，胸前配有 Diesel 品牌标志性的椭圆形镂空 Logo 装饰。模特搭配浅蓝色牛仔裤展示，整体"
+  5. [knowledge/product-info.md]
+     "Diesel 黑色无袖上衣产品展示：这款上衣采用黑色无袖设计，胸前配有品牌标志性的椭圆形镂空设计，镂空内嵌有 Diesel 标志。搭配浅蓝色牛仔裤，展现出时尚且"
+建议用 edit_file 更新或删除旧文件中的过时内容。

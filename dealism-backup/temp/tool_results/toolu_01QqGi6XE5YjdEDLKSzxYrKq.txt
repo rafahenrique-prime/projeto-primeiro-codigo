@@ -1,0 +1,20 @@
+✓ 已追加到文件: workspace/memory/knowledge/faq.md (552 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/product-info.md]
+     "**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New "
+  2. [strategy/sales-tactics.md]
+     "**Convite à loja física**
+Quando cliente pergunta sobre disponibilidade online o"
+  3. [knowledge/policy.md]
+     "**Política de atendimento presencial**
+Loja física prioritária para experimentaç"
+  4. [strategy/sales-tactics.md]
+     "1️⃣ Conhecer nossos serviços/produtos
+2️⃣ Solicitar um orçamento
+3️⃣ Agendar um "
+  5. [strategy/follow-up.md]
+     "**Confirmação de visita presencial**
+Após interesse do cliente em visitar, ofere"
+建议用 edit_file 更新或删除旧文件中的过时内容。

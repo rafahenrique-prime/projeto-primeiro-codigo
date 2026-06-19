@@ -1,0 +1,11 @@
+[stdout]
+Criando backup completo em: /tmp/prime_store_backup_20260512_103128
+Backup concluído: /tmp/prime_store_backup_20260512_103128
+total 32K
+drwxr-xr-x.  4 root root 4.0K May 12 10:31 .
+drwxrwxrwt.  1 root root 4.0K May 12 10:31 ..
+-rw-r--r--.  1 root root  794 May 12 10:31 MANIFEST.md
+-rw-------.  1 root root 1.3K May 12 10:31 bindings.json
+drwxr-xr-x.  2 root root 4.0K May 12 10:31 buyer_agent_configs
+-rw-------.  1 root root 2.9K May 12 10:31 buyer_directory.json
+drwxr-xr-x. 10 root root 4.0K May 12 10:31 workspace

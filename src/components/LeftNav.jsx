@@ -2,17 +2,19 @@ import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
 
 const workItems = [
-  { id: 'inbox',     label: 'Mensagem',    badge: true },
-  { id: 'agents',    label: 'Agentes' },
-  { id: 'channels',  label: 'Canais' },
-  { id: 'simulador', label: '🎭 Simulador', badge: false },
-  { id: 'catalogo',  label: '📦 Catálogo', badge: false },
-  { id: 'importar',  label: '🔗 Importar', badge: false },
-  { id: 'extrator',  label: '🔨 Extrator', badge: false },
+  { id: 'inbox',    label: 'Mensagem',   badge: true },
+  { id: 'agents',   label: 'Agentes' },
+  { id: 'channels', label: 'Canais' },
+  { id: 'catalogo', label: '📦 Catálogo', badge: false },
+  { id: 'importar', label: '🔗 Importar', badge: false },
+  { id: 'importar-backup', label: '📥 Backup', badge: false },
+  { id: 'extrator', label: '🔨 Extrator', badge: false },
 ]
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
   { id: 'contacts',  label: 'Contatos' },
+  { id: 'photo',     label: '📸 Fotos' },
+  { id: 'lab',       label: '🧪 Lab IA' },
   { id: 'relatorios', label: 'Relatórios' },
 ]
 
@@ -28,6 +30,8 @@ function getIcon(id) {
     case 'simulador':  return <Sim />
     case 'catalogo':   return <Cat />
     case 'importar':   return <Imp />
+    case 'importar-backup': return <Bak />
+    case 'photo':      return <Pho />
     case 'extrator':   return <Ext />
     default:           return <Dot />
   }
@@ -73,7 +77,7 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         )}
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: collapsed ? '10px 6px 0' : '10px 10px 0' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: collapsed ? '10px 6px 0' : '10px 10px 0', overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Dashboard */}
         <button onClick={() => setPage('dashboard')} title={collapsed ? 'Dashboard' : ''} style={{
@@ -90,19 +94,19 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           {!collapsed && 'Dashboard'}
         </button>
 
-        {/* Deal Claude */}
-        <button onClick={() => setPage('dealonca')} title={collapsed ? 'Deal Claude' : ''} style={{
+        {/* CODEX */}
+        <button onClick={() => setPage('dealonca')} title={collapsed ? 'CODEX' : ''} style={{
           width: '100%',
-          background: page === 'dealonca' ? (dark ? '#E8714A' : '#E8192C') : (dark ? '#FEF3EE22' : '#fff5f0'),
-          color: page === 'dealonca' ? '#fff' : (dark ? '#C05020' : '#E8192C'),
+          background: page === 'dealonca' ? '#7C3AED' : (dark ? 'rgba(124,58,237,0.12)' : '#F5F3FF'),
+          color: page === 'dealonca' ? '#fff' : '#7C3AED',
           borderRadius: 10, padding: collapsed ? '10px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
-          border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? '#fdddd022' : '#fdddd0')}`,
+          border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? 'rgba(124,58,237,0.25)' : '#DDD6FE')}`,
           marginBottom: 14, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
         }}>
-          <ClawdIcon size={20} active={page === 'dealonca'} />
-          {!collapsed && 'Deal Claude'}
+          <CodexNavIcon size={20} active={page === 'dealonca'} />
+          {!collapsed && 'CODEX'}
         </button>
 
         {!collapsed && <Label color={t.textMuted}>Espaço de Trabalho</Label>}
@@ -203,7 +207,17 @@ function Ag()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="no
 function Ch()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> }
 function Kn()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> }
 function Co()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
-function Da()  { return <ClawdIcon size={15} /> }
+function Da()  { return <CodexNavIcon size={15} /> }
+function CodexNavIcon({ size = 20, active = false }) {
+  const c = active ? '#fff' : '#7C3AED'
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+      <path d="M12 2v20"/>
+      <path d="M2 8.5l10 7 10-7"/>
+    </svg>
+  )
+}
 function ClawdIcon({ size = 20, active = false }) {
   const c = active ? '#fff' : '#E8714A'
   const s = Math.round(size * 16 / 20)
@@ -223,6 +237,8 @@ function Rep()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="n
 function Sim()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg> }
 function Cat()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6-6 6 6M3 9h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><rect x="5" y="12" width="4" height="4"/><rect x="15" y="12" width="4" height="4"/></svg> }
 function Imp()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 19h18a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/></svg> }
+function Bak()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><path d="M19.07 4.93l-2.58 2.58A8 8 0 1 0 12 2c2.12 0 4.07.78 5.55 2.05"/><polyline points="13 2 19.07 2 19.07 8.07"/></svg> }
+function Pho()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }
 function Ext()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
 function Dot() { return <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg> }
 function DashIcon({ active }) {

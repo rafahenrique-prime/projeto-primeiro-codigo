@@ -1,0 +1,115 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "2ffed0662a1a40e78d911c4c610736ba",
+      "chunk_id": "2ffed0662a1a40e78d911c4c610736ba",
+      "content_hash": "14cfdcd996a1ca114d2f575dab7d0ea66f396dc8a0d6dce2856759a5a51b3af4",
+      "file_path": "knowledge/policy.md",
+      "file": "knowledge/policy.md",
+      "content": "**Entrega em Uberlândia no sábado:**\n- Taxa: R$ 15 (fixo para todos os bairros)\n- Horário limite de entrega: até 16h (horário de funcionamento da loja no sábado)\n- Preparação: 40 minutos em média\n- Entrega terceirizada (depende do entregador disponível)\n\n**Importante:** Entregas no sábado seguem o horário de funcionamento da loja (9h às 16h). Pedidos feitos próximo ao fechamento podem não ser entregues no mesmo dia.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 67,
+      "line_end": 84,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Entrega em Uberlândia",
+      "_bm25_score": 84.3986,
+      "_source": "keyword",
+      "_rrf_score": 0.0325,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "24496c6b405f487d92a61cd6d40662de",
+      "chunk_id": "24496c6b405f487d92a61cd6d40662de",
+      "content_hash": "58f0fa97aa9ebbfff21b6b9fd13e98e6622c62580b24d4f7fc9ac47d9d73571c",
+      "file_path": "knowledge/policy.md",
+      "file": "knowledge/policy.md",
+      "content": "**Serviço de entrega terceirizada**\nLoja oferece entrega terceirizada com taxa (R$15) e prazo estimado (40min preparo + entrega às 19h). Cliente pode enviar PIX e endereço para terceiro receber.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 41,
+      "line_end": 53,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Serviço de entrega terceirizada",
+      "_bm25_score": 63.1901,
+      "_source": "keyword",
+      "_rrf_score": 0.0317,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "884ef5c688964f6fbd3c1e8a52d1de67",
+      "chunk_id": "884ef5c688964f6fbd3c1e8a52d1de67",
+      "content_hash": "fb301f80a4e52bbf070ae40b06e7006e214a065120ebc2130a3e422d5dcb23aa",
+      "file_path": "knowledge/policy.md",
+      "file": "knowledge/policy.md",
+      "content": "**Política de troca com taxa de entrega**\nTrocas são permitidas, mas o cliente deve pagar a taxa de entrega novamente (R$15). Pode buscar na loja ou receber em casa mediante pagamento da taxa.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 28,
+      "line_end": 40,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Política de troca",
+      "_bm25_score": 60.9104,
+      "_source": "keyword",
+      "_rrf_score": 0.0301,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "7f6176fafcdd4191bd308dd375f5924a",
+      "chunk_id": "7f6176fafcdd4191bd308dd375f5924a",
+      "content_hash": "923fd176ed7ec2df52335dc8ac9562898d4efd9932dc6bdff3a59e0c9bd9a7f5",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Produto:** Regata Diesel Preta (Sem Mangas)\n**Categoria:** Feminina (ÚNICO produto feminino de roupa disponível)\n**Tamanhos:** P e M\n**Preço:**\n- 💳 Cartão: R$ 299,00 em até 6x sem juros (R$ 49,83/mês)\n- 💰 PIX: R$ 254,15 (15% de desconto - economiza R$ 44,85!)\n\n**Observação importante:** Esta é a ÚNICA peça de roupa feminina disponível na loja. Para outros produtos femininos, temos apenas óculos, perfumes, sandálias e tênis.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 525,
+      "line_end": 542,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Regata Diesel Preta",
+      "_bm25_score": 50.7063,
+      "_source": "keyword",
+      "_rrf_score": 0.0292,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "df55a99eb3534727adaff9f7f1a20760",
+      "chunk_id": "df55a99eb3534727adaff9f7f1a20760",
+      "content_hash": "352de7c58a61c7901e9b6bd100b7640c7afe8df83bed99a10b3c691c37172984",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Política de Entregas**\n\n🚚 Entrega em Uberlândia-MG:\n- Valor fixo: R$ 15,00 para TODOS os bairros\n- Entrega realizada até o final do dia (dependendo do entregador terceirizado)\n- Para entregas via app Uber: enviamos o link de rastreamento para o cliente acompanhar em tempo real\n- Responder diretamente: \"Fazemos entrega em qualquer bairro de Uberlândia por R$ 15,00!\"\n\n📦 Envio para todo o Brasil (fora de Uberlândia):\n- Via Correios ou transportadoras\n- Valor médio: aproximadamente R$ 35,00 a R$ 38,00\n- Prazo de entrega: 2 a 5 dias úteis\n\nIMPORTANTE: \n1. Quando cliente perguntar sobre envio fora de Uberlândia, responder:\n   \"Geralmente o envio via Correios ou transportadora fica no valor de R$ 35. Me envia seu CEP pra eu fazer uma consulta e te passar o valor exato!\"\n\n2. Quando cliente ENVIAR o CEP, responder de forma humanizada:\n   \"Cotei aqui! O valor fica R$ 38,00. O envio demora pra chegar de 2 a 5 dias úteis pra você!\"\n\n3. Quando cliente CONFIRMAR O PEDIDO (envio fora de Uberlândia), SEMPRE avisar:\n   \"Pagamentos feitos até as 16h serão despachados no mesmo dia! Quanto mais rápido você pagar, mais rápido seu pedido sai!\"\n   \n**Regra importante:** Pagamento confirmado até as 16h = despacho no mesmo dia (para CEPs fora de Uberlândia)",
+      "category": "knowledge",
+      "similarity": 0.9163764,
+      "line_start": 56,
+      "line_end": 90,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Entrega e Frete",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 5,
+  "query": "frete entrega Uberlândia R$ 15 R$ 38"
+}

@@ -1,0 +1,9 @@
+[stdout]
+207:Vans UltraRange Sneaker: This product is a black and white Vans UltraRange sneaker featuring the iconic white side stripe and a thick, textured white sole designed for comfort and durability. The image showcases the shoe's design and branding, including the Vans and Diesel logos, highlighting its lifestyle and performance appeal.
+362:**product_or_service**: Diesel 黑色无袖上衣
+426:**product_or_service**: Diesel 黑色无袖上衣
+433:Diesel 黑色无袖上衣 (Silver Ribbed Crop Top): This product is a silver, ribbed crop top featuring a prominent gold Diesel logo on the chest. It is styled as a fashion piece, often paired with light blue jeans for a contemporary look. The top is part of the Diesel brand collection, characterized by its metallic finish and signature branding.
+442:**product_or_service**: Diesel 黑色无袖上衣
+458:**product_or_service**: Diesel 黑色无袖上衣
+474:**product_or_service**: Diesel 黑色无袖上衣
+711:- 📸 Imagens cadastradas no sistema (reconhecimento automático disponível)

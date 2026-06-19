@@ -1,0 +1,70 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "fa4f2b2102a34b18a1faedeabd386fa1",
+      "chunk_id": "fa4f2b2102a34b18a1faedeabd386fa1",
+      "content_hash": "f69ae66d437e864897c035a456f218930680442e6ba79ba0c0176e6984ea84dd",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8699\n\n**upload_id**: 8702",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 654,
+      "line_end": 668,
+      "asset_path": "workspace/assets/988cb70d59984b0fa422cc4bf9abd26e_1778164178.png",
+      "source_type": "image",
+      "product_or_service": "Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)",
+      "_bm25_score": 48.5451,
+      "_source": "keyword",
+      "_rrf_score": 0.0318,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "auto-generated",
+      "chunk_id": "auto-generated",
+      "content_hash": "",
+      "file_path": "knowledge/pricing.md",
+      "file": "knowledge/pricing.md",
+      "content": "**Cueca Lupo - Combo 3 Unidades**\n\n**PREÇO:**\n- 💰 **PIX:** R$ 150,00 (combo 3 unidades)\n- 💳 **Cartão:** R$ 159,00 em até 6x sem juros (R$ 26,50/mês)\n\n**Economia PIX:** R$ 9,00\n\n**Tamanhos:** P, M, G, GG, G1\n\n**Observações:**\n- Preço válido para COMBO 3 unidades\n- Um dos produtos mais vendidos da loja\n- Marca Lupo (tradição de mais de 100 anos)\n- Tecnologia sem costura para maior conforto",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 261,
+      "line_end": 285,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Cueca Lupo",
+      "_bm25_score": 67.1847,
+      "_source": "keyword",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "keyword"
+      ]
+    },
+    {
+      "doc_id": "efc3c54f13dc47d487a85bf4878305d6",
+      "chunk_id": "efc3c54f13dc47d487a85bf4878305d6",
+      "content_hash": "6c6e18bf5ddcec67d3b44d632ae79f40b4e254e686986ffa197f1403f9c1b516",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "Cueca Boxer Masculina Lupo, cor cinza com elástico preto. Esta cueca da marca Lupo possui um design clássico com o nome da marca 'LUPO' estampado em cinza no cós elástico de cor preta. O produto é uma peça de roupa íntima masculina em tom cinza mescla, ideal para uso diário.",
+      "category": "knowledge",
+      "similarity": 0.8255142,
+      "line_start": 874,
+      "line_end": 889,
+      "asset_path": "workspace/assets/ec853074b01c4f61bd12b678681aaa53_1778160294.jpg",
+      "source_type": "image",
+      "product_or_service": "Cuecas Lupo",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "Cueca Lupo preço combo unitária tamanhos"
+}

@@ -1,0 +1,333 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "efc3c54f13dc47d487a85bf4878305d6",
+      "chunk_id": "efc3c54f13dc47d487a85bf4878305d6",
+      "content_hash": "6c6e18bf5ddcec67d3b44d632ae79f40b4e254e686986ffa197f1403f9c1b516",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8686\n\nCueca Boxer Masculina Lupo, cor cinza com elástico preto. Esta cueca da marca Lupo possui um design clássico com o nome da marca 'LUPO' estampado em cinza no cós elástico de cor preta. O produto é uma peça de roupa íntima masculina em tom cinza mescla, ideal para uso diário.\n**upload_id**: 8691",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1438,
+      "line_end": 1453,
+      "asset_path": "workspace/assets/ec853074b01c4f61bd12b678681aaa53_1778160294.jpg",
+      "source_type": "image",
+      "product_or_service": "Cuecas Lupo",
+      "_bm25_score": 96.8959,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "476955f6e38847f381a2eba0d92b9b34",
+      "chunk_id": "476955f6e38847f381a2eba0d92b9b34",
+      "content_hash": "866e66a5bc7132332c024c2aa86f8fe66e8fa83f68df99f7d825477bf4d5e06b",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8684\n\nA marca Lupo oferece cuecas boxer masculinas de linha premium, como o modelo destacado na cor branca com cós elástico em cores vibrantes neon (amarelo e azul). As cuecas Lupo são conhecidas pelo conforto, design moderno e a presença do logotipo da marca no elástico da cintura.\n**upload_id**: 8685",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1342,
+      "line_end": 1357,
+      "asset_path": "workspace/assets/b409eb66284f4b239d10bba5337f5a7f_1778160294.png",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 94.8437,
+      "_source": "keyword",
+      "_rrf_score": 0.0313,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "e4b8c69b63534a7e90bb22db4ecb0713",
+      "chunk_id": "e4b8c69b63534a7e90bb22db4ecb0713",
+      "content_hash": "da8cfc9e2f07fc46285f4779cc71a845483009018d4e119957b4049fae6a6eca",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8691\n\nA marca Lupo oferece peças de moda íntima masculina, como cuecas boxer. A imagem do produto 3add31f6e13b42f6bff684cbc010cf5e_1778160294.png mostra uma cueca branca com o logotipo da LUPO em cinza no cós, destacando o design e o ajuste das peças no corpo.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1454,
+      "line_end": 1468,
+      "asset_path": "workspace/assets/3add31f6e13b42f6bff684cbc010cf5e_1778160294.png",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 93.9104,
+      "_source": "keyword",
+      "_rrf_score": 0.0313,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "56980ff1ec6a40f28ccabbc70eef4825",
+      "chunk_id": "56980ff1ec6a40f28ccabbc70eef4825",
+      "content_hash": "ec6436faecab8cde8718bd25a22a27d61f7462646ab556807f7c04dcdb4feaf9",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8687\n\nA marca Lupo oferece cuecas masculinas com foco em estilo e conforto. Este modelo específico de cueca Lupo é na cor branca, apresentando um cós elástico com padronagem xadrez azul e o logotipo da marca 'LUPO' em destaque.\n**upload_id**: 8690",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1374,
+      "line_end": 1389,
+      "asset_path": "workspace/assets/9785cb08b8874e5a8620f75865e683db_1778160294.jpg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 94.7134,
+      "_source": "keyword",
+      "_rrf_score": 0.0313,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "938e72a17da04e2cb6d9043a78fb0216",
+      "chunk_id": "938e72a17da04e2cb6d9043a78fb0216",
+      "content_hash": "c7e192807ea48c333399acbae8117c6d3219a9a5e2aa87978df0c85330b197be",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8683\n\nA marca Lupo oferece cuecas boxer masculinas, como demonstrado pelo modelo vestindo uma cueca boxer azul com o nome 'LUPO' estampado no elástico da cintura. O produto faz parte da linha de moda íntima masculina da marca.\n**upload_id**: 8684",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1326,
+      "line_end": 1341,
+      "asset_path": "workspace/assets/06efcd90d0994e89849f63da331c7635_1778160294.png",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 94.1574,
+      "_source": "keyword",
+      "_rrf_score": 0.0313,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "350de221d6124636b69877cacf5501f1",
+      "chunk_id": "350de221d6124636b69877cacf5501f1",
+      "content_hash": "fdf75fbea1f8da48d58e6e4be9250ff2ecf38506e19edb27ae9e934649e0152d",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8688\n\nA marca Lupo oferece cuecas do modelo boxer (Lupo Underwear). O catálogo inclui opções como a cueca branca com cós laranja apresentando o logotipo LUPO e a cueca preta com cós cinza escrito LUPO UNDERWEAR. Estas peças fazem parte da linha de roupas íntimas masculinas da marca Lupo.\n**upload_id**: 8686",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1422,
+      "line_end": 1437,
+      "asset_path": "workspace/assets/1fdbf4f090144490ae5b9a1465e4cf48_1778160294.jpeg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 94.276,
+      "_source": "keyword",
+      "_rrf_score": 0.0312,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "88b0eeb3c2da41548025ff4a01e066b7",
+      "chunk_id": "88b0eeb3c2da41548025ff4a01e066b7",
+      "content_hash": "1e7b9aaf7769394e632fefc08138039dac1249ad72ee329c753564be0e11f8a5",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8680\n\nA marca Lupo oferece cuecas boxer masculinas, como o modelo na cor azul marinho com cós cinza apresentado nesta imagem. O produto apresenta o logotipo LUPO em destaque no cós e faz parte da linha de moda íntima masculina da marca, focada em conforto e estilo.\n**upload_id**: 8681",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1278,
+      "line_end": 1293,
+      "asset_path": "workspace/assets/09edbb960af148e49c622fa828facf86_1778160293.png",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 93.7433,
+      "_source": "keyword",
+      "_rrf_score": 0.0296,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "07dcf9bd5ca04fa787815db7cefd0f65",
+      "chunk_id": "07dcf9bd5ca04fa787815db7cefd0f65",
+      "content_hash": "f384dbcccb5ed75b8d7839cb9850198723f93b91de7c1e9f3eac92a9c14dfcdc",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8685\n\nLUPO 男士黑色平角内裤产品展示。此产品为一条黑色的男士平角内裤，腰部采用灰色腰带设计，并印有明显的“LUPO”品牌标识以及条形码装饰图案。该内裤设计风格简洁，属于 LUPO 品牌的经典男士内衣系列。\n**upload_id**: 8687",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1358,
+      "line_end": 1373,
+      "asset_path": "workspace/assets/92ca88b570814cd0a14aad0efa17f620_1778160294.jpg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 89.8221,
+      "_source": "keyword",
+      "_rrf_score": 0.0276,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "auto-generated",
+      "chunk_id": "auto-generated",
+      "content_hash": "",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Cueca Lupo - Marca Mais Vendida do Brasil**\n\n**Preços:**\n- Unitária: R$ 59,00\n- Kit c/ 3 unidades: R$ 150,00\n\n**Tamanhos disponíveis:**\n- M, G, GG, G1\n\n**Características:**\n- ✅ Marca mais vendida do Brasil\n- ✅ Marca de referência em qualidade\n- ✅ Quem compra sempre volta\n- ✅ Qualidade garantida\n- ✅ Fundada em 1921 (mais de 100 anos!)\n- ✅ Conforto superior\n- ✅ Cuecas sem costura\n\n**RESPOSTA PADRÃO PARA CLIENTE - Unitária:**\n```\nCueca Lupo - marca mais vendida do Brasil! 🔥\n\n💳 Cartão: R$ 59,00 em até 6x sem juros (R$ 9,83/mês)\n💰 PIX: R$ 59,00\n\n✅ Marca de referência em qualidade\n✅ Fundada em 1921 (mais de 100 anos!)\n\nTamanhos: M, G, GG, G1\n\nQual tamanho você precisa? 😊\n```\n\n**RESPOSTA PADRÃO PARA CLIENTE - Kit 3 unidades:**\n```\nCueca Lupo - Kit com 3 unidades! 🔥\n\n💳 Cartão: R$ 150,00 em até 6x sem juros (R$ 25,00/mês)\n💰 PIX: R$ 150,00\n\n✅ Marca mais vendida do Brasil\n✅ Levando 3, você economiza R$ 27!\n✅ Fundada em 1921 (tradição brasileira!)\n\nTamanhos: M, G, GG, G1\n\nQual tamanho você usa? 😊\n```\n\n**ESTRATÉGIA DE VENDA:**\n- Quando cliente perguntar preço de 1: Informar R$ 59 e já oferecer kit de 3\n- Sempre destacar que levando 3 economiza R$ 27 (comparado a comprar 3 unitárias: 3 x 59 = 177 vs kit 150)\n- Sempre mencionar que é a marca mais vendida do Brasil\n- Sempre perguntar tamanho (M, G, GG, G1)\n- Sempre sugerir kit de 3 unidades para maximizar venda\n- Destacar tradição (fundada em 1921)",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1011,
+      "line_end": 1076,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Cueca Lupo",
+      "_bm25_score": 80.8057,
+      "_source": "keyword",
+      "_rrf_score": 0.0274,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "1afb4e9a25e44278904b33019f4558b8",
+      "chunk_id": "1afb4e9a25e44278904b33019f4558b8",
+      "content_hash": "f6ee16d50302b39009c08c14640524173cb2d064abdd363ee3315ee0398a6695",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8677\n\nLUPO 男士内裤款式展示：此款式为深蓝色配色，设计简洁。产品配有灰色腰带，腰带上印有明显的 LUPO 品牌标识，并带有黄色装饰条纹作为细节点缀。该图片展示了三条叠放的内裤，体现了 LUPO 品牌的一致性和产品外观设计。\n**upload_id**: 8678",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1230,
+      "line_end": 1245,
+      "asset_path": "workspace/assets/cfc92f90a75b4f3aaf00fe9a320a494d_1778160293.jpeg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 93.5723,
+      "_source": "keyword",
+      "_rrf_score": 0.0272,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "80703eb52bfb41f29593700d0f23f867",
+      "chunk_id": "80703eb52bfb41f29593700d0f23f867",
+      "content_hash": "b7702ddf51397bedfeae774b6dc790c7b7ea82b763178bc77d9f6bfee24f7621",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8678\n\nLUPO 品牌男士内裤产品展示。此产品为男士内裤，包含黑色、蓝色和白色三种款式。每条内裤的腰带部分印有明显的“LUPO”品牌标识，设计风格简洁。图片展示了该产品的外观细节、颜色选项及腰带部分的缝制工艺，属于 LUPO 品牌的经典男士内衣系列。\n**upload_id**: 8679",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1246,
+      "line_end": 1261,
+      "asset_path": "workspace/assets/74399f33e9504039919270153864504f_1778160293.jpeg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 89.616,
+      "_source": "keyword",
+      "_rrf_score": 0.027,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "613d5cca0e7a45e0ae61b930c0dd86ef",
+      "chunk_id": "613d5cca0e7a45e0ae61b930c0dd86ef",
+      "content_hash": "9c843773af972fea60626837a71ca0ba809c5e4bc3b68be9453b75d69bdd1b2e",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8679\n\nLUPO 品牌男士平角内裤产品展示。此款内裤为黑色平角款式，腰部采用灰色带有白色条纹的松紧带设计，并印有明显的“LUPO”品牌标识，整体风格简洁大方。\n**upload_id**: 8680",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1262,
+      "line_end": 1277,
+      "asset_path": "workspace/assets/a70ea222af504d9ca1d9990e6ff76525_1778160293.jpeg",
+      "source_type": "image",
+      "product_or_service": "Marca Lupo",
+      "_bm25_score": 90.4866,
+      "_source": "keyword",
+      "_rrf_score": 0.0269,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "77db6ada11694a6d954ba96a51753e50",
+      "chunk_id": "77db6ada11694a6d954ba96a51753e50",
+      "content_hash": "9c1b06270d2db8ed4a1081dea77e05f58c5763ad1e24ccf74244f08871f54c89",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8690\n\nLUPO UNDERWEAR. This product is a pair of black men's boxer briefs from the brand Lupo. The underwear features a light gray waistband with the 'LUPO UNDERWEAR' brand name printed in a dark gray font. The design is clean and minimalist, representing the standard style of Lupo's premium underwear line.\n**upload_id**: 8689",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1390,
+      "line_end": 1405,
+      "asset_path": "workspace/assets/8c29f09239a543efb0b7732e79a46282_1778160294.jpeg",
+      "source_type": "image",
+      "product_or_service": "Cueca Lupo",
+      "_bm25_score": 89.7965,
+      "_source": "keyword",
+      "_rrf_score": 0.0267,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "8ca4ec65186141898776b68d00706e8e",
+      "chunk_id": "8ca4ec65186141898776b68d00706e8e",
+      "content_hash": "0b31e82183a0e5f26a18a84166b2025b79bad960988113d5b35e9ecd106d1839",
+      "file_path": "knowledge/general.md",
+      "file": "knowledge/general.md",
+      "content": "msg 91149464 image (part 1/7): The input provided consists of raw binary image data (JFIF/JPEG format) which contains visual information rather than extractable text. This file appears to be a photographic or graphic asset related to the sales catalog or product display.",
+      "category": "knowledge",
+      "similarity": 0.7532615,
+      "line_start": 460,
+      "line_end": 472,
+      "asset_path": "workspace/assets/url_20260506_201211_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0145,
+      "_sources": [
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "e09ca7d2325f411999f506b6c3220d5b",
+      "chunk_id": "e09ca7d2325f411999f506b6c3220d5b",
+      "content_hash": "a85bd67946075978535ef8496922883605fda40ce47ae6997248f9b37f59fe3d",
+      "file_path": "knowledge/general.md",
+      "file": "knowledge/general.md",
+      "content": "msg 91138221 image (part 1/4): The provided content appears to be raw binary data from an image file (JFIF/JPEG format) and does not contain readable text, product specifications, pricing, or sales strategies. It includes metadata such as ICC profiles and standard JPEG headers but lacks actionable knowledge for a sales agent.",
+      "category": "knowledge",
+      "similarity": 0.7435819,
+      "line_start": 304,
+      "line_end": 316,
+      "asset_path": "workspace/assets/url_20260506_200753_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0143,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 15,
+  "query": "Lupo cuecas imagens upload 8677 8678 8679 8680 8681 8682 8683 8684 8685 8686 8687 8688 8689 8690 8691"
+}

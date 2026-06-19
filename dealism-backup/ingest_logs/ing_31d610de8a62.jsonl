@@ -1,0 +1,5 @@
+{"ts": "2026-05-08T11:11:48.647714+00:00", "step": "batch_start", "source": "whatsapp", "session_id": "seller:38537:agent:main", "buyer_count": 1, "is_final": true}
+{"ts": "2026-05-08T11:12:01.755087+00:00", "step": "buyer_done", "buyer_id": "280038", "learned": {"strategy": 1, "profile": 1}}
+{"ts": "2026-05-08T11:12:01.764603+00:00", "step": "final_sending"}
+{"ts": "2026-05-08T11:12:01.774719+00:00", "step": "final_sent"}
+{"ts": "2026-05-08T11:12:01.863160+00:00", "step": "batch_done", "duration_ms": 13147, "learned": {"strategy": 1, "profile": 1}, "new_buyers": 0, "multimodal_failed": 0}

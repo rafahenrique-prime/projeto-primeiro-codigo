@@ -1,0 +1,21 @@
+[stdout]
+./AGENTS.md:# Operating Instructions
+./AGENTS.md:This folder is home. Treat it that way.
+./AGENTS.md:## IMPORTANT: File Paths
+./AGENTS.md:Your workspace is located at `workspace/`. **Always use the `workspace/` prefix** when reading or writing files:
+./AGENTS.md:- ✅ `workspace/USER.md`
+./AGENTS.md:- ✅ `workspace/SOUL.md`
+./AGENTS.md:- ✅ `workspace/memory/2026-02-01.md`
+./AGENTS.md:- ❌ `USER.md` (wrong - writes to project root)
+./AGENTS.md:**Exception:** `buyer_agents/` and `buyer_agent_configs/` are **sibling directories** of `workspace/`, NOT inside it. Access them directly:
+./AGENTS.md:- ✅ `buyer_agents/bindings.json`
+./AGENTS.md:- ✅ `buyer_agent_configs/config_xxx.json`
+./AGENTS.md:- ❌ `workspace/buyer_agents/...` (wrong path — will cause file-not-found)
+./AGENTS.md:## First Run
+./AGENTS.md:If `workspace/BOOTSTRAP.md` exists, that's your birth certificate. Follow it, figure out who you are, then delete it. You won't need it again.
+./AGENTS.md:## Every Session
+./AGENTS.md:Before doing anything else:
+./AGENTS.md:1. Read `workspace/SOUL.md` — this is who you are
+./AGENTS.md:2. Read `workspace/USER.md` — this is who you're helping
+./AGENTS.md:3. Read `workspace/memory/YYYY-MM-DD.md` (today + yesterday) for recent context
+./AGENTS.md:4. **If in MAIN SESSION** (direct chat with your human): Also read `workspace/MEMORY.md`

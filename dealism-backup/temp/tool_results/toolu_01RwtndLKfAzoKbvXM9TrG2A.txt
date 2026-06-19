@@ -1,0 +1,11 @@
+[stdout]
+431:- "Cuecas importadas Calvin e Tommy Hilfiger!"
+505:**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+516:Cuecas masculinas premium importadas das marcas Calvin Klein e Tommy Hilfiger. Linha de alta qualidade com acabamento impecável e conforto garantido. Marcas reconhecidas internacionalmente.
+535:- "Cuecas importadas Calvin Klein e Tommy Hilfiger!"
+1045:**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+1046:**search_keys**: cueca, Calvin Klein, Tommy Hilfiger, preço cueca, tamanhos
+1047:**index_text**: Preços e marcas de cuecas na PRIME STORE: Calvin Klein e Tommy Hilfiger por R$ 30,00 a unidade ou combo de 4 por R$ 100,00 nos tamanhos M, G e GG.
+1052:A loja PRIME STORE oferece cuecas das marcas Calvin Klein, Tommy Hilfiger e Lupo. Cuecas Calvin Klein e Tommy Hilfiger: R$ 30,00 por unidade ou combo de 4 unidades por R$ 100,00 (tamanhos M, G, GG). Cuecas Lupo: combo 3 unidades por R$ 150,00 PIX ou R$ 159,00 Cartão (tamanhos P, M, G, GG, G1).
+1061:**product_or_service**: Cuecas Premium Importadas (Calvin Klein e Tommy Hilfiger)
+1062:**search_keys**: cuecas, Calvin Klein, Tommy Hilfiger, combo cuecas, tamanhos cuecas

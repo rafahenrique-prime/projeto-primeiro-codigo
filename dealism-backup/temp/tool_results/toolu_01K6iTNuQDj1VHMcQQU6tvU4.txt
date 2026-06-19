@@ -1,0 +1,71 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "966fb1104e894bf1b55c07a7837ce22f",
+      "chunk_id": "966fb1104e894bf1b55c07a7837ce22f",
+      "content_hash": "0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Estoque dinâmico de tênis**\nEstoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 14,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Estoque de tênis",
+      "_bm25_score": 13.9922,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "061cba53764842d2b841d7d40e53af10",
+      "chunk_id": "061cba53764842d2b841d7d40e53af10",
+      "content_hash": "f622d380413353d64ccf4a9693cfaa6a1f1c6ae280b786830488398d342f95c4",
+      "file_path": "knowledge/pricing.md",
+      "file": "knowledge/pricing.md",
+      "content": "**Preço de camisetas**\nCamisetas a partir de R$129,00, com tecido de qualidade e modelos diversos.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 14,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Camisetas",
+      "_bm25_score": 10.2362,
+      "_source": "keyword",
+      "_rrf_score": 0.0323,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "44add188e44442f1a69d880e67b42589",
+      "chunk_id": "44add188e44442f1a69d880e67b42589",
+      "content_hash": "57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Endereço da loja**\nPRIME STORE TIBERY\nAv. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040\nAvaliação: 5,0 (17 avaliações no Google)\n\n**Site oficial**\nwww.primestoremen.com.br",
+      "category": "knowledge",
+      "similarity": 0.69169843,
+      "line_start": 15,
+      "line_end": 32,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "store_location",
+      "_source": "semantic",
+      "_rrf_score": 0.0159,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "tênis 9060 produto preço"
+}

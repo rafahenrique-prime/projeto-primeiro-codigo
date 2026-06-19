@@ -17,6 +17,9 @@ import SimuladorClientePage from './pages/SimuladorClientePage'
 import CatalogPage from './pages/CatalogPage'
 import ImportCatalogPage from './pages/ImportCatalogPage'
 import ExtractorPage from './pages/ExtractorPage'
+import ImportReviewPage from './pages/ImportReviewPage'
+import PhotoRecognitionPage from './pages/PhotoRecognitionPage'
+import AgentLabPage from './pages/AgentLabPage'
 import { listChats } from './services/gptmaker'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
@@ -182,7 +185,7 @@ export default function App() {
         padding: '4px 16px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0,
         textTransform: 'uppercase',
       }}>
-        <span>/// Sistema online · Deal Claude ativo</span>
+        <span>/// Sistema online · CODEX ativo</span>
         <span style={{ opacity: 0.5 }}>///</span>
         <span>{conversations.length} conversas abertas</span>
         {totalUnread > 0 && <><span style={{ opacity: 0.5 }}>///</span><span>{totalUnread} não lidas</span></>}
@@ -216,7 +219,10 @@ export default function App() {
           {page === 'simulador' && <SimuladorClientePage />}
           {page === 'catalogo' && <CatalogPage />}
           {page === 'importar' && <ImportCatalogPage />}
+          {page === 'importar-backup' && <ImportReviewPage />}
+          {page === 'photo' && <PhotoRecognitionPage />}
           {page === 'extrator' && <ExtractorPage />}
+          {page === 'lab'     && <AgentLabPage />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
         </div>
 

@@ -1,0 +1,27 @@
+{
+  "stage": "complete",
+  "substage": null,
+  "channel": {
+    "connected": true,
+    "platform": "whatsapp",
+    "account_data": "sync_complete_reconnected"
+  },
+  "business_context": {
+    "source": "gui_created",
+    "summary": "Loja de roupas masculinas, tênis e acessórios",
+    "product": "Roupas masculinas e tênis e acessórios",
+    "pricing": "Cartão até 6x sem juros"
+  },
+  "config": {
+    "brand": "PRIME STORE",
+    "product": "Roupas masculinas e tênis e acessórios",
+    "objective": "Suporte ao Cliente e Vendas",
+    "tone": "Calmo, respeitoso, breve e formal com emojis",
+    "agent_name": "Gabriela",
+    "strategy": "Ouvir, entender, resolver",
+    "config_id": "CJ5jR64o",
+    "agent_id": "33318"
+  },
+  "pain_points": [],
+  "updated_at": "2026-05-06T13:45:00Z"
+}

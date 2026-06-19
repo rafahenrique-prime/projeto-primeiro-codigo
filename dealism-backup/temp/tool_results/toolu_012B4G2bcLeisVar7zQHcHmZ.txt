@@ -1,0 +1,19 @@
+✓ 已写入文件: workspace/memory/strategy/link-response-template.md (4326 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/playbook-vendas.md]
+     "# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MOD"
+  2. [strategy/follow-up.md]
+     "**format**: ÁUDIO (única exceção - todas as outras mensagens são texto)
+**script"
+  3. [knowledge/playbook-vendas-completo.md]
+     "# 🤖 PLAYBOOK COMPLETO - AGENTE GABRIELA (VERSÃO OTIMIZADA 10/10)
+## PRIME STORE "
+  4. [strategy/follow-up.md]
+     "**format**: TEXTO
+**script**: "Oi! Sou eu, Gabriela 😊
+**product_or_service**: ge"
+  5. [knowledge/general.md]
+     "msg 91149464 image (part 6/7): The provided content consists of corrupted binary"
+建议用 edit_file 更新或删除旧文件中的过时内容。

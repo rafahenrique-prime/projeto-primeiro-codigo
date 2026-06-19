@@ -1,0 +1,32 @@
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 966fb1104e894bf1b55c07a7837ce22f
+**file_path**: knowledge/product-info.md
+**content_hash**: 0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Estoque de tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.
+
+### 2026-05-06 [best-seller] [onboarding-upload]
+**chunk_id**: c4a8c9ea02e24524b656d61f05d9f6c2
+**file_path**: knowledge/product-info.md
+**content_hash**: f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Tênis 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Tênis 9060 - Produto Mais Vendido**
+Preço: R$ 449,00 em até 6x sem juros no cartão
+Preço à vista no PIX: R$ 399,00
+
+Link com fotos do produto:
+https://www.primestoremen.com.br/produtos?q=9060+new
+
+Sempre indicar este link quando o cliente pedir fotos ou quiser ver o produto.

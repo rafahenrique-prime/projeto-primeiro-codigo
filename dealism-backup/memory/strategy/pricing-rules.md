@@ -1,0 +1,184 @@
+### 2026-05-07 [regras-precificacao-universal] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/pricing-rules.md
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: Regras de Precificação Universal
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Apresentação Padronizada de Preços
+**scenario**: Quando apresentar o preço de qualquer produto ao cliente
+**script**: [Nome] 💳 Cartão: R$ [valor] em até 6x sem juros (R$ [valor÷6]/mês) 💰 PIX: R$ [valor PIX] (economiza R$ [diferença]!) 🔗 Segue o link com fotos: [URL] Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+
+**REGRAS UNIVERSAIS DE PRECIFICAÇÃO**
+
+**strategy**: Apresentação Padronizada de Preços
+**scenario**: Sempre que apresentar preço de qualquer produto
+**script**: Template obrigatório com cartão 6x + PIX
+
+---
+
+## **💰 REGRA OBRIGATÓRIA:** [chat]
+
+**SEMPRE apresentar DUAS opções de pagamento:**
+1. 💳 Cartão: em até 6x sem juros (mostrar valor da parcela)
+2. 💰 PIX: valor à vista (destacar economia)
+
+---
+
+## **📝 TEMPLATE OBRIGATÓRIO:** [chat]
+
+```
+[Nome do Produto] [Emoji]
+
+💳 Cartão: R$ [valor] em até 6x sem juros (R$ [valor÷6]/mês)
+💰 PIX: R$ [valor PIX] (economiza R$ [diferença]!)
+
+🔗 Segue o link com fotos:
+[URL completa]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **🧮 CÁLCULO AUTOMÁTICO:** [chat]
+
+**Para cada produto:**
+1. Valor cartão ÷ 6 = valor da parcela
+2. Valor cartão - Valor PIX = economia
+3. Arredondar parcela para 2 casas decimais
+
+**Exemplo:**
+- Cartão: R$ 449,00
+- 449 ÷ 6 = R$ 74,83/mês
+- PIX: R$ 399,00
+- 449 - 399 = economiza R$ 50!
+
+---
+
+## **✅ REGRAS DE FORMATAÇÃO:** [chat]
+
+1. **Sempre mostrar as duas opções** (cartão + PIX)
+2. **Sempre calcular e mostrar valor da parcela**
+3. **Sempre destacar economia do PIX**
+4. **Sempre usar emoji 💳 para cartão**
+5. **Sempre usar emoji 💰 para PIX**
+6. **Sempre arredondar parcelas** (ex: R$ 74,83)
+7. **Sempre usar "economiza R$ X!"** para PIX
+
+---
+
+## **📌 EXEMPLOS PRÁTICOS:** [chat]
+
+### **New Balance 9060:** [chat]
+**chunk_id**: cbf8f1cb2d4e4beabd191344788f4623
+**file_path**: strategy/pricing-rules.md
+**content_hash**: 910814759468920945ffaffe996dbfb89f76405c87c7d9f184757f7134ed82cd
+```
+New Balance 9060 👟
+
+💳 Cartão: R$ 449,00 em até 6x sem juros (R$ 74,83/mês)
+💰 PIX: R$ 399,00 (economiza R$ 50!)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/produtos?q=9060
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **Sandália Gucci:** [chat]
+**chunk_id**: bff429917fef4a1d96b15768641f8631
+**file_path**: strategy/pricing-rules.md
+**content_hash**: 9ade6181d716ea35575c3e2b0527e203292d7720408c2e337fb1e19087252830
+```
+Sandália Gucci 👡
+
+💳 Cartão: R$ 349,00 em até 6x sem juros (R$ 58,17/mês)
+💰 PIX: R$ 319,00 (economiza R$ 30!)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/plataforma-gucci-femina
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **Óculos:** [chat]
+**chunk_id**: 4d6545d3ee72471797aaa7f47889cfc2
+**file_path**: strategy/pricing-rules.md
+**content_hash**: 2f5317936a809a283b59ff6f441d52afe32103742daf7b49db8f996460073011
+```
+Óculos 😎
+
+💰 R$ 159,00 no PIX ou em até 6x sem juros (R$ 26,50/mês)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/produtos?q=oculos
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **⚠️ CASOS ESPECIAIS:** [chat]
+
+### **Quando PIX = Cartão (sem desconto):** [chat]
+**chunk_id**: d243da9798ca4b1b9957b786737a15a7
+**file_path**: strategy/pricing-rules.md
+**content_hash**: 132c0e08d4d1e0ec82af1fb26ab3bce35be3e80dabcc6a1b6aa02f6f74d9100e
+```
+[Produto] [Emoji]
+
+💰 R$ [valor] no PIX ou em até 6x sem juros (R$ [valor÷6]/mês)
+
+🔗 Segue o link com fotos:
+[URL]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### **Quando produto tem apenas preço PIX:** [chat]
+**chunk_id**: 366c5535331c42f69fcb814fa19311b8
+**file_path**: strategy/pricing-rules.md
+**content_hash**: 9b8639c9a43b776840dedaa3585c744ee38c71851a455269d4b42df8c74211d4
+```
+[Produto] [Emoji]
+
+💰 PIX: R$ [valor]
+
+🔗 Segue o link com fotos:
+[URL]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **❌ NUNCA FAZER:** [chat]
+
+- ❌ Mostrar só o preço PIX sem mencionar cartão
+- ❌ Mostrar preço sem calcular parcela
+- ❌ Esquecer de mencionar "6x sem juros"
+- ❌ Esquecer de destacar economia do PIX
+- ❌ Usar "a partir de" quando preço é fixo
+
+---
+
+## **✅ SEMPRE FAZER:** [chat]
+
+- ✅ Mostrar as duas opções (cartão + PIX)
+- ✅ Calcular e exibir valor da parcela
+- ✅ Destacar economia do PIX
+- ✅ Usar emojis 💳 e 💰
+- ✅ Manter formatação consistente
+- ✅ Usar "🔗 Segue o link com fotos:"
+
+---
+
+## **🎯 OBJETIVO:** [chat]
+
+**Facilitar a decisão do cliente:**
+- Mostra flexibilidade (parcelamento)
+- Mostra vantagem (economia PIX)
+- Cria transparência (sem surpresas)
+- Aumenta conversão (opções claras)

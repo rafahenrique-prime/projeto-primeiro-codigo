@@ -1,0 +1,14 @@
+[stdout]
+548:**product_or_service**: Cueca Lupo
+552:**Cueca Lupo - Marca Mais Vendida do Brasil**
+572:Cueca Lupo - marca mais vendida do Brasil! 🔥
+587:Cueca Lupo - Kit com 3 unidades! 🔥
+848:**product_or_service**: Cueca Lupo
+865:**search_keys**: Lupo, Lupo Underwear, Cueca Lupo, Boxer Lupo
+910:**product_or_service**: Cueca Lupo
+914:**Cueca Lupo - Marca Mais Vendida do Brasil**
+934:Cueca Lupo - marca mais vendida do Brasil! 🔥
+949:Cueca Lupo - Kit com 3 unidades! 🔥
+991:**product_or_service**: Cueca Lupo
+995:**Cueca Lupo / Cueca Boxer Lupo** ⭐ **UM DOS MAIS VENDIDOS**
+1016:Cueca Lupo a partir de R$ 150,00 (combo 3 unidades) 🩲

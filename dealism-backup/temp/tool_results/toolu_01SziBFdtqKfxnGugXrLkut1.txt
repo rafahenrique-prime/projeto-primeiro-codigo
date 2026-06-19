@@ -1,0 +1,72 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "36feab170178434fa86b7acd5bfecc14",
+      "chunk_id": "36feab170178434fa86b7acd5bfecc14",
+      "content_hash": "ec72da2d91a6e334bcb9a8c876bddf51b8334a6e6932c04bf39c8d3b8eddc439",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Formas de pagamento**\nAceitamos cartão de crédito em até 6x sem juros. Não há valor mínimo de parcela.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 37,
+      "line_end": 49,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "payment_methods",
+      "_bm25_score": 31.4357,
+      "_source": "keyword",
+      "_rrf_score": 0.0328,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "44add188e44442f1a69d880e67b42589",
+      "chunk_id": "44add188e44442f1a69d880e67b42589",
+      "content_hash": "57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Endereço da loja**\nPRIME STORE TIBERY\nAv. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040\nAvaliação: 5,0 (17 avaliações no Google)\n\n**Localização no Google Maps**\nhttps://maps.app.goo.gl/1S1bj5KPVbhbkRbv8\nIMPORTANTE: Sempre enviar este link do Google Maps quando o cliente pedir localização ou endereço da loja.\n\n**Site oficial**\nwww.primestoremen.com.br",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 15,
+      "line_end": 36,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "store_location",
+      "_bm25_score": 13.8972,
+      "_source": "keyword",
+      "_rrf_score": 0.0308,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "8542a68915ca4edc8de27ab09723d75a",
+      "chunk_id": "8542a68915ca4edc8de27ab09723d75a",
+      "content_hash": "b1d328d105eb5e496755263562b1f1f66614355df772fdbe731f63b15ab686e0",
+      "file_path": "knowledge/guide.md",
+      "file": "knowledge/guide.md",
+      "content": "**Limite de repetições em loops de bot**\nBot repetiu mesma mensagem de menu 15+ vezes sem detectar falha de comunicação. Implementar limite de 2-3 tentativas antes de oferecer alternativa (atendente humano ou input livre) previne frustração.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 17,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "bot",
+      "_bm25_score": 15.8951,
+      "_source": "keyword",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "keyword"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "PIX pagamento formas de pagamento"
+}

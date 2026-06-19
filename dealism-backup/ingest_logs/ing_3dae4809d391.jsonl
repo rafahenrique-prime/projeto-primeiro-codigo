@@ -1,0 +1,5 @@
+{"ts": "2026-05-06T11:20:52.925310+00:00", "step": "batch_start", "source": "whatsapp", "session_id": "seller:38537:agent:main", "buyer_count": 3, "is_final": false}
+{"ts": "2026-05-06T11:21:06.501059+00:00", "step": "buyer_done", "buyer_id": "272854", "learned": {"profile": 1}}
+{"ts": "2026-05-06T11:21:35.159165+00:00", "step": "buyer_done", "buyer_id": "272855", "learned": {"strategy": 2, "knowledge": 1, "profile": 1}}
+{"ts": "2026-05-06T11:22:20.682277+00:00", "step": "buyer_done", "buyer_id": "272856", "learned": {"knowledge": 4, "strategy": 4, "profile": 1}}
+{"ts": "2026-05-06T11:22:20.703651+00:00", "step": "batch_done", "duration_ms": 87766, "learned": {"profile": 3, "strategy": 6, "knowledge": 5}, "new_buyers": 2, "multimodal_failed": 0}

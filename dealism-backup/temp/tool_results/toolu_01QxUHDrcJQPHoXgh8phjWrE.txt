@@ -1,0 +1,952 @@
+[stdout]
+=== knowledge/brand-info.md ===
+### 2026-05-07 [marca-lupo] [chat]
+**chunk_id**: auto-generated
+**file_path**: knowledge/brand-info.md
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Marca Lupo
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**MARCA LUPO - História e Credenciais**
+
+**História:**
+- 🏢 Fundada em 1921 em Araraquara–SP
+- 🇧🇷 Uma das marcas mais tradicionais do Brasil
+- 📅 Mais de 100 anos de história
+- 🏆 Referência em conforto, tecnologia e custo-benefício
+
+**Segmentos:**
+- Meias
+- Cuecas
+- Moda íntima
+- Linha esportiva
+- Roupas fitness
+
+**Produtos Mais Conhecidos:**
+- ✅ Cuecas sem costura
+- ✅ Meias esportivas
+- ✅ Roupas fitness
+- ✅ Pijamas
+- ✅ Linha Lupo Sport
+
+**Diferenciais:**
+- 🏆 Marca mais vendida do Brasil
+- ✅ Conforto superior
+- ✅ Tecnologia têxtil avançada
+- ✅ Ótimo custo-benefício
+- ✅ Qualidade garantida há mais de 100 anos
+- ✅ Quem compra sempre volta
+
+---
+
+## **RESPOSTA PADRÃO - Quando cliente perguntar sobre a marca:** [chat]
+
+```
+A Lupo é uma das marcas mais tradicionais do Brasil! 🇧🇷
+
+📅 Fundada em 1921 (mais de 100 anos!)
+🏆 Referência em conforto e qualidade
+✅ Marca mais vendida em cuecas no Brasil
+
+
+=== knowledge/conversation-closure.md ===
+### 2026-05-07 [conversation-closure-policy] [investigation] [chat]
+**chunk_id**: auto-generated
+**file_path**: knowledge/conversation-closure.md
+**content_hash**: auto-generated
+**category**: knowledge
+**content_category_tags**: policy
+**product_or_service**: Política de Encerramento de Atendimento
+**search_keys**: atendimento finalizado, encerrar conversa, parar follow-up, conversation closure, stop automation
+**index_text**: Política de encerramento automático de atendimento. Quando o atendimento é considerado finalizado e como parar mensagens automáticas repetidas.
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**POLÍTICA DE ENCERRAMENTO DE ATENDIMENTO**
+
+**Objetivo:**
+Evitar que clientes recebam mensagens automáticas repetidas após finalização do atendimento.
+
+**Quando considerar atendimento FINALIZADO:**
+1. ✅ Cliente confirmou que não quer mais nada ("tá ok", "obrigado", "não precisa mais")
+2. ✅ Pagamento confirmado + mensagem pós-venda enviada
+3. ✅ Cliente parou de responder por mais de 24h após última interação completa
+4. ✅ Cliente explicitamente disse "não quero mais", "depois eu volto", "vou pensar"
+
+**Quando NÃO considerar finalizado:**
+1. ❌ Cliente ainda está fazendo perguntas
+2. ❌ Cliente pediu para "aguardar" mas não finalizou
+3. ❌ Cliente está no meio de processo de compra (escolhendo produtos, cores, tamanhos)
+4. ❌ Cliente aguardando resposta do vendedor (humano)
+
+**Sistema de Follow-up Automático:**
+- **Script:** `workspace/scripts/monitor_followups.py`
+- **Frequência:** A cada 5 minutos
+- **Gatilhos:**
+  - 30 minutos sem resposta → "Ainda está por aí?"
+  - 23h45min sem resposta → "Lembrete antes de 24h"
+  - 24h sem resposta → "Follow-up final"
+
+**Como PARAR mensagens automáticas:**
+1. Marcar conversa como "finalizada" → ainda não implementado (ver solução abaixo)
+2. Cliente responde qualquer coisa → timer reseta
+
+**PROBLEMA IDENTIFICADO: Cliente Phietra Marques (553498436205)**
+- **Situação:** Cliente recebeu mensagens automáticas DEPOIS de finalizar atendimento
+- **Causa raiz:** Sistema de follow-up não detecta "atendimento finalizado"
+- **Última mensagem da Gabriela:** 2026-05-07 16:33:56 (20 minutos atrás)
+- **Comportamento esperado:** NÃO enviar mais mensagens automáticas
+
+**SOLUÇÃO IMPLEMENTADA:**
+
+**Nova regra de encerramento automático:**
+
+=== knowledge/diesel-brand.md ===
+### 2026-05-07 [marca-diesel] [chat]
+**chunk_id**: auto-generated
+**file_path**: knowledge/diesel-brand.md
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Diesel - Marca Premium
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**MARCA DIESEL - INFORMAÇÕES COMPLETAS**
+
+---
+
+## **🇮🇹 SOBRE A MARCA** [chat]
+
+**Diesel** é uma marca **italiana premium** mundialmente reconhecida pela excelência em moda, especialmente em **calças jeans**.
+
+---
+
+## **✨ DIFERENCIAIS DA MARCA** [chat]
+
+### **Jeans Diesel - Por que é referência?** [chat]
+**chunk_id**: 1489293e829c4a0f9683e9815f127b50
+**file_path**: knowledge/diesel-brand.md
+**content_hash**: 093c4a8d790a731891f27d3d0090ce8b8317e8cdc15c6e49b231315ebf6c7b5f
+
+1. **🔥 Jeans Premium** - Qualidade superior em todos os detalhes
+2. **👖 Modelagem Moderna** - Caimento contemporâneo e fashion
+3. **🎨 Lavagens Diferenciadas** - Tratamentos exclusivos e únicos
+4. **💪 Tecido Confortável** - Inclui elastano para mobilidade
+5. **🌍 Estilo Europeu/Fashion** - Design italiano sofisticado
+6. **✅ Excelente Caimento** - Veste muito bem e valoriza o corpo
+7. **🏆 Acabamento de Alto Padrão** - Costura e detalhes impecáveis
+
+---
+
+## **🧵 CARACTERÍSTICAS TÉCNICAS** [chat]
+
+**Conforto e Mobilidade:**
+- Muitos modelos contêm **elastano** na composição
+- Proporciona mais **conforto** e **mobilidade** no dia a dia
+- Tecido que acompanha os movimentos do corpo
+
+**Lavagens:**
+- Tratamentos diferenciados
+- Lavagens exclusivas
+- Acabamento único em cada peça
+
+---
+
+
+=== knowledge/faq.md ===
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 545d49cf23de4f059ef6c45b8b847e61
+**file_path**: knowledge/faq.md
+**content_hash**: 9aea0a27bb752bd5ed21740f1369728221c4a7caaa3c5a712da9431c2865d2ab
+**category**: faq
+**content_category_tags**: faq
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Horário de funcionamento**
+Segunda a Sexta: 10h às 20h. Sábado: 9h às 16h. Fechado aos domingos.
+
+### 2026-05-06 [store-info] [onboarding-upload]
+**chunk_id**: 44add188e44442f1a69d880e67b42589
+**file_path**: knowledge/faq.md
+**content_hash**: 57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a
+**category**: knowledge
+**content_category_tags**: faq
+**product_or_service**: store_location
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Endereço da loja**
+PRIME STORE TIBERY
+Av. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040
+Avaliação: 5,0 (17 avaliações no Google)
+
+**Localização no Google Maps**
+https://maps.app.goo.gl/1S1bj5KPVbhbkRbv8
+IMPORTANTE: Sempre enviar este link do Google Maps quando o cliente pedir localização ou endereço da loja.
+
+**Site oficial**
+www.primestoremen.com.br
+
+### 2026-05-06 [payment-info] [onboarding-upload]
+**chunk_id**: 36feab170178434fa86b7acd5bfecc14
+**file_path**: knowledge/faq.md
+**content_hash**: ec72da2d91a6e334bcb9a8c876bddf51b8334a6e6932c04bf39c8d3b8eddc439
+**category**: knowledge
+**content_category_tags**: faq
+**product_or_service**: payment_methods
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Formas de pagamento**
+Aceitamos cartão de crédito em até 6x sem juros. Não há valor mínimo de parcela.
+Aceitamos PIX com desconto no valor à vista.
+
+
+=== knowledge/general.md ===
+**upload_id**: 8580
+**upload_id**: 8626
+
+### 2026-05-06 19:28 [chunk-1] [chat]
+**chunk_id**: 29987facbc0e4a40b39ad83597adbecb
+**file_path**: knowledge/general.md
+**content_hash**: 3e6ae0ae19dadd474dc8dbfb43e2bf11372739659d84190c1777728ce0897c52
+**category**: knowledge
+**content_category_tags**: other
+**product_or_service**: general
+**search_keys**: Gabriela, status ativo, interface de chat, atendimento ao cliente
+**index_text**: Status de atividade e interação no chat com a cliente Gabriela, indicando presença ativa e digitação.
+**source_type**: image
+**asset_path**: workspace/assets/2cb7fb39c38b43c6a52ef13eb901dda4_1778095701.png
+**upload_id**: 8626
+
+Informações de interface de chat com a cliente Gabriela. O status da cliente Gabriela aparece como 'Ativo' e ela está 'Digitando' no momento da captura de tela. Esta imagem serve como registro de interação em tempo real no canal de atendimento.
+### 2026-05-06 20:02 [chunk-1] [chat]
+**chunk_id**: 9c8a4ff3fbfc42be9b66df7a57614644
+**file_path**: knowledge/general.md
+**content_hash**: 3b83f7c60a5661fea000d3d20974532f2114ef0557506d51605dbb22a6987d32
+**category**: knowledge
+**content_category_tags**: other
+**product_or_service**: general
+**search_keys**: binary data, image file, JFIF
+**index_text**: Technical data: Raw binary image data (JFIF/JPEG) from message 91132714. No readable text content available.
+**source_type**: text
+**asset_path**: workspace/assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt
+
+msg 91132714 image (part 1/4): The provided input contains binary data from a JPEG image file (JFIF format) which cannot be processed as text. This content appears to be a corrupted or raw image file stream rather than readable sales information, product specifications, or pricing details.
+### 2026-05-06 20:02 [chunk-2] [chat]
+**chunk_id**: a50c298ccc364a6d95abf7bb6e0b19e2
+**file_path**: knowledge/general.md
+**content_hash**: 4076150038f4da8388f4e66731629f8ef02ab78b9a2f7cf6d49bebbac7aa69e7
+**category**: knowledge
+**content_category_tags**: other
+**product_or_service**: general
+**search_keys**: corrupted data, non-textual content
+**index_text**: This chunk contains corrupted or non-textual data from the source image part 3/4 and does not provide usable information.
+**source_type**: text
+**asset_path**: workspace/assets/url_20260506_200227_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt
+
+msg 91132714 image (part 3/4): The provided input contains corrupted binary data, non-textual symbols, and encoding artifacts that do not form coherent human language or actionable sales information. No product features, pricing, policies, or sales strategies can be identified from this raw data.
+### 2026-05-06 20:02 [chunk-1] [chat]
+**chunk_id**: 56dba4a39a604eb9ad3794d171a0d8bf
+**file_path**: knowledge/general.md
+**content_hash**: 970fb2df5ee7dabc3414cf94450634ff4af1a074ecae6a248d13d0fc6669e50b
+**category**: knowledge
+**content_category_tags**: other
+**product_or_service**: general
+
+=== knowledge/guide.md ===
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 8542a68915ca4edc8de27ab09723d75a
+**file_path**: knowledge/guide.md
+**content_hash**: b1d328d105eb5e496755263562b1f1f66614355df772fdbe731f63b15ab686e0
+**category**: guide
+**content_category_tags**: guide
+**strategy**: Limite de repetições com escape
+**scenario**: Quando bot detecta que mesma mensagem foi enviada 2-3 vezes sem resposta válida
+**script**: Percebo que pode não estar claro. Que tal me contar diretamente o que você precisa? Ou posso te conectar com um atendente agora mesmo. O que prefere?
+**product_or_service**: bot
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Limite de repetições em loops de bot**
+Bot repetiu mesma mensagem de menu 15+ vezes sem detectar falha de comunicação. Implementar limite de 2-3 tentativas antes de oferecer alternativa (atendente humano ou input livre) previne frustração.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: 75c0b45615bb44bdb1ae8b5921e4fdf2
+**file_path**: knowledge/guide.md
+**content_hash**: e540d66ae1208f73007a367dafc92c6c3a68df64ab0b83e4e6c5885b7095d29f
+**category**: guide
+**content_category_tags**: guide
+**product_or_service**: Loja
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Horário de funcionamento**
+Loja funciona até 20h em dias úteis e sábado das 9h às 16h. Retirada disponível a partir das 10h quando produto chega.
+
+=== knowledge/playbook-vendas-completo.md ===
+### 2026-05-06 19:10 [chunk-1] [chat]
+**chunk_id**: 055952b115e74d829ff67b72efe4ae66
+**file_path**: knowledge/playbook-vendas-completo.md
+**content_hash**: 242a8cc5a9891fccddf26e171b1666b5de63078428309432cafb5be825084e48
+**category**: knowledge
+**content_category_tags**: guide
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**source_type**: text
+**asset_path**: workspace/unknown
+
+# 🤖 PLAYBOOK COMPLETO - AGENTE GABRIELA (VERSÃO OTIMIZADA 10/10)
+## PRIME STORE - MODA MASCULINA E ACESSÓRIOS [chat]
+
+---
+
+## **IDENTIDADE DO AGENTE** [chat]
+
+Você é **Gabriela**, assistente virtual de vendas da **PRIME STORE**, uma loja consolidada de moda masculina e acessórios em Uberlândia/MG, com mais de 8 anos de experiência no mercado.
+
+**Personalidade:**
+- Calma, respeitosa e prestativa
+- Profissional mas acessível
+- Consultiva (ajuda o cliente a escolher)
+- Objetiva e direta (não enrola)
+- Usa emojis com moderação para deixar a conversa mais leve
+
+**Tom de voz:**
+- Formal com toques de leveza
+- Tratamento: "você" 
+- Sempre positiva e solucionadora
+- Breve e concisa (respeitar limite de palavras)
+- Nunca robótica
+
+---
+
+## **SAUDAÇÃO INICIAL (primeira mensagem do cliente)** [chat]
+
+```
+Olá! Seja bem-vindo(a) à PRIME STORE! 😊
+Sou a Gabriela. Como posso te ajudar hoje?
+```
+
+**⚠️ Regra:** Não enviar menu robótico. Deixar conversa fluir naturalmente.
+
+---
+
+## **PLAYBOOK DE VENDAS (sempre seguir esta ordem)** [chat]
+
+1. **Ouvir o cliente**
+2. **Entender a necessidade**
+
+=== knowledge/playbook-vendas.md ===
+### 2026-05-06 19:11 [chunk-1] [chat]
+**chunk_id**: f76e9d4ce0c74e22a8aeae0b79c18a43
+**file_path**: knowledge/playbook-vendas.md
+**content_hash**: da0d91e0f69573371bef726ebe886d6980c1eb84e5108e964880c8136c2e00fd
+**category**: knowledge
+**content_category_tags**: guide
+**product_or_service**: PRIME STORE - Moda Masculina e Acessórios
+**source_type**: text
+**asset_path**: workspace/unknown
+
+# 🤖 PROMPT COMPLETO - AGENTE DE VENDAS IA (OTIMIZADO 10/10)
+## PRIME STORE - MODA MASCULINA E ACESSÓRIOS [chat]
+
+---
+
+## **IDENTIDADE DO AGENTE** [chat]
+
+Você é **Gabriela**, assistente virtual de vendas da **PRIME STORE**, uma loja consolidada de moda masculina e acessórios em Uberlândia/MG, com mais de 8 anos de experiência no mercado.
+
+**Personalidade:**
+- Calma, respeitosa e prestativa
+- Profissional mas acessível
+- Consultiva (ajuda o cliente a escolher)
+- Objetiva e direta (não enrola)
+- Usa emojis com moderação para deixar a conversa mais leve
+
+**Tom de voz:**
+- Formal com toques de leveza
+- Tratamento: "você" 
+- Sempre positiva e solucionadora
+- Breve e concisa (respeitar limite de palavras)
+- Nunca robótica
+
+---
+
+## **REGRAS DE ATENDIMENTO** [chat]
+
+### **1. SAUDAÇÃO INICIAL (primeira mensagem do cliente)** [chat]
+**chunk_id**: c8c30b89324a4418986624b903a3ccfc
+**file_path**: knowledge/playbook-vendas.md
+**content_hash**: fb517438b464c607e5a67e37d8da6acf83d76183a5d8bc4747e3f5f605693aff
+
+✅ OTIMIZADO (mais natural):
+```
+Olá! Seja bem-vindo(a) à PRIME STORE! 😊
+Sou a Gabriela. Como posso te ajudar hoje?
+```
+
+❌ NÃO USAR menus robóticos com opções numeradas na primeira mensagem
+
+
+=== knowledge/policy.md ===
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 6c2375f055c64f119e125084f3dfd003
+**file_path**: knowledge/policy.md
+**content_hash**: 1874111003233c5b990f63cd6a6e00922ef8bd45eea4a65ff9ba2c470b30c10a
+**category**: policy
+**content_category_tags**: policy
+**product_or_service**: Loja física
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Política de atendimento presencial**
+Loja física prioritária para experimentação e consultoria de estilo. Sem necessidade de agendamento. Atendimento walk-in durante horário comercial.
+### 2026-05-06 20:08 [chunk-3] [chat]
+**chunk_id**: d1b7adc51e5b470882069527c5d9e8cd
+**file_path**: knowledge/policy.md
+**content_hash**: 9e4696a99aa3c1fb12b4733be93dba6a58706c65f6fb1b005b5f024d51211325
+**category**: knowledge
+**content_category_tags**: policy, other
+**product_or_service**: Entrega e Frete
+**search_keys**: frete, loja física, desconto por espera, métodos de pagamento
+**index_text**: Informações sobre logística, frete, loja física e política de desconto por espera na PRIME STORE.
+**source_type**: text
+**asset_path**: workspace/assets/url_20260506_200753_https___salesmaster-international.oss-us-west-1.aliyuncs.com_inbox_instagram_ima.txt
+
+PRIME STORE - Políticas de Entrega, Frete e Atendimento: A loja possui unidade física para retirada e oferece serviços de entrega e frete para diversas regiões. As políticas de pagamento incluem diversos métodos para facilitar a compra. Em casos de atrasos ou espera prolongada por parte do cliente, a loja pode aplicar a política de 'Desconto por espera do cliente' como forma de garantir a satisfação e credibilidade.
+
+### 2026-05-06 20:11 [onboarding-history]
+**chunk_id**: 884ef5c688964f6fbd3c1e8a52d1de67
+**file_path**: knowledge/policy.md
+**content_hash**: fb301f80a4e52bbf070ae40b06e7006e214a065120ebc2130a3e422d5dcb23aa
+**category**: policy
+**content_category_tags**: policy
+**product_or_service**: Política de troca
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Política de troca com taxa de entrega**
+Trocas são permitidas, mas o cliente deve pagar a taxa de entrega novamente (R$15). Pode buscar na loja ou receber em casa mediante pagamento da taxa.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: 24496c6b405f487d92a61cd6d40662de
+**file_path**: knowledge/policy.md
+**content_hash**: 58f0fa97aa9ebbfff21b6b9fd13e98e6622c62580b24d4f7fc9ac47d9d73571c
+**category**: policy
+**content_category_tags**: policy
+**product_or_service**: Serviço de entrega terceirizada
+**source_type**: text
+**asset_path**: workspace/unknown
+
+
+=== knowledge/pricing.md ===
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: b99bdd47f6af46f3a385b31d4448fc9e
+**file_path**: knowledge/pricing.md
+**content_hash**: b0f9217eef4ffc10ccf14e56b66cb137a2b10c0693343224c4ec077c464bf422
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Solicitação de valores sem contexto**
+Compradores frequentemente perguntam preços diretamente sem especificar produto. Importante qualificar qual item antes de responder para evitar confusão e direcionar para produto adequado.
+
+### 2026-05-06 20:05 [onboarding-history]
+**chunk_id**: 1ae39e9aa8bd4a6cbd6ac1e7c18a29a9
+**file_path**: knowledge/pricing.md
+**content_hash**: 83f1abe618d3fcbcb8934afe6af086f17a43cb325321bf539af51f08c4166070
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: Desconto por espera do cliente
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Desconto por espera do cliente**
+Oferecer desconto (de 289 para 249) como compensação quando o cliente precisa esperar pela chegada do produto demonstra valorização do tempo do cliente e pode fechar a venda.
+
+### 2026-05-06 20:12 [onboarding-history]
+**chunk_id**: d9734760d91a47a89aee61d58f235798
+**file_path**: knowledge/pricing.md
+**content_hash**: 29ebefb11b515c25ec50424a5eaa21dcc01055126be0111f216984d377693949
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: New Balance 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Desconto com cupom de 20%**
+Produto New Balance 9060 com preço base de R$449, aplicando cupom PHIETRA20 sai por R$359,90 (20% de desconto). Estratégia de cupom nomeado para rastreamento.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: b8f5de7b6a7a4763a2c01012c0a2f4b6
+**file_path**: knowledge/pricing.md
+**content_hash**: b1937536d9cd321ac8e795d2c6f98bc027fdc7c1acddc7d1489f8f297d7eb893
+**category**: pricing
+**content_category_tags**: pricing
+**product_or_service**: geral
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Confirmação de preço solicitada**
+
+=== knowledge/product-info.md ===
+2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 966fb1104e894bf1b55c07a7837ce22f
+**file_path**: knowledge/product-info.md
+**content_hash**: 0c730c62a15dc67d9568cb2e19baa2076727fd2de2e03a0fd7ed925e83e49109
+**category**: product_info
+**content_category_tags**: product_info
+**product_or_service**: Estoque de tênis
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Estoque dinâmico de tênis**
+Estoque de modelos e numerações de tênis (ex: New Balance 9060) atualiza constantemente. Recomenda-se visita presencial para verificar disponibilidade.
+
+### 2026-05-06 [best-seller] [onboarding-upload]
+**chunk_id**: c4a8c9ea02e24524b656d61f05d9f6c2
+**file_path**: knowledge/product-info.md
+**content_hash**: f12fa8105930087f54c23fd8dc18648c559527d7c854378fa972a1502827b2f8
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Tênis 9060
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**New Balance 9060 - Produto Mais Vendido**
+
+**RESPOSTA PADRÃO PARA CLIENTE:**
+```
+New Balance 9060 👟
+
+💳 Cartão: R$ 449,00 em até 6x sem juros (R$ 74,83/mês)
+💰 PIX: R$ 399,00 (economiza R$ 50!)
+
+🔗 Segue o link com fotos:
+https://www.primestoremen.com.br/produtos?q=9060
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+### 2026-05-06 [product-sandalia-gucci] [onboarding-upload]
+**chunk_id**: 6e1a22cc92c8488eaf0cc5958400c16c
+**file_path**: knowledge/product-info.md
+**content_hash**: 1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91
+**category**: knowledge
+**content_category_tags**: product_info
+**product_or_service**: Sandália Gucci
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Sandália Gucci / Plataforma Gucci Feminina COR: Marrom Claro**
+
+
+=== strategy/color-selection.md ===
+### 2026-05-08 [estrategia-selecao-cores] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/color-selection.md
+**content_hash**: auto-generated
+**category**: strategy
+**content_category_tags**: sales_tactic, product_presentation
+**strategy**: Qualificação de Cor Antes de Apresentar Produtos
+**scenario**: Quando o cliente solicita um produto que existe em múltiplas cores (ex: Fila Disruptor Branco, Preto, Rosa; Bota em várias cores; qualquer modelo com variações de cor)
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+**script**: Temos esse modelo disponível nessas cores: [LISTAR CORES]. 😍 Qual cor você gostaria que eu te enviasse?
+
+```
+Temos esse modelo disponível nessas cores: [LISTAR CORES DISPONÍVEIS] 😍
+Qual cor você gostaria que eu te enviasse?
+```
+
+**Regras importantes:**
+1. **NÃO envie todas as opções de cores automaticamente** — sempre pergunte primeiro qual cor o cliente prefere
+2. **Liste apenas as cores realmente disponíveis** daquele produto específico
+3. **Mantenha a mensagem curta, natural e comercial** — use emojis quando apropriado
+4. **Após o cliente escolher a cor, envie SOMENTE os produtos daquela cor** escolhida
+5. **Evite sobrecarga de informação** — menos opções na tela = decisão mais rápida
+
+**Benefícios desta estratégia:**
+- ✅ Evita sobrecarregar o cliente com muitas opções
+- ✅ Torna a conversa mais consultiva e personalizada
+- ✅ Reduz fricção na decisão de compra
+- ✅ Aumenta engajamento — cliente responde e continua ativo
+- ✅ Qualifica melhor o interesse do cliente
+
+**Exemplo prático:**
+- Cliente: "Quero a Fila Disruptor"
+- Gabriela: "Temos esse modelo disponível nessas cores: Branco, Preto, Rosa 😍 Qual cor você gostaria que eu te enviasse?"
+- Cliente: "Rosa"
+- Gabriela: [envia apenas as opções em Rosa com preços e fotos]
+
+**Aplicação:** Use esta estratégia sempre que identificar que um produto solicitado tem 2 ou mais variações de cor no catálogo.
+
+=== strategy/diesel-sales-script.md ===
+### 2026-05-07 [script-vendas-diesel] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/diesel-sales-script.md
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: Diesel - Script de Vendas
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Apresentação e Qualificação Diesel
+**scenario**: Quando o cliente pergunta sobre a disponibilidade de produtos da marca Diesel
+**script**: As calças Diesel são referência em jeans premium pelo caimento moderno e lavagens diferenciadas 😎 Qual modelo e numeração você procura? Temos vários estilos disponíveis com acabamento de alto padrão! 🔥
+
+**SCRIPT DE VENDAS - MARCA DIESEL**
+
+**strategy**: Script de Apresentação e Venda de Produtos Diesel
+**scenario**: Quando cliente perguntar sobre produtos Diesel (calças jeans, camisetas, regatas)
+**script**: Apresentação da marca + Qualificação + Envio de produtos
+
+---
+
+## **🎯 CENÁRIO: Cliente pergunta sobre Diesel** [chat]
+
+**Gatilhos:**
+- "Tem calça Diesel?"
+- "Vocês trabalham com Diesel?"
+- "Quero ver jeans Diesel"
+- "Diesel tem?"
+
+---
+
+## **📝 SCRIPT COMPLETO** [chat]
+
+### **PASSO 1 - APRESENTAR A MARCA** [chat]
+**chunk_id**: 28ac3b75b3384f6797372b47faca2b96
+**file_path**: strategy/diesel-sales-script.md
+**content_hash**: 1c8a3c5389071ce3d1714ee952e2feb5234a3378706afa07063ed325ad1a1e55
+
+**Resposta padrão:**
+```
+As calças jeans da Diesel são referência em jeans premium 😎 A marca é muito conhecida pelo caimento moderno, conforto e lavagens diferenciadas. Os modelos têm acabamento de alto padrão e vestem muito bem 🔥
+
+Qual modelo você procura? Temos vários estilos disponíveis!
+```
+
+**Variações aceitas (manter tom e estrutura):**
+- Destacar caimento moderno
+- Mencionar lavagens diferenciadas
+- Reforçar acabamento premium
+- Usar emojis 😎🔥👖
+
+
+=== strategy/follow-up.md ===
+
+### 2026-05-06 [follow-up-30min-personalizado] [chat]
+**chunk_id**: ed9ea74348f24847b89feadcfbfdc4f9
+**file_path**: strategy/follow-up.md
+**content_hash**: 17b76689076997b83f8c04c8dfc26fc8bd9f80a9c81bff0d308c815f4f9d2e74
+**category**: strategy
+**content_category_tags**: follow_up_strategy
+**source_type**: text
+**strategy**: Follow-up personalizado por categoria após 30min de inatividade
+**scenario**: Quando o cliente demora 30 minutos ou mais para responder após demonstrar interesse em algum produto
+**product_or_service**: general
+**asset_path**: workspace/unknown
+**script**: Oi! O [nome do produto] que você viu ainda está disponível no tamanho [X]! Quer garantir o seu? Os itens mais procurados costumam esgotar rápido. Qual sua numeração?
+
+**INSTRUÇÕES:**
+1. Identificar qual tipo de produto o cliente demonstrou interesse
+2. Enviar mensagem apropriada para aquela categoria
+3. Personalizar com nome do produto e tamanho/numeração quando disponível
+
+---
+
+**CATEGORIA: TÊNIS**
+Produtos: New Balance, Vans, Nike, Adidas, qualquer tênis
+
+**Script:**
+"Oi! 😊
+
+O [nome do tênis] que você viu ainda tem na numeração [X]!
+
+Quer garantir o seu? Os números mais procurados costumam esgotar rápido 👟"
+
+Variações:
+- Se não souber numeração: "O [tênis] que você perguntou ainda tá disponível! Qual sua numeração?"
+- Se múltiplas numerações: "Temos do 34 ao 43. Qual o seu número?"
+
+---
+
+**CATEGORIA: ROUPAS**
+Produtos: Camisetas, calças, moletons, shorts, bermudas, jaquetas
+
+**Script:**
+"Oi! 😊
+
+A [camiseta/calça/moletom/jaqueta] que você viu ainda tem no tamanho [P/M/G/GG]!
+
+Qual tamanho você usa? Já deixo separado pra você 👕"
+
+Variações:
+- Se não souber tamanho: "Qual tamanho você geralmente usa?"
+
+
+=== strategy/link-response-template.md ===
+### 2026-05-07 [template-resposta-links] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/link-response-template.md
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: Template de Resposta com Links
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Padronização de Respostas com Links
+**scenario**: Quando o cliente pergunta sobre produtos ou catálogo sem especificar um modelo
+**script**: [Nome do Produto] a partir de R$ [Preço] [Emoji]. 🔗 Segue o link dos modelos: [URL]. Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+
+**TEMPLATE PADRÃO DE RESPOSTA COM LINKS**
+
+**strategy**: Padronização de Respostas com Links de Produtos
+**scenario**: Quando cliente pergunta sobre produto/catálogo sem especificar modelo
+**script**: Template universal para envio de links de produtos
+
+---
+
+## **📝 TEMPLATE UNIVERSAL:** [chat]
+
+```
+[Nome do Produto] a partir de R$ [Preço] [Emoji do produto]
+
+🔗 Segue o link dos modelos:
+[URL completa - sempre com https://]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **🎯 QUANDO USAR:** [chat]
+
+✅ **USAR quando:**
+- Cliente pergunta "tem [produto]?" sem especificar modelo
+- Cliente quer "ver modelos" / "catálogo"
+- Primeira interação sobre um produto
+- Cliente pede link de produtos
+
+❌ **NÃO USAR quando:**
+- Cliente JÁ SABE o produto específico (ex: "Quero o NB 9060 preto")
+- Está finalizando venda (momento de fechar, não de mandar link)
+- Cliente perguntou PREÇO específico de produto conhecido (responder direto, link é opcional)
+
+---
+
+## **📋 REGRAS DE FORMATAÇÃO:** [chat]
+
+
+=== strategy/mensagem-grupo-vip.md ===
+### 2025-05-09 [strategy] [chat]
+**chunk_id**: 444d5973e01f4286bc93a3e150706fba
+**file_path**: strategy/mensagem-grupo-vip.md
+**content_hash**: 91fb5f159735da33a637c51eea3cf210d4fab622a348df687e905cf5e665d3bc
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Mensagem Automática VIP Sexta-feira
+**scenario**: Quando for sexta-feira às 10h e desejar aumentar o engajamento e as vendas no grupo VIP
+**script**: Bom dia VIPs! 😃 SEXTOU! 🎉 Hoje membros do grupo têm prioridade. 💎 Benefícios: atendimento prioritário e ofertas exclusivas. Atendemos até às 20h. ⚠️ Estoque limitado! Quer ver as novidades primeiro? Chama no privado! 😍 Bom fim de semana a todos! ✨
+**category**: strategy
+**content_category_tags**: sales_tactic, group_engagement
+**strategy**: Mensagem Automática VIP - Sexta-feira
+**scenario**: Envio semanal às sextas-feiras 10h no grupo VIP para aumentar engajamento e respostas no privado
+**script**: Bom dia amigoss 😃✨
+
+SEXTOU! 🎉🔥
+
+> Já iniciamos nossos atendimentos 🚀
+> Para dúvidas, novidades ou lançamentos é só chamar no privado!
+
+⏰ Atendimento: *10:00h às 20:00h*
+📅 Sexta-feira *[data]*
+
+🎁 _Hoje tem descontos especiais para o grupo VIP!_✨
+
+---
+
+**Configuração Técnica:**
+- **ID do Grupo:** 120363407011579852@g.us
+- **Nome do Grupo:** VIP - TESTE
+- **Frequência:** Apenas sexta-feira
+- **Horário:** 10:00h da manhã
+- **Enviar:** 1 vez por semana
+
+**Estratégia:**
+- Gerar sensação de exclusividade VIP
+- Reforçar prioridade no atendimento
+- Estimular cliente a chamar no privado
+- Criar urgência leve (estoque limitado)
+- Aumentar engajamento sem pressão excessiva
+
+**Nota de Avaliação:** 8,7/10 - Mensagem premium com alta eficácia comercial
+
+=== strategy/objection-handling.md ===
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: d74c75ff50734b84aba31ae174f710a1
+**file_path**: strategy/objection-handling.md
+**content_hash**: a08c972b47afa449944cf618281d63645f1ba198d171ab8fe88cfbae4b70b288
+**category**: objection_handling
+**content_category_tags**: objection_handling
+**strategy**: Escalonamento progressivo com alternativa humana
+**scenario**: Quando cliente não responde com número após 2-3 tentativas do menu estruturado
+**script**: Vejo que pode estar com dificuldade no menu. Sem problemas! Pode me contar em suas palavras o que precisa, ou digite 5 para falar direto com um atendente humano que vai te ajudar melhor. 😊
+**product_or_service**: chatbot
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Cliente não responde com número do menu**
+Quando cliente não digita número do menu estruturado (1-5), bot repete múltiplas vezes a mesma mensagem sem sucesso, gerando frustração e abandono da conversa.
+
+### 2026-05-06 20:11 [onboarding-history]
+**chunk_id**: 4de4177d75e8498e839041e9f0953e94
+**file_path**: strategy/objection-handling.md
+**content_hash**: dfd7b348868ca58a08343943181f1f1b90965e8607e77207153513b6c55894f9
+**category**: objection_handling
+**content_category_tags**: objection_handling
+**strategy**: Facilitar troca sem resistência
+**scenario**: Quando o cliente relata que o produto não serviu
+**script**: Ok vamos trocar. Tenho o N38 disponível. Caso fique apertado algo assim posso trocar né. Só pagar a taxa de entrega mesmo.
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Troca proativa quando produto não serve**
+Ao invés de resistir, o vendedor facilita imediatamente a troca quando o cliente relata que o produto ficou apertado. Oferece alternativa de tamanho e mantém o relacionamento positivo.
+
+### 2026-05-06 20:14 [onboarding-history]
+**chunk_id**: 74c52f132fcd430bb7c416009db09002
+**file_path**: strategy/objection-handling.md
+**content_hash**: 9ff4a62b5b4acae98d4c257fbf0d6713daa510490e0be34ab3e94042f3909a11
+**category**: objection_handling
+**content_category_tags**: objection_handling
+**strategy**: Qualidade vs preço baixo
+**scenario**: Quando cliente compara com produto mais barato
+**script**: Existe desse preço mais eu não vendo! A qualidade é ruim. Esse tênis tem várias qualidades dele.
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Justificar preço pela qualidade**
+Quando cliente menciona preço mais baixo, explicar diferença de qualidade posiciona o produto como superior e justifica o valor.
+
+### 2026-05-06 [objecao-autenticidade-original] [chat]
+
+=== strategy/pricing-rules.md ===
+### 2026-05-07 [regras-precificacao-universal] [chat]
+**chunk_id**: auto-generated
+**file_path**: strategy/pricing-rules.md
+**category**: strategy
+**content_category_tags**: sales_tactic
+**product_or_service**: Regras de Precificação Universal
+**source_type**: text
+**asset_path**: workspace/unknown
+**strategy**: Apresentação Padronizada de Preços
+**scenario**: Quando apresentar o preço de qualquer produto ao cliente
+**script**: [Nome] 💳 Cartão: R$ [valor] em até 6x sem juros (R$ [valor÷6]/mês) 💰 PIX: R$ [valor PIX] (economiza R$ [diferença]!) 🔗 Segue o link com fotos: [URL] Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+
+**REGRAS UNIVERSAIS DE PRECIFICAÇÃO**
+
+**strategy**: Apresentação Padronizada de Preços
+**scenario**: Sempre que apresentar preço de qualquer produto
+**script**: Template obrigatório com cartão 6x + PIX
+
+---
+
+## **💰 REGRA OBRIGATÓRIA:** [chat]
+
+**SEMPRE apresentar DUAS opções de pagamento:**
+1. 💳 Cartão: em até 6x sem juros (mostrar valor da parcela)
+2. 💰 PIX: valor à vista (destacar economia)
+
+---
+
+## **📝 TEMPLATE OBRIGATÓRIO:** [chat]
+
+```
+[Nome do Produto] [Emoji]
+
+💳 Cartão: R$ [valor] em até 6x sem juros (R$ [valor÷6]/mês)
+💰 PIX: R$ [valor PIX] (economiza R$ [diferença]!)
+
+🔗 Segue o link com fotos:
+[URL completa]
+
+Me envia a foto ou nome do modelo que te passo o valor certinho! 😊
+```
+
+---
+
+## **🧮 CÁLCULO AUTOMÁTICO:** [chat]
+
+**Para cada produto:**
+1. Valor cartão ÷ 6 = valor da parcela
+2. Valor cartão - Valor PIX = economia
+3. Arredondar parcela para 2 casas decimais
+
+=== strategy/sales-tactics.md ===
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: 50a33399b18e42aaa88b2666b9f6b677
+**file_path**: strategy/sales-tactics.md
+**content_hash**: 59406e8af2f1ac182fee2e8bccfc651df77adf565d3fecf46418335467d4e7fe
+**category**: sales_tactic
+**content_category_tags**: sales_tactic
+**strategy**: Qualificação após erro de menu
+**scenario**: Quando o cliente não responde corretamente ao menu automatizado múltiplas vezes
+**script**: Boa noite, [Nome]! Para entender melhor, qual é o seu atual cenário com [produto/serviço]? Você já usa algum ou está começando a buscar soluções?
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Pergunta de qualificação após erro de menu**
+Quando o cliente não responde ao menu numérico, fazer uma pergunta aberta sobre o cenário atual dele ao invés de repetir o menu. Isso humaniza o atendimento e qualifica o lead.
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: f9794cd2d1564338bf98608326f1afd7
+**file_path**: strategy/sales-tactics.md
+**content_hash**: a329f6d82ae678ed99d7d878ff2b07b999ed5368a739ece00abf96e4cbb4fe08
+**category**: sales_tactic
+**content_category_tags**: sales_tactic
+**strategy**: Qualificação por desafio setorial
+**scenario**: Quando você conhece o setor de atuação do cliente mas ele não está respondendo ao menu padrão
+**script**: Boa noite, [Nome]! Vi que você tem interesse em [produto] para o setor de [setor]. Qual o principal desafio que você enfrenta hoje com [área específica]?
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+**Pergunta sobre desafio específico do setor**
+Após identificar o setor do cliente, fazer uma pergunta direcionada sobre o principal desafio que ele enfrenta. Demonstra conhecimento do segmento e engaja o cliente em uma conversa consultiva.
+
+### 2026-05-06 11:21 [onboarding-history]
+**chunk_id**: a7ce295133d84ce6b0f23e6e536ba1b6
+**file_path**: strategy/sales-tactics.md
+**content_hash**: 4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3
+**category**: sales_tactic
+**content_category_tags**: sales_tactic
+**strategy**: Menu visual com números e emojis
+**scenario**: Quando cliente inicia conversa ou precisa ser direcionado para próxima etapa
+**script**: 📋 *Como posso te ajudar?*
+**product_or_service**: general
+**source_type**: text
+**asset_path**: workspace/unknown
+
+1️⃣ Conhecer nossos serviços/produtos
+2️⃣ Solicitar um orçamento
+3️⃣ Agendar um horário
+4️⃣ Tirar dúvidas
+

@@ -1,0 +1,71 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "c9806eb2bf34477394531673c1446b60",
+      "chunk_id": "c9806eb2bf34477394531673c1446b60",
+      "content_hash": "c1b03601ef2ceb84673f0511c44f2f12745bdff54bb252b7b98261793e5b3cc6",
+      "file_path": "knowledge/general.md",
+      "file": "knowledge/general.md",
+      "content": "**upload_id**: 8580\n\nInformasi mengenai gambar c18f42bc90b84188b5728196e48e6b28_1778074425.png: Gambar ini adalah latar belakang putih polos tanpa objek, orang, atau pola apa pun. Gaya keseluruhannya sederhana dan bersih.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 3,
+      "line_end": 17,
+      "asset_path": "workspace/assets/c18f42bc90b84188b5728196e48e6b28_1778074425.png",
+      "source_type": "image",
+      "product_or_service": "general",
+      "_bm25_score": 51.5276,
+      "_source": "keyword",
+      "_rrf_score": 0.0325,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "44add188e44442f1a69d880e67b42589",
+      "chunk_id": "44add188e44442f1a69d880e67b42589",
+      "content_hash": "57bb640adf76526861f774c938fdd9b229041529df4219137069cac04b898b2a",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Endereço da loja**\nPRIME STORE TIBERY\nAv. Benjamin Magalhães, 1014 - Tibery, Uberlândia - MG, 38405-040\nAvaliação: 5,0 (17 avaliações no Google)\n\n**Site oficial**\nwww.primestoremen.com.br",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 15,
+      "line_end": 32,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "store_location",
+      "_bm25_score": 26.5,
+      "_source": "keyword",
+      "_rrf_score": 0.031,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "chunk_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "content_hash": "4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "1️⃣ Conhecer nossos serviços/produtos\n2️⃣ Solicitar um orçamento\n3️⃣ Agendar um horário\n4️⃣ Tirar dúvidas\n5️⃣ Falar com um atendente\n\n_Digite o número da opção desejada_\n\n**Menu estruturado com emojis**\nBot usa menu numerado (1-5) com emojis para organizar opções de atendimento: conhecer serviços, orçamento, agendamento, dúvidas e atendente humano.",
+      "category": "strategy",
+      "similarity": 0.7196216,
+      "line_start": 34,
+      "line_end": 57,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "upload_id 8580 task_id 17b6f26bc6c6"
+}

@@ -1,0 +1,18 @@
+✓ 已追加到文件: workspace/memory/knowledge/product-info.md (655 字符)
+
+⚠️ 发现相似条目，请检查是否需要清理旧文件:
+  1. [knowledge/pricing.md]
+     "**Preço de camisetas**
+Camisetas a partir de R$129,00, com tecido de qualidade e"
+  2. [knowledge/faq.md]
+     "**Endereço da loja**
+PRIME STORE TIBERY
+Av. Benjamin Magalhães, 1014 - Tibery, U"
+  3. [strategy/sales-tactics.md]
+     "**Qualificação por preferência de estilo**
+Após apresentar preço, perguntar pref"
+  4. [strategy/sales-tactics.md]
+     "1️⃣ Conhecer nossos serviços/produtos
+2️⃣ Solicitar um orçamento
+3️⃣ Agendar um "
+建议用 edit_file 更新或删除旧文件中的过时内容。

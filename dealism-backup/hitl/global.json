@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "disable_defaults": [],
+  "custom_triggers": [
+    {
+      "trigger_id": "t_global_video_request",
+      "name": "Solicitação de Vídeo de Produto",
+      "description": "Cliente solicita vídeo de produto específico e não há vídeo disponível na base de conhecimento. Procedimento: 1) Oferecer informações detalhadas do produto por texto primeiro. 2) Perguntar: 'Vou ver se consigo um vídeo melhor pra te mostrar! Enquanto isso, essas infos te ajudam?' 3) Se cliente insistir no vídeo, dizer: 'Achei! Vou pegar o vídeo aqui, me dá só uns minutos 😊' 4) Transferir silenciosamente para humano via escalation. 5) Se humano não responder em 5 minutos, retomar automaticamente com: 'Desculpa a demora! Tô tendo dificuldade pra pegar o vídeo agora. Posso te enviar depois ou prefere que eu te mande as infos por texto mesmo?' e continuar atendimento normalmente.",
+      "enabled": true,
+      "auto_resume_timeout_minutes": 5,
+      "resume_message": "Desculpa a demora! Tô tendo dificuldade pra pegar o vídeo agora. Posso te enviar depois ou prefere que eu te mande as infos por texto mesmo?",
+      "silent_escalation": true
+    }
+  ],
+  "updated_at": "2026-05-07T00:00:00Z"
+}

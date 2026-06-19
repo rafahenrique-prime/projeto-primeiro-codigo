@@ -1,0 +1,117 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "f2d28dbc15dc4f03934d3b2de2e1c0b1",
+      "chunk_id": "f2d28dbc15dc4f03934d3b2de2e1c0b1",
+      "content_hash": "dd441d502ae39a8962938fa9008f0215308c0b5981cf32ad7985f43283cfa715",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "**Qualificação por preferência de estilo**\nApós apresentar preço, perguntar preferências específicas (casual, esportivo, básico) para personalizar recomendações e engajar cliente.",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 74,
+      "line_end": 89,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 0.6089,
+      "_source": "keyword",
+      "_rrf_score": 0.032,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "f9794cd2d1564338bf98608326f1afd7",
+      "chunk_id": "f9794cd2d1564338bf98608326f1afd7",
+      "content_hash": "a329f6d82ae678ed99d7d878ff2b07b999ed5368a739ece00abf96e4cbb4fe08",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "**Pergunta sobre desafio específico do setor**\nApós identificar o setor do cliente, fazer uma pergunta direcionada sobre o principal desafio que ele enfrenta. Demonstra conhecimento do segmento e engaja o cliente em uma conversa consultiva.",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 18,
+      "line_end": 33,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 0.5711,
+      "_source": "keyword",
+      "_rrf_score": 0.0318,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "chunk_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "content_hash": "4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "1️⃣ Conhecer nossos serviços/produtos\n2️⃣ Solicitar um orçamento\n3️⃣ Agendar um horário\n4️⃣ Tirar dúvidas\n5️⃣ Falar com um atendente\n\n_Digite o número da opção desejada_\n\n**Menu estruturado com emojis**\nBot usa menu numerado (1-5) com emojis para organizar opções de atendimento: conhecer serviços, orçamento, agendamento, dúvidas e atendente humano.",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 34,
+      "line_end": 57,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 0.5195,
+      "_source": "keyword",
+      "_rrf_score": 0.0315,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "d74c75ff50734b84aba31ae174f710a1",
+      "chunk_id": "d74c75ff50734b84aba31ae174f710a1",
+      "content_hash": "a08c972b47afa449944cf618281d63645f1ba198d171ab8fe88cfbae4b70b288",
+      "file_path": "strategy/objection-handling.md",
+      "file": "strategy/objection-handling.md",
+      "content": "**Cliente não responde com número do menu**\nQuando cliente não digita número do menu estruturado (1-5), bot repete múltiplas vezes a mesma mensagem sem sucesso, gerando frustração e abandono da conversa.",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 17,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "chatbot",
+      "_bm25_score": 0.2877,
+      "_source": "keyword",
+      "_rrf_score": 0.0308,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "50a33399b18e42aaa88b2666b9f6b677",
+      "chunk_id": "50a33399b18e42aaa88b2666b9f6b677",
+      "content_hash": "59406e8af2f1ac182fee2e8bccfc651df77adf565d3fecf46418335467d4e7fe",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "**Pergunta de qualificação após erro de menu**\nQuando o cliente não responde ao menu numérico, fazer uma pergunta aberta sobre o cenário atual dele ao invés de repetir o menu. Isso humaniza o atendimento e qualifica o lead.",
+      "category": "strategy",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 17,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 0.5674,
+      "_source": "keyword",
+      "_rrf_score": 0.0305,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    }
+  ],
+  "count": 5,
+  "query": "strategy 22113"
+}

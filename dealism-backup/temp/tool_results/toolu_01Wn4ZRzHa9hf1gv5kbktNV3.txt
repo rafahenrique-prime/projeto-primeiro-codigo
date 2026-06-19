@@ -1,0 +1,73 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "711b58dfba194aefba22dfc493aa0e58",
+      "chunk_id": "711b58dfba194aefba22dfc493aa0e58",
+      "content_hash": "3b712f17f7bc176c108aebaa8e4bc8cbdf8c900d8a71df6f1ad31c268f94f5e5",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8775\n\nA Plataforma Gucci Feminina Marrom Claro é uma sandália plataforma de luxo fabricada na Itália pela marca Gucci. O modelo apresenta uma cor bege predominante com o padrão clássico do logotipo da Gucci em marrom (GQ). As sandálias são exibidas com acabamento detalhado e design de plataforma alta ideal para o público feminino.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1060,
+      "line_end": 1074,
+      "asset_path": "workspace/assets/8e8090e67d8c4ccbbb661d8bf6ed1624_1778243107.jpeg",
+      "source_type": "image",
+      "product_or_service": "Plataforma Gucci Feminina",
+      "_bm25_score": 57.4854,
+      "_source": "keyword",
+      "_rrf_score": 0.0323,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "auto-generated",
+      "chunk_id": "auto-generated",
+      "content_hash": "auto-generated",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**upload_id**: 8774\n\n**Imagem do Produto:** Plataforma Gucci Feminina COR: Marrom Escuro\n\nSandália plataforma Gucci apresentando a estampa icônica do monograma GG em tons de bege e marrom escuro. Design premium com acabamento sofisticado, solado plataforma confortável e detalhes da marca em toda a extensão do calçado.\n\n**Especificações visuais:**\n- Cor predominante: Marrom Escuro com padrão GG bege\n- Estilo: Sandália slide plataforma\n- Acabamento: Premium importado\n- Logomarca: Monograma GG clássico Gucci\n\n**Referência cruzada:** Ver dados completos de preço, tamanhos e link na entrada \"Plataforma Gucci Feminina COR: Marrom Escuro\" neste mesmo arquivo.\n\nQuando cliente enviar foto deste modelo, Gabriela identifica automaticamente e apresenta:\n- Preço: R$ 349 (Cartão 6x) / R$ 319 (PIX)\n- Tamanhos: 34 ao 40\n- Link: https://www.primestoremen.com.br/gucci-femina-marromescuro\n**upload_id**: 8775",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 1029,
+      "line_end": 1059,
+      "asset_path": "workspace/assets/31917de4bc3c467caa732f287ac6cfe6_1778240692.jpeg",
+      "source_type": "image",
+      "product_or_service": "Plataforma Gucci Feminina",
+      "_bm25_score": 64.5032,
+      "_source": "keyword",
+      "_rrf_score": 0.032,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "chunk_id": "6e1a22cc92c8488eaf0cc5958400c16c",
+      "content_hash": "1802462de25d45a4e0261b8005cdc20fa71d39334bbfbe9b5bd2e98892795e91",
+      "file_path": "knowledge/product-info.md",
+      "file": "knowledge/product-info.md",
+      "content": "**Sandália Gucci / Plataforma Gucci Feminina COR: Marrom Claro**\n\n**RESPOSTA PADRÃO PARA CLIENTE:**\n```\nPlataforma Gucci Feminina - Marrom Claro 👡\n\n💳 Cartão: R$ 349,00 em até 6x sem juros (R$ 58,17/mês)\n💰 PIX: R$ 319,00 (economiza R$ 30!)\n\n🔗 Segue o link com fotos:\nhttps://www.primestoremen.com.br/plataforma-gucci-femina\n\nMe envia a foto ou nome do modelo que te passo o valor certinho! 😊\n```\n\nIMPORTANTE: Sempre enviar o link COMPLETO (com https://) quando o cliente pedir fotos ou informações do produto. Nunca abreviar ou encurtar o link.\n**upload_id**: 8581",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 39,
+      "line_end": 66,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "Sandália Gucci",
+      "_bm25_score": 56.8008,
+      "_source": "keyword",
+      "_rrf_score": 0.0318,
+      "_sources": [
+        "keyword",
+        "semantic"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "Plataforma Gucci Marrom Claro foto imagem 8e8090e67d8c4ccbbb661d8bf6ed1624"
+}

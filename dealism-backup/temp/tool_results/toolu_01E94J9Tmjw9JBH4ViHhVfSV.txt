@@ -1,0 +1,69 @@
+{
+  "mode": "hybrid",
+  "results": [
+    {
+      "doc_id": "545d49cf23de4f059ef6c45b8b847e61",
+      "chunk_id": "545d49cf23de4f059ef6c45b8b847e61",
+      "content_hash": "9aea0a27bb752bd5ed21740f1369728221c4a7caaa3c5a712da9431c2865d2ab",
+      "file_path": "knowledge/faq.md",
+      "file": "knowledge/faq.md",
+      "content": "**Horário de funcionamento**\nSegunda a Sexta: 9h às 18h. Sábado: 9h às 13h. Não é necessário agendamento prévio.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 14,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_bm25_score": 15.3736,
+      "_source": "keyword",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "keyword"
+      ]
+    },
+    {
+      "doc_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "chunk_id": "a7ce295133d84ce6b0f23e6e536ba1b6",
+      "content_hash": "4d5d76d8f6e0c72fe6542d38d8a81466c1c50f8803675216ba1158481c0964c3",
+      "file_path": "strategy/sales-tactics.md",
+      "file": "strategy/sales-tactics.md",
+      "content": "1️⃣ Conhecer nossos serviços/produtos\n2️⃣ Solicitar um orçamento\n3️⃣ Agendar um horário\n4️⃣ Tirar dúvidas\n5️⃣ Falar com um atendente\n\n_Digite o número da opção desejada_\n\n**Menu estruturado com emojis**\nBot usa menu numerado (1-5) com emojis para organizar opções de atendimento: conhecer serviços, orçamento, agendamento, dúvidas e atendente humano.",
+      "category": "strategy",
+      "similarity": 0.7353175,
+      "line_start": 34,
+      "line_end": 57,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "general",
+      "_source": "semantic",
+      "_rrf_score": 0.0164,
+      "_sources": [
+        "semantic"
+      ]
+    },
+    {
+      "doc_id": "8542a68915ca4edc8de27ab09723d75a",
+      "chunk_id": "8542a68915ca4edc8de27ab09723d75a",
+      "content_hash": "b1d328d105eb5e496755263562b1f1f66614355df772fdbe731f63b15ab686e0",
+      "file_path": "knowledge/guide.md",
+      "file": "knowledge/guide.md",
+      "content": "**Limite de repetições em loops de bot**\nBot repetiu mesma mensagem de menu 15+ vezes sem detectar falha de comunicação. Implementar limite de 2-3 tentativas antes de oferecer alternativa (atendente humano ou input livre) previne frustração.",
+      "category": "knowledge",
+      "similarity": 0,
+      "line_start": 2,
+      "line_end": 17,
+      "asset_path": "workspace/unknown",
+      "source_type": "text",
+      "product_or_service": "bot",
+      "_bm25_score": 6.5917,
+      "_source": "keyword",
+      "_rrf_score": 0.0161,
+      "_sources": [
+        "keyword"
+      ]
+    }
+  ],
+  "count": 3,
+  "query": "endereço loja PRIME STORE horário funcionamento"
+}

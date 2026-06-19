@@ -1,0 +1,184 @@
+{
+  "sent": {
+    "272854_whatsapp_30min": {
+      "timestamp": "2026-05-07T05:36:02.230093",
+      "buyer_id": "272854",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "272856_whatsapp_30min": {
+      "timestamp": "2026-05-07T05:36:02.234923",
+      "buyer_id": "272856",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "273278_whatsapp_30min": {
+      "timestamp": "2026-05-07T05:36:02.238161",
+      "buyer_id": "273278",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "278218_instagram_30min": {
+      "timestamp": "2026-05-07T05:36:02.241614",
+      "buyer_id": "278218",
+      "channel": "instagram",
+      "stage": "30min"
+    },
+    "280038_whatsapp_30min": {
+      "timestamp": "2026-05-07T05:36:02.253478",
+      "buyer_id": "280038",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "281789_whatsapp_30min": {
+      "timestamp": "2026-05-07T16:21:02.220850",
+      "buyer_id": "281789",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "281790_whatsapp_30min": {
+      "timestamp": "2026-05-07T16:21:02.227644",
+      "buyer_id": "281790",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "272854_whatsapp_23h45min": {
+      "timestamp": "2026-05-08T04:51:09.066777",
+      "buyer_id": "272854",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "273278_whatsapp_23h45min": {
+      "timestamp": "2026-05-08T04:51:09.097245",
+      "buyer_id": "273278",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "278218_instagram_23h45min": {
+      "timestamp": "2026-05-08T04:51:09.110717",
+      "buyer_id": "278218",
+      "channel": "instagram",
+      "stage": "23h45min"
+    },
+    "272841_whatsapp_30min": {
+      "timestamp": "2026-05-08T13:16:01.613181",
+      "buyer_id": "272841",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "281789_whatsapp_23h45min": {
+      "timestamp": "2026-05-08T16:11:02.641862",
+      "buyer_id": "281789",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "281790_whatsapp_23h45min": {
+      "timestamp": "2026-05-08T16:11:02.649689",
+      "buyer_id": "281790",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "280038_whatsapp_23h45min": {
+      "timestamp": "2026-05-08T16:21:00.360404",
+      "buyer_id": "280038",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "278052_whatsapp_30min": {
+      "timestamp": "2026-05-08T18:41:00.223977",
+      "buyer_id": "278052",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "120363407011579852_whatsapp_30min": {
+      "timestamp": "2026-05-08T20:27:06.894136",
+      "buyer_id": "120363407011579852",
+      "channel": "whatsapp",
+      "stage": "30min"
+    },
+    "272841_whatsapp_23h45min": {
+      "timestamp": "2026-05-09T13:06:00.685485",
+      "buyer_id": "272841",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "272841_whatsapp_24h": {
+      "timestamp": "2026-05-09T13:21:03.941696",
+      "buyer_id": "272841",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "272854_whatsapp_24h": {
+      "timestamp": "2026-05-09T13:41:05.438017",
+      "buyer_id": "272854",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "281789_whatsapp_24h": {
+      "timestamp": "2026-05-09T16:11:36.536898",
+      "buyer_id": "281789",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "281790_whatsapp_24h": {
+      "timestamp": "2026-05-09T16:16:05.776479",
+      "buyer_id": "281790",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "273278_whatsapp_24h": {
+      "timestamp": "2026-05-09T18:11:00.747265",
+      "buyer_id": "273278",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "278218_instagram_24h": {
+      "timestamp": "2026-05-09T18:11:00.750334",
+      "buyer_id": "278218",
+      "channel": "instagram",
+      "stage": "24h"
+    },
+    "280038_whatsapp_24h": {
+      "timestamp": "2026-05-09T18:11:00.763200",
+      "buyer_id": "280038",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "278052_whatsapp_23h45min": {
+      "timestamp": "2026-05-09T18:31:03.920578",
+      "buyer_id": "278052",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "120363407011579852_whatsapp_23h45min": {
+      "timestamp": "2026-05-09T20:16:03.776432",
+      "buyer_id": "120363407011579852",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "272856_whatsapp_23h45min": {
+      "timestamp": "2026-05-09T23:36:00.878415",
+      "buyer_id": "272856",
+      "channel": "whatsapp",
+      "stage": "23h45min"
+    },
+    "278052_whatsapp_24h": {
+      "timestamp": "2026-05-10T18:36:01.432037",
+      "buyer_id": "278052",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "120363407011579852_whatsapp_24h": {
+      "timestamp": "2026-05-10T20:21:06.429075",
+      "buyer_id": "120363407011579852",
+      "channel": "whatsapp",
+      "stage": "24h"
+    },
+    "272856_whatsapp_24h": {
+      "timestamp": "2026-05-12T02:21:00.191376",
+      "buyer_id": "272856",
+      "channel": "whatsapp",
+      "stage": "24h"
+    }
+  }
+}
