@@ -52,11 +52,23 @@ const catalog = [
 ]
 
 // Busca produto por nome ou descrição (match fuzzy simples)
+// Retorna catálogo ativo: localStorage tem prioridade (inclui produtos do Extrator)
+function getActiveCatalog() {
+  try {
+    const stored = localStorage.getItem('products_catalog')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.length > 0) return parsed
+    }
+  } catch {}
+  return catalog
+}
+
 export function searchProduct(query) {
   if (!query || query.trim().length < 2) return []
 
   const q = query.toLowerCase()
-  return catalog.filter(p =>
+  return getActiveCatalog().filter(p =>
     p.nome.toLowerCase().includes(q) ||
     p.preco.toLowerCase().includes(q)
   ).slice(0, 5)
@@ -66,8 +78,6 @@ export function searchProduct(query) {
 export function findBestMatch(query) {
   const results = searchProduct(query)
   if (results.length === 0) return null
-
-  // Retorna o primeiro match (mais relevante)
   return results[0]
 }
 
