@@ -149,13 +149,14 @@ export default function CatalogPage() {
                 <td style={{ padding: '8px', color: t.text }}>{product.nome}</td>
                 <td style={{ padding: '8px', color: t.text }}>{product.preco}</td>
                 <td style={{ padding: '8px' }}>
-                  <a
-                    href={product.imagem}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ color: '#0EC331', textDecoration: 'none', fontSize: 11 }}
-                  >
-                    Ver imagem
+                  <a href={product.imagem} target="_blank" rel="noreferrer">
+                    <img
+                      src={product.imagem}
+                      alt={product.nome}
+                      style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, display: 'block' }}
+                      onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'inline' }}
+                    />
+                    <span style={{ display: 'none', fontSize: 11, color: '#EF4444' }}>Sem foto</span>
                   </a>
                 </td>
                 <td style={{ padding: '8px', textAlign: 'center', display: 'flex', gap: 6, justifyContent: 'center' }}>
