@@ -21,7 +21,7 @@ export default function SimuladorClientePage() {
   }, [messages])
 
   useEffect(() => {
-    setStats(getPhotoStats())
+    getPhotoStats().then(setStats)
   }, [messages])
 
   const enviarMensagem = async (text = '') => {
@@ -79,7 +79,7 @@ export default function SimuladorClientePage() {
             sucesso: true,
           })
 
-          setStats(getPhotoStats())
+          getPhotoStats().then(setStats)
         } else {
           // Produto não encontrado
           const errorMsg = {

@@ -1,29 +1,19 @@
 /**
- * ORCHESTRADOR PRINCIPAL: Foto Recognition Flow
+ * PHOTO RECOGNITION COM GPT MAKER
  *
- * Integra tudo:
- * 1. Foto → Recognition (Google Vision, OpenAI, etc)
- * 2. Analysis → Matching com Catálogo
- * 3. Resultado → Cache
- * 4. Tudo → Enviado ao GPT Maker para resposta
+ * Simples e integrado:
+ * Foto → GPT Maker Vision → Análise → Cache → Pronto!
  *
- * INDEPENDENT DO GPT MAKER:
- * - Funciona sem GPT Maker
- * - GPT Maker é apenas para melhorar a resposta
- * - Fallback automático se GPT Maker cair
+ * Sem AWS, sem backends separados, sem trabalheira.
  */
 
-import { recognizePhoto } from './photoRecognitionService'
-import { matchPhotoToProducts } from './photoMatchingService'
 import {
   getCachedAnalysis,
   setCachedAnalysis,
   getCacheStats,
 } from './photoCacheService'
-import { sendMessage } from './gptmaker'
 
-// ==================== MÉTRICAS ====================
-
+// Métricas
 const metrics = {
   totalProcessed: 0,
   cacheHits: 0,
@@ -33,65 +23,43 @@ const metrics = {
 
 // ==================== FLUXO PRINCIPAL ====================
 
-export async function processPhotoFlow(imageUrl, chatId = null) {
+export async function processPhotoFlow(imageUrl) {
   const startTime = performance.now()
+  metrics.totalProcessed++
 
   try {
-    console.log('[Photo Flow] Iniciando processamento de foto...')
+    if (!imageUrl) throw new Error('URL da imagem é obrigatória')
 
-    // Validações
-    if (!imageUrl) {
-      throw new Error('Image URL is required')
-    }
+    // STEP 1: Verifica cache
+    let result = await getCachedAnalysis(imageUrl)
 
-    // ─── STEP 1: Verifica cache ───
-    console.log('[Photo Flow] Verificando cache...')
-    let analysisResult = await getCachedAnalysis(imageUrl)
-
-    if (analysisResult) {
+    if (result) {
       metrics.cacheHits++
-      console.log('[Photo Flow] Cache hit!')
+      result.fromCache = true
     } else {
-      // ─── STEP 2: Reconhecimento de foto ───
-      console.log('[Photo Flow] Analisando foto com Vision API...')
-      analysisResult = await recognizePhoto(imageUrl)
+      // STEP 2: Analisa com GPT Maker Vision
+      result = await analyzeWithGPTMaker(imageUrl)
 
-      // ─── STEP 3: Salva no cache ───
-      await setCachedAnalysis(imageUrl, analysisResult)
+      // STEP 3: Salva em cache
+      await setCachedAnalysis(imageUrl, result)
     }
 
-    // ─── STEP 4: Matching com catálogo ───
-    console.log('[Photo Flow] Buscando produtos no catálogo...')
-    const matchResult = await matchPhotoToProducts(analysisResult)
+    // STEP 4: Monta resposta final
+    const processingTime = Math.round(performance.now() - startTime)
+    metrics.averageTime = (metrics.averageTime * (metrics.totalProcessed - 1) + processingTime) / metrics.totalProcessed
 
-    // ─── STEP 5: Monta resposta ───
-    const result = {
+    return {
       success: true,
       imageUrl,
-      analysis: {
-        provider: analysisResult.provider,
-        fromCache: analysisResult.fromCache || false,
-      },
-      matches: matchResult.matches,
-      confidence: matchResult.confidence,
-      processingTime: Math.round(performance.now() - startTime),
+      matches: result.matches || [],
+      analysis: result.analysis || {},
+      confidence: result.confidence || 0,
+      processingTime,
+      fromCache: result.fromCache || false,
     }
-
-    // ─── STEP 6: Envia para GPT Maker (opcional) ───
-    if (chatId) {
-      console.log('[Photo Flow] Enviando resultado ao GPT Maker...')
-      await enrichWithGPTMaker(result, chatId)
-    }
-
-    // Atualiza métricas
-    metrics.totalProcessed++
-    updateAverageTime(result.processingTime)
-
-    console.log('[Photo Flow] ✅ Concluído com sucesso!', result)
-    return result
   } catch (err) {
     metrics.errors++
-    console.error('[Photo Flow] ❌ Erro:', err)
+    console.error('[Photo] Erro:', err.message)
 
     return {
       success: false,
@@ -101,64 +69,94 @@ export async function processPhotoFlow(imageUrl, chatId = null) {
   }
 }
 
-// ==================== INTEGRAÇÃO COM GPT MAKER ====================
+// ==================== ANÁLISE COM GPT MAKER ====================
 
-async function enrichWithGPTMaker(result, chatId) {
+async function analyzeWithGPTMaker(imageUrl) {
   try {
-    if (!result.matches || result.matches.length === 0) {
-      // Sem matches, apenas envia a foto para GPT Maker analisar
-      console.log('[Photo Flow] Sem matches detectados, enviando foto para GPT Maker...')
-      await sendMessage(
-        chatId,
-        'Recebi sua foto. Me descreva mais sobre o que está procurando para eu ajudar melhor!',
-        result.imageUrl
-      )
-      return
+    // Prepara prompt para GPT Maker
+    const prompt = `
+Analise esta imagem de produto e:
+1. Identifique o tipo de produto (roupas, sapatos, acessórios, etc)
+2. Descreva características principais (cor, estilo, marca aparente)
+3. Sugira 3-5 produtos similares do nosso catálogo que combinariam
+
+Responda em JSON estruturado:
+{
+  "tipo": "tipo do produto",
+  "descricao": "características",
+  "matches": [
+    { "nome": "produto", "categoria": "categoria", "confidence": 85 }
+  ]
+}
+`
+
+    // Envia para GPT Maker via API
+    const response = await fetch('/api/gptmaker/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageUrl,
+        prompt,
+        vision: true // Ativa visão
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Erro GPT Maker: ${response.status}`)
     }
 
-    // Com matches, envia resposta estruturada
-    const topMatch = result.matches[0]
-    const messageText = `
-Encontrei ${result.matches.length} produto(s) similar(es):
+    const data = await response.json()
 
-🔝 Melhor match: *${topMatch.nome}*
-💰 Preço: ${topMatch.preco}
-✅ Confiança: ${topMatch.confidence}%
+    // Extrai matches do catálogo
+    const matches = extrairMatchesDoCatalogo(data.matches || [])
 
-Quer saber mais sobre este produto ou prefere ver outras opções?
-`.trim()
-
-    console.log('[Photo Flow] Enviando matches para GPT Maker...')
-
-    // Envia mensagem com a foto para contexto
-    await sendMessage(chatId, messageText, result.imageUrl)
-
-    // Adiciona aos treinamentos do agente (futura melhoria)
-    // await addToAgentKnowledge(result.matches)
+    return {
+      analysis: {
+        tipo: data.tipo,
+        descricao: data.descricao,
+      },
+      matches,
+      confidence: calculateConfidence(matches),
+    }
   } catch (err) {
-    console.warn('[Photo Flow] Erro ao enviar para GPT Maker (não bloqueia):', err)
-    // Continua mesmo que GPT Maker falhe
+    console.error('[GPT Maker] Erro:', err)
+    throw err
   }
 }
 
-// ==================== ANÁLISE DE PERFORMANCE ====================
+// ==================== HELPERS ====================
 
-function updateAverageTime(newTime) {
-  const total = metrics.totalProcessed
-  const oldAverage = metrics.averageTime
-  metrics.averageTime = (oldAverage * (total - 1) + newTime) / total
+function extrairMatchesDoCatalogo(sugestoes) {
+  // Aqui você buscaria no catálogo real
+  // Por enquanto, retorna as sugestões do GPT Maker
+  return sugestoes.map(item => ({
+    nome: item.nome,
+    categoria: item.categoria,
+    confidence: item.confidence || 75,
+    link: `/catalogo/${item.nome.toLowerCase().replace(/\s+/g, '-')}`
+  }))
 }
+
+function calculateConfidence(matches) {
+  if (matches.length === 0) return 0
+  const avg = matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
+  return Math.round(avg)
+}
+
+// ==================== MÉTRICAS ====================
 
 export function getMetrics() {
   return {
-    ...metrics,
+    totalProcessed: metrics.totalProcessed,
+    cacheHits: metrics.cacheHits,
     cacheHitRate: metrics.totalProcessed > 0
       ? Math.round((metrics.cacheHits / metrics.totalProcessed) * 100)
       : 0,
+    averageTime: Math.round(metrics.averageTime),
+    errors: metrics.errors,
     errorRate: metrics.totalProcessed > 0
       ? Math.round((metrics.errors / metrics.totalProcessed) * 100)
       : 0,
-    averageTimeMs: Math.round(metrics.averageTime),
     cacheStats: getCacheStats(),
   }
 }
@@ -169,59 +167,3 @@ export function resetMetrics() {
   metrics.averageTime = 0
   metrics.errors = 0
 }
-
-// ==================== MODO DEBUG ====================
-
-export function enableDebugMode() {
-  console.log('[Photo Flow] Debug mode ENABLED')
-  console.log('Métricas:', getMetrics())
-  console.log('Cache Stats:', getCacheStats())
-}
-
-// ==================== FLUXO INDEPENDENTE (FUTURO) ====================
-
-/**
- * IMPORTANTE: Este é o ponto de partida para rodar INDEPENDENTE!
- *
- * Para desacoplar do GPT Maker:
- * 1. Remover a chamada await enrichWithGPTMaker()
- * 2. Implementar seu próprio LLM (Ollama, Llama.cpp, etc)
- * 3. Rodar em container Docker/Node.js puro
- *
- * O fluxo principal (processPhotoFlow) já é independente!
- */
-
-export async function processPhotoFlowIndependent(imageUrl) {
-  console.log('[Photo Flow] Modo INDEPENDENT (sem GPT Maker)')
-
-  // Mesmo fluxo, mas sem GPT Maker
-  const startTime = performance.now()
-
-  try {
-    let analysisResult = await getCachedAnalysis(imageUrl)
-
-    if (!analysisResult) {
-      analysisResult = await recognizePhoto(imageUrl)
-      await setCachedAnalysis(imageUrl, analysisResult)
-    }
-
-    const matchResult = await matchPhotoToProducts(analysisResult)
-
-    return {
-      success: true,
-      imageUrl,
-      matches: matchResult.matches,
-      confidence: matchResult.confidence,
-      processingTime: Math.round(performance.now() - startTime),
-      provider: analysisResult.provider,
-    }
-  } catch (err) {
-    return {
-      success: false,
-      error: err.message,
-      processingTime: Math.round(performance.now() - startTime),
-    }
-  }
-}
-
-console.log('[Photo Flow] Serviço carregado e pronto')

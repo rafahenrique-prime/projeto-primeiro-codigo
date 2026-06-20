@@ -1,5 +1,47 @@
 import * as gptmaker from './gptmaker'
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
+
+const sbHeaders = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation',
+}
+
+// Carrega produtos do Supabase para o localStorage (chamado na inicialização)
+export async function syncCatalogFromSupabase() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?order=created_at.asc`, { headers: sbHeaders })
+    if (!res.ok) return
+    const rows = await res.json()
+    if (rows.length > 0) {
+      localStorage.setItem('products_catalog', JSON.stringify(rows))
+    }
+  } catch {}
+}
+
+// Salva lista de produtos no Supabase (upsert por nome)
+export async function saveCatalogToSupabase(products) {
+  try {
+    // Apaga tudo e reinserex (mais simples que upsert por nome)
+    await fetch(`${SUPABASE_URL}/rest/v1/products?id=neq.00000000-0000-0000-0000-000000000000`, {
+      method: 'DELETE',
+      headers: sbHeaders,
+    })
+    if (products.length === 0) return
+    const rows = products.map(({ nome, preco, link, imagem, categoria, codigo }) =>
+      ({ nome, preco, link, imagem, categoria: categoria || null, codigo: codigo || null })
+    )
+    await fetch(`${SUPABASE_URL}/rest/v1/products`, {
+      method: 'POST',
+      headers: sbHeaders,
+      body: JSON.stringify(rows),
+    })
+  } catch {}
+}
+
 const catalog = [
   { id: 1, nome: "Tenis New Balance 9060 Creme C/ Cinza", preco: "R$ 549,00", imagem: "https://cdn.dooca.store/161486/products/photo-2026-05-05-21-57-11-xrm49_600x800+crop_center.jpg?v=1779812331", link: "https://www.primestoremen.com.br/tenis-new-balance-9060-creme-c-cinza" },
   { id: 2, nome: "Nike Dunk Low Gray Premium", preco: "R$ 499,00", imagem: "https://cdn.dooca.store/161486/products/dunk-01-com7i_600x800+crop_center.jpeg?v=1778510673", link: "https://www.primestoremen.com.br/nike-dunk-low-gray-premium" },

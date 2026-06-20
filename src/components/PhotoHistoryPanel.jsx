@@ -14,21 +14,21 @@ export default function PhotoHistoryPanel({ isOpen, onClose, theme: t }) {
     }
   }, [isOpen, filtro])
 
-  const carregarDados = () => {
+  const carregarDados = async () => {
     let dados = []
-    if (filtro === 'todos') dados = getPhotoHistory()
-    else if (filtro === 'sucesso') dados = getPhotoHistory({ sucesso: true })
-    else if (filtro === 'erro') dados = getPhotoHistory({ sucesso: false })
-    else if (filtro === 'automático') dados = getPhotoHistory({ tipo: 'automático' })
-    else if (filtro === 'manual') dados = getPhotoHistory({ tipo: 'manual' })
+    if (filtro === 'todos') dados = await getPhotoHistory()
+    else if (filtro === 'sucesso') dados = await getPhotoHistory({ sucesso: true })
+    else if (filtro === 'erro') dados = await getPhotoHistory({ sucesso: false })
+    else if (filtro === 'automático') dados = await getPhotoHistory({ tipo: 'automático' })
+    else if (filtro === 'manual') dados = await getPhotoHistory({ tipo: 'manual' })
 
     setHistory(dados)
-    setStats(getPhotoStats())
+    setStats(await getPhotoStats())
   }
 
-  const limparHistorico = () => {
+  const limparHistorico = async () => {
     if (confirm('Limpar todo o histórico de fotos?')) {
-      clearPhotoHistory()
+      await clearPhotoHistory()
       carregarDados()
     }
   }

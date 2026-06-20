@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { getChatMessages, sendMessage, finishChat } from '../services/gptmaker'
-import { detectProductRequest } from '../services/groq'
+import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat } from '../services/gptmaker'
+import { detectProductRequest, groqRequest } from '../services/groq'
 import { findBestMatch, searchProduct } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
+import { searchEntries, saveEntry } from '../services/knowledgeDB'
+import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/knowledgeParser'
+import { upsertProfile, getProfile } from '../services/customerProfileService'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
 
@@ -32,6 +35,15 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const [sending, setSending] = useState(false)
   const [modeHint, setModeHint] = useState(null)
   const bottomRef = useRef(null)
+  // Base local
+  const [kbEnabled, setKbEnabled] = useState(() => localStorage.getItem('kb_enabled') !== 'false')
+  const [kbSuggestion, setKbSuggestion] = useState(null)
+  const [kbDismissed, setKbDismissed] = useState(false)
+  // Salvar conversa
+  const [selectedMsgs, setSelectedMsgs] = useState(new Set())
+  const [selectMode, setSelectMode] = useState(false)
+  const [savingConv, setSavingConv] = useState(false)
+  const [saveToast, setSaveToast] = useState(null)
 
   useEffect(() => {
     setMode(conv.mode || 'autopilot')
@@ -49,7 +61,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     try {
       const data = await getChatMessages(conv.id)
       const msgList = Array.isArray(data) ? data : []
-      setMsgs(msgList)
+setMsgs(msgList)
 
       // Detecção automática de pedido de foto
       if (msgList.length > 0 && !autoSending) {
@@ -58,6 +70,22 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
         // Verifica se é mensagem nova do cliente e não foi processada
         if (lastMsg.role === 'user' && lastMsg.id !== lastProcessedMsgId) {
           setLastProcessedMsgId(lastMsg.id)
+          setKbDismissed(false)
+
+          // Atualiza perfil do cliente no Supabase a cada msg nova
+          upsertProfile(conv, msgList).catch(() => {})
+
+          // Busca na base local se estiver ativada
+          if (kbEnabled) {
+            const clientText = lastMsg.text || lastMsg.content || ''
+            searchEntries(clientText).then(results => {
+              if (results.length > 0) {
+                setKbSuggestion({ query: clientText, results })
+              } else {
+                setKbSuggestion(null)
+              }
+            }).catch(() => {})
+          }
 
           // Detecta se é pedido de foto
           const detection = detectProductRequest(lastMsg.text || lastMsg.content || '')
@@ -133,6 +161,75 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     }
   }
 
+  const [gerarLoading, setGerarLoading] = useState(false)
+
+  const handleGerar = async () => {
+    if (gerarLoading) return
+    const lastClient = [...msgs].reverse().find(m => m.role === 'user')
+    if (!lastClient) return
+    const query = lastClient.text || lastClient.content || ''
+    setGerarLoading(true)
+    try {
+      const results = await searchEntries(query)
+      const context = results.length > 0
+        ? results.slice(0, 3).map(e => `[${e.category}] ${e.title}: ${e.content}`).join('\n\n')
+        : ''
+      const history = msgs.slice(-10).map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.text || m.content || '',
+      }))
+      const systemPrompt = `Você é Gabriela, vendedora da PRIME STORE — loja de roupas e tênis masculinos. Seja direta, simpática e focada em fechar a venda.${context ? `\n\nBase de conhecimento relevante:\n${context}` : ''}`
+      const data = await groqRequest({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: systemPrompt }, ...history],
+        max_tokens: 400,
+        temperature: 0.7,
+      })
+      const reply = data.choices?.[0]?.message?.content || ''
+      if (reply) setInput(reply)
+    } catch (e) {
+      console.error('Gerar erro:', e)
+      alert(`Erro ao gerar: ${e.message}`)
+    } finally {
+      setGerarLoading(false)
+    }
+  }
+
+  const handleSaveConversation = async () => {
+    if (selectedMsgs.size === 0) return
+    setSavingConv(true)
+    try {
+      const selected = msgs.filter(m => selectedMsgs.has(m.id))
+      const content = selected.map(m => {
+        const role = m.role === 'user' ? conv.name : 'Agente'
+        const text = m.text || m.content || ''
+        return `${role}: ${text}`
+      }).join('\n')
+      // Parser estruturado — divide a conversa em blocos por tipo
+      const blocos = await parseToBlocks(content).catch(() => [{ tipo: 'FAQ', nome: content.slice(0, 80), conteudo: content }])
+      for (const b of blocos) {
+        await saveEntry({ title: b.nome || content.slice(0, 80), content: b.conteudo, category: TIPO_TO_CATEGORY[b.tipo] || 'FAQ', source: 'conversa' })
+      }
+      setSaveToast(`${selectedMsgs.size} mensagem(ns) salvas na base!`)
+      setSelectedMsgs(new Set())
+      setSelectMode(false)
+      setTimeout(() => setSaveToast(null), 3000)
+    } catch (e) {
+      setSaveToast('Erro ao salvar.')
+      setTimeout(() => setSaveToast(null), 3000)
+    } finally {
+      setSavingConv(false)
+    }
+  }
+
+  const toggleSelectMsg = (id) => {
+    setSelectedMsgs(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   const handleFinish = async () => {
     try {
       await finishChat(conv.id)
@@ -153,6 +250,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 
   const sendPhotoManual = async (produto) => {
     setSendingPhoto(true)
+    // Mostra a foto imediatamente no chat
+    const tempPhoto = { id: Date.now(), role: 'agent', text: produto.nome, image: produto.imagem, time: Date.now() }
+    setMsgs(prev => [...prev, tempPhoto])
     try {
       await sendMessage(conv.id, produto.nome, produto.imagem)
       setTimeout(() => {
@@ -199,18 +299,55 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
           }
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{conv.name}</div>
-            <div style={{ fontSize: 12, color: t.textMuted }}>{conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}</div>
+            <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}
+              <span style={{
+                fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
+                background: mode === 'copilot' ? '#FEE2E2' : '#F0FDF4',
+                color: mode === 'copilot' ? '#DC2626' : '#16A34A',
+              }}>
+                {mode === 'copilot' ? '✋ Você está atendendo' : '🤖 Agente respondendo'}
+              </span>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ModeToggle mode={mode} t={t} setMode={(newMode) => {
-            setMode(newMode)
-            onConvUpdate({ ...conv, mode: newMode })
-            const hint = newMode === 'copilot'
-              ? 'Clique em "Assumir atendimento" no GPT Maker'
-              : 'Clique em "Voltar pro Agente" no GPT Maker'
-            setModeHint(hint)
-            setTimeout(() => setModeHint(null), 6000)
+          {/* Botão Salvar Conversa */}
+          {/* Salvar conversa — ícone minimalista */}
+          {selectMode ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button onClick={handleSaveConversation} disabled={selectedMsgs.size === 0 || savingConv}
+                style={{ background: selectedMsgs.size > 0 ? '#10B981' : '#E5E5E5', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: selectedMsgs.size > 0 ? '#fff' : '#9CA3AF', cursor: selectedMsgs.size > 0 ? 'pointer' : 'default' }}>
+                {savingConv ? '...' : `✓ ${selectedMsgs.size}`}
+              </button>
+              <button onClick={() => { setSelectMode(false); setSelectedMsgs(new Set()) }}
+                style={{ background: 'none', border: 'none', fontSize: 18, color: '#9CA3AF', cursor: 'pointer', lineHeight: 1, padding: '2px 4px' }}>×</button>
+            </div>
+          ) : (
+            <button onClick={() => setSelectMode(true)} title="Salvar mensagens na base de conhecimento"
+              style={{ background: 'none', border: 'none', padding: '4px 6px', borderRadius: 7, cursor: 'pointer', fontSize: 14, opacity: 0.5, transition: 'opacity 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>
+              💾
+            </button>
+          )}
+          {/* Toggle Base */}
+          <button
+            onClick={() => { const next = !kbEnabled; setKbEnabled(next); localStorage.setItem('kb_enabled', String(next)) }}
+            title={kbEnabled ? 'Base ativa — clique para desativar' : 'Base inativa — clique para ativar'}
+            style={{ background: 'none', border: 'none', padding: '4px 6px', borderRadius: 7, cursor: 'pointer', fontSize: 14, opacity: kbEnabled ? 1 : 0.35, transition: 'opacity 0.15s' }}>
+            🧠
+          </button>
+          <ModeToggle mode={mode} t={t} setMode={async (newMode) => {
+            try {
+              if (newMode === 'copilot') await assumeChat(conv.id)
+              else await releaseChat(conv.id)
+              setMode(newMode)
+              onConvUpdate({ ...conv, mode: newMode })
+            } catch (e) {
+              setModeHint('⚠️ Erro ao mudar modo: ' + (e.message || 'Token pode ter expirado'))
+              setTimeout(() => setModeHint(null), 6000)
+            }
           }} />
           <button onClick={handleFinish} style={{ background: t.bgTertiary, border: `1px solid ${t.borderLight}`, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -227,16 +364,42 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
         </div>
       )}
 
+      {/* Banner modo seleção */}
+      {selectMode && (
+        <div style={{ background: '#F5F3FF', borderBottom: '1px solid #DDD6FE', padding: '8px 16px', fontSize: 12, color: '#5B21B6', fontWeight: 600, flexShrink: 0 }}>
+          Clique nas mensagens que quer salvar na base de conhecimento · {selectedMsgs.size} selecionada(s)
+        </div>
+      )}
+
+      {/* Toast */}
+      {saveToast && (
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#fff', padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, zIndex: 999, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
+          🧠 {saveToast}
+        </div>
+      )}
+
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 6, background: t.bgSecondary }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 6, background: t.bgSecondary, position: 'relative' }}>
         {loading
           ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Carregando mensagens...</div>
           : msgs.length === 0
             ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Nenhuma mensagem</div>
-            : msgs.map(msg => <Bubble key={msg.id} msg={msg} conv={conv} t={t} />)
+            : msgs.map(msg => (
+                <div key={msg.id}
+                  onClick={() => selectMode && toggleSelectMsg(msg.id)}
+                  style={{ cursor: selectMode ? 'pointer' : 'default', borderRadius: 10, outline: selectMode && selectedMsgs.has(msg.id) ? '2px solid #10B981' : 'none', background: selectMode && selectedMsgs.has(msg.id) ? 'rgba(16,185,129,0.07)' : 'transparent', transition: 'all 0.1s' }}>
+                  {selectMode && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 2px', fontSize: 11, color: selectedMsgs.has(msg.id) ? '#10B981' : '#D1D5DB', fontWeight: 600 }}>
+                      {selectedMsgs.has(msg.id) ? '✓ Selecionada' : '○ Clique para selecionar'}
+                    </div>
+                  )}
+                  <Bubble msg={msg} conv={conv} t={t} />
+                </div>
+              ))
         }
         <div ref={bottomRef} />
       </div>
+
 
       {/* Input */}
       <div style={{ padding: '12px 14px', borderTop: `1px solid ${t.border}`, background: t.bg, flexShrink: 0 }}>
@@ -300,9 +463,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
                 </div>
               )}
 
-              <button style={{ background: 'linear-gradient(135deg, #0EC331, #10B981)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={handleGerar} disabled={gerarLoading} style={{ background: gerarLoading ? '#6B7280' : 'linear-gradient(135deg, #0EC331, #10B981)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: gerarLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                Gerar
+                {gerarLoading ? '...' : 'Gerar'}
               </button>
             </div>
             <button onClick={() => handleSend()} disabled={sending} style={{ width: 34, height: 34, background: sending ? '#B0E8BA' : '#0EC331', border: 'none', borderRadius: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: sending ? 'default' : 'pointer', transition: 'background 0.15s' }}>
@@ -328,10 +491,10 @@ function IconBtn({ children, title, color }) {
 function ModeToggle({ mode, setMode, t }) {
   return (
     <div style={{ background: t.bgTertiary, borderRadius: 9999, padding: 3, display: 'flex', gap: 0 }}>
-      {[['autopilot','AutoPilot'],['copilot','Copilot']].map(([val, label]) => (
+      {[['autopilot','🤖 Agente'],['copilot','✋ Assumir']].map(([val, label]) => (
         <button key={val} onClick={() => setMode(val)} style={{
           background: mode === val ? t.bg : 'transparent',
-          color: mode === val ? '#0EC331' : t.textMuted,
+          color: mode === val ? (val === 'copilot' ? '#DC2626' : '#0EC331') : t.textMuted,
           border: 'none', borderRadius: 9999,
           padding: '4px 12px', fontSize: 12, fontWeight: mode === val ? 700 : 500,
           boxShadow: mode === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
@@ -342,9 +505,35 @@ function ModeToggle({ mode, setMode, t }) {
   )
 }
 
+function AudioBubble({ msg, isUser, t }) {
+  const transcription = msg.midiaContent || ''
+  const bgColor = isUser ? t.bubbleUser : t.bubbleAI
+  const radius = isUser ? '2px 14px 14px 14px' : '14px 2px 14px 14px'
+  const border = isUser ? `1px solid ${t.borderLight}` : 'none'
+
+  return (
+    <div style={{ background: bgColor, border, borderRadius: radius, padding: '9px 13px', boxShadow: isUser ? '0 1px 2px rgba(0,0,0,0.05)' : 'none', maxWidth: 280 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: transcription ? 6 : 0 }}>
+        <span style={{ fontSize: 16 }}>🎤</span>
+        <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>Áudio</span>
+      </div>
+      {transcription && (
+        <div style={{ fontSize: 12, color: t.text, fontStyle: 'italic', lineHeight: 1.5 }}>
+          "{transcription}"
+        </div>
+      )}
+      {!transcription && (
+        <div style={{ fontSize: 11, color: t.textMuted }}>Sem transcrição disponível</div>
+      )}
+    </div>
+  )
+}
+
 function Bubble({ msg, conv, t }) {
   const text = msg.text || msg.content || ''
   const time = fmtTime(msg.time)
+  const isAudio = msg.type === 'AUDIO' || (msg.audioUrl && !msg.text)
+  const imageUrl = msg.image || msg.imagem || msg.imageUrl || (msg.type === 'IMAGE' ? msg.midiaUrl : null)
 
   if (msg.role === 'user') {
     return (
@@ -354,7 +543,12 @@ function Bubble({ msg, conv, t }) {
           : <div style={{ width: 28, height: 28, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0, marginTop: 2 }}>{conv.initials}</div>
         }
         <div>
-          <div style={{ background: t.bubbleUser, border: `1px solid ${t.borderLight}`, borderRadius: '2px 14px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>{text}</div>
+          {isAudio
+            ? <AudioBubble msg={msg} isUser t={t} />
+            : imageUrl
+              ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
+              : <div style={{ background: t.bubbleUser, border: `1px solid ${t.borderLight}`, borderRadius: '2px 14px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>{text}</div>
+          }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3 }}>{time}</div>
         </div>
       </div>
@@ -366,7 +560,12 @@ function Bubble({ msg, conv, t }) {
       <div style={{ display: 'flex', gap: 8, maxWidth: '72%', alignSelf: 'flex-end', flexDirection: 'row-reverse' }}>
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #0EC331, #10B981)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0, marginTop: 2 }}>IA</div>
         <div>
-          <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+          {isAudio
+            ? <AudioBubble msg={msg} isUser={false} t={t} />
+            : imageUrl
+              ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
+              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+          }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             {time}
             <svg width="12" height="8" viewBox="0 0 16 10" fill="#0EC331"><path d="M1 5l4 4L15 1M6 5l4 4"/></svg>
@@ -383,7 +582,12 @@ function Bubble({ msg, conv, t }) {
           {(msg.metadata?.senderName || 'R')[0]}
         </div>
         <div>
-          <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+          {isAudio
+            ? <AudioBubble msg={msg} isUser={false} t={t} />
+            : imageUrl
+              ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
+              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+          }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             {time} · {msg.metadata?.senderName || 'Você'}
             <svg width="12" height="8" viewBox="0 0 16 10" fill={t.textMuted}><path d="M1 5l4 4L15 1M6 5l4 4"/></svg>

@@ -3,7 +3,7 @@
  * Importa produtos e gera relatório de conflitos ANTES de apagar
  */
 
-import { getAllProducts } from './catalog'
+import { getAllProducts, saveCatalogToSupabase } from './catalog'
 
 // Normaliza nome para comparação
 function normalizeName(name) {
@@ -216,6 +216,7 @@ export async function applyConflictResolution(decisions) {
     localStorage.setItem('products_catalog', JSON.stringify(filtered))
     localStorage.removeItem('products_catalog_imported')
     localStorage.removeItem('products_backup_temp')
+    saveCatalogToSupabase(filtered) // sincroniza com Supabase
 
     return {
       status: 'SUCCESS',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
 import { scrapeProductsFromURL } from '../services/scrapingService'
-import { getAllProducts } from '../services/catalog'
+import { getAllProducts, saveCatalogToSupabase } from '../services/catalog'
 
 export default function ExtractorPage() {
   const { theme: t } = useTheme()
@@ -81,6 +81,7 @@ export default function ExtractorPage() {
       // Combina e salva
       const updated = [...existingProducts, ...newProducts]
       localStorage.setItem('products_catalog', JSON.stringify(updated))
+      saveCatalogToSupabase(updated) // sincroniza com Supabase
 
       setSuccessMessage(`✅ ${newProducts.length} produtos adicionados com sucesso! (IDs ${newProducts[0]?.id}-${newProducts[newProducts.length - 1]?.id})`)
       setScrapedProducts([])

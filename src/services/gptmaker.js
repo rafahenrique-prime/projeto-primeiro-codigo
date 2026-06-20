@@ -1,7 +1,37 @@
 const TOKEN = import.meta.env.VITE_GPTMAKER_TOKEN
-const USER_TOKEN = import.meta.env.VITE_GPTMAKER_USER_TOKEN
 const WS = import.meta.env.VITE_GPTMAKER_WORKSPACE
 const BASE = 'https://api.gptmaker.ai'
+
+// USER_TOKEN: token de sessão do usuário (expira ~7 dias). Diferente do API token.
+let _userToken = import.meta.env.VITE_GPTMAKER_USER_TOKEN
+
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp && Date.now() / 1000 > payload.exp - 300
+  } catch { return true }
+}
+
+async function getUserTokenAuto() {
+  if (!_userToken || isTokenExpired(_userToken)) {
+    const email = import.meta.env.VITE_GPTMAKER_EMAIL
+    const password = import.meta.env.VITE_GPTMAKER_PASSWORD
+    if (email && password) {
+      try {
+        const res = await fetch(`${BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login: email, password }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.token) _userToken = data.token
+        }
+      } catch {}
+    }
+  }
+  return _userToken
+}
 
 const headers = () => ({
   'Authorization': `Bearer ${TOKEN}`,
@@ -77,18 +107,20 @@ export async function sendMessage(chatId, text, imageUrl = null) {
 }
 
 export async function assumeChat(chatId) {
+  const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/start-attendance`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${USER_TOKEN}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao assumir chat')
   return true
 }
 
 export async function releaseChat(chatId) {
+  const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/return-to-agent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${USER_TOKEN}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao voltar pro agente')
   return true
@@ -105,8 +137,9 @@ export async function listContacts(page = 1, pageSize = 20) {
 
 // Dashboard — usa USER_TOKEN (endpoints /dashboard/ exigem sessão de usuário)
 async function dashboardRequest(path) {
+  const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Authorization': `Bearer ${USER_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || data.message || 'Erro na API Dashboard')

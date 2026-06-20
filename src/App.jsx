@@ -20,7 +20,9 @@ import ExtractorPage from './pages/ExtractorPage'
 import ImportReviewPage from './pages/ImportReviewPage'
 import PhotoRecognitionPage from './pages/PhotoRecognitionPage'
 import AgentLabPage from './pages/AgentLabPage'
-import { listChats } from './services/gptmaker'
+import FollowUpPage from './pages/FollowUpPage'
+import { listChats, assumeChat, releaseChat } from './services/gptmaker'
+import { runFollowUpCheck } from './services/followUpService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length] }
@@ -89,6 +91,8 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showPhotoHistory, setShowPhotoHistory] = useState(false)
+  const [botSleep, setBotSleep] = useState(() => localStorage.getItem('bot_sleep') === 'true')
+  const [sleepLoading, setSleepLoading] = useState(false)
   const chatRef = useRef(null)
   const convsRef = useRef([])
   const initialLoadDone = useRef(false)
@@ -102,6 +106,17 @@ export default function App() {
   // Auto-refresh a cada 30s
   useEffect(() => {
     const timer = setInterval(() => loadChats(false), 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Motor de follow-up — verifica a cada 60s
+  useEffect(() => {
+    const check = () => {
+      if (convsRef.current.length > 0) {
+        runFollowUpCheck(convsRef.current).catch(() => {})
+      }
+    }
+    const timer = setInterval(check, 60000)
     return () => clearInterval(timer)
   }, [])
 
@@ -158,14 +173,34 @@ export default function App() {
     }
   }
 
+  async function toggleBotSleep() {
+    if (sleepLoading) return
+    const next = !botSleep
+    setSleepLoading(true)
+    try {
+      const targets = conversations.filter(c => next ? c.mode !== 'copilot' : c.mode === 'copilot')
+      await Promise.allSettled(targets.map(c => next ? assumeChat(c.id) : releaseChat(c.id)))
+      setBotSleep(next)
+      localStorage.setItem('bot_sleep', String(next))
+      setConversations(prev => prev.map(c => ({ ...c, mode: next ? 'copilot' : 'autopilot' })))
+    } catch (e) {
+      console.error('Erro ao alterar modo do bot:', e)
+    } finally {
+      setSleepLoading(false)
+    }
+  }
+
   const fillChatInput = useCallback((text) => {
     chatRef.current?.fill(text)
   }, [])
 
   const filtered = conversations.filter(c => {
     if (filter === 'unread') return c.unread > 0
+    if (filter === 'meus') return c.mode === 'copilot'
+    if (filter === 'autoia') return c.mode !== 'copilot'
     if (filter === 'wa') return c.channel === 'whatsapp'
     if (filter === 'ig') return c.channel === 'instagram'
+    if (filter === 'human') return c.mode === 'copilot' && c.unread > 0
     if (filter.startsWith('ig:')) return c.channel === 'instagram' && (c.igChannelId || c.channelId) === filter.slice(3)
     return true
   }).filter(c => {
@@ -200,8 +235,12 @@ export default function App() {
               </div>
             ) : <>
               <InboxList conversations={filtered} allConversations={conversations} active={activeConv} onSelect={selectConv}
-                filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} />
-              {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => setActiveConv(c)} />}
+                filter={filter} setFilter={setFilter} search={search} setSearch={setSearch}
+                botSleep={botSleep} sleepLoading={sleepLoading} onToggleSleep={toggleBotSleep} />
+              {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => {
+                setActiveConv(c)
+                setConversations(prev => prev.map(p => p.id === c.id ? { ...p, mode: c.mode } : p))
+              }} />}
               {activeConv && <RightPanel conv={activeConv} onConvUpdate={c => {
                 setActiveConv(c)
                 setConversations(prev => prev.map(p => p.id === c.id ? { ...p, mode: c.mode } : p))
@@ -209,7 +248,7 @@ export default function App() {
             </>
           )}
           {page === 'channels' && <ChannelsPage />}
-          {page === 'dealonca' && <DealOncaPage conversations={conversations} />}
+          {page === 'dealonca' && <DealOncaPage conversations={conversations} setPage={setPage} />}
           {page === 'contacts' && <ContactsPage />}
           {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
           {page === 'reports'    && <DashboardPage conversations={conversations} />}
@@ -223,6 +262,7 @@ export default function App() {
           {page === 'photo' && <PhotoRecognitionPage />}
           {page === 'extrator' && <ExtractorPage />}
           {page === 'lab'     && <AgentLabPage />}
+          {page === 'followup' && <FollowUpPage conversations={conversations} />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
         </div>
 

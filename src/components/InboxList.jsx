@@ -25,9 +25,10 @@ function igColorMap(conversations) {
   return map
 }
 
-export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch }) {
+export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch, botSleep, sleepLoading, onToggleSleep }) {
   const { theme: t } = useTheme()
   const igColors = igColorMap(allConversations || conversations)
+  const humanCount = (allConversations || conversations).filter(c => c.mode === 'copilot' && c.unread > 0).length
 
   return (
     <div style={{ width: 300, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -37,7 +38,7 @@ export default function InboxList({ conversations, allConversations, active, onS
           <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Mensagens</div>
           <span style={{ background: t.bgTertiary, color: t.textMid, fontSize: 11, fontWeight: 600, borderRadius: 9999, padding: '2px 8px' }}>{conversations.length}</span>
         </div>
-        <div style={{ position: 'relative', marginBottom: 10 }}>
+        <div style={{ position: 'relative', marginBottom: 10, display: 'flex', gap: 6, alignItems: 'center' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -50,9 +51,29 @@ export default function InboxList({ conversations, allConversations, active, onS
           {search && (
             <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, fontSize: 14, lineHeight: 1 }}>×</button>
           )}
+          <button
+            onClick={onToggleSleep}
+            disabled={sleepLoading}
+            title={sleepLoading ? 'Aguarde...' : botSleep ? 'Bot dormindo — clique para acordar' : 'Bot ativo — clique para dormir'}
+            style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: `1.5px solid ${botSleep ? '#F59E0B' : t.border}`, background: botSleep ? '#FFFBEB' : t.bgTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: sleepLoading ? 'wait' : 'pointer', transition: 'all 0.15s', opacity: sleepLoading ? 0.6 : 1 }}
+          >
+            {sleepLoading ? <span style={{ fontSize: 14 }}>⏳</span> : <SparkIcon asleep={botSleep} />}
+          </button>
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {[['all','Todos'],['unread','Não lidas'],['wa','WhatsApp']].map(([k, label]) => (
+          {humanCount > 0 && (
+            <button onClick={() => setFilter(filter === 'human' ? 'all' : 'human')} style={{
+              fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+              background: filter === 'human' ? '#DC2626' : '#FEE2E2',
+              color: filter === 'human' ? '#fff' : '#DC2626',
+              fontWeight: 700, transition: 'all 0.12s',
+              display: 'flex', alignItems: 'center', gap: 4,
+            }}>
+              🚨 Humano
+              <span style={{ background: filter === 'human' ? 'rgba(255,255,255,0.3)' : '#DC2626', color: '#fff', borderRadius: 9999, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{humanCount}</span>
+            </button>
+          )}
+          {[['all','Todos'],['meus','Meus'],['autoia','Auto-IA'],['unread','Não lidas'],['wa','WhatsApp']].map(([k, label]) => (
             <button key={k} onClick={() => setFilter(k)} style={{
               fontSize: 11, padding: '4px 11px', borderRadius: 9999, border: 'none', cursor: 'pointer',
               background: filter === k ? (t.primary || '#E8192C') : t.bgTertiary,
@@ -112,6 +133,7 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
   const ringColor = isWa ? '#0EC331' : igBadgeColor
   const waitTime = conv.unread > 0 ? timeSince(conv.rawTime) : null
   const isLong = waitTime && !['agora','1m','2m','3m','4m','5m'].includes(waitTime)
+  const needsHuman = conv.mode === 'copilot' && conv.unread > 0
 
   return (
     <div
@@ -119,12 +141,12 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 14px', cursor: 'pointer',
-        background: isActive ? (t.primaryBg || '#fff5f5') : 'transparent',
-        borderLeft: isActive ? `3px solid ${t.primary || '#E8192C'}` : '3px solid transparent',
+        background: isActive ? (t.primaryBg || '#fff5f5') : needsHuman ? '#FFF5F5' : 'transparent',
+        borderLeft: isActive ? `3px solid ${t.primary || '#E8192C'}` : needsHuman ? '3px solid #DC2626' : '3px solid transparent',
         transition: 'background 0.1s',
       }}
-      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = t.bgSecondary }}
-      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = needsHuman ? '#FEE2E2' : t.bgSecondary }}
+      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = needsHuman ? '#FFF5F5' : 'transparent' }}
     >
       {/* Avatar */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -159,11 +181,10 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
         </div>
         <div style={{ fontSize: 12, color: t.textMid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>{conv.lastMsg || 'Sem mensagens'}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{
-            fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F',
-            background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4',
-            borderRadius: 4, padding: '1px 6px',
-          }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
+          {needsHuman
+            ? <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', background: '#FEE2E2', borderRadius: 4, padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 3 }}>🚨 Aguardando</span>
+            : <span style={{ fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F', background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4', borderRadius: 4, padding: '1px 6px' }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
+          }
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {waitTime && (
               <span style={{
@@ -179,6 +200,18 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function SparkIcon({ asleep }) {
+  if (asleep) return <span style={{ fontSize: 18, lineHeight: 1 }}>😴</span>
+  return (
+    <svg width="22" height="22" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="#FDE68A" stroke="#F59E0B" strokeWidth="1.5"/>
+      <text x="14" y="22" fontSize="11" textAnchor="middle" fill="#16A34A" fontWeight="bold">$</text>
+      <text x="26" y="22" fontSize="11" textAnchor="middle" fill="#16A34A" fontWeight="bold">$</text>
+      <path d="M12 28 Q20 35 28 28" stroke="#1C1917" strokeWidth="2.2" strokeLinecap="round" fill="#FDE68A"/>
+    </svg>
   )
 }
 

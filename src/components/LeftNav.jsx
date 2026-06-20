@@ -62,7 +62,7 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         ) : (
           /* Modo expandido: logo completa */
           <>
-            <img src={dark ? '/logo-prime-dark.png' : '/logo-prime.png'} alt="PRIME STORE" style={{ width: 'calc(80% - 36px)', height: 'auto', display: 'block', marginLeft: 12 }} />
+            <img src={dark ? '/logo-prime-dark.png' : '/logo-prime.png'} alt="PRIME STORE" title="Página inicial" onClick={() => { setPage('inbox'); window.location.reload() }} style={{ width: 'calc(80% - 36px)', height: 'auto', display: 'block', marginLeft: 12, cursor: 'pointer' }} />
             <button onClick={() => setCollapsed(true)} title="Recolher menu" style={{
               position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
               background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
@@ -107,6 +107,21 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         }}>
           <CodexNavIcon size={20} active={page === 'dealonca'} />
           {!collapsed && 'CODEX'}
+        </button>
+
+        {/* Follow-up */}
+        <button onClick={() => setPage('followup')} title={collapsed ? 'Follow-up' : ''} style={{
+          width: '100%',
+          background: page === 'followup' ? '#059669' : (dark ? 'rgba(5,150,105,0.12)' : '#ECFDF5'),
+          color: page === 'followup' ? '#fff' : '#059669',
+          borderRadius: 10, padding: collapsed ? '10px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          border: `1px solid ${page === 'followup' ? 'transparent' : (dark ? 'rgba(5,150,105,0.25)' : '#A7F3D0')}`,
+          marginBottom: 14, textAlign: 'left', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
+          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
+        }}>
+          <span style={{ fontSize: 18 }}>📬</span>
+          {!collapsed && 'Follow-up'}
         </button>
 
         {!collapsed && <Label color={t.textMuted}>Espaço de Trabalho</Label>}
