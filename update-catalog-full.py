@@ -17,9 +17,10 @@ from pathlib import Path
 
 warnings.filterwarnings('ignore')
 
-# Configuração Supabase
-SUPABASE_URL = "https://mbbgqasvssueirynnoyk.supabase.co"
-SUPABASE_KEY = "SUPABASE_KEY_REMOVED"
+# Configuração Supabase — cole suas chaves aqui ou use variáveis de ambiente
+import os
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mbbgqasvssueirynnoyk.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "COLE_SUA_CHAVE_AQUI")
 CDN_BASE = "https://cdn.dooca.store/161486/products/"
 SITE_BASE = "https://www.primestoremen.com.br"
 

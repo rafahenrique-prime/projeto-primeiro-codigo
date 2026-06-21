@@ -10,8 +10,9 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-SUPABASE_URL = "https://mbbgqasvssueirynnoyk.supabase.co"
-SUPABASE_KEY = "SUPABASE_KEY_REMOVED"
+import os
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mbbgqasvssueirynnoyk.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "COLE_SUA_CHAVE_AQUI")
 
 headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
 patch_headers = {**headers, "Content-Type": "application/json", "Prefer": "return=minimal"}
