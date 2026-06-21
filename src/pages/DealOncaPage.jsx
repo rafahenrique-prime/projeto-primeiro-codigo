@@ -74,15 +74,9 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const pendingDiagRef = useRef(null)
 
   const AI_MODELS = [
-    { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: 'Melhor geral — padrão recomendado' },
+    { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — recomendado' },
     { id: 'groq::llama-3.1-8b-instant',                             label: 'Llama 3.1 8B Fast',    provider: 'groq',       badge: 'Groq',       desc: 'Ultra rápido, respostas simples' },
-    { id: 'groq::meta-llama/llama-4-scout-17b-16e-instruct',        label: 'Llama 4 Scout 17B',    provider: 'groq',       badge: 'Groq',       desc: 'Llama 4 — multimodal e preciso' },
     { id: 'groq::qwen/qwen3-32b',                                   label: 'Qwen 3 32B',           provider: 'groq',       badge: 'Groq',       desc: 'Excelente raciocínio e instruções' },
-    { id: 'groq::qwen/qwen3.6-27b',                                 label: 'Qwen 3.6 27B',         provider: 'groq',       badge: 'Groq',       desc: 'Versão mais recente do Qwen' },
-    { id: 'openrouter::mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',           provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
-    { id: 'openrouter::qwen/qwen3-8b:free',                         label: 'Qwen 3 8B',            provider: 'openrouter', badge: 'OpenRouter', desc: 'Modelo multilíngue' },
-    { id: 'openrouter::nousresearch/hermes-3-llama-3.1-8b:free',   label: 'Hermes 3 8B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
-    { id: 'openrouter::meta-llama/llama-3.3-70b-instruct:free',     label: 'Llama 3.3 70B (OR)',   provider: 'openrouter', badge: 'OpenRouter', desc: 'Via OpenRouter — fallback gratuito' },
   ]
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('codex_model') || 'groq::llama-3.3-70b-versatile')
   const [showModelMenu, setShowModelMenu] = useState(false)
