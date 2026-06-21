@@ -96,19 +96,32 @@ export async function getChatMessages(chatId) {
 }
 
 export async function sendMessage(chatId, text, imageUrl = null) {
-  // Tenta formato: { message, image_url } (formato comum em APIs LLM)
+  // Campo correto confirmado pela docs e pelo teste que funcionou às 12:31: { image: url }
   const body = imageUrl
-    ? { message: text, image_url: imageUrl }
-    : { message: text, type: 'text' }
+    ? { message: text, image: imageUrl }
+    : { message: text, type: 'TEXT' }
 
   if (imageUrl) {
-    console.log('[sendMessage] Enviando com imagem:', { text, imageUrl, body })
+    // Valida que a URL é de imagem real (não página HTML)
+    const isImageUrl = /\.(jpg|jpeg|png|webp|gif|webp)(\?|$)/i.test(imageUrl) ||
+                       imageUrl.includes('cdn.dooca.store') ||
+                       imageUrl.includes('supabase')
+    if (!isImageUrl) {
+      console.warn('[sendMessage] ⚠️ URL suspeita — não parece ser imagem direta:', imageUrl)
+    }
+    console.log('[sendMessage] Enviando imagem:', { chatId, text: text?.slice(0, 40), imageUrl: imageUrl?.slice(0, 80), isImageUrl })
   }
 
-  return request(`/v2/chat/${chatId}/send-message`, {
+  const result = await request(`/v2/chat/${chatId}/send-message`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
+
+  if (imageUrl) {
+    console.log('[sendMessage] Resposta da API:', JSON.stringify(result)?.slice(0, 200))
+  }
+
+  return result
 }
 
 export async function assumeChat(chatId) {
