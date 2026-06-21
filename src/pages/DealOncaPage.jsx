@@ -74,9 +74,15 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const pendingDiagRef = useRef(null)
 
   const AI_MODELS = [
-    { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — recomendado' },
+    { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — padrão recomendado' },
     { id: 'groq::llama-3.1-8b-instant',                             label: 'Llama 3.1 8B Fast',    provider: 'groq',       badge: 'Groq',       desc: 'Ultra rápido, respostas simples' },
+    { id: 'groq::meta-llama/llama-4-scout-17b-16e-instruct',        label: 'Llama 4 Scout 17B',    provider: 'groq',       badge: 'Groq',       desc: 'Llama 4 — multimodal e preciso' },
     { id: 'groq::qwen/qwen3-32b',                                   label: 'Qwen 3 32B',           provider: 'groq',       badge: 'Groq',       desc: 'Excelente raciocínio e instruções' },
+    { id: 'openrouter::meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (OR)',   provider: 'openrouter', badge: 'OpenRouter', desc: 'Via OpenRouter — fallback gratuito' },
+    { id: 'openrouter::mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',           provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
+    { id: 'openrouter::nousresearch/hermes-3-llama-3.1-8b:free',   label: 'Hermes 3 8B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
+    { id: 'openrouter::deepseek/deepseek-chat:free',                label: 'DeepSeek Chat',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Alternativa gratuita — raciocínio forte' },
+    { id: 'openrouter::google/gemma-3-27b-it:free',                 label: 'Gemma 3 27B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Google Gemma — grátis e rápido' },
   ]
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('codex_model') || 'groq::llama-3.3-70b-versatile')
   const [showModelMenu, setShowModelMenu] = useState(false)
@@ -670,12 +676,13 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <div
               style={{ position: 'absolute', top: 70, left: 20, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', zIndex: 2000, minWidth: 280, overflow: 'hidden' }}
               onMouseLeave={() => setShowModelMenu(false)}
+              onClick={e => e.stopPropagation()}
             >
               <div style={{ padding: '8px 12px 6px', fontSize: 10, fontWeight: 700, color: '#6B7280', letterSpacing: 1, borderBottom: '1px solid #F3F4F6' }}>MODELO DE IA DO CODEX</div>
               {AI_MODELS.map(m => (
                 <div
                   key={m.id}
-                  onClick={() => { setSelectedModel(m.id); localStorage.setItem('codex_model', m.id); setShowModelMenu(false) }}
+                  onClick={(e) => { e.stopPropagation(); setSelectedModel(m.id); localStorage.setItem('codex_model', m.id); setShowModelMenu(false) }}
                   style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2, background: selectedModel === m.id ? 'rgba(124,58,237,0.06)' : 'transparent', borderLeft: selectedModel === m.id ? '3px solid #7C3AED' : '3px solid transparent' }}
                   onMouseEnter={e => { if (selectedModel !== m.id) e.currentTarget.style.background = '#F9FAFB' }}
                   onMouseLeave={e => { if (selectedModel !== m.id) e.currentTarget.style.background = 'transparent' }}
@@ -760,7 +767,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !showModelMenu) { e.preventDefault(); send() } }}
               rows={1}
               placeholder='Pergunte sobre clientes ou diga "Adiciona que..." para salvar na base...'
               style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 14, color: '#0A0A0A', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
