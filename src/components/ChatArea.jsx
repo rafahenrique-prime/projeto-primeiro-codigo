@@ -104,17 +104,22 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 setMsgs(msgList)
 
       // Atualiza contexto do produto (Dealism-style): varre mensagens do agente para saber qual produto está em foco
-      const agentMsgs = [...msgList].reverse().slice(0, 10).filter(m => m.role !== 'user')
+      const allMsgs = [...msgList].reverse().slice(0, 10)
+      console.log('[Context] Primeiras 3 msgs recentes (role, tipo):', allMsgs.slice(0, 3).map(m => `role=${m.role || 'undefined'}, type=${m.type || 'undefined'}, de=${m.de || m.from || m.sender || 'unknown'}`))
+
+      const agentMsgs = allMsgs.filter(m => m.role !== 'user' && m.role !== 'client')
+      console.log('[Context] Encontradas', agentMsgs.length, 'mensagens de agente')
+
       for (const m of agentMsgs) {
-        const produtoNoContexto = findProductInText(m.text || m.content || '')
+        const produtoNoContexto = findProductInText(m.text || m.content || m.message || '')
         if (produtoNoContexto) {
           lastProductContextRef.current = produtoNoContexto
-          console.log('[Context] Atualizado para:', produtoNoContexto.nome)
+          console.log('[Context] ✅ Atualizado para:', produtoNoContexto.nome)
           break
         }
       }
       if (agentMsgs.length > 0 && !lastProductContextRef.current) {
-        console.log('[Context] Nenhum produto encontrado nas últimas msgs do agente')
+        console.log('[Context] ⚠️ Nenhum produto encontrado nas', agentMsgs.length, 'msgs do agente')
       }
 
       // Detecção automática de pedido de foto
