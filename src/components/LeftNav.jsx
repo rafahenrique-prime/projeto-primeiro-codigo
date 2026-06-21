@@ -9,6 +9,7 @@ const workItems = [
   { id: 'importar', label: '🔗 Importar', badge: false },
   { id: 'importar-backup', label: '📥 Backup', badge: false },
   { id: 'extrator', label: '🔨 Extrator', badge: false },
+  { id: 'image-extractor', label: '🖼️ Extrair Fotos', badge: false },
 ]
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },

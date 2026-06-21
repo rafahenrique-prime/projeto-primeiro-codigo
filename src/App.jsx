@@ -21,6 +21,7 @@ import ImportReviewPage from './pages/ImportReviewPage'
 import PhotoRecognitionPage from './pages/PhotoRecognitionPage'
 import AgentLabPage from './pages/AgentLabPage'
 import FollowUpPage from './pages/FollowUpPage'
+import ImageExtractorPage from './pages/ImageExtractorPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
@@ -270,6 +271,7 @@ export default function App() {
           {page === 'importar-backup' && <ImportReviewPage />}
           {page === 'photo' && <PhotoRecognitionPage />}
           {page === 'extrator' && <ExtractorPage />}
+          {page === 'image-extractor' && <ImageExtractorPage />}
           {page === 'lab'     && <AgentLabPage />}
           {page === 'followup' && <FollowUpPage conversations={conversations} />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
