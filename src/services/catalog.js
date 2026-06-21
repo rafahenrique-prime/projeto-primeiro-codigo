@@ -95,12 +95,27 @@ const catalog = [
 
 // Busca produto por nome ou descrição (match fuzzy simples)
 // Retorna catálogo ativo: localStorage tem prioridade (inclui produtos do Extrator)
+// Mescla com catalog.js para preencher imagens faltantes
 function getActiveCatalog() {
   try {
     const stored = localStorage.getItem('products_catalog')
     if (stored) {
       const parsed = JSON.parse(stored)
-      if (parsed.length > 0) return parsed
+      if (parsed.length > 0) {
+        // Mesclar com catalog.js para preencher fotos que faltam
+        return parsed.map(supabaseProduct => {
+          // Se já tem imagem, não alterar
+          if (supabaseProduct.imagem) return supabaseProduct
+
+          // Procurar no catalog.js pela imagem (match por nome)
+          const catalogProduct = catalog.find(c => c.nome === supabaseProduct.nome)
+          if (catalogProduct?.imagem) {
+            return { ...supabaseProduct, imagem: catalogProduct.imagem }
+          }
+
+          return supabaseProduct
+        })
+      }
     }
   } catch {}
   return catalog
