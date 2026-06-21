@@ -96,9 +96,14 @@ export async function getChatMessages(chatId) {
 }
 
 export async function sendMessage(chatId, text, imageUrl = null) {
+  // Tenta formato: { message, image_url } (formato comum em APIs LLM)
   const body = imageUrl
-    ? { message: text, image: imageUrl }
+    ? { message: text, image_url: imageUrl }
     : { message: text, type: 'text' }
+
+  if (imageUrl) {
+    console.log('[sendMessage] Enviando com imagem:', { text, imageUrl, body })
+  }
 
   return request(`/v2/chat/${chatId}/send-message`, {
     method: 'POST',

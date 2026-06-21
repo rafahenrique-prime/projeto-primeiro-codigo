@@ -103,7 +103,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     try {
       const data = await getChatMessages(conv.id)
       const msgList = Array.isArray(data) ? data : []
-setMsgs(msgList)
+      setMsgs(msgList)
 
       // Atualiza contexto do produto (Dealism-style): varre mensagens do agente para saber qual produto está em foco
       const allMsgs = [...msgList].reverse().slice(0, 10)
