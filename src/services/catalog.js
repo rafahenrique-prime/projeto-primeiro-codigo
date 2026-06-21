@@ -124,7 +124,7 @@ export function findBestMatch(query) {
 }
 
 // Palavras genéricas de categoria que não identificam produto específico
-const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto', 'perfume', 'oculos', 'bone', 'cropped', 'blusa', 'moletom', 'masculino', 'feminino', 'branco', 'preto', 'cinza', 'azul', 'verde', 'vermelho', 'rosa', 'bege', 'marrom'])
+const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto', 'perfume', 'oculos', 'bone', 'cropped', 'blusa', 'moletom', 'masculino', 'feminino'])
 
 // Busca qual produto do catálogo está mencionado no texto de uma mensagem do agente
 // Usado para rastreamento de contexto (Dealism-style)
@@ -139,27 +139,36 @@ export function findProductInText(text) {
     if (lowerText.includes(p.nome.toLowerCase())) return p
   }
 
-  // Fase 2: score por keywords — retorna produto com maior proporção de palavras encontradas
-  // Usa min 3 chars para pegar nomes truncados (ex: "Lup" de "Cueca Lup 009")
+  // Fase 2: score por keywords específicas (não genéricas) encontradas no texto
   let bestMatch = null
   let bestScore = 0
+  let bestSpecificMatches = 0
 
   for (const p of activeCatalog) {
     const nomeLower = p.nome.toLowerCase()
-    const keywords = nomeLower.split(/\s+/).filter(w => w.length >= 3 && !PALAVRAS_GENERICAS.has(w))
-    if (keywords.length < 2) continue
+    const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
+    if (words.length < 2) continue
 
-    const matches = keywords.filter(w => lowerText.includes(w))
-    if (matches.length < 2) continue
+    // Palavras específicas (não genéricas): cores, modelos, materiais, etc
+    const specificWords = words.filter(w => !PALAVRAS_GENERICAS.has(w))
+    if (specificWords.length === 0) continue
 
-    const score = matches.length / keywords.length
-    if (score > bestScore) {
-      bestScore = score
-      bestMatch = p
+    // Contar quantas palavras específicas são encontradas no texto
+    const specificMatches = specificWords.filter(w => lowerText.includes(w)).length
+
+    if (specificMatches >= 1) {
+      const score = specificMatches / specificWords.length
+      // Preferir: 1) mais matches específicos, 2) score maior
+      if (specificMatches > bestSpecificMatches ||
+          (specificMatches === bestSpecificMatches && score > bestScore)) {
+        bestSpecificMatches = specificMatches
+        bestScore = score
+        bestMatch = p
+      }
     }
   }
 
-  return bestScore >= 0.4 ? bestMatch : null
+  return bestSpecificMatches >= 1 ? bestMatch : null
 }
 
 // Formata dados do produto para envio
