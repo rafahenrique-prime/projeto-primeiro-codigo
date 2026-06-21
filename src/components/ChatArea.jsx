@@ -25,6 +25,8 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const lastProcessedMsgIdRef = useRef(null)
   const [autoSending, setAutoSending] = useState(false)
   const autoSendingRef = useRef(false)
+  // Cooldown: evita reprocessar o mesmo pedido múltiplas vezes (5s)
+  const lastAutoPhotoTimeRef = useRef(0)
   // Rastreamento de contexto Dealism-style: último produto em foco na conversa
   const lastProductContextRef = useRef(null)
   const [showPhotoModal, setShowPhotoModal] = useState(false)
@@ -152,9 +154,16 @@ setMsgs(msgList)
             : (detection.temPedidoFoto ? lastProductContextRef.current : null)
 
           if (detection.temPedidoFoto && produtoAlvo) {
-            autoSendingRef.current = true
-            setAutoSending(true)
-            try {
+            // Cooldown: não dispara se foi muito recente (evita 3x envios)
+            const now = Date.now()
+            if (now - lastAutoPhotoTimeRef.current < 3000) {
+              autoSendingRef.current = false
+              setAutoSending(false)
+            } else {
+              lastAutoPhotoTimeRef.current = now
+              autoSendingRef.current = true
+              setAutoSending(true)
+              try {
               const produto = produtoAlvo
               if (produto) {
                 // Salva no contexto o produto que foi enviado
@@ -196,9 +205,10 @@ setMsgs(msgList)
                 sucesso: false,
                 erro: err.message,
               })
-            } finally {
-              autoSendingRef.current = false
-              setAutoSending(false)
+              } finally {
+                autoSendingRef.current = false
+                setAutoSending(false)
+              }
             }
           }
         }

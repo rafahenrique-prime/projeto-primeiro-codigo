@@ -139,7 +139,8 @@ export function findBestMatch(query) {
 }
 
 // Palavras genéricas de categoria que não identificam produto específico
-const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto', 'perfume', 'oculos', 'bone', 'cropped', 'blusa', 'moletom', 'masculino', 'feminino'])
+// NOTA: "cropped" removido pois diferencia "Cropped Diesel" de "Bone Diesel"
+const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto', 'perfume', 'oculos', 'bone', 'blusa', 'moletom', 'masculino', 'feminino'])
 
 // Busca qual produto do catálogo está mencionado no texto de uma mensagem do agente
 // Usado para rastreamento de contexto (Dealism-style)
