@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
 import { detectProductRequest, groqRequest } from '../services/groq'
-import { findBestMatch, searchProduct } from '../services/catalog'
+import { findBestMatch, searchProduct, findProductInText } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
@@ -25,6 +25,8 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const lastProcessedMsgIdRef = useRef(null)
   const [autoSending, setAutoSending] = useState(false)
   const autoSendingRef = useRef(false)
+  // Rastreamento de contexto Dealism-style: último produto em foco na conversa
+  const lastProductContextRef = useRef(null)
   const [showPhotoModal, setShowPhotoModal] = useState(false)
   const [photoSearch, setPhotoSearch] = useState('')
   const [photoResults, setPhotoResults] = useState([])
@@ -74,6 +76,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   useEffect(() => {
     setMode(conv.mode || 'autopilot')
     setClientProfile(null)
+    lastProductContextRef.current = null
     loadMessages()
     getProfile(conv.id).then(p => setClientProfile(p)).catch(() => {})
     const interval = setInterval(() => loadMessages(true), 5000)
@@ -99,6 +102,16 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
       const data = await getChatMessages(conv.id)
       const msgList = Array.isArray(data) ? data : []
 setMsgs(msgList)
+
+      // Atualiza contexto do produto (Dealism-style): varre mensagens do agente para saber qual produto está em foco
+      const agentMsgs = [...msgList].reverse().slice(0, 10).filter(m => m.role !== 'user')
+      for (const m of agentMsgs) {
+        const produtoNoContexto = findProductInText(m.text || m.content || '')
+        if (produtoNoContexto) {
+          lastProductContextRef.current = produtoNoContexto
+          break
+        }
+      }
 
       // Detecção automática de pedido de foto
       if (msgList.length > 0 && !autoSendingRef.current) {
@@ -130,12 +143,20 @@ setMsgs(msgList)
           // Detecta se é pedido de foto
           const detection = detectProductRequest(lastMsg.text || lastMsg.content || '')
 
-          if (detection.temPedidoFoto && detection.nomeProduto) {
+          // Resolve produto: nome explícito na msg OU contexto rastreado (Dealism-style)
+          const produtoAlvo = detection.nomeProduto
+            ? findBestMatch(detection.nomeProduto)
+            : (detection.temPedidoFoto ? lastProductContextRef.current : null)
+
+          if (detection.temPedidoFoto && produtoAlvo) {
             autoSendingRef.current = true
             setAutoSending(true)
             try {
-              const produto = findBestMatch(detection.nomeProduto)
+              const produto = produtoAlvo
               if (produto) {
+                // Salva no contexto o produto que foi enviado
+                lastProductContextRef.current = produto
+
                 // Envia a foto automático
                 await sendMessage(conv.id, produto.nome, produto.imagem)
 
@@ -149,13 +170,12 @@ setMsgs(msgList)
                   produto: produto.nome,
                   cliente: conv.name,
                   canal: conv.channelLabel,
-                  tipo: 'automático',
+                  tipo: detection.nomeProduto ? 'automático' : 'contexto',
                   sucesso: true,
                 })
               } else {
-                // Produto detectado mas não encontrado no catálogo
                 addPhotoToHistory({
-                  produto: detection.nomeProduto,
+                  produto: detection.nomeProduto || '(contexto)',
                   cliente: conv.name,
                   canal: conv.channelLabel,
                   tipo: 'automático',
@@ -166,7 +186,7 @@ setMsgs(msgList)
             } catch (err) {
               console.error('Erro ao enviar foto automático:', err)
               addPhotoToHistory({
-                produto: detection.nomeProduto,
+                produto: detection.nomeProduto || '(contexto)',
                 cliente: conv.name,
                 canal: conv.channelLabel,
                 tipo: 'automático',

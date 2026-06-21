@@ -123,6 +123,40 @@ export function findBestMatch(query) {
   return results[0]
 }
 
+// Palavras genéricas de categoria que não identificam produto específico
+const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto', 'perfume', 'oculos', 'bone', 'cropped', 'blusa', 'moletom', 'masculino', 'feminino', 'branco', 'preto', 'cinza', 'azul', 'verde', 'vermelho', 'rosa', 'bege', 'marrom'])
+
+// Busca qual produto do catálogo está mencionado no texto de uma mensagem do agente
+// Usado para rastreamento de contexto (Dealism-style)
+export function findProductInText(text) {
+  if (!text || text.length < 3) return null
+  const lowerText = text.toLowerCase()
+  const catalog = getActiveCatalog()
+
+  // Ordena por nome mais longo primeiro (evita match parcial genérico)
+  const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
+
+  for (const p of sorted) {
+    if (!p.imagem) continue
+    const nomeLower = p.nome.toLowerCase()
+
+    // Match direto: nome completo do produto aparece no texto
+    if (lowerText.includes(nomeLower)) return p
+
+    // Match por palavras específicas: palavras >= 4 chars que NÃO são categorias genéricas
+    const keywords = nomeLower.split(/\s+/).filter(w => w.length >= 4 && !PALAVRAS_GENERICAS.has(w))
+    if (keywords.length >= 2 && keywords.every(w => lowerText.includes(w))) return p
+
+    // Match relaxado: pelo menos 2 palavras específicas encontradas (aceita nome parcial)
+    if (keywords.length >= 2) {
+      const matches = keywords.filter(w => lowerText.includes(w))
+      if (matches.length >= 2) return p
+    }
+  }
+
+  return null
+}
+
 // Formata dados do produto para envio
 export function formatProductMessage(produto) {
   return {
