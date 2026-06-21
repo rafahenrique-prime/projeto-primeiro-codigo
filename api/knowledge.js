@@ -111,11 +111,18 @@ export default async function handler(req, res) {
 
     const context = sections.join('\n\n')
 
+    const firstProduct = products[0] || null
+
     return res.status(200).json({
       output: context || 'Nenhuma informação encontrada na base de conhecimento para esta mensagem.',
       context,
       knowledge_count: knowledgeEntries.length,
       products_count: products.length,
+      // Campos individuais do produto para uso em variáveis do contato (GPT Maker)
+      imageUrl: firstProduct?.imagem || '',
+      productName: firstProduct?.nome || '',
+      productPrice: firstProduct?.preco || '',
+      productLink: firstProduct?.link || '',
     })
   } catch (err) {
     console.error('[knowledge webhook] Erro:', err)
