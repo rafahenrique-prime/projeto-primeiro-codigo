@@ -22,7 +22,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
   const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null)
+  const lastProcessedMsgIdRef = useRef(null)
   const [autoSending, setAutoSending] = useState(false)
+  const autoSendingRef = useRef(false)
   const [showPhotoModal, setShowPhotoModal] = useState(false)
   const [photoSearch, setPhotoSearch] = useState('')
   const [photoResults, setPhotoResults] = useState([])
@@ -99,11 +101,12 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 setMsgs(msgList)
 
       // Detecção automática de pedido de foto
-      if (msgList.length > 0 && !autoSending) {
+      if (msgList.length > 0 && !autoSendingRef.current) {
         const lastMsg = msgList[msgList.length - 1]
 
         // Verifica se é mensagem nova do cliente e não foi processada
-        if (lastMsg.role === 'user' && lastMsg.id !== lastProcessedMsgId) {
+        if (lastMsg.role === 'user' && lastMsg.id !== lastProcessedMsgIdRef.current) {
+          lastProcessedMsgIdRef.current = lastMsg.id
           setLastProcessedMsgId(lastMsg.id)
           setKbDismissed(false)
 
@@ -128,6 +131,7 @@ setMsgs(msgList)
           const detection = detectProductRequest(lastMsg.text || lastMsg.content || '')
 
           if (detection.temPedidoFoto && detection.nomeProduto) {
+            autoSendingRef.current = true
             setAutoSending(true)
             try {
               const produto = findBestMatch(detection.nomeProduto)
@@ -170,6 +174,7 @@ setMsgs(msgList)
                 erro: err.message,
               })
             } finally {
+              autoSendingRef.current = false
               setAutoSending(false)
             }
           }
