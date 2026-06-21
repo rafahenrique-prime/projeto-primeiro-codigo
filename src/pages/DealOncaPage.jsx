@@ -69,9 +69,11 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [catalogResults, setCatalogResults] = useState([])
   const [hotAlert, setHotAlert] = useState(null)
   const bottomRef = useRef(null)
-  const diagConfirmedRef = useRef(false)
+  // Persistir confirmação no sessionStorage para sobreviver recargas na mesma aba
+  const diagConfirmedRef = useRef(!!sessionStorage.getItem('codex_diag_confirmed'))
   const diagTimerRef = useRef(null)
   const pendingDiagRef = useRef(null)
+  const diagShownThisSessionRef = useRef(!!sessionStorage.getItem('codex_diag_shown'))
 
   const AI_MODELS = [
     { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — padrão recomendado' },
@@ -322,12 +324,15 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         setTimeout(() => setHotAlert(null), 10000)
       }
 
-      // Diagnóstico proativo — roda 1x por dia, salva no Supabase
+      // Diagnóstico proativo — mostra 1x por sessão (aba do navegador)
+      if (diagShownThisSessionRef.current) return
+      diagShownThisSessionRef.current = true
+      sessionStorage.setItem('codex_diag_shown', '1')
+
       const alreadyRan = await hasRunToday().catch(() => false)
       const diagKey = 'codex_diag_' + new Date().toDateString()
 
       const sendDiagWithConfirmation = (diagText) => {
-        // Não enviar se já confirmou ou se já tem um diagnóstico pendente
         if (diagConfirmedRef.current || pendingDiagRef.current) return
         if (diagTimerRef.current) clearTimeout(diagTimerRef.current)
 
@@ -345,15 +350,14 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 
         pendingDiagRef.current = diagText
 
-        // Se não confirmar em 3 minutos, repete UMA VEZ
+        // Lembrete único após 3 minutos — sem repetição
         diagTimerRef.current = setTimeout(() => {
           if (!diagConfirmedRef.current && pendingDiagRef.current === diagText) {
-            // Limpar o pendente pra não ficar em loop infinito
             pendingDiagRef.current = null
             setMessages(prev => [...prev, {
               id: Date.now() + 4,
               from: 'codex',
-              text: '⏰ Você ainda não confirmou. Diagnóstico aguardando sua confirmação. Digite **"vi"** quando estiver pronto.',
+              text: '⏰ Diagnóstico disponível acima. Digite **"vi"** quando quiser confirmar.',
               isDiagReminder: true,
             }])
           }
@@ -398,6 +402,11 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     localStorage.removeItem('codex_history')
     localStorage.removeItem('codex_onboarding')
     localStorage.removeItem('codex_diag_' + new Date().toDateString())
+    sessionStorage.removeItem('codex_diag_shown')
+    sessionStorage.removeItem('codex_diag_confirmed')
+    diagConfirmedRef.current = false
+    diagShownThisSessionRef.current = false
+    pendingDiagRef.current = null
     setMessages([WELCOME])
     setOnboarding(null)
   }
@@ -575,6 +584,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     const confirmWords = ['vi', 'sim', 'ok', 'visto', 'entendi', 'certo', 'confirmado']
     if (confirmWords.includes(t.toLowerCase().trim()) && pendingDiagRef.current) {
       diagConfirmedRef.current = true
+      sessionStorage.setItem('codex_diag_confirmed', '1')
       if (diagTimerRef.current) clearTimeout(diagTimerRef.current)
       pendingDiagRef.current = null
       setMessages(prev => [...prev,
