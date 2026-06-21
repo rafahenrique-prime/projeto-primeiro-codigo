@@ -131,30 +131,35 @@ const PALAVRAS_GENERICAS = new Set(['tenis', 'camiseta', 'camisa', 'cueca', 'ber
 export function findProductInText(text) {
   if (!text || text.length < 3) return null
   const lowerText = text.toLowerCase()
-  const catalog = getActiveCatalog()
+  const activeCatalog = getActiveCatalog().filter(p => p.imagem)
 
-  // Ordena por nome mais longo primeiro (evita match parcial genérico)
-  const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
-
+  // Fase 1: match exato por nome completo — mais longo primeiro (mais específico)
+  const sorted = [...activeCatalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
-    if (!p.imagem) continue
+    if (lowerText.includes(p.nome.toLowerCase())) return p
+  }
+
+  // Fase 2: score por keywords — retorna produto com maior proporção de palavras encontradas
+  // Usa min 3 chars para pegar nomes truncados (ex: "Lup" de "Cueca Lup 009")
+  let bestMatch = null
+  let bestScore = 0
+
+  for (const p of activeCatalog) {
     const nomeLower = p.nome.toLowerCase()
+    const keywords = nomeLower.split(/\s+/).filter(w => w.length >= 3 && !PALAVRAS_GENERICAS.has(w))
+    if (keywords.length < 2) continue
 
-    // Match direto: nome completo do produto aparece no texto
-    if (lowerText.includes(nomeLower)) return p
+    const matches = keywords.filter(w => lowerText.includes(w))
+    if (matches.length < 2) continue
 
-    // Match por palavras específicas: palavras >= 4 chars que NÃO são categorias genéricas
-    const keywords = nomeLower.split(/\s+/).filter(w => w.length >= 4 && !PALAVRAS_GENERICAS.has(w))
-    if (keywords.length >= 2 && keywords.every(w => lowerText.includes(w))) return p
-
-    // Match relaxado: pelo menos 2 palavras específicas encontradas (aceita nome parcial)
-    if (keywords.length >= 2) {
-      const matches = keywords.filter(w => lowerText.includes(w))
-      if (matches.length >= 2) return p
+    const score = matches.length / keywords.length
+    if (score > bestScore) {
+      bestScore = score
+      bestMatch = p
     }
   }
 
-  return null
+  return bestScore >= 0.4 ? bestMatch : null
 }
 
 // Formata dados do produto para envio

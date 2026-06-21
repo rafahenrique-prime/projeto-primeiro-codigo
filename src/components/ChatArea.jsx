@@ -111,7 +111,8 @@ setMsgs(msgList)
       console.log('[Context] Encontradas', agentMsgs.length, 'mensagens de agente')
 
       for (const m of agentMsgs) {
-        const produtoNoContexto = findProductInText(m.text || m.content || m.message || '')
+        const textoMsg = m.text || m.content || m.message || ''
+        const produtoNoContexto = findProductInText(textoMsg)
         if (produtoNoContexto) {
           lastProductContextRef.current = produtoNoContexto
           console.log('[Context] ✅ Atualizado para:', produtoNoContexto.nome)
