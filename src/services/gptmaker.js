@@ -130,6 +130,10 @@ export async function finishChat(chatId) {
   return request(`/v2/chat/${chatId}/finish`, { method: 'POST' })
 }
 
+export async function deleteChat(chatId) {
+  return request(`/v2/chat/${chatId}`, { method: 'DELETE' }).catch(() => null)
+}
+
 export async function listContacts(page = 1, pageSize = 20) {
   const data = await request(`/v2/workspace/${WS}/contacts?page=${page}&pageSize=${pageSize}`)
   return data.data || []

@@ -11,13 +11,22 @@ export default function CatalogPage() {
   const [activeCategory, setActiveCategory] = useState('Todos')
   const [copyFeedback, setCopyFeedback] = useState(null)
   const [formData, setFormData] = useState({ id: null, nome: '', preco: '', imagem: '', link: '', categoria: '' })
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [sortBy, setSortBy] = useState('default')
+
+  const loadProducts = async () => {
+    const supabaseProducts = await getProductsFromSupabase()
+    setProducts(supabaseProducts)
+    saveToStorage(supabaseProducts)
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await loadProducts()
+    setTimeout(() => setIsRefreshing(false), 1000)
+  }
 
   useEffect(() => {
-    const loadProducts = async () => {
-      const supabaseProducts = await getProductsFromSupabase()
-      setProducts(supabaseProducts)
-      saveToStorage(supabaseProducts)
-    }
     loadProducts()
   }, [])
 
@@ -65,11 +74,23 @@ export default function CatalogPage() {
   // Categorias únicas
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()]
 
-  const filtered = products.filter(p => {
-    const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase())
-    const matchCat = activeCategory === 'Todos' || p.categoria === activeCategory
-    return matchSearch && matchCat
-  })
+  const parsePreco = (preco) => {
+    const str = String(preco || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.')
+    return parseFloat(str) || 0
+  }
+
+  const filtered = products
+    .filter(p => {
+      const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase())
+      const matchCat = activeCategory === 'Todos' || p.categoria === activeCategory
+      return matchSearch && matchCat
+    })
+    .sort((a, b) => {
+      if (sortBy === 'az') return a.nome.localeCompare(b.nome, 'pt-BR')
+      if (sortBy === 'preco') return parsePreco(a.preco) - parsePreco(b.preco)
+      if (sortBy === 'preco_desc') return parsePreco(b.preco) - parsePreco(a.preco)
+      return 0
+    })
 
   // Enviar via WhatsApp
   const sendWhatsApp = (product) => {
@@ -139,12 +160,22 @@ export default function CatalogPage() {
             {activeCategory !== 'Todos' ? ` · ${activeCategory}` : ''}
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{ background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-        >
-          ➕ Adicionar Produto
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Atualizar catálogo do Supabase"
+            style={{ background: isRefreshing ? '#A0AEC0' : '#667EEA', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isRefreshing ? 'not-allowed' : 'pointer', opacity: isRefreshing ? 0.7 : 1, transition: 'all 0.2s' }}
+          >
+            {isRefreshing ? '⟳ Atualizando...' : '🔄 Atualizar'}
+          </button>
+          <button
+            onClick={openAddModal}
+            style={{ background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            ➕ Adicionar Produto
+          </button>
+        </div>
       </div>
 
       {/* Search + Filtro categoria */}
@@ -157,8 +188,8 @@ export default function CatalogPage() {
           style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
         />
 
-        {/* Pills de categoria */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* Pills de categoria + ordenação */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {categories.map(cat => (
             <button
               key={cat}
@@ -178,6 +209,28 @@ export default function CatalogPage() {
               {cat}
             </button>
           ))}
+
+          {/* Separador + Ordenação */}
+          <div style={{ width: 1, height: 20, background: t.border, margin: '0 4px', flexShrink: 0 }} />
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: sortBy !== 'default' ? '#667EEA' : t.textMuted,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              cursor: 'pointer',
+              padding: '2px 0',
+            }}
+          >
+            <option value="default">Ordenar</option>
+            <option value="az">A → Z</option>
+            <option value="preco">Menor preço</option>
+            <option value="preco_desc">Maior preço</option>
+          </select>
         </div>
       </div>
 

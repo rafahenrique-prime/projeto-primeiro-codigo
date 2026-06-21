@@ -59,6 +59,28 @@ export async function upsertProducts(products) {
   }
 }
 
+// Formata preço para padrão R$ XXX,XX
+function formatPrice(value) {
+  if (!value && value !== 0) return 'R$ 0,00'
+  const str = String(value).trim()
+  let num
+
+  if (str.includes('R$')) {
+    // Já formatado em BR: "R$ 1.299,99" → remove R$, troca . por nada e , por .
+    num = parseFloat(str.replace('R$', '').trim().replace(/\./g, '').replace(',', '.'))
+  } else {
+    // Tenta parse direto primeiro (Supabase retorna 299.99 com ponto decimal)
+    num = parseFloat(str)
+    if (isNaN(num)) {
+      // Fallback: formato BR com vírgula decimal ("299,99")
+      num = parseFloat(str.replace(/\./g, '').replace(',', '.'))
+    }
+  }
+
+  if (isNaN(num)) return 'R$ 0,00'
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
+}
+
 // Recupera todos os produtos já sincronizados do Supabase
 export async function getProductsFromSupabase() {
   try {
@@ -69,7 +91,7 @@ export async function getProductsFromSupabase() {
     return data.map(p => ({
       id: p.id,
       nome: p.nome,
-      preco: String(p.price_discount || p.preco || '0'),
+      preco: formatPrice(p.price_discount || p.preco || '0'),
       price_original: p.price_original,
       price_discount: p.price_discount,
       imagem: p.imagem || null,

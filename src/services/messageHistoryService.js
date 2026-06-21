@@ -67,6 +67,40 @@ export async function getConvHistory(convId, limit = 100) {
   } catch { return [] }
 }
 
+// Apaga permanentemente todo o histórico de uma conversa
+export async function deleteConvHistory(convId) {
+  if (!convId) return false
+  try {
+    const res = await fetch(
+      `${base()}?conv_id=eq.${encodeURIComponent(convId)}`,
+      { method: 'DELETE', headers: { ...headers, 'Prefer': 'return=minimal' } }
+    )
+    return res.ok
+  } catch (e) {
+    console.warn('[MessageHistory] Delete error:', e)
+    return false
+  }
+}
+
+// Arquiva histórico de uma conversa (soft delete — hard delete após 90 dias)
+export async function archiveConvHistory(convId) {
+  if (!convId) return false
+  try {
+    const res = await fetch(
+      `${base()}?conv_id=eq.${encodeURIComponent(convId)}`,
+      {
+        method: 'PATCH',
+        headers: { ...headers, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ archived_at: new Date().toISOString() }),
+      }
+    )
+    return res.ok
+  } catch (e) {
+    console.warn('[MessageHistory] Archive error:', e)
+    return false
+  }
+}
+
 // Retorna total de mensagens salvas
 export async function getHistoryStats() {
   try {

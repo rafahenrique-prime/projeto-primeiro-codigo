@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat } from '../services/gptmaker'
+import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
 import { detectProductRequest, groqRequest } from '../services/groq'
 import { findBestMatch, searchProduct } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
@@ -7,7 +7,7 @@ import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/knowledgeParser'
 import { upsertProfile, getProfile } from '../services/customerProfileService'
-import { syncMessages, getConvHistory } from '../services/messageHistoryService'
+import { syncMessages, getConvHistory, deleteConvHistory, archiveConvHistory } from '../services/messageHistoryService'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
 
@@ -58,6 +58,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   // Menu ⋮
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef(null)
+  // Modal Limpar Conversa
+  const [showClearModal, setShowClearModal] = useState(false)
+  const [clearingAction, setClearingAction] = useState(null) // null | 'archiving' | 'deleting'
 
   useEffect(() => {
     if (!showMenu) return
@@ -284,6 +287,26 @@ setMsgs(msgList)
     }
   }
 
+  const handleClearConv = async (action) => {
+    setClearingAction(action)
+    try {
+      if (action === 'delete') {
+        await Promise.all([
+          deleteConvHistory(conv.id),
+          deleteChat(conv.id),
+        ])
+      } else {
+        await archiveConvHistory(conv.id)
+      }
+      setHiddenMsgs(new Set(msgs.map(m => m.id)))
+    } catch (e) {
+      console.warn('[ChatArea] Erro ao limpar conversa:', e)
+    } finally {
+      setClearingAction(null)
+      setShowClearModal(false)
+    }
+  }
+
   const handlePhotoSearch = (query) => {
     setPhotoSearch(query)
     if (query.trim().length >= 2) {
@@ -411,7 +434,7 @@ setMsgs(msgList)
                 <MenuItem t={t} icon="💬" label={memEnabled ? 'Memória ativa' : 'Memória inativa'} sublabel={memEnabled ? 'Gerar usa histórico completo' : 'Gerar usa msgs visíveis'} onClick={() => { const n = !memEnabled; setMemEnabled(n); localStorage.setItem('mem_enabled', String(n)); setShowMenu(false) }} active={memEnabled} />
                 <MenuItem t={t} icon="💾" label="Salvar na base" onClick={() => { setSelectMode(true); setShowMenu(false) }} />
                 <div style={{ height: 1, background: t.border, margin: '2px 0' }} />
-                <MenuItem t={t} icon="🧹" label="Limpar mensagens" onClick={() => { setHiddenMsgs(new Set(msgs.map(m => m.id))); setShowMenu(false) }} />
+                <MenuItem t={t} icon="🧹" label="Limpar conversa" onClick={() => { setShowClearModal(true); setShowMenu(false) }} />
                 <MenuItem t={t} icon="✅" label="Resolver conversa" onClick={() => { handleFinish(); setShowMenu(false) }} />
               </div>
             )}
@@ -556,6 +579,77 @@ setMsgs(msgList)
           </div>
         </div>
       </div>
+
+      {/* Modal — Limpar Conversa */}
+      {showClearModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => !clearingAction && setShowClearModal(false)}>
+          <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: '28px 28px 24px', width: 360, maxWidth: '90vw', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 22, marginBottom: 6, textAlign: 'center' }}>🧹</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, textAlign: 'center', marginBottom: 4 }}>Limpar Conversa</div>
+            <div style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', marginBottom: 20 }}>
+              {conv.name || conv.id} — o que fazer com essa conversa?
+            </div>
+
+            {/* Opção 1: Arquivo Morto */}
+            <button
+              onClick={() => handleClearConv('archive')}
+              disabled={!!clearingAction}
+              style={{
+                width: '100%', background: clearingAction === 'archiving' ? '#F3F4F6' : (dark ? '#1E293B' : '#F8FAFC'),
+                border: `1px solid ${dark ? '#334155' : '#E2E8F0'}`, borderRadius: 12, padding: '14px 16px',
+                cursor: clearingAction ? 'not-allowed' : 'pointer', textAlign: 'left', marginBottom: 10,
+                opacity: clearingAction && clearingAction !== 'archiving' ? 0.4 : 1, transition: 'opacity 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>📦</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                    {clearingAction === 'archiving' ? 'Arquivando...' : 'Arquivo Morto (90 dias)'}
+                  </div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
+                    Arquiva do Supabase. GPTMaker continua. Hard delete em 90 dias.
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* Opção 2: Apagar Tudo */}
+            <button
+              onClick={() => handleClearConv('delete')}
+              disabled={!!clearingAction}
+              style={{
+                width: '100%', background: clearingAction === 'deleting' ? '#FEF2F2' : (dark ? '#2D1515' : '#FFF5F5'),
+                border: `1px solid ${dark ? '#7F1D1D' : '#FECACA'}`, borderRadius: 12, padding: '14px 16px',
+                cursor: clearingAction ? 'not-allowed' : 'pointer', textAlign: 'left', marginBottom: 20,
+                opacity: clearingAction && clearingAction !== 'deleting' ? 0.4 : 1, transition: 'opacity 0.15s',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>🗑️</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#DC2626' }}>
+                    {clearingAction === 'deleting' ? 'Apagando...' : 'Apagar Tudo'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#EF4444', marginTop: 2 }}>
+                    Deleta do Supabase e do GPTMAKER. Irreversível.
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowClearModal(false)}
+              disabled={!!clearingAction}
+              style={{ width: '100%', background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px', fontSize: 12, color: t.textMuted, cursor: clearingAction ? 'not-allowed' : 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 })
