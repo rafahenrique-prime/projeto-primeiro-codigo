@@ -888,25 +888,32 @@ export function detectProductRequest(userMessage) {
     return { temPedidoFoto: false, nomeProduto: null }
   }
 
+  // Pronomes e palavras que não são nome de produto
+  const STOPWORDS = new Set(['dele', 'dela', 'ele', 'ela', 'esse', 'essa', 'isso', 'disso', 'desse', 'dessa', 'este', 'esta', 'aquele', 'aquela', 'aquilo', 'um', 'uma', 'o', 'a', 'os', 'as'])
+
   // Extrai o nome do produto (após "do", "da", "de", etc)
   const patterns = [
-    /(?:do|da|de|manda foto\s+)(.{3,40}?)(?:\?|$|\.)/i,
-    /foto\s+(?:do|da|de)?\s*(.{3,40}?)(?:\?|$|\.)/i,
-    /(?:manda|mostra|envia)\s+(?:a\s+)?(?:foto\s+)?(?:do|da|de)?\s*(.{3,40}?)(?:\?|$|\.)/i,
+    /(?:manda foto|mostra foto|envia foto)\s+(?:\b(?:do|da|de)\b\s+)?(.{3,40}?)(?:\?|$|\.)/i,
+    /\bfoto\s+(?:\b(?:do|da|de)\b\s+)?(.{3,40}?)(?:\?|$|\.)/i,
+    /\b(?:do|da|de)\b\s+(.{3,40}?)(?:\?|$|\.)/i,
   ]
 
   let nomeProduto = null
   for (const pattern of patterns) {
     const match = msg.match(pattern)
     if (match && match[1]) {
-      nomeProduto = match[1].trim().slice(0, 50)
+      const candidato = match[1].trim().replace(/^(do|da|de)\s+/i, '').trim().slice(0, 50)
+      // Ignora se for pronome/stopword
+      if (!STOPWORDS.has(candidato.toLowerCase()) && candidato.length >= 3) {
+        nomeProduto = candidato
+      }
       break
     }
   }
 
-  // Se não encontrou nome específico, tenta extrair palavras-chave
+  // Se não encontrou nome específico, tenta extrair palavras-chave de marca/produto
   if (!nomeProduto) {
-    const keywords = msg.match(/(?:nike|new balance|armani|gucci|diesel|louis vitton|louis vuitton|cueca|tênis|tenis|camiseta|bermuda|bone|bné|calça|bermuda)/gi)
+    const keywords = msg.match(/(?:nike|new balance|armani|gucci|diesel|louis vitton|louis vuitton|cueca|tênis|tenis|camiseta|bermuda|bone|bné|calça|bermuda|perfume|cropped|conjunto|moletom|calçado)/gi)
     if (keywords && keywords.length > 0) {
       nomeProduto = keywords.join(' ').slice(0, 50)
     }

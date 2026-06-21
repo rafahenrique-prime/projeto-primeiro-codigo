@@ -23,6 +23,7 @@ import AgentLabPage from './pages/AgentLabPage'
 import FollowUpPage from './pages/FollowUpPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/followUpService'
+import { syncCatalogFromSupabase } from './services/catalog'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length] }
@@ -101,6 +102,7 @@ export default function App() {
   useEffect(() => {
     Notification.requestPermission()
     loadChats(true)
+    syncCatalogFromSupabase().catch(() => {})
   }, [])
 
   // Auto-refresh a cada 30s
