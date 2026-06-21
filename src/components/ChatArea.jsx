@@ -109,8 +109,12 @@ setMsgs(msgList)
         const produtoNoContexto = findProductInText(m.text || m.content || '')
         if (produtoNoContexto) {
           lastProductContextRef.current = produtoNoContexto
+          console.log('[Context] Atualizado para:', produtoNoContexto.nome)
           break
         }
+      }
+      if (agentMsgs.length > 0 && !lastProductContextRef.current) {
+        console.log('[Context] Nenhum produto encontrado nas últimas msgs do agente')
       }
 
       // Detecção automática de pedido de foto
