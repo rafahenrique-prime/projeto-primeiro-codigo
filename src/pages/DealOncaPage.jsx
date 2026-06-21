@@ -597,6 +597,36 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     const saveIntent = detectSaveIntent(t)
     const userMsg = { id: Date.now(), from: 'user', text: t }
     setMessages(prev => [...prev, userMsg])
+
+    // Comando de salvar — executa direto sem LLM
+    if (saveIntent.detected && firstAgent?.id) {
+      setLoading(true)
+      try {
+        const cat = CATEGORIES[saveIntent.category]
+        const text = `[${cat?.label || saveIntent.category}]\n${saveIntent.content}`
+        const created = await createTraining(firstAgent.id, { type: 'TEXT', text })
+        try {
+          const map = JSON.parse(localStorage.getItem('codex_cats') || '{}')
+          if (created?.id) map[created.id] = saveIntent.category
+          localStorage.setItem('codex_cats', JSON.stringify(map))
+        } catch {}
+        reloadTrainings()
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          from: 'codex',
+          text: `✅ **Ok, entendido!** Salvei na base de conhecimento.\n\n📂 **Categoria:** ${cat?.label || saveIntent.category}\n📝 **Conteúdo:** ${saveIntent.content}`,
+        }])
+      } catch (e) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, from: 'codex',
+          text: `⚠️ Não consegui salvar: ${e.message}`,
+        }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -611,7 +641,6 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         id: Date.now() + 1,
         from: 'codex',
         text: reply,
-        saveSuggestion: saveIntent.detected ? saveIntent : null,
       }])
     } catch (err) {
       setMessages(prev => [...prev, {
