@@ -107,8 +107,14 @@ function getActiveCatalog() {
           // Se já tem imagem, não alterar
           if (supabaseProduct.imagem) return supabaseProduct
 
-          // Procurar no catalog.js pela imagem (match por nome)
-          const catalogProduct = catalog.find(c => c.nome === supabaseProduct.nome)
+          // Procurar no catalog.js pela imagem (match por palavras-chave em comum)
+          const supabaseWords = supabaseProduct.nome.toLowerCase().split(' ')
+          const catalogProduct = catalog.find(c => {
+            const catalogWords = c.nome.toLowerCase().split(' ')
+            // Match se compartilha pelo menos 2 palavras-chave (ex: "New Balance" + "9060")
+            const commonWords = supabaseWords.filter(w => catalogWords.includes(w))
+            return commonWords.length >= 2
+          })
           if (catalogProduct?.imagem) {
             return { ...supabaseProduct, imagem: catalogProduct.imagem }
           }
