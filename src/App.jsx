@@ -210,6 +210,7 @@ export default function App() {
   })
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
+  const humanWaiting = conversations.filter(c => c.mode === 'copilot' && c.unread > 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: t.appBg, overflow: 'hidden' }}>
@@ -224,6 +225,12 @@ export default function App() {
         <span style={{ opacity: 0.5 }}>///</span>
         <span>{conversations.length} conversas abertas</span>
         {totalUnread > 0 && <><span style={{ opacity: 0.5 }}>///</span><span>{totalUnread} não lidas</span></>}
+        {humanWaiting.length > 0 && (
+          <>
+            <span style={{ opacity: 0.5 }}>///</span>
+            <HumanAlert names={humanWaiting.map(c => c.name)} />
+          </>
+        )}
       </div>
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <LeftNav page={page} setPage={setPage} unreadCount={totalUnread} />
@@ -299,6 +306,30 @@ export default function App() {
         <PhotoHistoryPanel isOpen={showPhotoHistory} onClose={() => setShowPhotoHistory(false)} theme={t} />
       </div>
     </div>
+  )
+}
+
+function HumanAlert({ names }) {
+  const [visible, setVisible] = useState(true)
+  useEffect(() => {
+    const iv = setInterval(() => setVisible(v => !v), 600)
+    return () => clearInterval(iv)
+  }, [])
+  const label = names.length === 1
+    ? `⚠ ${names[0]} aguardando humano`
+    : `⚠ ${names.length} clientes aguardando humano`
+  return (
+    <span style={{
+      background: 'rgba(255,255,255,0.22)',
+      borderRadius: 4,
+      padding: '2px 10px',
+      fontWeight: 800,
+      letterSpacing: '1px',
+      opacity: visible ? 1 : 0.2,
+      transition: 'opacity 0.15s',
+    }}>
+      {label}
+    </span>
   )
 }
 

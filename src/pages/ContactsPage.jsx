@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { listContacts } from '../services/gptmaker'
 import { useTheme } from '../theme.jsx'
+import { getAllProfiles } from '../services/customerProfileService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h%AVATAR_COLORS.length] }
@@ -60,6 +61,7 @@ export default function ContactsPage() {
   const [channelFilter, setChannelFilter] = useState('all')
   const [hasEmailFilter, setHasEmailFilter] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [profiles, setProfiles] = useState({}) // conv_id → supabase profile
 
   useEffect(() => { load(1) }, [])
 
@@ -73,7 +75,15 @@ export default function ContactsPage() {
     if (p === 1) setLoading(true)
     else setLoadingMore(true)
     try {
-      const data = await listContacts(p, 50)
+      const [data, sbProfiles] = await Promise.all([
+        listContacts(p, 50),
+        p === 1 ? getAllProfiles().catch(() => []) : Promise.resolve([]),
+      ])
+      if (p === 1) {
+        const profileMap = {}
+        sbProfiles.forEach(pr => { profileMap[pr.conv_id] = pr })
+        setProfiles(profileMap)
+      }
       const normalized = data.map(normalizeContact)
       if (p === 1) { setContacts(normalized); if (normalized.length > 0) setSelected(normalized[0]) }
       else setContacts(prev => [...prev, ...normalized])
@@ -202,7 +212,7 @@ export default function ContactsPage() {
 
           {/* Tabs */}
           <div style={{ padding:'0 28px', borderBottom:`1px solid ${t.border}`, display:'flex', gap:0 }}>
-            {[['info','📋 Informações'],['extra','🔍 Dados extras']].map(([id,label])=>(
+            {[['info','📋 Informações'],['ia','🧠 Perfil IA'],['extra','🔍 Dados extras']].map(([id,label])=>(
               <TabBtn key={id} active={tab===id} onClick={()=>setTab(id)} t={t}>{label}</TabBtn>
             ))}
           </div>
@@ -226,6 +236,7 @@ export default function ContactsPage() {
                 ))}
               </div>
             )}
+            {tab==='ia' && <ProfileIATab profile={profiles[selected.id]} t={t}/>}
             {tab==='extra' && (
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 {Object.entries(selected.raw)
@@ -245,6 +256,90 @@ export default function ContactsPage() {
         </div>
       ) : (
         <Centered t={t}><span style={{color:t.textMuted,fontSize:14}}>Selecione um contato</span></Centered>
+      )}
+    </div>
+  )
+}
+
+// ── Perfil IA Tab ──
+
+function BuyScoreBar({ score }) {
+  const color = score >= 70 ? '#0EC331' : score >= 40 ? '#F59E0B' : '#9CA3AF'
+  return (
+    <div style={{ marginBottom:20 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+        <span style={{ fontSize:13, fontWeight:700, color:'#111' }}>Buy Score</span>
+        <span style={{ fontSize:18, fontWeight:800, color }}>{score}/100</span>
+      </div>
+      <div style={{ height:10, background:'#F3F4F6', borderRadius:99, overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${score}%`, background:color, borderRadius:99, transition:'width 0.5s' }}/>
+      </div>
+      <div style={{ fontSize:11, color:'#9CA3AF', marginTop:4 }}>
+        {score >= 70 ? '🔥 Alta intenção de compra' : score >= 40 ? '⚡ Interesse moderado' : '😐 Baixo engajamento'}
+      </div>
+    </div>
+  )
+}
+
+function TagList({ tags, label }) {
+  if (!tags?.length) return null
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:8 }}>{label}</div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+        {tags.map((tag,i) => (
+          <span key={i} style={{ fontSize:12, background:'#F3F4F6', color:'#374151', borderRadius:9999, padding:'4px 12px', fontWeight:500 }}>{tag}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProfileIATab({ profile, t }) {
+  if (!profile) return (
+    <div style={{ textAlign:'center', padding:'60px 20px', color:t.textMuted }}>
+      <div style={{ fontSize:32, marginBottom:12 }}>🧠</div>
+      <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>Sem perfil IA ainda</div>
+      <div style={{ fontSize:12 }}>O perfil é criado automaticamente quando o cliente envia mensagens.</div>
+    </div>
+  )
+
+  return (
+    <div>
+      <BuyScoreBar score={profile.buy_score || 0}/>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+        {profile.size && (
+          <div style={{ background:t.bgSecondary, borderRadius:10, padding:'12px 16px', border:`1px solid ${t.border}` }}>
+            <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 }}>Tamanho</div>
+            <div style={{ fontSize:18, fontWeight:800, color:t.text }}>{profile.size}</div>
+          </div>
+        )}
+        {profile.cep && (
+          <div style={{ background:t.bgSecondary, borderRadius:10, padding:'12px 16px', border:`1px solid ${t.border}` }}>
+            <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 }}>CEP</div>
+            <div style={{ fontSize:18, fontWeight:800, color:t.text }}>{profile.cep}</div>
+          </div>
+        )}
+        <div style={{ background:t.bgSecondary, borderRadius:10, padding:'12px 16px', border:`1px solid ${t.border}` }}>
+          <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 }}>Mensagens</div>
+          <div style={{ fontSize:18, fontWeight:800, color:t.text }}>{profile.message_count || 0}</div>
+        </div>
+        <div style={{ background:t.bgSecondary, borderRadius:10, padding:'12px 16px', border:`1px solid ${t.border}` }}>
+          <div style={{ fontSize:10, fontWeight:700, color:t.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 }}>Último contato</div>
+          <div style={{ fontSize:13, fontWeight:700, color:t.text }}>{profile.last_seen ? new Date(profile.last_seen).toLocaleDateString('pt-BR') : '—'}</div>
+        </div>
+      </div>
+
+      <TagList tags={profile.tags} label="Tags automáticas"/>
+      <TagList tags={profile.interests} label="Marcas / Interesses"/>
+      <TagList tags={profile.products_asked} label="Produtos perguntados"/>
+
+      {profile.notes && (
+        <div style={{ marginTop:16 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:8 }}>Notas</div>
+          <div style={{ background:t.bgSecondary, borderRadius:10, padding:'14px 16px', border:`1px solid ${t.border}`, fontSize:13, color:t.text, whiteSpace:'pre-wrap' }}>{profile.notes}</div>
+        </div>
       )}
     </div>
   )

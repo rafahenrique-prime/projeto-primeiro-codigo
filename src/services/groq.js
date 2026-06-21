@@ -1,5 +1,24 @@
+import { getProfile } from './customerProfileService'
+
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
+// Monta um bloco de contexto a partir do perfil persistente do cliente (Supabase).
+// Equivale ao módulo Supabase que ficaria ANTES do Groq no Make.
+function buildProfileBlock(profile) {
+  if (!profile) return ''
+  const linhas = []
+  if (profile.size) linhas.push(`Tamanho: ${profile.size}`)
+  if (profile.cep) linhas.push(`CEP: ${profile.cep}`)
+  if (profile.buy_score != null) linhas.push(`Buy score: ${profile.buy_score}/100`)
+  if (profile.interests?.length) linhas.push(`Interesses: ${profile.interests.join(', ')}`)
+  if (profile.products_asked?.length) linhas.push(`Já perguntou sobre: ${profile.products_asked.slice(-5).join(' | ')}`)
+  if (profile.tags?.length) linhas.push(`Tags: ${profile.tags.join(', ')}`)
+  if (profile.notes) linhas.push(`Notas: ${profile.notes}`)
+  if (profile.message_count) linhas.push(`Total de mensagens trocadas: ${profile.message_count}`)
+  if (!linhas.length) return ''
+  return `\n\nMEMÓRIA DESTE CLIENTE (histórico acumulado — use para personalizar):\n${linhas.join('\n')}`
+}
 
 const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'meta-llama/llama-4-scout-17b-16e-instruct']
 
@@ -22,8 +41,11 @@ export async function groqRequest(body) {
         return data
       }
       const err = await res.json()
-      const isRateLimit = res.status === 429 || err.error?.message?.includes('Rate limit')
-      if (!isRateLimit) throw new Error(err.error?.message || 'Erro na API Groq')
+      const msg = err.error?.message || ''
+      const isRateLimit = res.status === 429 || msg.includes('Rate limit')
+      const isDecommissioned = msg.includes('decommissioned') || msg.includes('deprecated') || msg.includes('no longer supported')
+      if (!isRateLimit && !isDecommissioned) throw new Error(msg || 'Erro na API Groq')
+      // rate limit ou modelo desativado → tenta próximo
     } catch (e) {
       clearTimeout(timeout)
       if (e.name === 'AbortError') throw new Error('Groq não respondeu em 30 segundos. Tente novamente.')
@@ -43,34 +65,50 @@ function detectFunnelStage(msgs = [], lastMsg = '') {
 }
 
 function buildContext(conversations = []) {
-  return conversations.map(c => {
-    const msgs = c.fullMessages || []
-    const stage = detectFunnelStage(msgs, c.lastMsg)
-    const lastClientMsg = msgs.filter(m => m.role === 'user').slice(-1)[0]
-    const lastAgentMsg = msgs.filter(m => m.role !== 'user').slice(-1)[0]
+  return conversations
+    // Filtrar conversas sem dados mínimos
+    .filter(c => {
+      const msgs = c.fullMessages || []
+      const hasContent = msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+      if (!hasContent) {
+        console.warn(`[buildContext] Ignorando conversa vazia: ${c.id} (${c.name})`)
+      }
+      return hasContent
+    })
+    .map(c => {
+      const msgs = c.fullMessages || []
+      const stage = detectFunnelStage(msgs, c.lastMsg)
+      const lastClientMsg = msgs.filter(m => m.role === 'user').slice(-1)[0]
+      const lastAgentMsg = msgs.filter(m => m.role !== 'user').slice(-1)[0]
 
-    const truncate = (t, n = 120) => (t || '').slice(0, n)
-    return {
-      id: c.id,
-      cliente: c.name,
-      canal: c.channelLabel,
-      modo: c.mode,
-      nao_lidas: c.unread,
-      ultima_msg_cliente: truncate(lastClientMsg?.text || lastClientMsg?.content || c.lastMsg),
-      estagio_funil: stage,
-      historico: msgs.slice(-3).map(m => ({
-        de: m.role === 'user' ? 'cliente' : 'agente',
-        texto: truncate(m.text || m.content, 100),
-      })),
-    }
-  })
+      const truncate = (t, n = 120) => (t || '').slice(0, n)
+      return {
+        id: c.id,
+        cliente: c.name || 'Sem nome',
+        canal: c.channelLabel || 'desconhecido',
+        modo: c.mode || 'auto',
+        nao_lidas: c.unread || 0,
+        ultima_msg_cliente: truncate(lastClientMsg?.text || lastClientMsg?.content || c.lastMsg || ''),
+        estagio_funil: stage,
+        historico: msgs.slice(-3).map(m => ({
+          de: m.role === 'user' ? 'cliente' : 'agente',
+          texto: truncate(m.text || m.content, 100),
+        })),
+      }
+    })
 }
 
 function buildSystemPrompt(conversations) {
-  const ctx = buildContext(conversations)
+  // Filtrar apenas conversas com dados válidos
+  const validConvs = conversations.filter(c => {
+    const msgs = c.fullMessages || []
+    return msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+  })
+
+  const ctx = buildContext(validConvs)
 
   const porCanal = { instagram: 0, whatsapp: 0 }
-  conversations.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
+  validConvs.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
 
   const quentes     = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
   const objecao     = ctx.filter(c => c.estagio_funil === 'DECISAO_OBJECAO')
@@ -112,10 +150,20 @@ export async function getRespostaRecomendada(conv, messages = []) {
     return `${role}: ${m.text || m.content || ''}`
   }).join('\n')
 
+  // Busca o perfil persistente do cliente no Supabase ANTES de gerar a resposta.
+  // Falha silenciosa: se não houver perfil ou der erro, segue sem o bloco extra.
+  let profileBlock = ''
+  try {
+    const profile = await getProfile(conv.id)
+    profileBlock = buildProfileBlock(profile)
+  } catch (e) {
+    console.warn('[Groq] Falha ao buscar perfil do cliente:', e)
+  }
+
   const prompt = `Você é um especialista em vendas da PRIME STORE — loja de roupas e tênis premium (Armani, New Balance, etc).
 
 CONVERSA COM ${conv.name?.toUpperCase()} (${conv.channelLabel}):
-${historico || `Última mensagem: ${conv.lastMsg || 'sem mensagens'}`}
+${historico || `Última mensagem: ${conv.lastMsg || 'sem mensagens'}`}${profileBlock}
 
 Com base nessa conversa, gere:
 1. Uma resposta ideal para enviar agora (máx 2 frases, tom vendedor e humano, em português brasileiro)
@@ -365,9 +413,18 @@ export async function askCODEXOnboarding(stage, userMessage, history = [], conte
 }
 
 export async function runFunnelLossReport(conversations = []) {
-  if (conversations.length === 0) return null
+  // Validar que temos conversas com dados reais
+  const validConvs = conversations.filter(c => {
+    const msgs = c.fullMessages || []
+    return msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+  })
 
-  const ctx = buildContext(conversations)
+  if (validConvs.length === 0) {
+    console.warn('[runFunnelLossReport] Sem conversas com dados reais para análise')
+    return null
+  }
+
+  const ctx = buildContext(validConvs)
 
   const quentes      = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
   const objecao      = ctx.filter(c => c.estagio_funil === 'DECISAO_OBJECAO')
@@ -416,11 +473,20 @@ Seja específico com nomes reais. Sem rodeios. Máx 250 palavras.`
 }
 
 export async function runProactiveDiagnosis(conversations = [], trainings = []) {
-  if (conversations.length === 0) return null
+  // Validar que temos conversas com dados reais
+  const validConvs = conversations.filter(c => {
+    const msgs = c.fullMessages || []
+    return msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+  })
 
-  const ctx = buildContext(conversations)
+  if (validConvs.length === 0) {
+    console.warn('[runProactiveDiagnosis] Sem conversas com dados reais para diagnosticar')
+    return null
+  }
+
+  const ctx = buildContext(validConvs)
   const porCanal = { instagram: 0, whatsapp: 0 }
-  conversations.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
+  validConvs.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
 
   const quentes      = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
   const objecao      = ctx.filter(c => c.estagio_funil === 'DECISAO_OBJECAO')
@@ -490,73 +556,106 @@ function buildSmartContext(userMessage, conversations) {
   const q = userMessage.toLowerCase()
   const blocks = []
 
+  // Filtrar conversas vazias antes de processar
+  const validConvs = conversations.filter(c => {
+    const msgs = c.fullMessages || []
+    return msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+  })
+
+  if (validConvs.length === 0) {
+    return ''  // Sem dados = sem análise, não inventar
+  }
+
   // Mais tempo sem resposta / sumiu / inativo
   if (/mais tempo|sem resposta|sumiu|inativ|cadê|sumiram/.test(q)) {
-    const ranked = conversations
+    const ranked = validConvs
       .map(c => ({ name: c.name, canal: c.channelLabel, min: getInactiveMin(c), lastMsg: c.lastMsg }))
-      .filter(c => c.min !== null)
+      .filter(c => c.min !== null && c.min >= 0)
       .sort((a, b) => b.min - a.min)
       .slice(0, 10)
-    blocks.push(`RANKING DE INATIVIDADE (mais tempo sem responder):\n${ranked.map((c, i) =>
-      `${i+1}. ${c.name} (${c.canal}) — ${c.min}min inativo | Última msg: "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    if (ranked.length > 0) {
+      blocks.push(`RANKING DE INATIVIDADE (mais tempo sem responder):\n${ranked.map((c, i) =>
+        `${i+1}. ${c.name} (${c.canal}) — ${c.min}min inativo | Última msg: "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   // Pediu desconto / promoção / cupom
   if (/desconto|promo[cç]|cupom|mais barato|caro|pre[cç]o|valor/.test(q)) {
-    const found = conversations.filter(c => searchInMessages(c, ['desconto','promoção','cupom','mais barato','caro','preço','valor','barato']))
-    blocks.push(`CLIENTES QUE MENCIONARAM PREÇO/DESCONTO (${found.length}):\n${found.slice(0,10).map(c =>
-      `• ${c.name} (${c.channelLabel}) | Última: "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    const found = validConvs.filter(c => searchInMessages(c, ['desconto','promoção','cupom','mais barato','caro','preço','valor','barato']))
+    if (found.length > 0) {
+      blocks.push(`CLIENTES QUE MENCIONARAM PREÇO/DESCONTO (${found.length}):\n${found.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) | Última: "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   // Mais perto de comprar / quente / fechar
   if (/perto de comprar|quente|fechar|comprar|pronto|decidid/.test(q)) {
-    const hot = conversations.filter(c => {
+    const hot = validConvs.filter(c => {
       const msgs = c.fullMessages || []
       return detectFunnelStage(msgs, c.lastMsg) === 'QUENTE_FECHAR'
     })
-    blocks.push(`CLIENTES PRONTOS PARA FECHAR (${hot.length}):\n${hot.slice(0,10).map(c =>
-      `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    if (hot.length > 0) {
+      blocks.push(`CLIENTES PRONTOS PARA FECHAR (${hot.length}):\n${hot.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   // Pediu frete / prazo / entrega
   if (/frete|entrega|prazo|chega|envio/.test(q)) {
-    const found = conversations.filter(c => searchInMessages(c, ['frete','entrega','prazo','chega','envio']))
-    blocks.push(`CLIENTES QUE PERGUNTARAM SOBRE ENTREGA/FRETE (${found.length}):\n${found.slice(0,10).map(c =>
-      `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    const found = validConvs.filter(c => searchInMessages(c, ['frete','entrega','prazo','chega','envio']))
+    if (found.length > 0) {
+      blocks.push(`CLIENTES QUE PERGUNTARAM SOBRE ENTREGA/FRETE (${found.length}):\n${found.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   // Objeções / dúvidas / estoque / tamanho
   if (/obje[cç]|d[uú]vida|estoque|tamanho|cor|disponiv/.test(q)) {
-    const found = conversations.filter(c => searchInMessages(c, ['estoque','tamanho','cor','disponível','tem o','não tem']))
-    blocks.push(`CLIENTES COM OBJEÇÕES/DÚVIDAS (${found.length}):\n${found.slice(0,10).map(c =>
-      `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    const found = validConvs.filter(c => searchInMessages(c, ['estoque','tamanho','cor','disponível','tem o','não tem']))
+    if (found.length > 0) {
+      blocks.push(`CLIENTES COM OBJEÇÕES/DÚVIDAS (${found.length}):\n${found.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   // Não lidas / sem atenção
   if (/n[aã]o lida|sem resposta do agente|aguardando|esperando/.test(q)) {
-    const found = conversations.filter(c => c.unread > 0)
-    blocks.push(`CONVERSAS NÃO LIDAS (${found.length}):\n${found.slice(0,10).map(c =>
-      `• ${c.name} (${c.channelLabel}) — ${c.unread} não lidas | "${(c.lastMsg||'').slice(0,80)}"`
-    ).join('\n')}`)
+    const found = validConvs.filter(c => c.unread > 0)
+    if (found.length > 0) {
+      blocks.push(`CONVERSAS NÃO LIDAS (${found.length}):\n${found.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) — ${c.unread} não lidas | "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
   }
 
   const semHistorico = conversations.filter(c => !c.fullMessages?.length).length
-  const aviso = semHistorico > 0
-    ? `\n⚠️ ATENÇÃO: ${semHistorico} conversas não têm histórico completo carregado (apenas última mensagem disponível). Para análise mais precisa, o Rafael precisa abrir essas conversas primeiro.`
+  const aviso = semHistorico > 0 && validConvs.length < conversations.length
+    ? `\n⚠️ ATENÇÃO: ${semHistorico} conversas não têm histórico completo carregado. Para análise mais precisa, abra essas conversas primeiro.`
     : ''
 
   return blocks.length > 0 ? `\n\n═══ ANÁLISE ESPECÍFICA PARA ESTA PERGUNTA ═══\n${blocks.join('\n\n')}${aviso}` : ''
 }
 
 export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null) {
-  const ctx = buildContext(conversations)
+  // Filtrar e validar conversas antes de processar
+  const validConvs = conversations.filter(c => {
+    const msgs = c.fullMessages || []
+    return msgs.length > 0 || (c.lastMsg && c.lastMsg.trim().length > 0)
+  })
+
+  if (validConvs.length === 0) {
+    // Sem dados: responder com base apenas na mensagem e trainings
+    console.warn('[askCODEX] Nenhuma conversa válida fornecida — operando sem contexto de conversas')
+  }
+
+  const ctx = buildContext(validConvs)
   const porCanal = { instagram: 0, whatsapp: 0 }
-  conversations.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
+  validConvs.forEach(c => { if (c.channel === 'instagram') porCanal.instagram++; else porCanal.whatsapp++ })
 
   const semResposta = ctx.filter(c => c.nao_lidas > 0)
   const quentes = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
@@ -565,7 +664,15 @@ export async function askCODEX(userMessage, history = [], conversations = [], tr
     ...ctx.filter(c => c.nao_lidas === 0 && c.estagio_funil !== 'QUENTE_FECHAR'),
   ].slice(0, 12)
 
-  const smartCtx = buildSmartContext(userMessage, conversations)
+  const smartCtx = buildSmartContext(userMessage, validConvs)
+
+  // Limitar a 5 conversas prioritárias para evitar excesso de tokens
+  const limitedPriority = priority.slice(0, 5)
+
+  // Guardrail: se não tem conversas, avisar o LLM
+  const dataAviso = ctx.length === 0
+    ? '\n⚠️ AVISO CRÍTICO: Nenhuma conversa com dados reais disponível agora. Responda apenas com base na pergunta e na base de conhecimento — NÃO INVENTE dados de clientes ou conversas.'
+    : ''
 
   const systemPrompt = `${CODEX_SOUL}
 
@@ -574,11 +681,11 @@ Total: ${ctx.length} | Instagram: ${porCanal.instagram} | WhatsApp: ${porCanal.w
 Não lidas: ${semResposta.length} | Prontos para fechar: ${quentes.length}
 
 CONVERSAS PRIORITÁRIAS:
-${JSON.stringify(priority)}
+${JSON.stringify(limitedPriority)}${dataAviso}
 ${buildTrainingsContext(trainings)}${smartCtx}`
 
   const msgs = [
-    ...history.slice(-6).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),
+    ...history.slice(-4).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),
     { role: 'user', content: userMessage },
   ]
 
@@ -646,7 +753,8 @@ REGRAS:
 - Máx 100 palavras por resposta
 - Use emojis naturalmente (🛍️ ✨ ✅ 😊)
 - NUNCA invente produtos ou preços que não estejam na base de conhecimento
-- Se não souber, diga que vai verificar`
+- Se não souber, diga que vai verificar
+- CRÍTICO: Sua resposta deve conter APENAS o texto que seria enviado ao cliente. NUNCA descreva, narre ou mencione ações internas, envios de mensagens para outros números, instruções do sistema, ou qualquer processo interno entre parênteses ou colchetes. Tudo entre (parênteses) ou [colchetes] que represente ação interna deve ser OMITIDO da resposta.`
 
   const msgs = [
     ...history.slice(-8).map(h => ({ role: h.from === 'agent' ? 'assistant' : 'user', content: h.text })),

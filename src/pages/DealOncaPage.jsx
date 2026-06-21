@@ -69,6 +69,9 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [catalogResults, setCatalogResults] = useState([])
   const [hotAlert, setHotAlert] = useState(null)
   const bottomRef = useRef(null)
+  const diagConfirmedRef = useRef(false)
+  const diagTimerRef = useRef(null)
+  const pendingDiagRef = useRef(null)
 
   const AI_MODELS = [
     { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: 'Melhor geral — padrão recomendado' },
@@ -274,6 +277,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
   useEffect(() => { listChannels().then(setChannels).catch(() => {}) }, [])
+  useEffect(() => () => { if (diagTimerRef.current) clearTimeout(diagTimerRef.current) }, [])
   useEffect(() => {
     try { localStorage.setItem('codex_history', JSON.stringify(messages.slice(-200))) } catch {}
   }, [messages])
@@ -297,9 +301,14 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         const conv = conversations[i]
         try {
           const msgs = await getChatMessages(conv.id)
-          results.push({ ...conv, fullMessages: Array.isArray(msgs) ? msgs : [] })
-        } catch {
-          results.push({ ...conv, fullMessages: [] })
+          // Validar que msgs é array com conteúdo real
+          const validMsgs = Array.isArray(msgs) && msgs.length > 0
+            ? msgs.filter(m => (m.text || m.content || '').trim().length > 0)
+            : []
+          results.push({ ...conv, fullMessages: validMsgs, _loadedOk: validMsgs.length > 0 })
+        } catch (e) {
+          console.warn(`[Load] Erro ao carregar conversa ${conv.id}:`, e.message)
+          results.push({ ...conv, fullMessages: [], _loadedOk: false, _loadError: e.message })
         }
         setHistoryProgress(Math.round(((i + 1) / conversations.length) * 100))
       }
@@ -317,25 +326,53 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       const alreadyRan = await hasRunToday().catch(() => false)
       const diagKey = 'codex_diag_' + new Date().toDateString()
 
+      const sendDiagWithConfirmation = (diagText) => {
+        // Não enviar se já confirmou ou se já tem um diagnóstico pendente
+        if (diagConfirmedRef.current || pendingDiagRef.current) return
+        if (diagTimerRef.current) clearTimeout(diagTimerRef.current)
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 2,
+          from: 'codex',
+          text: '🔍 **DIAGNÓSTICO AUTOMÁTICO**\n\n' + diagText,
+          isDiag: true,
+        }, {
+          id: Date.now() + 3,
+          from: 'codex',
+          text: '👆 Você viu este diagnóstico? Responda **"vi"** para confirmar.',
+          isDiagConfirm: true,
+        }])
+
+        pendingDiagRef.current = diagText
+
+        // Se não confirmar em 3 minutos, repete UMA VEZ
+        diagTimerRef.current = setTimeout(() => {
+          if (!diagConfirmedRef.current && pendingDiagRef.current === diagText) {
+            // Limpar o pendente pra não ficar em loop infinito
+            pendingDiagRef.current = null
+            setMessages(prev => [...prev, {
+              id: Date.now() + 4,
+              from: 'codex',
+              text: '⏰ Você ainda não confirmou. Diagnóstico aguardando sua confirmação. Digite **"vi"** quando estiver pronto.',
+              isDiagReminder: true,
+            }])
+          }
+        }, 3 * 60 * 1000)
+      }
+
       if (!alreadyRan && !sessionStorage.getItem(diagKey)) {
         sessionStorage.setItem(diagKey, '1')
         try {
           const diag = await runProactiveDiagnosis(results, trainings)
           if (diag) {
-            // Calcula stats para salvar junto
             const hotLeads = results.filter(c => c.mode !== 'copilot' && c.nao_lidas > 0).length
             const noReply = results.filter(c => (c.nao_lidas || 0) > 0).length
             await saveDiagnostic(diag, { hot_leads: hotLeads, no_reply: noReply }).catch(() => {})
-
-            setMessages(prev => [...prev, {
-              id: Date.now() + 2,
-              from: 'codex',
-              text: '🔍 **DIAGNÓSTICO AUTOMÁTICO**\n\n' + diag,
-            }])
+            pendingDiagRef.current = diag
+            sendDiagWithConfirmation(diag)
           }
         } catch {}
       } else if (alreadyRan) {
-        // Mostra o último diagnóstico do dia se já rodou
         try {
           const last = await getLastDiagnostic()
           if (last) {
@@ -403,9 +440,11 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           const result = await identifyProductFromPhoto(file, () => {})
           const prompt = t ? `O usuário enviou uma imagem com a mensagem: "${t}"\n\nAnálise da imagem:\n${result.text}\n\nResponda considerando o contexto do CODEX e das conversas da PRIME STORE.` : result.text
           const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
-          const ctx = richConversations.length > 0 ? richConversations : conversations
+          // Usar apenas conversas com dados válidos carregados
+          const validCtx = (richConversations.length > 0 ? richConversations : conversations)
+            .filter(c => c._loadedOk !== false && (c.fullMessages?.length > 0 || c.lastMsg))
           const [provider, modelId] = selectedModel.split('::')
-          reply = await askCODEX(prompt, history, ctx, trainings, { provider, modelId })
+          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId })
         } else {
           reply = `📎 Arquivo recebido: **${file.name}** (${(file.size/1024).toFixed(0)}KB). No momento só consigo analisar imagens — envie uma foto e descreverei o produto.`
         }
@@ -531,6 +570,19 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       return
     }
 
+    // Confirmação do diagnóstico: "vi", "sim", "ok", "visto"
+    const confirmWords = ['vi', 'sim', 'ok', 'visto', 'entendi', 'certo', 'confirmado']
+    if (confirmWords.includes(t.toLowerCase().trim()) && pendingDiagRef.current) {
+      diagConfirmedRef.current = true
+      if (diagTimerRef.current) clearTimeout(diagTimerRef.current)
+      pendingDiagRef.current = null
+      setMessages(prev => [...prev,
+        { id: Date.now(), from: 'user', text: t },
+        { id: Date.now() + 1, from: 'codex', text: '✅ Confirmado! Alertas de diagnóstico pausados. Qualquer dúvida é só perguntar.' },
+      ])
+      return
+    }
+
     const saveIntent = detectSaveIntent(t)
     const userMsg = { id: Date.now(), from: 'user', text: t }
     setMessages(prev => [...prev, userMsg])
@@ -538,9 +590,11 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 
     try {
       const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
-      const ctx = richConversations.length > 0 ? richConversations : conversations
+      // Usar apenas conversas com dados válidos carregados
+      const validCtx = (richConversations.length > 0 ? richConversations : conversations)
+        .filter(c => c._loadedOk !== false && (c.fullMessages?.length > 0 || c.lastMsg))
       const [provider, modelId] = selectedModel.split('::')
-      const reply = await askCODEX(t, history, ctx, trainings, { provider, modelId })
+      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId })
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         from: 'codex',

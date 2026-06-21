@@ -7,6 +7,7 @@ import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/knowledgeParser'
 import { upsertProfile, getProfile } from '../services/customerProfileService'
+import { syncMessages, getConvHistory } from '../services/messageHistoryService'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
 
@@ -39,22 +40,53 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const [kbEnabled, setKbEnabled] = useState(() => localStorage.getItem('kb_enabled') !== 'false')
   const [kbSuggestion, setKbSuggestion] = useState(null)
   const [kbDismissed, setKbDismissed] = useState(false)
+  // Perfil IA do cliente
+  const [clientProfile, setClientProfile] = useState(null)
   // Salvar conversa
   const [selectedMsgs, setSelectedMsgs] = useState(new Set())
   const [selectMode, setSelectMode] = useState(false)
   const [savingConv, setSavingConv] = useState(false)
   const [saveToast, setSaveToast] = useState(null)
+  // Busca no histórico
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef(null)
+  // Memória contextual
+  const [memEnabled, setMemEnabled] = useState(() => localStorage.getItem('mem_enabled') !== 'false')
+  // Ocultar mensagens localmente
+  const [hiddenMsgs, setHiddenMsgs] = useState(new Set())
+  // Menu ⋮
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!showMenu) return
+    const close = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showMenu])
 
   useEffect(() => {
     setMode(conv.mode || 'autopilot')
+    setClientProfile(null)
     loadMessages()
+    getProfile(conv.id).then(p => setClientProfile(p)).catch(() => {})
     const interval = setInterval(() => loadMessages(true), 5000)
     return () => clearInterval(interval)
   }, [conv.id])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [msgs])
+    if (!searchQuery) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs, searchQuery])
+
+  useEffect(() => {
+    if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50)
+    else setSearchQuery('')
+  }, [showSearch])
+
+  const filteredMsgs = (searchQuery.trim()
+    ? msgs.filter(m => (m.text || m.content || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    : msgs).filter(m => !hiddenMsgs.has(m.id))
 
   async function loadMessages(silent = false) {
     if (!silent) setLoading(true)
@@ -73,7 +105,9 @@ setMsgs(msgList)
           setKbDismissed(false)
 
           // Atualiza perfil do cliente no Supabase a cada msg nova
-          upsertProfile(conv, msgList).catch(() => {})
+          upsertProfile(conv, msgList).then(() => getProfile(conv.id).then(p => setClientProfile(p))).catch(() => {})
+          // Salva cópia das mensagens no Supabase (backup independente do GPTMaker)
+          syncMessages(conv.id, msgList).catch(() => {})
 
           // Busca na base local se estiver ativada
           if (kbEnabled) {
@@ -170,15 +204,26 @@ setMsgs(msgList)
     const query = lastClient.text || lastClient.content || ''
     setGerarLoading(true)
     try {
-      const results = await searchEntries(query)
+      const results = kbEnabled ? await searchEntries(query) : []
       const context = results.length > 0
         ? results.slice(0, 3).map(e => `[${e.category}] ${e.title}: ${e.content}`).join('\n\n')
         : ''
-      const history = msgs.slice(-10).map(m => ({
+
+      let historySource = msgs
+      if (memEnabled) {
+        const fullHistory = await getConvHistory(conv.id, 200).catch(() => [])
+        if (fullHistory.length > msgs.length) {
+          historySource = fullHistory.map(r => ({ role: r.role, text: r.content, content: r.content, id: r.msg_id }))
+        }
+      }
+
+      const history = historySource.slice(-30).map(m => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.text || m.content || '',
-      }))
-      const systemPrompt = `Você é Gabriela, vendedora da PRIME STORE — loja de roupas e tênis masculinos. Seja direta, simpática e focada em fechar a venda.${context ? `\n\nBase de conhecimento relevante:\n${context}` : ''}`
+      })).filter(m => m.content)
+
+      const memNote = memEnabled ? `\n\nVocê tem acesso ao histórico completo desta conversa (${historySource.length} mensagens).` : ''
+      const systemPrompt = `Você é Gabriela, vendedora da PRIME STORE — loja de roupas e tênis masculinos. Seja direta, simpática e focada em fechar a venda.${memNote}${context ? `\n\nBase de conhecimento relevante:\n${context}` : ''}`
       const data = await groqRequest({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'system', content: systemPrompt }, ...history],
@@ -299,7 +344,7 @@ setMsgs(msgList)
           }
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{conv.name}</div>
-            <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}
               <span style={{
                 fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
@@ -308,13 +353,31 @@ setMsgs(msgList)
               }}>
                 {mode === 'copilot' ? '✋ Você está atendendo' : '🤖 Agente respondendo'}
               </span>
+              {clientProfile?.buy_score > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
+                  background: clientProfile.buy_score >= 70 ? '#FEF9C3' : '#F3F4F6',
+                  color: clientProfile.buy_score >= 70 ? '#92400E' : '#6B7280',
+                }}>
+                  {clientProfile.buy_score >= 70 ? '🔥' : '⚡'} Score {clientProfile.buy_score}
+                </span>
+              )}
+              {clientProfile?.size && (
+                <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px', background: '#EDE9FE', color: '#5B21B6' }}>
+                  👟 {clientProfile.size}
+                </span>
+              )}
+              {clientProfile?.tags?.slice(0, 2).map((tag, i) => (
+                <span key={i} style={{ fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '1px 6px', background: '#F0FDF4', color: '#166534' }}>
+                  {tag}
+                </span>
+              ))}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Botão Salvar Conversa */}
-          {/* Salvar conversa — ícone minimalista */}
-          {selectMode ? (
+          {/* Banner seleção inline quando selectMode ativo */}
+          {selectMode && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button onClick={handleSaveConversation} disabled={selectedMsgs.size === 0 || savingConv}
                 style={{ background: selectedMsgs.size > 0 ? '#10B981' : '#E5E5E5', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: selectedMsgs.size > 0 ? '#fff' : '#9CA3AF', cursor: selectedMsgs.size > 0 ? 'pointer' : 'default' }}>
@@ -323,21 +386,7 @@ setMsgs(msgList)
               <button onClick={() => { setSelectMode(false); setSelectedMsgs(new Set()) }}
                 style={{ background: 'none', border: 'none', fontSize: 18, color: '#9CA3AF', cursor: 'pointer', lineHeight: 1, padding: '2px 4px' }}>×</button>
             </div>
-          ) : (
-            <button onClick={() => setSelectMode(true)} title="Salvar mensagens na base de conhecimento"
-              style={{ background: 'none', border: 'none', padding: '4px 6px', borderRadius: 7, cursor: 'pointer', fontSize: 14, opacity: 0.5, transition: 'opacity 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>
-              💾
-            </button>
           )}
-          {/* Toggle Base */}
-          <button
-            onClick={() => { const next = !kbEnabled; setKbEnabled(next); localStorage.setItem('kb_enabled', String(next)) }}
-            title={kbEnabled ? 'Base ativa — clique para desativar' : 'Base inativa — clique para ativar'}
-            style={{ background: 'none', border: 'none', padding: '4px 6px', borderRadius: 7, cursor: 'pointer', fontSize: 14, opacity: kbEnabled ? 1 : 0.35, transition: 'opacity 0.15s' }}>
-            🧠
-          </button>
           <ModeToggle mode={mode} t={t} setMode={async (newMode) => {
             try {
               if (newMode === 'copilot') await assumeChat(conv.id)
@@ -349,6 +398,24 @@ setMsgs(msgList)
               setTimeout(() => setModeHint(null), 6000)
             }
           }} />
+          {/* Menu ⋮ */}
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button onClick={() => setShowMenu(s => !s)}
+              style={{ background: showMenu ? t.bgTertiary : 'none', border: 'none', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: t.textMuted, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center' }}>
+              ⋮
+            </button>
+            {showMenu && (
+              <div style={{ position: 'absolute', right: 0, top: 36, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', minWidth: 200, zIndex: 200, overflow: 'hidden' }}>
+                <MenuItem t={t} icon="🔍" label="Buscar no histórico" onClick={() => { setShowSearch(s => !s); setShowMenu(false) }} />
+                <MenuItem t={t} icon="🧠" label={kbEnabled ? 'Base ativa' : 'Base inativa'} sublabel={kbEnabled ? 'clique para desativar' : 'clique para ativar'} onClick={() => { const n = !kbEnabled; setKbEnabled(n); localStorage.setItem('kb_enabled', String(n)); setShowMenu(false) }} active={kbEnabled} />
+                <MenuItem t={t} icon="💬" label={memEnabled ? 'Memória ativa' : 'Memória inativa'} sublabel={memEnabled ? 'Gerar usa histórico completo' : 'Gerar usa msgs visíveis'} onClick={() => { const n = !memEnabled; setMemEnabled(n); localStorage.setItem('mem_enabled', String(n)); setShowMenu(false) }} active={memEnabled} />
+                <MenuItem t={t} icon="💾" label="Salvar na base" onClick={() => { setSelectMode(true); setShowMenu(false) }} />
+                <div style={{ height: 1, background: t.border, margin: '2px 0' }} />
+                <MenuItem t={t} icon="🧹" label="Limpar mensagens" onClick={() => { setHiddenMsgs(new Set(msgs.map(m => m.id))); setShowMenu(false) }} />
+                <MenuItem t={t} icon="✅" label="Resolver conversa" onClick={() => { handleFinish(); setShowMenu(false) }} />
+              </div>
+            )}
+          </div>
           <button onClick={handleFinish} style={{ background: t.bgTertiary, border: `1px solid ${t.borderLight}`, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: t.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Resolver
@@ -361,6 +428,28 @@ setMsgs(msgList)
         <div style={{ background: dark ? '#2a2010' : '#FEF3C7', borderBottom: `1px solid ${dark ? '#4a3a10' : '#FDE68A'}`, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: dark ? '#FCD34D' : '#92400E', flexShrink: 0 }}>
           <span>⚡ {modeHint}</span>
           <a href={GPTMAKER_URL} target="_blank" rel="noreferrer" style={{ color: dark ? '#FBBF24' : '#D97706', fontWeight: 700, textDecoration: 'none', marginLeft: 8 }}>Abrir GPT Maker →</a>
+        </div>
+      )}
+
+      {/* Barra de busca */}
+      {showSearch && (
+        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${t.border}`, background: t.bg, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 13 }}>🔍</span>
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar mensagens..."
+            onKeyDown={e => e.key === 'Escape' && setShowSearch(false)}
+            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, color: t.text, background: 'transparent', fontFamily: 'inherit' }}
+          />
+          {searchQuery && (
+            <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
+              {filteredMsgs.length} resultado{filteredMsgs.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          <button onClick={() => setShowSearch(false)} style={{ background: 'none', border: 'none', fontSize: 16, color: t.textMuted, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</button>
         </div>
       )}
 
@@ -384,17 +473,10 @@ setMsgs(msgList)
           ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Carregando mensagens...</div>
           : msgs.length === 0
             ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Nenhuma mensagem</div>
-            : msgs.map(msg => (
-                <div key={msg.id}
-                  onClick={() => selectMode && toggleSelectMsg(msg.id)}
-                  style={{ cursor: selectMode ? 'pointer' : 'default', borderRadius: 10, outline: selectMode && selectedMsgs.has(msg.id) ? '2px solid #10B981' : 'none', background: selectMode && selectedMsgs.has(msg.id) ? 'rgba(16,185,129,0.07)' : 'transparent', transition: 'all 0.1s' }}>
-                  {selectMode && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 2px', fontSize: 11, color: selectedMsgs.has(msg.id) ? '#10B981' : '#D1D5DB', fontWeight: 600 }}>
-                      {selectedMsgs.has(msg.id) ? '✓ Selecionada' : '○ Clique para selecionar'}
-                    </div>
-                  )}
-                  <Bubble msg={msg} conv={conv} t={t} />
-                </div>
+            : filteredMsgs.map(msg => (
+                <MsgWrapper key={msg.id} msg={msg} selectMode={selectMode} selectedMsgs={selectedMsgs} toggleSelectMsg={toggleSelectMsg} onHide={() => setHiddenMsgs(prev => new Set([...prev, msg.id]))}>
+                  <Bubble msg={msg} conv={conv} t={t} highlight={searchQuery} />
+                </MsgWrapper>
               ))
         }
         <div ref={bottomRef} />
@@ -480,6 +562,53 @@ setMsgs(msgList)
 
 export default ChatArea
 
+function MenuItem({ t, icon, label, sublabel, onClick, danger, active }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: hov ? (t?.bgTertiary || 'rgba(0,0,0,0.04)') : 'none', border: 'none', padding: '9px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+      <span style={{ fontSize: 15, opacity: active === false ? 0.35 : 1 }}>{icon}</span>
+      <div>
+        <div style={{ fontSize: 13, color: danger ? '#DC2626' : (t?.text || '#333'), fontWeight: active ? 600 : 400 }}>{label}</div>
+        {sublabel && <div style={{ fontSize: 11, color: t?.textMuted || '#9CA3AF', marginTop: 1 }}>{sublabel}</div>}
+      </div>
+      {active !== undefined && (
+        <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: active ? '#10B981' : '#D1D5DB', flexShrink: 0 }} />
+      )}
+    </button>
+  )
+}
+
+function MsgWrapper({ msg, selectMode, selectedMsgs, toggleSelectMsg, onHide, children }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => selectMode && toggleSelectMsg(msg.id)}
+      style={{ position: 'relative', cursor: selectMode ? 'pointer' : 'default', borderRadius: 10, outline: selectMode && selectedMsgs.has(msg.id) ? '2px solid #10B981' : 'none', background: selectMode && selectedMsgs.has(msg.id) ? 'rgba(16,185,129,0.07)' : 'transparent', transition: 'all 0.1s' }}>
+      {selectMode && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 2px', fontSize: 11, color: selectedMsgs.has(msg.id) ? '#10B981' : '#D1D5DB', fontWeight: 600 }}>
+          {selectedMsgs.has(msg.id) ? '✓ Selecionada' : '○ Clique para selecionar'}
+        </div>
+      )}
+      {children}
+      {hovered && !selectMode && (
+        <button
+          onClick={e => { e.stopPropagation(); onHide() }}
+          title="Ocultar mensagem"
+          style={{ position: 'absolute', top: 4, left: 36, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0, opacity: 0.55, transition: 'opacity 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '0.55'}>
+          🗑️
+        </button>
+      )}
+    </div>
+  )
+}
+
 function IconBtn({ children, title, color }) {
   return (
     <button title={title} style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color, display: 'flex', alignItems: 'center' }}>
@@ -529,11 +658,27 @@ function AudioBubble({ msg, isUser, t }) {
   )
 }
 
-function Bubble({ msg, conv, t }) {
+function highlightText(text, query) {
+  if (!query || !text) return text
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return text
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: '#FEF08A', color: '#713F12', borderRadius: 2, padding: '0 1px' }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {highlightText(text.slice(idx + query.length), query)}
+    </>
+  )
+}
+
+function Bubble({ msg, conv, t, highlight }) {
   const text = msg.text || msg.content || ''
   const time = fmtTime(msg.time)
   const isAudio = msg.type === 'AUDIO' || (msg.audioUrl && !msg.text)
   const imageUrl = msg.image || msg.imagem || msg.imageUrl || (msg.type === 'IMAGE' ? msg.midiaUrl : null)
+  const renderedText = highlight ? highlightText(text, highlight) : text
 
   if (msg.role === 'user') {
     return (
@@ -547,7 +692,7 @@ function Bubble({ msg, conv, t }) {
             ? <AudioBubble msg={msg} isUser t={t} />
             : imageUrl
               ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
-              : <div style={{ background: t.bubbleUser, border: `1px solid ${t.borderLight}`, borderRadius: '2px 14px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>{text}</div>
+              : <div style={{ background: t.bubbleUser, border: `1px solid ${t.borderLight}`, borderRadius: '2px 14px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>{renderedText}</div>
           }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3 }}>{time}</div>
         </div>
@@ -564,7 +709,7 @@ function Bubble({ msg, conv, t }) {
             ? <AudioBubble msg={msg} isUser={false} t={t} />
             : imageUrl
               ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
-              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{renderedText}</div>
           }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             {time}
@@ -586,7 +731,7 @@ function Bubble({ msg, conv, t }) {
             ? <AudioBubble msg={msg} isUser={false} t={t} />
             : imageUrl
               ? <img src={imageUrl} alt={text || 'foto'} style={{ maxWidth: 200, borderRadius: 10, display: 'block' }} />
-              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{text}</div>
+              : <div style={{ background: t.bubbleAI, borderRadius: '14px 2px 14px 14px', padding: '9px 13px', fontSize: 13, color: t.text, lineHeight: 1.55 }}>{renderedText}</div>
           }
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             {time} · {msg.metadata?.senderName || 'Você'}
