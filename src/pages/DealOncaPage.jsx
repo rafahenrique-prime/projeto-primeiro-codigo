@@ -440,9 +440,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           const result = await identifyProductFromPhoto(file, () => {})
           const prompt = t ? `O usuário enviou uma imagem com a mensagem: "${t}"\n\nAnálise da imagem:\n${result.text}\n\nResponda considerando o contexto do CODEX e das conversas da PRIME STORE.` : result.text
           const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
-          // Usar apenas conversas com dados válidos carregados
-          const validCtx = (richConversations.length > 0 ? richConversations : conversations)
-            .filter(c => c._loadedOk !== false && (c.fullMessages?.length > 0 || c.lastMsg))
+          // Usar apenas conversas com dados válidos carregados (richConversations já validadas)
+          const validCtx = richConversations.length > 0
+            ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
+            : []
           const [provider, modelId] = selectedModel.split('::')
           reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId })
         } else {
@@ -590,9 +591,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 
     try {
       const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
-      // Usar apenas conversas com dados válidos carregados
-      const validCtx = (richConversations.length > 0 ? richConversations : conversations)
-        .filter(c => c._loadedOk !== false && (c.fullMessages?.length > 0 || c.lastMsg))
+      // Usar apenas conversas com dados válidos carregados (richConversations já validadas)
+      const validCtx = richConversations.length > 0
+        ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
+        : []
       const [provider, modelId] = selectedModel.split('::')
       const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId })
       setMessages(prev => [...prev, {
