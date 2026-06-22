@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
 import { detectProductRequest, groqRequest } from '../services/groq'
-import { findBestMatch, searchProduct, findProductInText } from '../services/catalog'
+import { findBestMatch, searchProduct, findProductInText, isValidImageUrl } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
@@ -166,25 +166,38 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
               try {
               const produto = produtoAlvo
               if (produto) {
-                // Salva no contexto o produto que foi enviado
+                // Guarda contexto antes de tentar enviar
                 lastProductContextRef.current = produto
 
-                // Envia a foto automático
-                await sendMessage(conv.id, produto.nome, produto.imagem)
+                // Valida URL antes de enviar — impede página HTML ser enviada como imagem
+                if (!isValidImageUrl(produto.imagem)) {
+                  console.error('[AutoFoto] URL inválida, abortando envio:', produto.imagem, '| Produto:', produto.nome)
+                  addPhotoToHistory({
+                    produto: produto.nome,
+                    cliente: conv.name,
+                    canal: conv.channelLabel,
+                    tipo: detection.nomeProduto ? 'automático' : 'contexto',
+                    sucesso: false,
+                    erro: `URL inválida: ${produto.imagem?.slice(0, 60)}`,
+                  })
+                } else {
+                  // Envia a foto
+                  await sendMessage(conv.id, produto.nome, produto.imagem)
 
-                // Envia mensagem com preço e link
-                setTimeout(() => {
-                  sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(() => {})
-                }, 500)
+                  // Aguarda 1s antes de enviar preço/link (aumentado de 500ms para evitar rate-limit)
+                  await new Promise(r => setTimeout(r, 1000))
+                  sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(err => {
+                    console.error('[AutoFoto-PrecoLink] Erro ao enviar preço/link:', err.message)
+                  })
 
-                // Registra no histórico
-                addPhotoToHistory({
-                  produto: produto.nome,
-                  cliente: conv.name,
-                  canal: conv.channelLabel,
-                  tipo: detection.nomeProduto ? 'automático' : 'contexto',
-                  sucesso: true,
-                })
+                  addPhotoToHistory({
+                    produto: produto.nome,
+                    cliente: conv.name,
+                    canal: conv.channelLabel,
+                    tipo: detection.nomeProduto ? 'automático' : 'contexto',
+                    sucesso: true,
+                  })
+                }
               } else {
                 addPhotoToHistory({
                   produto: detection.nomeProduto || '(contexto)',
@@ -355,15 +368,23 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   }
 
   const sendPhotoManual = async (produto) => {
+    if (!isValidImageUrl(produto.imagem)) {
+      console.error('[ManualFoto] URL inválida:', produto.imagem)
+      alert(`⚠️ URL de imagem inválida para "${produto.nome}".\nURL: ${produto.imagem?.slice(0, 80)}`)
+      return
+    }
     setSendingPhoto(true)
     // Mostra a foto imediatamente no chat
     const tempPhoto = { id: Date.now(), role: 'agent', text: produto.nome, image: produto.imagem, time: Date.now() }
     setMsgs(prev => [...prev, tempPhoto])
     try {
       await sendMessage(conv.id, produto.nome, produto.imagem)
-      setTimeout(() => {
-        sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(() => {})
-      }, 500)
+
+      // Aguarda 1s antes de enviar preço/link (aumentado de 500ms para evitar rate-limit)
+      await new Promise(r => setTimeout(r, 1000))
+      sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(err => {
+        console.error('[ManualFoto-PrecoLink] Erro ao enviar preço/link:', err.message)
+      })
 
       // Registra no histórico
       addPhotoToHistory({

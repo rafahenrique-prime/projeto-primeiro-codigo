@@ -204,6 +204,19 @@ export function formatProductMessage(produto) {
   }
 }
 
+function isValidImageUrl(url) {
+  if (!url || typeof url !== 'string') return false
+  // Deve ser URL de imagem direta (CDN), não página HTML de produto
+  if (url.includes('primestoremen.com.br')) return false
+  if (url.includes('bagy.com.br') && !url.match(/\.(jpg|jpeg|png|webp)/i)) return false
+  return url.startsWith('http') && (
+    /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url) ||
+    url.includes('cdn.dooca.store') ||
+    url.includes('supabase') ||
+    url.includes('cdn.')
+  )
+}
+
 // Envia a foto do produto via GPT Maker
 export async function sendProductPhoto(chatId, query) {
   const produto = findBestMatch(query)
@@ -215,12 +228,23 @@ export async function sendProductPhoto(chatId, query) {
     }
   }
 
+  if (!isValidImageUrl(produto.imagem)) {
+    console.error('[sendProductPhoto] URL inválida para imagem:', produto.imagem, '| Produto:', produto.nome)
+    return {
+      sucesso: false,
+      mensagem: `Produto encontrado (${produto.nome}) mas sem URL de imagem válida.`
+    }
+  }
+
   try {
-    // Envia imagem + descrição
     await gptmaker.sendMessage(chatId, produto.nome, produto.imagem)
 
-    // Envia mensagem com preço e link
-    await gptmaker.sendMessage(chatId, `${produto.preco}\n\n${produto.link}`)
+    // Aguarda 1s antes de enviar preço/link (evita rate-limit)
+    await new Promise(r => setTimeout(r, 1000))
+
+    await gptmaker.sendMessage(chatId, `${produto.preco}\n\n${produto.link}`).catch(err => {
+      console.warn('[sendProductPhoto] Aviso: preço/link não enviado, mas imagem foi:', err.message)
+    })
 
     return {
       sucesso: true,
@@ -229,6 +253,7 @@ export async function sendProductPhoto(chatId, query) {
       mensagem: 'Foto enviada com sucesso!'
     }
   } catch (erro) {
+    console.error('[sendProductPhoto] Erro ao enviar:', erro)
     return {
       sucesso: false,
       mensagem: `Erro ao enviar foto: ${erro.message}`
@@ -236,8 +261,17 @@ export async function sendProductPhoto(chatId, query) {
   }
 }
 
-// Retorna todos os produtos
+export { isValidImageUrl }
+
+// Retorna todos os produtos — prioriza Supabase (570 produtos) sobre catalog.js (48 hardcoded)
 export function getAllProducts() {
+  try {
+    const stored = localStorage.getItem('products_catalog')
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed.length > 0) return parsed
+    }
+  } catch {}
   return catalog
 }
 

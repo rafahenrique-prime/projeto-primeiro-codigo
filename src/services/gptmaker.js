@@ -112,16 +112,28 @@ export async function sendMessage(chatId, text, imageUrl = null) {
     console.log('[sendMessage] Enviando imagem:', { chatId, text: text?.slice(0, 40), imageUrl: imageUrl?.slice(0, 80), isImageUrl })
   }
 
-  const result = await request(`/v2/chat/${chatId}/send-message`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+  try {
+    const result = await request(`/v2/chat/${chatId}/send-message`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
 
-  if (imageUrl) {
-    console.log('[sendMessage] Resposta da API:', JSON.stringify(result)?.slice(0, 200))
+    if (imageUrl) {
+      console.log('[sendMessage] ✅ Resposta da API:', JSON.stringify(result)?.slice(0, 200))
+    }
+
+    return result
+  } catch (err) {
+    // Captura o status HTTP para detectar rate-limit (429)
+    console.error('[sendMessage] ❌ Erro ao enviar', {
+      chatId,
+      hasImage: !!imageUrl,
+      status: err.response?.status,
+      message: err.message,
+      textPreview: text?.slice(0, 60)
+    })
+    throw err
   }
-
-  return result
 }
 
 export async function assumeChat(chatId) {
