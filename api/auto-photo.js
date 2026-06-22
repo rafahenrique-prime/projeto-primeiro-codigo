@@ -119,6 +119,7 @@ function findProductInText(text, catalog) {
   // Se a busca contém palavra de categoria (bone, tenis, cueca...), filtra só por essa categoria
   const queryWords = new Set(lowerText.split(/\s+/))
   const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+  console.log('[findProductInText] Input:', text, '| Normalized:', lowerText, '| Category:', queryCategory)
 
   const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
@@ -126,11 +127,20 @@ function findProductInText(text, catalog) {
     const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
     const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
 
-    if (queryCategory && pCategory && pCategory !== queryCategory) continue
+    if (queryCategory && pCategory && pCategory !== queryCategory) {
+      console.log('[findProductInText] ⏭️  SKIP (categoria errada):', p.nome, '(category:', pCategory, '!==', queryCategory, ')')
+      continue
+    }
 
-    if (lowerText.includes(nomeLower)) return p
+    if (lowerText.includes(nomeLower)) {
+      console.log('[findProductInText] ✅ FASE1 - Match exato:', p.nome)
+      return p
+    }
     const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|cueca|camisa)\s+/, '')
-    if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
+    if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) {
+      console.log('[findProductInText] ✅ FASE1 - Match simplificado:', p.nome)
+      return p
+    }
   }
 
   let bestMatch = null, bestScore = 0, bestSpecific = 0
@@ -142,19 +152,25 @@ function findProductInText(text, catalog) {
 
     if (queryCategory) {
       const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
-      if (pCategory && pCategory !== queryCategory) continue
+      if (pCategory && pCategory !== queryCategory) {
+        console.log('[findProductInText] ⏭️  SKIP FASE2 (categoria errada):', p.nome)
+        continue
+      }
     }
 
     const matches = specificWords.filter(w => lowerText.includes(w)).length
     if (matches >= 1) {
       const score = matches / specificWords.length
+      console.log('[findProductInText] FASE2 -', p.nome, '| matches:', matches, 'score:', score.toFixed(2))
       if (matches > bestSpecific || (matches === bestSpecific && score > bestScore)) {
+        console.log('[findProductInText]   ✅ NEW BEST:', p.nome)
         bestSpecific = matches
         bestScore = score
         bestMatch = p
       }
     }
   }
+  console.log('[findProductInText] FINAL:', bestMatch?.nome || 'null')
   return bestSpecific >= 1 ? bestMatch : null
 }
 
