@@ -126,21 +126,27 @@ export async function matchPhotoToProducts(photoAnalysis) {
   try {
     const matches = []
 
-    // 1. Tenta match por labels (Google Vision)
+    // 1. Tenta match por labels (Google Vision) - MAIOR CONFIANÇA
     if (photoAnalysis.labels && photoAnalysis.labels.length > 0) {
-      const labelMatches = findProductsByLabels(photoAnalysis.labels, 0.6)
+      const labelMatches = findProductsByLabels(photoAnalysis.labels, 0.7)
+      // Aumenta peso de Labels (Vision API é mais confiável)
+      labelMatches.forEach(m => { m.score *= 1.5; m.source = 'labels' })
       matches.push(...labelMatches)
     }
 
-    // 2. Tenta match por text (OCR)
+    // 2. Tenta match por text (OCR) - MENOR CONFIANÇA
     if (photoAnalysis.text && photoAnalysis.text.length > 3) {
-      const textMatches = findProductsByText(photoAnalysis.text, 0.5)
+      const textMatches = findProductsByText(photoAnalysis.text, 0.65)
+      // Peso normal para Text
+      textMatches.forEach(m => { m.source = 'text' })
       matches.push(...textMatches)
     }
 
-    // 3. Tenta match por objects (Google Vision)
+    // 3. Tenta match por objects (Google Vision) - CONFIANÇA MÉDIA
     if (photoAnalysis.objects && photoAnalysis.objects.length > 0) {
-      const objectMatches = findProductsByLabels(photoAnalysis.objects, 0.6)
+      const objectMatches = findProductsByLabels(photoAnalysis.objects, 0.7)
+      // Aumenta peso de Objects (Vision API)
+      objectMatches.forEach(m => { m.score *= 1.2; m.source = 'objects' })
       matches.push(...objectMatches)
     }
 
