@@ -253,9 +253,13 @@ function isValidImageUrl(url) {
 
 // Envia a foto do produto via GPT Maker
 export async function sendProductPhoto(chatId, query) {
+  console.log('[sendProductPhoto] Iniciando com query:', query)
+
   const produto = findBestMatch(query)
+  console.log('[sendProductPhoto] Produto encontrado:', produto?.nome || 'NENHUM')
 
   if (!produto) {
+    console.error('[sendProductPhoto] ❌ Produto não encontrado para:', query)
     return {
       sucesso: false,
       mensagem: `Não encontrei um produto com "${query}" no catálogo. Tente outra descrição.`
@@ -263,7 +267,7 @@ export async function sendProductPhoto(chatId, query) {
   }
 
   if (!isValidImageUrl(produto.imagem)) {
-    console.error('[sendProductPhoto] URL inválida para imagem:', produto.imagem, '| Produto:', produto.nome)
+    console.error('[sendProductPhoto] ❌ URL inválida para imagem:', produto.imagem, '| Produto:', produto.nome)
     return {
       sucesso: false,
       mensagem: `Produto encontrado (${produto.nome}) mas sem URL de imagem válida.`
@@ -271,11 +275,14 @@ export async function sendProductPhoto(chatId, query) {
   }
 
   try {
+    console.log('[sendProductPhoto] Enviando imagem:', produto.nome, '| URL:', produto.imagem?.slice(0, 80))
     await gptmaker.sendMessage(chatId, produto.nome, produto.imagem)
+    console.log('[sendProductPhoto] ✅ Imagem enviada com sucesso')
 
     // Aguarda 1s antes de enviar preço/link (evita rate-limit)
     await new Promise(r => setTimeout(r, 1000))
 
+    console.log('[sendProductPhoto] Enviando preço/link')
     await gptmaker.sendMessage(chatId, `${produto.preco}\n\n${produto.link}`).catch(err => {
       console.warn('[sendProductPhoto] Aviso: preço/link não enviado, mas imagem foi:', err.message)
     })
@@ -287,7 +294,7 @@ export async function sendProductPhoto(chatId, query) {
       mensagem: 'Foto enviada com sucesso!'
     }
   } catch (erro) {
-    console.error('[sendProductPhoto] Erro ao enviar:', erro)
+    console.error('[sendProductPhoto] ❌ Erro ao enviar:', erro.message, erro)
     return {
       sucesso: false,
       mensagem: `Erro ao enviar foto: ${erro.message}`
