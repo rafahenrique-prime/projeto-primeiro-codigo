@@ -878,11 +878,16 @@ export function detectProductRequest(userMessage) {
 
   // Padrões que indicam pedido de foto/imagem
   const fotoPadroes = [
-    /mand[ae].*foto|manda.*imagem|mostra.*foto|envia.*foto|qual.*foto|como é|tem.*foto|vê.*foto|quer.*foto|mostra como|foto d[oa]|imagem d[oa]/,
-    /foto|imagem|mostra|como ficou|qual é|como é|se parece/
+    // Padrões específicos (mais confiáveis)
+    /mand[ae].*foto|manda.*imagem|mostra.*foto|envia.*foto|qual.*foto|tem.*foto|vê.*foto|quer.*foto|mostra como|foto d[oa]|imagem d[oa]/,
+    // Padrões médios (foto + contexto de produto)
+    /foto.*(?:produto|item|esse|aquele|bone|tenis|cueca|camiseta|bermuda)/i,
+    // Padrão genérico (MENOS confiável, usado como fallback)
+    /^(?:foto|imagem|mostra|como ficou|como é|se parece)$/
   ]
 
-  const temFoto = fotoPadroes.some(p => p.test(msg))
+  // Requer primeiro padrão específico, ou segundo + terceiro juntos
+  const temFoto = fotoPadroes[0].test(msg) || (fotoPadroes[1].test(msg) && fotoPadroes[2].test(msg))
 
   if (!temFoto) {
     return { temPedidoFoto: false, nomeProduto: null }
