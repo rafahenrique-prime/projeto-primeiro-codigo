@@ -92,14 +92,16 @@ function extractProductName(msg) {
   const m = (msg || '').toLowerCase()
   const patterns = [
     /(?:foto|imagem)\s+(?:do|da|de)\s+(.{3,50}?)(?:\?|$|,|\.)/i,
-    /(?:manda|mostra|envia)\s+(?:a\s+)?(?:foto|imagem)\s+(?:do|da|de)?\s*(.{3,50}?)(?:\?|$|,|\.)/i,
+    /(?:manda|mostra|envia)\s+(?:a\s+)?(?:foto|imagem)\s+(?:do|da|de)?\s*(.{3,50}?)(?:\?|$|,|\s*$)/i,  // Sem delimitador obrigatório no fim
     /\b(?:do|da|de)\b\s+(.{3,50}?)(?:\?|$|,|\.)/i,
   ]
   for (const p of patterns) {
     const match = m.match(p)
     if (match?.[1]) {
       const candidato = normalize(match[1].trim().replace(/^(do|da|de)\s+/i, '').trim())
-      if (candidato.length >= 3 && !PALAVRAS_GENERICAS.has(candidato)) return candidato
+      // Aceita candidato se tem comprimento >= 3
+      // (findProductInText vai validar com filtro de categoria)
+      if (candidato.length >= 3) return candidato
     }
   }
   return null
