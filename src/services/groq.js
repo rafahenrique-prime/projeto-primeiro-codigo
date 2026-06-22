@@ -566,7 +566,20 @@ function buildSmartContext(userMessage, conversations) {
     return ''  // Sem dados = sem análise, não inventar
   }
 
-  // Mais tempo sem resposta / sumiu / inativo
+  // Prioridade 1: Mais perto de comprar / quente / fechar (MAIS IMPORTANTE)
+  if (/quente|fechar|pronto|decidid|comprar|perto de comprar/.test(q)) {
+    const hot = validConvs.filter(c => {
+      const msgs = c.fullMessages || []
+      return detectFunnelStage(msgs, c.lastMsg) === 'QUENTE_FECHAR'
+    })
+    if (hot.length > 0) {
+      blocks.push(`CLIENTES PRONTOS PARA FECHAR (${hot.length}):\n${hot.slice(0,10).map(c =>
+        `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
+      ).join('\n')}`)
+    }
+  }
+
+  // Prioridade 2: Mais tempo sem resposta / sumiu / inativo
   if (/mais tempo|sem resposta|sumiu|inativ|cadê|sumiram/.test(q)) {
     const ranked = validConvs
       .map(c => ({ name: c.name, canal: c.channelLabel, min: getInactiveMin(c), lastMsg: c.lastMsg }))
@@ -580,8 +593,8 @@ function buildSmartContext(userMessage, conversations) {
     }
   }
 
-  // Pediu desconto / promoção / cupom
-  if (/desconto|promo[cç]|cupom|mais barato|caro|pre[cç]o|valor/.test(q)) {
+  // Prioridade 3: Pediu desconto / promoção / cupom
+  if (/desconto|promo[cç]|cupom|mais barato|caro|pre[cç]o|valor/.test(q) && blocks.length < 2) {
     const found = validConvs.filter(c => searchInMessages(c, ['desconto','promoção','cupom','mais barato','caro','preço','valor','barato']))
     if (found.length > 0) {
       blocks.push(`CLIENTES QUE MENCIONARAM PREÇO/DESCONTO (${found.length}):\n${found.slice(0,10).map(c =>
@@ -590,21 +603,8 @@ function buildSmartContext(userMessage, conversations) {
     }
   }
 
-  // Mais perto de comprar / quente / fechar
-  if (/perto de comprar|quente|fechar|comprar|pronto|decidid/.test(q)) {
-    const hot = validConvs.filter(c => {
-      const msgs = c.fullMessages || []
-      return detectFunnelStage(msgs, c.lastMsg) === 'QUENTE_FECHAR'
-    })
-    if (hot.length > 0) {
-      blocks.push(`CLIENTES PRONTOS PARA FECHAR (${hot.length}):\n${hot.slice(0,10).map(c =>
-        `• ${c.name} (${c.channelLabel}) | "${(c.lastMsg||'').slice(0,80)}"`
-      ).join('\n')}`)
-    }
-  }
-
-  // Pediu frete / prazo / entrega
-  if (/frete|entrega|prazo|chega|envio/.test(q)) {
+  // Prioridade 4: Pediu frete / prazo / entrega
+  if (/frete|entrega|prazo|chega|envio/.test(q) && blocks.length < 2) {
     const found = validConvs.filter(c => searchInMessages(c, ['frete','entrega','prazo','chega','envio']))
     if (found.length > 0) {
       blocks.push(`CLIENTES QUE PERGUNTARAM SOBRE ENTREGA/FRETE (${found.length}):\n${found.slice(0,10).map(c =>
@@ -613,8 +613,8 @@ function buildSmartContext(userMessage, conversations) {
     }
   }
 
-  // Objeções / dúvidas / estoque / tamanho
-  if (/obje[cç]|d[uú]vida|estoque|tamanho|cor|disponiv/.test(q)) {
+  // Prioridade 5: Objeções / dúvidas / estoque / tamanho
+  if (/obje[cç]|d[uú]vida|estoque|tamanho|cor|disponiv/.test(q) && blocks.length < 2) {
     const found = validConvs.filter(c => searchInMessages(c, ['estoque','tamanho','cor','disponível','tem o','não tem']))
     if (found.length > 0) {
       blocks.push(`CLIENTES COM OBJEÇÕES/DÚVIDAS (${found.length}):\n${found.slice(0,10).map(c =>
@@ -623,8 +623,8 @@ function buildSmartContext(userMessage, conversations) {
     }
   }
 
-  // Não lidas / sem atenção
-  if (/n[aã]o lida|sem resposta do agente|aguardando|esperando/.test(q)) {
+  // Prioridade 6: Não lidas / sem atenção
+  if (/n[aã]o lida|sem resposta do agente|aguardando|esperando/.test(q) && blocks.length < 2) {
     const found = validConvs.filter(c => c.unread > 0)
     if (found.length > 0) {
       blocks.push(`CONVERSAS NÃO LIDAS (${found.length}):\n${found.slice(0,10).map(c =>
