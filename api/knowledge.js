@@ -4,43 +4,7 @@
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
-const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
-const BASE = 'https://api.gptmaker.ai'
 
-function detectProductRequest(msg) {
-  const m = (msg || '').toLowerCase()
-  return [
-    /mand[ae].*foto/,
-    /me manda (a |uma )?foto/,
-    /mostra.*foto/,
-    /envia.*foto/,
-    /quero ver (a |uma )?foto/,
-    /tem foto/,
-    /manda (a |uma )?imagem/,
-  ].some(p => p.test(m))
-}
-
-async function sendImage(chatId, nomeProduto, imageUrl, preco, link) {
-  const body1 = { message: nomeProduto, image: imageUrl }
-  const r1 = await fetch(`${BASE}/v2/chat/${chatId}/send-message`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GPTMAKER_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body1),
-  })
-  if (!r1.ok) {
-    const err = await r1.json().catch(() => ({}))
-    console.error('[knowledge] ❌ Erro ao enviar imagem:', r1.status, err)
-    return false
-  }
-  await new Promise(r => setTimeout(r, 1000))
-  const body2 = { message: `${preco}\n\n${link}`, type: 'TEXT' }
-  await fetch(`${BASE}/v2/chat/${chatId}/send-message`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${GPTMAKER_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body2),
-  })
-  return true
-}
 
 async function searchKnowledge(message) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/knowledge?order=created_at.desc`, {
@@ -131,14 +95,6 @@ export default async function handler(req, res) {
       body.id ||
       ''
 
-    console.log('[knowledge] message:', message?.slice(0, 100), '| chatId:', chatId)
-
-    // Se for pedido de foto e tiver chatId válido, envia imagem diretamente
-    const chatIdValid = chatId && !chatId.startsWith('@') && !chatId.startsWith('{{')
-    if (chatIdValid && detectProductRequest(message)) {
-      console.log('[knowledge] 📸 Pedido de foto detectado! Tentando enviar imagem...')
-    }
-
     const [knowledgeEntries, products] = await Promise.all([
       searchKnowledge(message),
       searchProducts(message),
@@ -166,26 +122,11 @@ export default async function handler(req, res) {
 
     const context = sections.join('\n\n')
 
-    const firstProduct = products[0] || null
-
-    // Se pediu foto E temos chatId E temos produto com imagem → envia imagem diretamente
-    if (chatIdValid && detectProductRequest(message) && firstProduct?.imagem) {
-      console.log('[knowledge] 📸 Enviando imagem via API:', firstProduct.nome, '| chatId:', chatId)
-      sendImage(chatId, firstProduct.nome, firstProduct.imagem, firstProduct.preco, firstProduct.link)
-        .then(ok => console.log('[knowledge] Imagem enviada:', ok))
-        .catch(err => console.error('[knowledge] Erro ao enviar imagem:', err.message))
-    }
-
     return res.status(200).json({
       output: context || 'Nenhuma informação encontrada na base de conhecimento para esta mensagem.',
       context,
       knowledge_count: knowledgeEntries.length,
       products_count: products.length,
-      // Campos individuais do produto para uso em variáveis do contato (GPT Maker)
-      imageUrl: firstProduct?.imagem || '',
-      productName: firstProduct?.nome || '',
-      productPrice: firstProduct?.preco || '',
-      productLink: firstProduct?.link || '',
     })
   } catch (err) {
     console.error('[knowledge webhook] Erro:', err)
