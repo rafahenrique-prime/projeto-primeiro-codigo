@@ -329,9 +329,9 @@ export default async function handler(req, res) {
   let produto = null
 
   if (nomeProduto) {
-    const nomeBusca = normalize(nomeProduto)
-    produto = catalog.find(p => normalize(p.nome).includes(nomeBusca)) || null
-    if (!produto) produto = findProductInText(nomeBusca, catalog)
+    // Sempre usa findProductInText que tem filtro de categoria
+    // (a busca genérica .includes() pode retornar produto errado)
+    produto = findProductInText(nomeProduto, catalog)
     console.log('[auto-photo] Busca por nome "' + nomeProduto + '":', produto?.nome || 'não encontrado')
   }
 
