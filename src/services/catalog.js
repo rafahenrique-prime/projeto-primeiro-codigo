@@ -152,24 +152,34 @@ export function searchProduct(query) {
 
 // Encontra o melhor match para um produto
 export function findBestMatch(query) {
-  if (!query || query.trim().length < 2) return null
+  console.log('[findBestMatch] Procurando:', query)
+
+  if (!query || query.trim().length < 2) {
+    console.warn('[findBestMatch] ❌ Query muito curta:', query)
+    return null
+  }
 
   const results = searchProduct(query)
-  if (results.length > 0) return results[0]
+  console.log('[findBestMatch] searchProduct retornou', results.length, 'resultados')
+  if (results.length > 0) {
+    console.log('[findBestMatch] ✅ Encontrado via searchProduct:', results[0].nome)
+    return results[0]
+  }
 
   // Se não encontrou na busca normal, tenta match fuzzy direto no catálogo
   const q = query.toLowerCase()
   const catalog_ = getActiveCatalog()
+  console.log('[findBestMatch] Tentando busca fuzzy no catálogo com', catalog_.length, 'produtos')
 
   // Busca por match parcial (mais leniente)
   for (const p of catalog_) {
     if (p.nome.toLowerCase().includes(q) || q.includes(p.nome.toLowerCase())) {
-      console.log('[findBestMatch] Encontrado por busca fuzzy:', p.nome)
+      console.log('[findBestMatch] ✅ Encontrado por busca fuzzy:', p.nome)
       return p
     }
   }
 
-  console.warn('[findBestMatch] Produto não encontrado:', query)
+  console.error('[findBestMatch] ❌ Produto NÃO encontrado para:', query, '| Catálogo tem', catalog_.length, 'produtos')
   return null
 }
 
