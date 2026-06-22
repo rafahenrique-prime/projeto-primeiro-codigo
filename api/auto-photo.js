@@ -259,16 +259,15 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, skipped: 'agent message' })
   }
 
-  // Detecta variáveis não substituídas pelo GPT Maker (ex: "@chatId", "@message")
   const isLiteralVar = (val) => !val || val.startsWith('@') || val.startsWith('{{')
-  const chatIdInvalid = isLiteralVar(chatId)
-  const messageInvalid = isLiteralVar(message)
+  const chatIdValid = chatId && !isLiteralVar(chatId)
 
   let allMsgs = []
   let agentMsgsFromSearch = []
 
-  if (chatIdInvalid || messageInvalid) {
-    console.log('[auto-photo] Variáveis não substituídas pelo GPT Maker — buscando chat recente...')
+  if (!chatIdValid) {
+    // Sem chatId: busca em todos os chats recentes
+    console.log('[auto-photo] Sem chatId válido — buscando chat recente...')
     const catalog = await getCatalog()
     const found = await findRecentPhotoChat(catalog)
     if (!found) {
@@ -278,10 +277,24 @@ export default async function handler(req, res) {
     message = found.message
     allMsgs = found.allMsgs || []
     agentMsgsFromSearch = found.agentMsgs || []
+  } else if (!message || isLiteralVar(message)) {
+    // Temos chatId mas sem message — busca mensagens desse chat específico
+    console.log('[auto-photo] chatId válido mas sem message — buscando mensagens do chat:', chatId)
+    const msgs = await getChatMessages(chatId)
+    allMsgs = msgs
+    // Pega a última mensagem do cliente
+    const lastClientMsg = [...msgs].reverse().find(m =>
+      !m.role || m.role === 'user' || m.role === 'client' || m.role === 'human' || m.role === 'customer'
+    )
+    if (!lastClientMsg) {
+      return res.status(200).json({ ok: true, skipped: 'no client message found in chat' })
+    }
+    message = lastClientMsg.text || lastClientMsg.content || lastClientMsg.message || ''
+    console.log('[auto-photo] Última mensagem do cliente:', message?.slice(0, 100))
   }
 
   if (!detectProductRequest(message)) {
-    return res.status(200).json({ ok: true, skipped: 'not a photo request' })
+    return res.status(200).json({ ok: true, skipped: 'not a photo request', message: message?.slice(0, 50) })
   }
 
   console.log('[auto-photo] Pedido de foto detectado! chatId:', chatId, '| msg:', message)
@@ -304,7 +317,7 @@ export default async function handler(req, res) {
   if (!produto) {
     const agentMsgs = agentMsgsFromSearch.length > 0
       ? agentMsgsFromSearch
-      : [...messages].reverse().slice(0, 10).filter(m => m.role !== 'user' && m.role !== 'client')
+      : [...messages].reverse().filter(m => m.role !== 'user' && m.role !== 'client').slice(0, 10)
 
     for (const m of agentMsgs) {
       const texto = m.text || m.content || m.message || ''
