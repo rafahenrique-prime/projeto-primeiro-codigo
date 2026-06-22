@@ -122,13 +122,23 @@ function findProductInText(text, catalog) {
     if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
   }
 
+  // Se a busca contém palavra de categoria (bone, tenis, cueca...), ignora produtos de outra categoria
+  const queryWords = new Set(lowerText.split(/\s+/))
+  const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+
   let bestMatch = null, bestScore = 0, bestSpecific = 0
   for (const p of catalog) {
     if (!p.imagem) continue
     const words = normalize(p.nome).split(/\s+/).filter(w => w.length >= 3)
     const specificWords = words.filter(w => !PALAVRAS_GENERICAS.has(w))
     if (specificWords.length === 0) continue
-    const matches = specificWords.filter(w => normalize(lowerText).includes(w)).length
+
+    if (queryCategory) {
+      const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+      if (pCategory && pCategory !== queryCategory) continue
+    }
+
+    const matches = specificWords.filter(w => lowerText.includes(w)).length
     if (matches >= 1) {
       const score = matches / specificWords.length
       if (matches > bestSpecific || (matches === bestSpecific && score > bestScore)) {
