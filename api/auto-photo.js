@@ -325,6 +325,7 @@ export default async function handler(req, res) {
       !m.role || m.role === 'user' || m.role === 'client' || m.role === 'human' || m.role === 'customer'
     )
     if (!lastClientMsg) {
+      console.error('[auto-photo] ⏭️  Nenhuma mensagem de cliente encontrada no chat:', chatId)
       return res.status(200).json({ ok: true, skipped: 'no client message found in chat' })
     }
     message = lastClientMsg.text || lastClientMsg.content || lastClientMsg.message || ''
@@ -332,6 +333,7 @@ export default async function handler(req, res) {
   }
 
   if (!detectProductRequest(message)) {
+    console.error('[auto-photo] ⏭️  Não é pedido de foto:', message?.slice(0, 50))
     return res.status(200).json({ ok: true, skipped: 'not a photo request', message: message?.slice(0, 50) })
   }
 
@@ -371,12 +373,12 @@ export default async function handler(req, res) {
   }
 
   if (!produto) {
-    console.log('[auto-photo] Produto não encontrado para:', message)
+    console.error('[auto-photo] ❌ Produto NÃO encontrado para:', message)
     return res.status(200).json({ ok: true, skipped: 'product not found', message })
   }
 
   if (!isValidImageUrl(produto.imagem)) {
-    console.log('[auto-photo] URL inválida:', produto.imagem)
+    console.error('[auto-photo] ⚠️  URL INVÁLIDA para', produto.nome, ':', produto.imagem)
     return res.status(200).json({ ok: true, skipped: 'invalid image url' })
   }
 
@@ -387,10 +389,10 @@ export default async function handler(req, res) {
     await new Promise(r => setTimeout(r, 1000))
     await sendMessage(chatId, `${produto.preco}\n\n${produto.link}`)
 
-    console.log('[auto-photo] ✅ Foto enviada com sucesso:', produto.nome)
+    console.log('[auto-photo] ✅ Foto enviada com sucesso:', produto.nome, '| chatId:', chatId)
     return res.status(200).json({ ok: true, produto: produto.nome, chatId })
   } catch (err) {
-    console.error('[auto-photo] ❌ Erro ao enviar:', err.message)
+    console.error('[auto-photo] 🔴 ERRO CRÍTICO ao enviar foto:', produto.nome, '| Erro:', err.message, '| Stack:', err.stack)
     return res.status(500).json({ error: err.message })
   }
 }
