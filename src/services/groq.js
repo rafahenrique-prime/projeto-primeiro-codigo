@@ -543,13 +543,16 @@ function getInactiveMin(conv) {
 
 function searchInMessages(conv, keywords) {
   const msgs = conv.fullMessages || []
-  // usa fullMessages se disponível, caso contrário usa lastMsg + conversation
   const text = (
     msgs.map(m => m.text || m.content || '').join(' ') +
     ' ' + (conv.lastMsg || '') +
     ' ' + (conv.conversation || '')
   ).toLowerCase()
-  return keywords.some(kw => text.includes(kw))
+
+  // Retorna contagem de keywords encontrados (não apenas true/false)
+  // Permite priorizar conversas com MAIS keywords relevantes
+  const foundCount = keywords.filter(kw => text.includes(kw)).length
+  return foundCount > 0  // true se encontrou pelo menos 1
 }
 
 function buildSmartContext(userMessage, conversations) {
