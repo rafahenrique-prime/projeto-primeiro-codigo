@@ -49,20 +49,33 @@ export async function deleteEntry(id) {
 export async function searchEntries(query) {
   if (!query || query.trim().length < 2) return []
   const all = await getAllEntries()
-  const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 2)
-  if (words.length === 0) return []
+  const q = query.toLowerCase()
 
   const scored = all.map(entry => {
-    const score = words.reduce((acc, w) => {
-      const titleHits = (( entry.title || '').toLowerCase().match(new RegExp(w, 'g')) || []).length * 3
-      const contentHits = ((entry.content || '').toLowerCase().match(new RegExp(w, 'g')) || []).length
-      return acc + titleHits + contentHits
-    }, 0)
+    const titleLower = (entry.title || '').toLowerCase()
+    const contentLower = (entry.content || '').toLowerCase()
+
+    // Score por proximidade de match (não contagem de ocorrências)
+    let score = 0
+    if (titleLower.includes(q)) score += 10  // Contém query exata no título
+    if (contentLower.includes(q)) score += 5  // Contém query exata no conteúdo
+
+    // Se não encontrou exato, verifica similaridade por palavras
+    if (score === 0) {
+      const words = q.split(/\s+/).filter(w => w.length > 2)
+      let wordMatches = 0
+      for (const w of words) {
+        if (titleLower.includes(w)) wordMatches += 2
+        else if (contentLower.includes(w)) wordMatches += 1
+      }
+      score = wordMatches
+    }
+
     return { ...entry, score }
   }).filter(e => e.score > 0)
 
   scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, 3)
+  return scored.slice(0, 3)  // TOP 3
 }
 
 export async function countEntries() {
