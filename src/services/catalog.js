@@ -158,7 +158,12 @@ export function findProductInText(text) {
   // Fase 1: match exato por nome completo — mais longo primeiro (mais específico)
   const sorted = [...activeCatalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
-    if (lowerText.includes(p.nome.toLowerCase())) return p
+    const nomeLower = p.nome.toLowerCase()
+    // Tenta match exato primeiro
+    if (lowerText.includes(nomeLower)) return p
+    // Se não encontrar, tenta sem a categoria inicial (ex: "tenis ", "bone ")
+    const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|calça|perfume|blusa|moletom|cropped|cueca)\s+/, '')
+    if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
   }
 
   // Fase 2: score por keywords específicas (não genéricas) encontradas no texto
