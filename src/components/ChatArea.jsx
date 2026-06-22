@@ -148,10 +148,20 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
           // Detecta se é pedido de foto
           const detection = detectProductRequest(lastMsg.text || lastMsg.content || '')
 
-          // Resolve produto: nome explícito na msg OU contexto rastreado (Dealism-style)
-          const produtoAlvo = detection.nomeProduto
-            ? findBestMatch(detection.nomeProduto)
-            : (detection.temPedidoFoto ? lastProductContextRef.current : null)
+          // Resolve produto: SEMPRE usar nome explícito extraído (alta confiança)
+          // Se nenhum nome foi extraído e há pedido de foto, usar contexto histórico
+          let produtoAlvo = null
+          if (detection.temPedidoFoto) {
+            if (detection.nomeProduto) {
+              // Nome explícito foi extraído: USAR ESSE (nunca do contexto)
+              produtoAlvo = findBestMatch(detection.nomeProduto)
+              console.log(`[AutoFoto] Nome extraído: "${detection.nomeProduto}" → Produto: ${produtoAlvo?.nome || 'não encontrado'}`)
+            } else {
+              // Sem nome explícito: usar contexto histórico
+              produtoAlvo = lastProductContextRef.current
+              console.log(`[AutoFoto] Usando contexto: ${produtoAlvo?.nome || 'não encontrado'}`)
+            }
+          }
 
           if (detection.temPedidoFoto && produtoAlvo) {
             // Cooldown: não dispara se foi muito recente (evita 3x envios)
