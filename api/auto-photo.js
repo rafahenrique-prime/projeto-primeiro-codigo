@@ -114,17 +114,22 @@ function findProductInText(text, catalog) {
   if (!text) return null
   const lowerText = normalize(text)
 
+  // Se a busca contém palavra de categoria (bone, tenis, cueca...), filtra só por essa categoria
+  const queryWords = new Set(lowerText.split(/\s+/))
+  const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+
   const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
     const nomeLower = normalize(p.nome)
+    const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
+    const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+
+    if (queryCategory && pCategory && pCategory !== queryCategory) continue
+
     if (lowerText.includes(nomeLower)) return p
     const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|cueca|camisa)\s+/, '')
     if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
   }
-
-  // Se a busca contém palavra de categoria (bone, tenis, cueca...), ignora produtos de outra categoria
-  const queryWords = new Set(lowerText.split(/\s+/))
-  const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
 
   let bestMatch = null, bestScore = 0, bestSpecific = 0
   for (const p of catalog) {
