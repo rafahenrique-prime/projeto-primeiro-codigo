@@ -131,10 +131,23 @@ export function searchProduct(query) {
   if (!query || query.trim().length < 2) return []
 
   const q = query.toLowerCase()
-  return getActiveCatalog().filter(p =>
-    p.nome.toLowerCase().includes(q) ||
-    p.preco.toLowerCase().includes(q)
-  ).slice(0, 5)
+  const activeCatalog = getActiveCatalog()
+
+  console.log('[searchProduct] Query:', query, '| Catálogo tem', activeCatalog.length, 'produtos')
+
+  const results = activeCatalog.filter(p => {
+    const match = p.nome.toLowerCase().includes(q) || p.preco.toLowerCase().includes(q)
+    if (match) {
+      console.log('[searchProduct] ✅ Match encontrado:', p.nome)
+    }
+    return match
+  }).slice(0, 5)
+
+  if (results.length === 0) {
+    console.warn('[searchProduct] ❌ Nenhum resultado para:', query)
+  }
+
+  return results
 }
 
 // Encontra o melhor match para um produto
