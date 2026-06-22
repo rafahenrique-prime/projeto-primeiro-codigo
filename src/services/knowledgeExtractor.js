@@ -68,23 +68,32 @@ export async function extractAndSaveKnowledge(url, onProgress, existingTrainings
   }
 
   const novos = matching.filter(p => !trainingHasProduct(p.nome, existingTrainings))
-  const todos = novos.length > 0 ? novos : matching
 
+  // Se não houver produtos novos, retorna aviso sem extrair TODOS
   if (novos.length === 0) {
-    log(`Todos os ${matching.length} produtos já estão no conhecimento. Gerando arquivo com todos mesmo assim...`)
-  } else {
-    log(`${novos.length} produtos encontrados. Gerando arquivo .md...`)
+    log(`✅ Todos os ${matching.length} produtos já estão no conhecimento. Nada novo para extrair.`)
+    return {
+      produtos_encontrados: 0,
+      blocos_salvos: 0,
+      blocos_erro: 0,
+      fonte: 'catálogo',
+      saved: [],
+      errors: ['Nenhum produto novo encontrado. Base já está atualizada.'],
+      url,
+      fileContent: '',
+    }
   }
 
-  const fileContent = buildFileContent(todos)
-  log(`Arquivo gerado com ${todos.length} produtos (${fileContent.length} caracteres).`)
+  log(`${novos.length} produtos novos encontrados. Gerando arquivo .md...`)
+  const fileContent = buildFileContent(novos)
+  log(`Arquivo gerado com ${novos.length} produtos (${fileContent.length} caracteres).`)
 
   return {
-    produtos_encontrados: todos.length,
+    produtos_encontrados: novos.length,
     blocos_salvos: 0,
     blocos_erro: 0,
     fonte: 'catálogo',
-    saved: todos.map(p => ({ nome: p.nome, cat: 'PRODUTO' })),
+    saved: novos.map(p => ({ nome: p.nome, cat: 'PRODUTO' })),
     errors: [],
     url,
     fileContent,
