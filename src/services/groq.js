@@ -57,11 +57,23 @@ export async function groqRequest(body) {
 
 function detectFunnelStage(msgs = [], lastMsg = '') {
   const text = (msgs.map(m => m.text || m.content || '').join(' ') + ' ' + lastMsg).toLowerCase()
-  if (/manda o link|como fa[cç]o o pedido|quero comprar|vou levar|fecha|finalizar|confirma/.test(text)) return 'QUENTE_FECHAR'
-  if (/aceita pix|quanto fica o frete|tem parcel|desconto|[cç]upom|promo[cç]|mais barato|caro/.test(text)) return 'DECISAO_OBJECAO'
-  if (/tem tamanho|tem em estoque|tem na cor|disponivel|chega quando|prazo/.test(text)) return 'CONSIDERACAO'
-  if (/quanto custa|qual o pre[cç]o|valor|quanto [eé]|me mostra|tem o modelo/.test(text)) return 'CURIOSIDADE'
-  return 'INDEFINIDO'
+
+  // Calcula score para CADA stage (não early return)
+  const stages = {
+    QUENTE_FECHAR: (/manda o link|como fa[cç]o o pedido|quero comprar|vou levar|fecha|finalizar|confirma/.test(text) ? 1 : 0),
+    DECISAO_OBJECAO: (/aceita pix|quanto fica o frete|tem parcel|desconto|[cç]upom|promo[cç]|mais barato|caro/.test(text) ? 1 : 0),
+    CONSIDERACAO: (/tem tamanho|tem em estoque|tem na cor|disponivel|chega quando|prazo/.test(text) ? 1 : 0),
+    CURIOSIDADE: (/quanto custa|qual o pre[cç]o|valor|quanto [eé]|me mostra|tem o modelo/.test(text) ? 1 : 0),
+  }
+
+  // Se encontrou MÚLTIPLOS stages, prioriza por importância
+  const found = Object.entries(stages).filter(([_, score]) => score > 0)
+  if (found.length === 0) return 'INDEFINIDO'
+  if (found.length === 1) return found[0][0]
+
+  // Se múltiplos, prioriza: QUENTE > OBJEÇÃO > CONSIDERAÇÃO > CURIOSIDADE
+  const priority = { QUENTE_FECHAR: 4, DECISAO_OBJECAO: 3, CONSIDERACAO: 2, CURIOSIDADE: 1 }
+  return found.sort((a, b) => priority[b[0]] - priority[a[0]])[0][0]
 }
 
 function buildContext(conversations = []) {
