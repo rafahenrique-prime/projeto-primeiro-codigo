@@ -98,7 +98,7 @@ function extractProductName(msg) {
   for (const p of patterns) {
     const match = m.match(p)
     if (match?.[1]) {
-      const candidato = match[1].trim().replace(/^(do|da|de)\s+/i, '').trim()
+      const candidato = normalize(match[1].trim().replace(/^(do|da|de)\s+/i, '').trim())
       if (candidato.length >= 3 && !PALAVRAS_GENERICAS.has(candidato)) return candidato
     }
   }
@@ -106,6 +106,7 @@ function extractProductName(msg) {
 }
 
 function normalize(str) {
+  // eslint-disable-next-line no-misleading-character-class
   return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
@@ -315,6 +316,7 @@ export default async function handler(req, res) {
   if (nomeProduto) {
     const nomeBusca = normalize(nomeProduto)
     produto = catalog.find(p => normalize(p.nome).includes(nomeBusca)) || null
+    if (!produto) produto = findProductInText(nomeBusca, catalog)
     console.log('[auto-photo] Busca por nome "' + nomeProduto + '":', produto?.nome || 'não encontrado')
   }
 
