@@ -150,7 +150,7 @@ export function searchProduct(query) {
   return results
 }
 
-// Encontra o melhor match para um produto
+// Encontra o melhor match para um produto com scoring completo
 export function findBestMatch(query) {
   console.log('[findBestMatch] Procurando:', query)
 
@@ -159,24 +159,40 @@ export function findBestMatch(query) {
     return null
   }
 
-  const results = searchProduct(query)
-  console.log('[findBestMatch] searchProduct retornou', results.length, 'resultados')
-  if (results.length > 0) {
-    console.log('[findBestMatch] ✅ Encontrado via searchProduct:', results[0].nome)
-    return results[0]
+  const q = query.toLowerCase()
+  const catalog_ = getActiveCatalog().filter(p => p.imagem)
+
+  let bestMatch = null
+  let bestScore = 0
+  let bestSpecificMatches = 0
+
+  // Scoring com TODOS os produtos, não apenas TOP 5
+  for (const p of catalog_) {
+    const nomeLower = p.nome.toLowerCase()
+    const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
+    if (words.length < 2) continue
+
+    // Palavras específicas (não genéricas)
+    const specificWords = words.filter(w => !PALAVRAS_GENERICAS.has(w))
+    if (specificWords.length === 0) continue
+
+    // Contar quantas palavras específicas aparecem na query
+    const specificMatches = specificWords.filter(w => q.includes(w)).length
+
+    if (specificMatches >= 1) {
+      const score = specificMatches / specificWords.length
+      if (specificMatches > bestSpecificMatches ||
+          (specificMatches === bestSpecificMatches && score > bestScore)) {
+        bestSpecificMatches = specificMatches
+        bestScore = score
+        bestMatch = p
+      }
+    }
   }
 
-  // Se não encontrou na busca normal, tenta match fuzzy direto no catálogo
-  const q = query.toLowerCase()
-  const catalog_ = getActiveCatalog()
-  console.log('[findBestMatch] Tentando busca fuzzy no catálogo com', catalog_.length, 'produtos')
-
-  // Busca por match parcial (mais leniente)
-  for (const p of catalog_) {
-    if (p.nome.toLowerCase().includes(q) || q.includes(p.nome.toLowerCase())) {
-      console.log('[findBestMatch] ✅ Encontrado por busca fuzzy:', p.nome)
-      return p
-    }
+  if (bestMatch) {
+    console.log('[findBestMatch] ✅ Encontrado com score', bestScore, ':', bestMatch.nome)
+    return bestMatch
   }
 
   console.error('[findBestMatch] ❌ Produto NÃO encontrado para:', query, '| Catálogo tem', catalog_.length, 'produtos')

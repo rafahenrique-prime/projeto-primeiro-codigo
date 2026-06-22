@@ -52,37 +52,46 @@ function convertBackupProducts(backupData) {
 }
 
 // Encontra matches entre produtos atuais e backup
+// Nota: Compara TODOS os produtos para encontrar MELHOR match, não apenas primeiro
 function findMatches(currentProducts, backupProducts) {
   const matches = []
 
   for (const backup of backupProducts) {
     const backupNorm = normalizeName(backup.nome)
 
+    let bestMatch = null
+    let bestSimilarity = 0
+    let bestType = null
+
+    // Compara com TODOS os current products, mantém o MELHOR match
     for (const current of currentProducts) {
       const currentNorm = normalizeName(current.nome)
 
-      // Match exato
+      // Match exato → score 1.0, tipo EXACT
       if (backupNorm === currentNorm) {
-        matches.push({
-          type: 'EXACT_DUPLICATE',
-          backup,
-          current,
-          similarity: 1.0,
-        })
-        break
+        bestSimilarity = 1.0
+        bestMatch = current
+        bestType = 'EXACT_DUPLICATE'
+        break  // Se encontrou exato, não precisa continuar
       }
 
-      // Match parcial (70%+)
+      // Match parcial → comparar similaridade
       const similarity = calculateSimilarity(backupNorm, currentNorm)
-      if (similarity > 0.7) {
-        matches.push({
-          type: 'PARTIAL_MATCH',
-          backup,
-          current,
-          similarity,
-        })
-        break
+      if (similarity > 0.7 && similarity > bestSimilarity) {
+        bestSimilarity = similarity
+        bestMatch = current
+        bestType = 'PARTIAL_MATCH'
       }
+    }
+
+    // Adiciona apenas o melhor match encontrado
+    if (bestMatch && bestSimilarity > 0.7) {
+      matches.push({
+        type: bestType,
+        backup,
+        current: bestMatch,
+        similarity: bestSimilarity,
+      })
     }
   }
 

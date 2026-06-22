@@ -91,35 +91,23 @@ function findProductsByLabels(labels = [], threshold = 0.6) {
   return Array.from(uniqueProducts.values()).sort((a, b) => b.score - a.score)
 }
 
-function findProductsByText(text, threshold = 0.5) {
+function findProductsByText(text, threshold = 0.65) {
   if (!text || text.length < 3) return []
 
   const catalog = getAllProducts()
-  const words = normalizeText(text).split(' ')
 
+  // Usa Levenshtein como em findProductsByLabels (mais confiável que word counting)
   const matches = catalog
     .map(product => {
-      const productName = normalizeText(product.nome)
-
-      // Pontuação por palavras que aparecem no produto
-      let score = 0
-      for (const word of words) {
-        if (productName.includes(word)) {
-          score += 1
-        }
-      }
-
-      // Similaridade geral do nome
-      const nameSimilarity = calculateSimilarity(text, product.nome)
-
+      const similarity = calculateSimilarity(text, product.nome)
       return {
         product,
-        score: score > 0 ? score : nameSimilarity,
-        similarity: nameSimilarity,
+        similarity,
+        score: similarity,
       }
     })
-    .filter(m => m.score > threshold)
-    .sort((a, b) => b.score - a.score)
+    .filter(m => m.similarity > threshold)  // Threshold 0.65 mais rigoroso que 0.5
+    .sort((a, b) => b.similarity - a.similarity)
 
   return matches
 }
