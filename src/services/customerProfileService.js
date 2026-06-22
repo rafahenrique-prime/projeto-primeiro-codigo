@@ -177,25 +177,29 @@ function extractProducts(msgs) {
 }
 
 function calcBuyScore(text, msgCount) {
-  let score = 0
+  // Score por categoria (0-100 cada) em vez de somar direto
+  let intentScore = 0     // Intenção de compra (60% do peso final)
+  let objectionScore = 0  // Objeções (reduz 30%)
+  let engagementScore = 0 // Engajamento (20% do peso final)
 
-  // Sinais fortes de compra (+30 cada)
-  if (/\b(vou levar|quero comprar|pode fechar|fecha pra mim|manda o pix|qual o pix)\b/i.test(text)) score += 30
-  if (/\b(qual o link|manda o link|como faço o pedido|como compro)\b/i.test(text)) score += 30
+  // INTENÇÃO DE COMPRA (0-100)
+  if (/\b(vou levar|quero comprar|pode fechar|fecha pra mim|manda o pix|qual o pix)\b/i.test(text)) intentScore = 100
+  else if (/\b(qual o link|manda o link|como faço o pedido|como compro)\b/i.test(text)) intentScore = 80
+  else if (/\b(tem em estoque|tem disponível|aceita pix|parcela|cartão|frete|prazo)\b/i.test(text)) intentScore = 50
+  else if (/\b(quero|tenho interesse|gostei|adorei|bonito|lindo|perfeito)\b/i.test(text)) intentScore = 30
 
-  // Sinais médios (+15 cada)
-  if (/\b(tem em estoque|tem disponível|ainda tem)\b/i.test(text)) score += 15
-  if (/\b(aceita pix|parcela|cartão|quanto fica o frete|prazo de entrega)\b/i.test(text)) score += 15
-  if (/\b(quero|tenho interesse|gostei|adorei|bonito|lindo|perfeito)\b/i.test(text)) score += 15
+  // OBJEÇÕES (0-100, vai REDUZIR score final)
+  if (/\b(vou pensar|deixa eu ver|talvez|não sei)\b/i.test(text)) objectionScore = 70  // Indecisão forte
+  else if (/\b(caro|salgado|muito caro|não tenho|sem dinheiro|depois)\b/i.test(text)) objectionScore = 50  // Objeção real
 
-  // Engajamento (+5 por grupo de mensagens)
-  score += Math.min(msgCount * 2, 20)
+  // ENGAJAMENTO (0-100 baseado em msgCount)
+  engagementScore = Math.min(msgCount * 2, 100)  // 1 msg = 2 pts, 50 msgs = 100 pts
 
-  // Objeções (-10 cada)
-  if (/\b(caro|salgado|muito caro|não tenho|sem dinheiro|depois)\b/i.test(text)) score -= 10
-  if (/\b(vou pensar|deixa eu ver|talvez|não sei)\b/i.test(text)) score -= 10
+  // Score final: weighted average
+  // Intenção 60% + Engajamento 20% - Objeções 30%
+  const finalScore = (intentScore * 0.6) + (engagementScore * 0.2) - (objectionScore * 0.3)
 
-  return Math.max(0, Math.min(100, score))
+  return Math.max(0, Math.min(100, Math.round(finalScore)))
 }
 
 function extractTags(text, msgCount) {
