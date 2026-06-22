@@ -1,8 +1,8 @@
 // Webhook serverless — detecta pedido de foto e envia automaticamente
 // Roda 24/7 no Vercel, sem precisar do navegador aberto
-// Configurar no GPT Maker: Settings → Webhooks → URL: https://seu-dominio.vercel.app/api/auto-photo
 
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
+const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const BASE = 'https://api.gptmaker.ai'
@@ -26,7 +26,7 @@ const CATALOG_FALLBACK = [
   { nome: "Cueca Lup 007", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cueca01232133-1l0sm_600x800+crop_center.jpg?v=1778159972", link: "https://www.primestoremen.com.br/cueca-lupo-007" },
   { nome: "Cueca Lup 006", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cueca-lupo3322-12ks4_600x800+crop_center.png?v=1778159925", link: "https://www.primestoremen.com.br/cueca-lupo-006" },
   { nome: "Cueca Lup 005", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecalupo99932-fjatc_600x800+crop_center.png?v=1778159900", link: "https://www.primestoremen.com.br/cueca-lupo-005" },
-  { nome: "Cueca Lup 004", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecaliupo9392321-41vpr_600x800+crop_center.png?v=1778159879", link: "https://www.primestoremen.com.br/cueca-lupo-004" },
+  { nome: "Cueca Lup 004", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecalupo9392321-41vpr_600x800+crop_center.png?v=1778159879", link: "https://www.primestoremen.com.br/cueca-lupo-004" },
   { nome: "Cueca Lup 003", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecalupo00001-at6to_600x800+crop_center.png?v=1778159846", link: "https://www.primestoremen.com.br/cueca-lupo-003" },
   { nome: "Cueca Lup 002", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecalupo00012344-fkdce_600x800+crop_center.png?v=1778159808", link: "https://www.primestoremen.com.br/cueca-lupo-002" },
   { nome: "Cueca Lup 034", preco: "R$ 79,00", imagem: "https://cdn.dooca.store/161486/products/cuecalupo02-azje7_600x800+crop_center.jpeg?v=1778159482", link: "https://www.primestoremen.com.br/cueca-lupo" },
@@ -113,12 +113,10 @@ function findProductInText(text, catalog) {
   for (const p of sorted) {
     const nomeLower = p.nome.toLowerCase()
     if (lowerText.includes(nomeLower)) return p
-    // Tenta sem categoria inicial (ex: "tenis ")
     const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|cueca|camisa|bermuda)\s+/, '')
     if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
   }
 
-  // Score por keywords específicas
   let bestMatch = null, bestScore = 0, bestSpecific = 0
   for (const p of catalog) {
     if (!p.imagem) continue
@@ -162,6 +160,75 @@ async function getChatMessages(chatId) {
   } catch { return [] }
 }
 
+// Quando o GPT Maker não substitui as variáveis, busca o chat recente com pedido de foto
+async function findRecentPhotoChat(catalog) {
+  if (!GPTMAKER_WS) {
+    console.warn('[auto-photo] GPTMAKER_WS não configurado')
+    return null
+  }
+  try {
+    const res = await fetch(`${BASE}/v2/workspace/${GPTMAKER_WS}/chats?page=1&pageSize=30`, {
+      headers: { 'Authorization': `Bearer ${GPTMAKER_TOKEN}` }
+    })
+    if (!res.ok) {
+      console.warn('[auto-photo] Erro ao listar chats:', res.status)
+      return null
+    }
+    const data = await res.json()
+    const chats = Array.isArray(data) ? data : (data.data || [])
+    console.log('[auto-photo] Chats recentes encontrados:', chats.length)
+
+    const cutoff = Date.now() - 5 * 60 * 1000 // últimos 5 minutos
+
+    // Tenta usar lastMessage direto do chat list
+    for (const chat of chats) {
+      const lastMsg = chat.lastMessage || chat.last_message
+      if (!lastMsg) continue
+      const msgTime = new Date(lastMsg.createdAt || lastMsg.created_at || 0).getTime()
+      const msgText = lastMsg.text || lastMsg.content || lastMsg.message || ''
+      const msgRole = lastMsg.role || lastMsg.sender || ''
+
+      if (
+        msgTime > cutoff &&
+        (msgRole === 'user' || msgRole === 'client' || !msgRole) &&
+        detectProductRequest(msgText)
+      ) {
+        console.log('[auto-photo] Chat encontrado via lastMessage:', chat.id, '| msg:', msgText)
+        return { chatId: chat.id, message: msgText }
+      }
+    }
+
+    // Fallback: busca mensagens dos 5 chats mais recentes individualmente
+    console.log('[auto-photo] Buscando mensagens dos 5 chats mais recentes...')
+    for (const chat of chats.slice(0, 5)) {
+      const msgs = await getChatMessages(chat.id)
+      if (!msgs.length) continue
+
+      // Pega a última mensagem do cliente
+      const lastClientMsg = [...msgs].reverse().find(m =>
+        m.role === 'user' || m.role === 'client'
+      )
+      if (!lastClientMsg) continue
+
+      const msgTime = new Date(lastClientMsg.createdAt || lastClientMsg.created_at || 0).getTime()
+      const msgText = lastClientMsg.text || lastClientMsg.content || lastClientMsg.message || ''
+
+      if (msgTime > cutoff && detectProductRequest(msgText)) {
+        console.log('[auto-photo] Chat encontrado via mensagens:', chat.id, '| msg:', msgText)
+        // Também busca contexto do agente para identificar o produto
+        const agentContext = msgs.slice(-10).filter(m => m.role !== 'user' && m.role !== 'client')
+        return { chatId: chat.id, message: msgText, agentMsgs: agentContext, allMsgs: msgs }
+      }
+    }
+
+    console.log('[auto-photo] Nenhum chat recente com pedido de foto encontrado')
+    return null
+  } catch (err) {
+    console.error('[auto-photo] Erro em findRecentPhotoChat:', err.message)
+    return null
+  }
+}
+
 async function sendMessage(chatId, text, imageUrl = null) {
   const body = imageUrl ? { message: text, image: imageUrl } : { message: text, type: 'TEXT' }
   const res = await fetch(`${BASE}/v2/chat/${chatId}/send-message`, {
@@ -184,19 +251,33 @@ export default async function handler(req, res) {
   const body = req.body || {}
   console.log('[auto-photo] Webhook recebido:', JSON.stringify(body).slice(0, 300))
 
-  // Suporta múltiplos formatos de payload do GPT Maker
-  const message = body.message || body.text || body.content || body.userMessage || body.input || ''
-  const chatId = body.chatId || body.chat_id || body.conversationId || body.conversation_id || body.id || ''
+  let message = body.message || body.text || body.content || body.userMessage || body.input || ''
+  let chatId = body.chatId || body.chat_id || body.conversationId || body.conversation_id || body.id || ''
   const role = body.role || body.sender || ''
 
-  // Ignora mensagens do agente (só processa mensagens do cliente)
   if (role === 'agent' || role === 'assistant' || role === 'bot') {
     return res.status(200).json({ ok: true, skipped: 'agent message' })
   }
 
-  if (!chatId || !message) {
-    console.warn('[auto-photo] Sem chatId ou message')
-    return res.status(200).json({ ok: true, skipped: 'missing chatId or message' })
+  // Detecta variáveis não substituídas pelo GPT Maker (ex: "@chatId", "@message")
+  const isLiteralVar = (val) => !val || val.startsWith('@') || val.startsWith('{{')
+  const chatIdInvalid = isLiteralVar(chatId)
+  const messageInvalid = isLiteralVar(message)
+
+  let allMsgs = []
+  let agentMsgsFromSearch = []
+
+  if (chatIdInvalid || messageInvalid) {
+    console.log('[auto-photo] Variáveis não substituídas pelo GPT Maker — buscando chat recente...')
+    const catalog = await getCatalog()
+    const found = await findRecentPhotoChat(catalog)
+    if (!found) {
+      return res.status(200).json({ ok: true, skipped: 'no recent photo request found' })
+    }
+    chatId = found.chatId
+    message = found.message
+    allMsgs = found.allMsgs || []
+    agentMsgsFromSearch = found.agentMsgs || []
   }
 
   if (!detectProductRequest(message)) {
@@ -205,10 +286,9 @@ export default async function handler(req, res) {
 
   console.log('[auto-photo] Pedido de foto detectado! chatId:', chatId, '| msg:', message)
 
-  // Busca catálogo e mensagens em paralelo
   const [catalog, messages] = await Promise.all([
     getCatalog(),
-    getChatMessages(chatId),
+    allMsgs.length > 0 ? Promise.resolve(allMsgs) : getChatMessages(chatId),
   ])
 
   // 1. Tenta extrair produto da mensagem atual
@@ -221,11 +301,10 @@ export default async function handler(req, res) {
   }
 
   // 2. Se não achou, busca contexto nas mensagens recentes do agente
-  if (!produto && messages.length > 0) {
-    const agentMsgs = [...messages]
-      .reverse()
-      .slice(0, 10)
-      .filter(m => m.role !== 'user' && m.role !== 'client')
+  if (!produto) {
+    const agentMsgs = agentMsgsFromSearch.length > 0
+      ? agentMsgsFromSearch
+      : [...messages].reverse().slice(0, 10).filter(m => m.role !== 'user' && m.role !== 'client')
 
     for (const m of agentMsgs) {
       const texto = m.text || m.content || m.message || ''
