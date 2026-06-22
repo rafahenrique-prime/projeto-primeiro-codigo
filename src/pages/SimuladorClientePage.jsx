@@ -46,7 +46,16 @@ export default function SimuladorClientePage() {
         // Busca o produto
         const produto = findBestMatch(detection.nomeProduto)
 
-        if (produto) {
+        // Valida se produto foi encontrado E tem confiança mínima
+        if (produto && produto.nome && produto.imagem) {
+          // Calcula confidence (0-100)
+          const confidence = produto.score ? Math.round(produto.score * 100) : 75
+
+          // Aviso se score for baixo
+          if (confidence < 50) {
+            console.warn('[SimuladorClientePage] ⚠️  Baixa confiança para:', detection.nomeProduto, '|', confidence + '%')
+          }
+
           // Adiciona mensagem da IA mostrando a foto
           const photoMsg = {
             id: Date.now() + 1,
@@ -55,6 +64,7 @@ export default function SimuladorClientePage() {
             type: 'photo',
             imagem: produto.imagem,
             produto: produto,
+            confidence: confidence,
           }
           setMessages(prev => [...prev, photoMsg])
 
