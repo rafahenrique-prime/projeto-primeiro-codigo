@@ -139,9 +139,25 @@ export function searchProduct(query) {
 
 // Encontra o melhor match para um produto
 export function findBestMatch(query) {
+  if (!query || query.trim().length < 2) return null
+
   const results = searchProduct(query)
-  if (results.length === 0) return null
-  return results[0]
+  if (results.length > 0) return results[0]
+
+  // Se não encontrou na busca normal, tenta match fuzzy direto no catálogo
+  const q = query.toLowerCase()
+  const catalog_ = getActiveCatalog()
+
+  // Busca por match parcial (mais leniente)
+  for (const p of catalog_) {
+    if (p.nome.toLowerCase().includes(q) || q.includes(p.nome.toLowerCase())) {
+      console.log('[findBestMatch] Encontrado por busca fuzzy:', p.nome)
+      return p
+    }
+  }
+
+  console.warn('[findBestMatch] Produto não encontrado:', query)
+  return null
 }
 
 // Palavras genéricas de categoria que não identificam produto específico
