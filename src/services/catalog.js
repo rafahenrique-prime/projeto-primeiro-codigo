@@ -225,10 +225,20 @@ export function findProductInText(text) {
   const lowerText = text.toLowerCase()
   const activeCatalog = getActiveCatalog().filter(p => p.imagem)
 
+  // Se texto contém palavra de categoria, filtra só por essa categoria
+  const queryWords = new Set(lowerText.split(/\s+/))
+  const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+
   // Fase 1: match exato por nome completo — mais longo primeiro (mais específico)
   const sorted = [...activeCatalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
     const nomeLower = p.nome.toLowerCase()
+    const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
+    const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+
+    // Pula produto de categoria diferente se query tem categoria específica
+    if (queryCategory && pCategory && pCategory !== queryCategory) continue
+
     // Tenta match exato primeiro
     if (lowerText.includes(nomeLower)) return p
     // Se não encontrar, tenta sem a categoria inicial (ex: "tenis ", "bone ")
@@ -249,6 +259,12 @@ export function findProductInText(text) {
     // Palavras específicas (não genéricas): cores, modelos, materiais, etc
     const specificWords = words.filter(w => !PALAVRAS_GENERICAS.has(w))
     if (specificWords.length === 0) continue
+
+    // Pula produto de categoria diferente se query tem categoria específica
+    if (queryCategory) {
+      const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+      if (pCategory && pCategory !== queryCategory) continue
+    }
 
     // Contar quantas palavras específicas são encontradas no texto
     const specificMatches = specificWords.filter(w => lowerText.includes(w)).length
