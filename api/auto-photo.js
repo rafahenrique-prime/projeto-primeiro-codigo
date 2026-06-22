@@ -90,20 +90,35 @@ function detectProductRequest(msg) {
 
 function extractProductName(msg) {
   const m = (msg || '').toLowerCase()
+
+  // Pronomes e palavras que NÃO são nome de produto
+  const STOPWORDS = new Set([
+    'dela', 'dele', 'disso', 'desse', 'dessa', 'esse', 'essa', 'isso',
+    'este', 'esta', 'aquele', 'aquela', 'aquilo', 'um', 'uma', 'o', 'a',
+    'os', 'as', 'ele', 'ela', 'eles', 'elas'
+  ])
+
   const patterns = [
     /(?:foto|imagem)\s+(?:do|da|de)\s+(.{3,50}?)(?:\?|$|,|\.)/i,
-    /(?:manda|mostra|envia)\s+(?:a\s+)?(?:foto|imagem)\s+(?:do|da|de)?\s*(.{3,50}?)(?:\?|$|,|\s*$)/i,  // Sem delimitador obrigatório no fim
+    /(?:manda|mostra|envia)\s+(?:a\s+)?(?:foto|imagem)\s+(?:do|da|de)?\s*(.{3,50}?)(?:\?|$|,|\s*$)/i,
     /\b(?:do|da|de)\b\s+(.{3,50}?)(?:\?|$|,|\.)/i,
   ]
+
   for (const p of patterns) {
     const match = m.match(p)
     if (match?.[1]) {
       const candidato = normalize(match[1].trim().replace(/^(do|da|de)\s+/i, '').trim())
-      // Aceita candidato se tem comprimento >= 3
-      // (findProductInText vai validar com filtro de categoria)
-      if (candidato.length >= 3) return candidato
+      // Valida: comprimento >= 3 E não é pronome/stopword
+      if (candidato.length >= 3 && !STOPWORDS.has(candidato)) {
+        console.log('[extractProductName] ✅ Extraído:', candidato)
+        return candidato
+      } else if (STOPWORDS.has(candidato)) {
+        console.log('[extractProductName] ⏭️  Pronome/stopword rejeitado:', candidato)
+      }
     }
   }
+
+  console.log('[extractProductName] ❌ Nenhum nome válido extraído de:', msg)
   return null
 }
 
@@ -357,17 +372,36 @@ export default async function handler(req, res) {
 
   // 2. Se não achou, busca contexto nas mensagens recentes do agente
   if (!produto) {
-    const agentMsgs = agentMsgsFromSearch.length > 0
+    // Se extractProductName retornou null (pronome rejeitado), PRIORIZAR última mensagem do agente
+    // Isso evita alucinação ao buscar em contexto muito antigo
+    const agentMsgsReverse = agentMsgsFromSearch.length > 0
       ? agentMsgsFromSearch
-      : [...messages].reverse().filter(m => m.role !== 'user' && m.role !== 'client').slice(0, 10)
+      : [...messages].reverse().filter(m => m.role !== 'user' && m.role !== 'client')
 
-    for (const m of agentMsgs) {
-      const texto = m.text || m.content || m.message || ''
+    // Se não encontrou nome específico, busca na ÚLTIMA mensagem do agente primeiro
+    // (cliente disse "Me manda foto dela" → busca o produto mencionado LOGO ANTES)
+    if (!nomeProduto && agentMsgsReverse.length > 0) {
+      console.log('[auto-photo] Nome rejeitado ou vazio, buscando na ÚLTIMA mensagem do agente...')
+      const lastAgentMsg = agentMsgsReverse[0]
+      const texto = lastAgentMsg.text || lastAgentMsg.content || lastAgentMsg.message || ''
       const found = findProductInText(texto, catalog)
       if (found) {
         produto = found
-        console.log('[auto-photo] Produto encontrado no contexto:', produto.nome)
-        break
+        console.log('[auto-photo] ✅ Produto encontrado na ÚLTIMA mensagem do agente:', produto.nome)
+      }
+    }
+
+    // Se ainda não achou, busca nas últimas 10 mensagens do agente
+    if (!produto) {
+      console.log('[auto-photo] Buscando em histórico recente do agente...')
+      for (const m of agentMsgsReverse.slice(0, 10)) {
+        const texto = m.text || m.content || m.message || ''
+        const found = findProductInText(texto, catalog)
+        if (found) {
+          produto = found
+          console.log('[auto-photo] Produto encontrado no contexto histórico:', produto.nome)
+          break
+        }
       }
     }
   }
