@@ -135,16 +135,31 @@ export function searchProduct(query) {
 
   console.log('[searchProduct] Query:', query, '| Catálogo tem', activeCatalog.length, 'produtos')
 
-  const results = activeCatalog.filter(p => {
-    const match = p.nome.toLowerCase().includes(q) || p.preco.toLowerCase().includes(q)
-    if (match) {
-      console.log('[searchProduct] ✅ Match encontrado:', p.nome)
-    }
-    return match
-  }).slice(0, 5)
+  // Filtra produtos que contêm a query
+  const matches = activeCatalog.filter(p => {
+    const nomeLower = p.nome.toLowerCase()
+    return nomeLower.includes(q) || (p.preco && p.preco.toLowerCase().includes(q))
+  })
+
+  // Ordena por relevância: nome exato > começa com > contém
+  const scored = matches.map(p => {
+    const nomeLower = p.nome.toLowerCase()
+    let score = 0
+
+    if (nomeLower === q) score = 1000  // Exato
+    else if (nomeLower.startsWith(q)) score = 500  // Começa com
+    else if (nomeLower.indexOf(q) === 0) score = 400  // Início
+    else score = 100  // Contém em qualquer lugar
+
+    return { product: p, score }
+  }).sort((a, b) => b.score - a.score)
+
+  const results = scored.slice(0, 5).map(s => s.product)
 
   if (results.length === 0) {
-    console.warn('[searchProduct] ❌ Nenhum resultado para:', query)
+    console.error('[searchProduct] ❌ Nenhum resultado para:', query)
+  } else {
+    console.log('[searchProduct] ✅ Top 5 resultados encontrados:', results.map(p => p.nome))
   }
 
   return results
