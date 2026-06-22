@@ -103,7 +103,6 @@ export default async function handler(req, res) {
       for (const p of products) {
         let line = `• ${p.nome}`
         if (p.preco) line += ` — ${p.preco}`
-        if (p.imagem) line += `\n  Foto: ${p.imagem}`
         if (p.link) line += `\n  Link: ${p.link}`
         sections.push(line)
       }
