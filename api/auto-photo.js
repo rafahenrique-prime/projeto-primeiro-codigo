@@ -105,25 +105,29 @@ function extractProductName(msg) {
   return null
 }
 
+function normalize(str) {
+  return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 function findProductInText(text, catalog) {
   if (!text) return null
-  const lowerText = text.toLowerCase()
+  const lowerText = normalize(text)
 
   const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
-    const nomeLower = p.nome.toLowerCase()
+    const nomeLower = normalize(p.nome)
     if (lowerText.includes(nomeLower)) return p
-    const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|cueca|camisa|bermuda)\s+/, '')
+    const nomeSimplificado = nomeLower.replace(/^(tenis|bone|camiseta|bermuda|cueca|camisa)\s+/, '')
     if (nomeSimplificado !== nomeLower && lowerText.includes(nomeSimplificado)) return p
   }
 
   let bestMatch = null, bestScore = 0, bestSpecific = 0
   for (const p of catalog) {
     if (!p.imagem) continue
-    const words = p.nome.toLowerCase().split(/\s+/).filter(w => w.length >= 3)
+    const words = normalize(p.nome).split(/\s+/).filter(w => w.length >= 3)
     const specificWords = words.filter(w => !PALAVRAS_GENERICAS.has(w))
     if (specificWords.length === 0) continue
-    const matches = specificWords.filter(w => lowerText.includes(w)).length
+    const matches = specificWords.filter(w => normalize(lowerText).includes(w)).length
     if (matches >= 1) {
       const score = matches / specificWords.length
       if (matches > bestSpecific || (matches === bestSpecific && score > bestScore)) {
@@ -309,7 +313,8 @@ export default async function handler(req, res) {
   let produto = null
 
   if (nomeProduto) {
-    produto = catalog.find(p => p.nome.toLowerCase().includes(nomeProduto.toLowerCase())) || null
+    const nomeBusca = normalize(nomeProduto)
+    produto = catalog.find(p => normalize(p.nome).includes(nomeBusca)) || null
     console.log('[auto-photo] Busca por nome "' + nomeProduto + '":', produto?.nome || 'não encontrado')
   }
 
