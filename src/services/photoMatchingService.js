@@ -58,7 +58,7 @@ function calculateSimilarity(str1, str2) {
 
 // ==================== BUSCA NO CATÁLOGO ====================
 
-function findProductsByLabels(labels = [], threshold = 0.6) {
+function findProductsByLabels(labels = [], threshold = 0.7) {
   const catalog = getAllProducts()
   const matches = []
 
