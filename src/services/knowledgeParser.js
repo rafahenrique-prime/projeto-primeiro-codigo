@@ -40,7 +40,8 @@ TEXTO PARA ANALISAR:`
 
 export async function parseToBlocks(text) {
   if (!text || text.trim().length < 30) {
-    return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text }]
+    console.log('[Parser] Texto muito curto (<30 chars), retornando como GERAL')
+    return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text, _fallback: true }]
   }
 
   try {
@@ -68,12 +69,13 @@ export async function parseToBlocks(text) {
     const blocos = parsed.blocos || []
 
     if (!Array.isArray(blocos) || blocos.length === 0) {
-      return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text }]
+      console.warn('[Parser] Nenhum bloco encontrado na resposta do Groq, fallback para GERAL')
+      return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text, _fallback: true }]
     }
 
     // Valida e normaliza cada bloco
     const tipos_validos = ['PRODUTO', 'PRECO', 'POLITICA', 'GUIA', 'FAQ', 'ESTRATEGIA', 'GERAL']
-    return blocos
+    const result = blocos
       .filter(b => b.conteudo && b.conteudo.trim().length > 5)
       .map(b => ({
         tipo: tipos_validos.includes(b.tipo) ? b.tipo : 'GERAL',
@@ -81,9 +83,12 @@ export async function parseToBlocks(text) {
         conteudo: (b.conteudo || '').trim(),
       }))
 
+    console.log(`[Parser] ✅ Sucesso: ${result.length} blocos extraídos`)
+    return result
+
   } catch (e) {
-    console.warn('Parser falhou, salvando como bloco único:', e.message)
-    return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text }]
+    console.error('[Parser] ❌ ERRO ao fazer parse:', e.message, '- Retornando como bloco único GERAL')
+    return [{ tipo: 'GERAL', nome: text.slice(0, 60), conteudo: text, _fallback: true }]
   }
 }
 
