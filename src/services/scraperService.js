@@ -1,76 +1,83 @@
-// Scraper de produtos via URL
-// Extrai dados usando meta tags e padrões HTML comuns
+// Scraper de produtos via URL (SIMPLIFICADO)
+// Extrai APENAS: nome, preço original, preço desconto, categoria, link
+// Imagem = upload manual
 
 export async function extractProductData(url) {
   try {
     console.log('[Scraper] Extraindo dados de:', url)
 
-    // Usar CORS proxy se necessário
-    const corsUrl = `https://cors-anywhere.herokuapp.com/${url}`
+    // Usar CORS proxy para bypassar CORS
+    const corsProxies = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    ]
 
-    const response = await fetch(url, {
-      mode: 'no-cors',
-    }).catch(() =>
-      fetch(corsUrl, {
-        headers: {
-          'Origin': window.location.origin,
-        },
-      })
-    )
+    let html = null
 
-    if (!response || !response.ok) {
-      console.warn('[Scraper] Erro ao buscar página')
+    // Tentar múltiplos proxies
+    for (const proxyUrl of corsProxies) {
+      try {
+        const response = await fetch(proxyUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+          },
+        })
+        if (response.ok) {
+          html = await response.text()
+          break
+        }
+      } catch (e) {
+        console.warn('[Scraper] Proxy falhou:', proxyUrl)
+        continue
+      }
+    }
+
+    if (!html) {
+      console.warn('[Scraper] Não conseguiu buscar a página')
       return null
     }
 
-    const html = await response.text()
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, 'text/html')
-
-    // Extrair meta tags
-    const getMetaContent = (property) => {
-      const meta = doc.querySelector(`meta[property="${property}"]`) ||
-                   doc.querySelector(`meta[name="${property}"]`)
-      return meta?.getAttribute('content') || ''
-    }
 
     // Extrair preços (retorna objeto com preco, price_original, price_discount)
     const precos = extractPrice(html, doc)
 
-    // Extrair dados usando diferentes estratégias
+    // Extrair dados ESSENCIAIS apenas
     const dados = {
-      nome: getMetaContent('og:title') ||
-            getMetaContent('twitter:title') ||
-            doc.querySelector('h1')?.textContent?.trim() ||
-            '',
-
-      preco: precos.preco || '',
-
+      nome: extractName(html, doc) || '',
       price_original: precos.price_original || '',
-
       price_discount: precos.price_discount || '',
-
-      imagem: getMetaContent('og:image') ||
-              getMetaContent('twitter:image') ||
-              doc.querySelector('img')?.getAttribute('src') ||
-              '',
-
+      preco: precos.preco || precos.price_discount || '',
       categoria: extractCategory(html, doc) || '',
-
-      descricao: getMetaContent('og:description') ||
-                 getMetaContent('description') ||
-                 doc.querySelector('meta[name="description"]')?.getAttribute('content') ||
-                 '',
-
       link: url,
     }
 
-    console.log('[Scraper] Dados extraídos:', dados)
+    console.log('[Scraper] ✅ Dados extraídos:', dados)
     return dados
   } catch (e) {
     console.error('[Scraper] Erro:', e.message)
     return null
   }
+}
+
+// Extrair nome do produto
+function extractName(html, doc) {
+  // Tentar meta tags
+  const metaTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                    doc.querySelector('meta[name="og:title"]')?.getAttribute('content') ||
+                    ''
+  if (metaTitle) return metaTitle
+
+  // Tentar h1
+  const h1 = doc.querySelector('h1')?.textContent?.trim()
+  if (h1) return h1
+
+  // Tentar title tag
+  const title = doc.querySelector('title')?.textContent?.trim()
+  if (title) return title
+
+  return ''
 }
 
 // Extrair preços usando padrões comuns

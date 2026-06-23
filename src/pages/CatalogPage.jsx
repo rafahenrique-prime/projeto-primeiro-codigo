@@ -23,6 +23,9 @@ export default function CatalogPage() {
   const [urlInput, setUrlInput] = useState('')
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState('')
+  const [extractedData, setExtractedData] = useState(null)
+  const [urlImageFile, setUrlImageFile] = useState(null)
+  const [urlImagePreview, setUrlImagePreview] = useState(null)
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -102,29 +105,58 @@ export default function CatalogPage() {
         return
       }
 
-      // Normalizar dados
-      const normalized = normalizeExtractedData(extracted)
+      console.log('✅ Dados extraídos:', extracted)
 
-      // Preencher formulário
-      setFormData(normalized)
-      setImagemFile(null)
-      setImagemPreview(extracted.imagem || null)
+      // Guardar dados extraídos para ajuste
+      setExtractedData(extracted)
+      setExtractError('')
 
-      // Carregar categorias atualizadas
-      const cats = Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()
-      setCategoriesList(cats)
-
-      // Fechar modal de URL e abrir modal de edição
-      setShowUrlModal(false)
-      setUrlInput('')
-      setShowModal(true)
-
-      console.log('✅ Dados extraídos com sucesso!')
     } catch (err) {
       console.error('Erro:', err)
       setExtractError('❌ Erro ao extrair dados: ' + err.message)
     } finally {
       setExtracting(false)
+    }
+  }
+
+  const handleConfirmExtractedData = async () => {
+    if (!urlImageFile) {
+      setExtractError('Selecione uma imagem para o produto')
+      return
+    }
+
+    // Normalizar dados
+    const normalized = normalizeExtractedData(extractedData)
+
+    // Preencher formulário
+    setFormData(normalized)
+    setImagemFile(urlImageFile)
+    setImagemPreview(urlImagePreview)
+
+    // Carregar categorias atualizadas
+    const cats = Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()
+    setCategoriesList(cats)
+
+    // Fechar modal de URL e abrir modal de edição
+    setShowUrlModal(false)
+    setUrlInput('')
+    setExtractedData(null)
+    setUrlImageFile(null)
+    setUrlImagePreview(null)
+    setShowModal(true)
+
+    console.log('✅ Pronto para salvar!')
+  }
+
+  const handleUrlImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUrlImageFile(file)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setUrlImagePreview(event.target?.result)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -654,55 +686,127 @@ export default function CatalogPage() {
       {/* Modal de Extração via URL */}
       {showUrlModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%' }}>
+          <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
               📎 Adicionar Produto via URL
             </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
-                  Cole a URL do produto
-                </label>
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={e => setUrlInput(e.target.value)}
-                  placeholder="https://www.primestoremen.com.br/tenis-new-balance-9060"
-                  style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              {extractError && (
-                <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
-                  {extractError}
+            {!extractedData ? (
+              // ESTADO 1: Extração
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
+                    Cole a URL do produto
+                  </label>
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    placeholder="https://www.primestoremen.com.br/tenis-new-balance-9060"
+                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                  />
                 </div>
-              )}
 
-              <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11, color: t.textMuted }}>
-                💡 O sistema vai tentar extrair automaticamente: <strong>nome, preço, imagem e categoria</strong>. Você ajusta e confirma.
+                {extractError && (
+                  <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
+                    {extractError}
+                  </div>
+                )}
+
+                <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11, color: t.textMuted }}>
+                  💡 O sistema vai extrair: <strong>nome, preços (original + desconto) e categoria</strong>. Você faz upload da foto e confirma.
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setShowUrlModal(false)
+                      setUrlInput('')
+                      setExtractError('')
+                      setExtractedData(null)
+                    }}
+                    style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleExtractFromUrl}
+                    disabled={extracting}
+                    style={{ flex: 1, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: extracting ? 'wait' : 'pointer', opacity: extracting ? 0.7 : 1 }}
+                  >
+                    {extracting ? '⏳ Extraindo...' : '🔍 Extrair Dados'}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              // ESTADO 2: Ajuste + Upload de Imagem
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '10px', fontSize: 11, color: '#059669' }}>
+                  ✅ Dados extraídos com sucesso! Agora faça upload da imagem.
+                </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button
-                onClick={() => {
-                  setShowUrlModal(false)
-                  setUrlInput('')
-                  setExtractError('')
-                }}
-                style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleExtractFromUrl}
-                disabled={extracting}
-                style={{ flex: 1, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: extracting ? 'wait' : 'pointer', opacity: extracting ? 0.7 : 1 }}
-              >
-                {extracting ? '⏳ Extraindo...' : '🔍 Extrair Dados'}
-              </button>
-            </div>
+                {/* Preview dos dados extraídos */}
+                <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Nome:</strong> {extractedData.nome}
+                  </div>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Preço:</strong> {extractedData.price_discount}
+                    {extractedData.price_original && ` (de ${extractedData.price_original})`}
+                  </div>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Categoria:</strong> {extractedData.categoria || 'Sem categoria'}
+                  </div>
+                  <div>
+                    <strong>Link:</strong> <a href={extractedData.link} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', fontSize: 10 }}>Ver página</a>
+                  </div>
+                </div>
+
+                {/* Upload de Imagem */}
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
+                    📸 Upload da Imagem *
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUrlImageSelect}
+                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}
+                  />
+                  {urlImagePreview && (
+                    <img src={urlImagePreview} alt="preview" style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150, borderRadius: 6, objectFit: 'cover' }} />
+                  )}
+                </div>
+
+                {extractError && (
+                  <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
+                    {extractError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setExtractedData(null)
+                      setUrlInput('')
+                      setUrlImageFile(null)
+                      setUrlImagePreview(null)
+                      setExtractError('')
+                    }}
+                    style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={handleConfirmExtractedData}
+                    disabled={!urlImageFile}
+                    style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: urlImageFile ? 'pointer' : 'not-allowed', opacity: urlImageFile ? 1 : 0.5 }}
+                  >
+                    ✅ Confirmar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
