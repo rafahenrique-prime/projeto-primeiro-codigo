@@ -576,7 +576,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 
 
       {/* Input */}
-      <div style={{ padding: '12px 14px', borderTop: `1px solid ${t.border}`, background: t.bg, flexShrink: 0 }}>
+      <div style={{ padding: '12px 14px', borderTop: `1px solid ${t.border}`, background: t.bg, flexShrink: 0, position: 'sticky', bottom: 0, zIndex: 10 }}>
         <div style={{ background: t.bg, border: '1.5px solid #0EC331', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <textarea
             value={input}
