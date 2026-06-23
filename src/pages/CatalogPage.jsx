@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage } from '../services/catalogSyncService'
+import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 
 export default function CatalogPage() {
   const { theme: t } = useTheme()
@@ -18,6 +19,10 @@ export default function CatalogPage() {
   const [newCategory, setNewCategory] = useState('')
   const [imagemFile, setImagemFile] = useState(null)
   const [imagemPreview, setImagemPreview] = useState(null)
+  const [showUrlModal, setShowUrlModal] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -76,6 +81,50 @@ export default function CatalogPage() {
         setFormData({ ...formData, imagem: file.name })
       }
       reader.readAsDataURL(file)
+    }
+  }
+
+  const handleExtractFromUrl = async () => {
+    if (!urlInput.trim()) {
+      setExtractError('Colar uma URL válida')
+      return
+    }
+
+    setExtracting(true)
+    setExtractError('')
+
+    try {
+      const extracted = await extractProductData(urlInput)
+
+      if (!extracted || !extracted.nome) {
+        setExtractError('❌ Não foi possível extrair dados. Tente digitar manualmente.')
+        setExtracting(false)
+        return
+      }
+
+      // Normalizar dados
+      const normalized = normalizeExtractedData(extracted)
+
+      // Preencher formulário
+      setFormData(normalized)
+      setImagemFile(null)
+      setImagemPreview(extracted.imagem || null)
+
+      // Carregar categorias atualizadas
+      const cats = Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()
+      setCategoriesList(cats)
+
+      // Fechar modal de URL e abrir modal de edição
+      setShowUrlModal(false)
+      setUrlInput('')
+      setShowModal(true)
+
+      console.log('✅ Dados extraídos com sucesso!')
+    } catch (err) {
+      console.error('Erro:', err)
+      setExtractError('❌ Erro ao extrair dados: ' + err.message)
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -313,6 +362,12 @@ export default function CatalogPage() {
             style={{ background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             ➕ Adicionar Produto
+          </button>
+          <button
+            onClick={() => setShowUrlModal(true)}
+            style={{ background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            📎 Adicionar via URL
           </button>
         </div>
       </div>
@@ -590,6 +645,62 @@ export default function CatalogPage() {
               </button>
               <button onClick={handleSave} style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Extração via URL */}
+      {showUrlModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
+              📎 Adicionar Produto via URL
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
+                  Cole a URL do produto
+                </label>
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={e => setUrlInput(e.target.value)}
+                  placeholder="https://www.primestoremen.com.br/tenis-new-balance-9060"
+                  style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {extractError && (
+                <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
+                  {extractError}
+                </div>
+              )}
+
+              <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11, color: t.textMuted }}>
+                💡 O sistema vai tentar extrair automaticamente: <strong>nome, preço, imagem e categoria</strong>. Você ajusta e confirma.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button
+                onClick={() => {
+                  setShowUrlModal(false)
+                  setUrlInput('')
+                  setExtractError('')
+                }}
+                style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExtractFromUrl}
+                disabled={extracting}
+                style={{ flex: 1, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: extracting ? 'wait' : 'pointer', opacity: extracting ? 0.7 : 1 }}
+              >
+                {extracting ? '⏳ Extraindo...' : '🔍 Extrair Dados'}
               </button>
             </div>
           </div>
