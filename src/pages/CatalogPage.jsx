@@ -13,6 +13,9 @@ export default function CatalogPage() {
   const [formData, setFormData] = useState({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [sortBy, setSortBy] = useState('default')
+  const [categoriesList, setCategoriesList] = useState([])
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  const [newCategory, setNewCategory] = useState('')
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -29,6 +32,16 @@ export default function CatalogPage() {
   useEffect(() => {
     loadProducts()
   }, [])
+
+  useEffect(() => {
+    if (showModal && products.length > 0) {
+      // Extrair categorias únicas dos produtos
+      const cats = Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()
+      setCategoriesList(cats)
+      setShowNewCategoryInput(false)
+      setNewCategory('')
+    }
+  }, [showModal, products])
 
   const saveToStorage = (data) => {
     localStorage.setItem('products_catalog', JSON.stringify(data))
@@ -375,7 +388,7 @@ export default function CatalogPage() {
               {[
                 { label: 'Nome *', key: 'nome', placeholder: 'Ex: Tenis Nike Dunk', required: true },
                 { label: 'Preço *', key: 'preco', placeholder: 'Ex: R$ 459,00', required: true },
-                { label: 'Categoria *', key: 'categoria', placeholder: 'Ex: Tênis, Perfumes, Camisetas...', required: true },
+                { label: 'Categoria *', key: 'categoria', type: 'categoria-select', required: true },
                 { label: 'Preço Original', key: 'price_original', placeholder: 'Ex: 599.90 (sem formatação)', type: 'number' },
                 { label: 'Preço com Desconto', key: 'price_discount', placeholder: 'Ex: 459.90 (sem formatação)', type: 'number' },
                 { label: 'Código/SKU', key: 'codigo', placeholder: 'Ex: NIKE-001' },
@@ -385,7 +398,62 @@ export default function CatalogPage() {
               ].map(({ label, key, placeholder, type, options, required }) => (
                 <div key={key}>
                   <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>{label}</label>
-                  {type === 'select' ? (
+                  {type === 'categoria-select' ? (
+                    <>
+                      {!showNewCategoryInput ? (
+                        <>
+                          <select
+                            value={formData[key] || ''}
+                            onChange={e => {
+                              if (e.target.value === '__nova__') {
+                                setShowNewCategoryInput(true)
+                              } else {
+                                setFormData({ ...formData, [key]: e.target.value })
+                              }
+                            }}
+                            style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                          >
+                            <option value="">— Selecione uma categoria —</option>
+                            {categoriesList.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            <option value="__nova__">➕ Criar nova categoria</option>
+                          </select>
+                        </>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            type="text"
+                            value={newCategory}
+                            onChange={e => setNewCategory(e.target.value)}
+                            placeholder="Nova categoria..."
+                            style={{ flex: 1, borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => {
+                              if (newCategory.trim()) {
+                                setFormData({ ...formData, [key]: newCategory })
+                                setCategoriesList([...categoriesList, newCategory].sort())
+                                setShowNewCategoryInput(false)
+                                setNewCategory('')
+                              }
+                            }}
+                            style={{ background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowNewCategoryInput(false)
+                              setNewCategory('')
+                            }}
+                            style={{ background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : type === 'select' ? (
                     <select
                       value={formData[key] || ''}
                       onChange={e => setFormData({ ...formData, [key]: e.target.value })}
