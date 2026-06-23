@@ -64,6 +64,16 @@ export default function CatalogPage() {
       alert('Preencha todos os campos!')
       return
     }
+
+    // Verificar se produto com mesmo nome já existe
+    const produtoExistente = products.find(p => p.nome.toLowerCase() === formData.nome.toLowerCase() && p.id !== formData.id)
+    if (produtoExistente) {
+      const confirmar = confirm(`⚠️ Produto "${formData.nome}" já existe!\n\n✏️ Deseja editar o existente?\n\nClique "OK" para editar, "Cancelar" para adicionar novo mesmo assim.`)
+      if (confirmar) {
+        openEditModal(produtoExistente)
+        return
+      }
+    }
     let updated
     if (editingId) {
       updated = products.map(p => p.id === editingId ? formData : p)

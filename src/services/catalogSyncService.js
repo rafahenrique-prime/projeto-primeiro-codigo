@@ -17,6 +17,7 @@ function base() {
 }
 
 // UPSERT: atualiza se existe, insere se não existe
+// Faz UPSERT por NOME para evitar duplicatas
 export async function upsertProducts(products) {
   if (!Array.isArray(products) || products.length === 0) {
     console.log('[CatalogSync] Nenhum produto pra sincronizar')
@@ -24,35 +25,70 @@ export async function upsertProducts(products) {
   }
 
   try {
-    // Formata os dados com campos necessários
-    const formatted = products.map(p => ({
-      nome: p.nome,
-      price_original: p.priceOriginal,
-      price_discount: p.priceDiscount,
-      discount_percent: Math.round(((p.priceOriginal - p.priceDiscount) / p.priceOriginal) * 100),
-      status: p.status || 'active',
-      source: 'bagy',
-      synced_at: new Date().toISOString(),
-    }))
+    console.log('[CatalogSync] Iniciando UPSERT de', products.length, 'produtos')
 
-    // Faz UPSERT (on_conflict na chave: name)
-    const response = await fetch(base(), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(formatted),
-    })
+    let inserted = 0
+    let updated = 0
+    const resultados = []
 
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('[CatalogSync] UPSERT error - Status:', response.status)
-      console.error('[CatalogSync] UPSERT error - Message:', error)
-      console.error('[CatalogSync] Dados enviados:', JSON.stringify(formatted[0]))
-      return { success: false, error, status: response.status }
+    for (const p of products) {
+      // Formata dados completos
+      const dados = {
+        nome: p.nome,
+        preco: p.preco,
+        imagem: p.imagem,
+        link: p.link,
+        categoria: p.categoria,
+        price_original: p.price_original ? parseFloat(p.price_original) : null,
+        price_discount: p.price_discount ? parseFloat(p.price_discount) : null,
+        codigo: p.codigo || null,
+        status: p.status || 'active',
+        source: 'manual', // Diferencia de 'bagy' (webhook)
+        synced_at: new Date().toISOString(),
+      }
+
+      // 1. Buscar se produto com esse nome já existe
+      const existente = await fetch(
+        `${base()}?nome=eq.${encodeURIComponent(p.nome)}`,
+        { headers }
+      ).then(r => r.json())
+
+      if (existente && existente.length > 0) {
+        // UPDATE: produto já existe
+        const id = existente[0].id
+        const updateRes = await fetch(
+          `${base()}?id=eq.${id}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(dados),
+          }
+        )
+        if (updateRes.ok) {
+          updated++
+          resultados.push({ nome: p.nome, acao: 'atualizado' })
+          console.log(`[CatalogSync] ✏️ Atualizado: ${p.nome}`)
+        }
+      } else {
+        // INSERT: produto novo
+        const insertRes = await fetch(
+          base(),
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(dados),
+          }
+        )
+        if (insertRes.ok) {
+          inserted++
+          resultados.push({ nome: p.nome, acao: 'inserido' })
+          console.log(`[CatalogSync] ➕ Inserido: ${p.nome}`)
+        }
+      }
     }
 
-    const data = await response.json()
-    console.log(`[CatalogSync] ✅ Sincronizados: ${data.length} produtos`)
-    return { success: true, count: data.length, products: data }
+    console.log(`[CatalogSync] ✅ UPSERT completo: ${inserted} inseridos, ${updated} atualizados`)
+    return { success: true, inserted, updated, total: inserted + updated, produtos: resultados }
   } catch (e) {
     console.error('[CatalogSync] Error:', e)
     return { success: false, error: e.message }
