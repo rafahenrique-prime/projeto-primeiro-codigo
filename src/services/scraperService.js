@@ -1,58 +1,22 @@
-// Scraper de produtos via URL (SIMPLIFICADO)
-// Extrai APENAS: nome, preço original, preço desconto, categoria, link
-// Imagem = upload manual
+// Scraper de produtos via URL
+// Chama API serverless no Vercel que faz o scraping server-side (sem CORS)
 
 export async function extractProductData(url) {
   try {
-    console.log('[Scraper] Extraindo dados de:', url)
+    console.log('[Scraper] Chamando API serverless para:', url)
 
-    // Usar CORS proxy para bypassar CORS
-    const corsProxies = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    ]
+    // Chamar API serverless
+    const apiUrl = `/api/scraper?url=${encodeURIComponent(url)}`
 
-    let html = null
+    const response = await fetch(apiUrl)
 
-    // Tentar múltiplos proxies
-    for (const proxyUrl of corsProxies) {
-      try {
-        const response = await fetch(proxyUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-          },
-        })
-        if (response.ok) {
-          html = await response.text()
-          break
-        }
-      } catch (e) {
-        console.warn('[Scraper] Proxy falhou:', proxyUrl)
-        continue
-      }
-    }
-
-    if (!html) {
-      console.warn('[Scraper] Não conseguiu buscar a página')
+    if (!response.ok) {
+      const error = await response.json()
+      console.error('[Scraper] Erro da API:', error.error)
       return null
     }
 
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
-
-    // Extrair preços (retorna objeto com preco, price_original, price_discount)
-    const precos = extractPrice(html, doc)
-
-    // Extrair dados ESSENCIAIS apenas
-    const dados = {
-      nome: extractName(html, doc) || '',
-      price_original: precos.price_original || '',
-      price_discount: precos.price_discount || '',
-      preco: precos.preco || precos.price_discount || '',
-      categoria: extractCategory(html, doc) || '',
-      link: url,
-    }
-
+    const dados = await response.json()
     console.log('[Scraper] ✅ Dados extraídos:', dados)
     return dados
   } catch (e) {
