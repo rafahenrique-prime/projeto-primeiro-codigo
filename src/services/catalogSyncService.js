@@ -16,6 +16,56 @@ function base() {
   return `${SUPABASE_URL}/rest/v1/${TABLE}`
 }
 
+// Download de imagem e upload para Supabase Storage
+export async function uploadImageToStorage(imageUrl, productName) {
+  if (!imageUrl || imageUrl.trim() === '') {
+    return null
+  }
+
+  try {
+    console.log(`[ImageUpload] Baixando imagem de: ${imageUrl.slice(0, 60)}...`)
+
+    // 1. Baixar imagem da URL
+    const imgResponse = await fetch(imageUrl)
+    if (!imgResponse.ok) {
+      console.warn(`[ImageUpload] Erro ao baixar: ${imgResponse.status}`)
+      return imageUrl // Retorna URL original se falhar
+    }
+
+    const blob = await imgResponse.blob()
+
+    // 2. Gerar nome do arquivo único
+    const fileName = `${productName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}.jpg`
+    const storagePath = `produtos/${fileName}`
+
+    // 3. Fazer upload pro Supabase Storage
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/produtos/${fileName}`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        },
+        body: blob,
+      }
+    )
+
+    if (!uploadRes.ok) {
+      console.warn(`[ImageUpload] Erro ao fazer upload: ${uploadRes.status}`)
+      return imageUrl // Retorna URL original se falhar
+    }
+
+    // 4. Construir URL pública do arquivo
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/produtos/${fileName}`
+    console.log(`[ImageUpload] ✅ Imagem salva: ${fileName}`)
+    return publicUrl
+  } catch (e) {
+    console.error(`[ImageUpload] Erro:`, e.message)
+    return imageUrl // Retorna URL original em caso de erro
+  }
+}
+
 // UPSERT: atualiza se existe, insere se não existe
 // Faz UPSERT por NOME para evitar duplicatas
 export async function upsertProducts(products) {
@@ -32,11 +82,17 @@ export async function upsertProducts(products) {
     const resultados = []
 
     for (const p of products) {
+      // 0. Download e upload da imagem para Supabase Storage
+      let imagemUrl = p.imagem
+      if (p.imagem && p.imagem.trim() !== '') {
+        imagemUrl = await uploadImageToStorage(p.imagem, p.nome)
+      }
+
       // Formata dados completos
       const dados = {
         nome: p.nome,
         preco: p.preco,
-        imagem: p.imagem,
+        imagem: imagemUrl, // URL da imagem salva no Storage
         link: p.link,
         categoria: p.categoria,
         price_original: p.price_original ? parseFloat(p.price_original) : null,

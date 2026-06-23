@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase, upsertProducts } from '../services/catalogSyncService'
+import { getProductsFromSupabase, upsertProducts, uploadImageToStorage } from '../services/catalogSyncService'
 
 export default function CatalogPage() {
   const { theme: t } = useTheme()
@@ -16,6 +16,8 @@ export default function CatalogPage() {
   const [categoriesList, setCategoriesList] = useState([])
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
   const [newCategory, setNewCategory] = useState('')
+  const [imagemFile, setImagemFile] = useState(null)
+  const [imagemPreview, setImagemPreview] = useState(null)
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -50,18 +52,41 @@ export default function CatalogPage() {
   const openAddModal = () => {
     setFormData({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
     setEditingId(null)
+    setImagemFile(null)
+    setImagemPreview(null)
     setShowModal(true)
   }
 
   const openEditModal = (product) => {
     setFormData(product)
     setEditingId(product.id)
+    setImagemFile(null)
+    setImagemPreview(product.imagem || null)
     setShowModal(true)
   }
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImagemFile(file)
+      // Gerar preview
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setImagemPreview(event.target?.result)
+        setFormData({ ...formData, imagem: file.name })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleSave = async () => {
-    if (!formData.nome || !formData.preco || !formData.imagem || !formData.link) {
-      alert('Preencha todos os campos!')
+    if (!formData.nome || !formData.preco || !formData.link) {
+      alert('Preencha nome, preço e link!')
+      return
+    }
+
+    if (!imagemFile && !formData.imagem) {
+      alert('Selecione uma imagem!')
       return
     }
 
@@ -74,11 +99,32 @@ export default function CatalogPage() {
         return
       }
     }
+
+    // Upload da imagem se arquivo foi selecionado
+    let imagemUrl = formData.imagem
+    if (imagemFile) {
+      try {
+        console.log('📤 Fazendo upload da imagem...')
+        imagemUrl = await uploadImageFile(imagemFile, formData.nome)
+        if (!imagemUrl) {
+          alert('Erro ao fazer upload da imagem. Tente novamente.')
+          return
+        }
+      } catch (err) {
+        console.error('Erro no upload:', err)
+        alert('Erro ao fazer upload: ' + err.message)
+        return
+      }
+    }
+
+    // Atualizar formData com URL da imagem
+    const dataComImagem = { ...formData, imagem: imagemUrl }
+
     let updated
     if (editingId) {
-      updated = products.map(p => p.id === editingId ? formData : p)
+      updated = products.map(p => p.id === editingId ? dataComImagem : p)
     } else {
-      updated = [...products, { ...formData, id: Math.max(...products.map(p => p.id), 0) + 1 }]
+      updated = [...products, { ...dataComImagem, id: Math.max(...products.map(p => p.id), 0) + 1 }]
     }
     setProducts(updated)
     saveToStorage(updated)
@@ -100,6 +146,46 @@ export default function CatalogPage() {
 
     setShowModal(false)
     setFormData({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
+    setImagemFile(null)
+    setImagemPreview(null)
+  }
+
+  // Upload de arquivo de imagem
+  async function uploadImageFile(file, productName) {
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
+
+      // Gerar nome único do arquivo
+      const fileName = `${productName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}.jpg`
+
+      // Fazer upload
+      const uploadRes = await fetch(
+        `${SUPABASE_URL}/storage/v1/object/produtos/${fileName}`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+          },
+          body: file,
+        }
+      )
+
+      if (!uploadRes.ok) {
+        const error = await uploadRes.text()
+        console.error('Erro no upload:', error)
+        return null
+      }
+
+      // Retornar URL pública
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/produtos/${fileName}`
+      console.log('✅ Imagem salva:', fileName)
+      return publicUrl
+    } catch (e) {
+      console.error('Erro:', e.message)
+      return null
+    }
   }
 
   const handleDelete = async (id) => {
@@ -403,7 +489,7 @@ export default function CatalogPage() {
                 { label: 'Preço com Desconto', key: 'price_discount', placeholder: 'Ex: 459.90 (sem formatação)', type: 'number' },
                 { label: 'Código/SKU', key: 'codigo', placeholder: 'Ex: NIKE-001' },
                 { label: 'Status', key: 'status', type: 'select', options: [{ value: 'active', label: 'Ativo' }, { value: 'inactive', label: 'Inativo' }] },
-                { label: 'URL da Imagem *', key: 'imagem', placeholder: 'https://...', required: true },
+                { label: 'Imagem *', key: 'imagem', type: 'image-upload', required: true },
                 { label: 'Link do Produto *', key: 'link', placeholder: 'https://primestoremen.com.br/...', required: true },
               ].map(({ label, key, placeholder, type, options, required }) => (
                 <div key={key}>
@@ -463,6 +549,20 @@ export default function CatalogPage() {
                         </div>
                       )}
                     </>
+                  ) : type === 'image-upload' ? (
+                    <>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageSelect}
+                          style={{ flex: 1, borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}
+                        />
+                      </div>
+                      {imagemPreview && (
+                        <img src={imagemPreview} alt="preview" style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150, borderRadius: 6, objectFit: 'cover' }} />
+                      )}
+                    </>
                   ) : type === 'select' ? (
                     <select
                       value={formData[key] || ''}
@@ -479,9 +579,6 @@ export default function CatalogPage() {
                       style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
                       placeholder={placeholder}
                     />
-                  )}
-                  {key === 'imagem' && formData.imagem && (
-                    <img src={formData.imagem} alt="preview" style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150, borderRadius: 6 }} onError={e => e.target.style.display = 'none'} />
                   )}
                 </div>
               ))}
