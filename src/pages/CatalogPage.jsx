@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase } from '../services/catalogSyncService'
+import { getProductsFromSupabase, upsertProducts } from '../services/catalogSyncService'
 
 export default function CatalogPage() {
   const { theme: t } = useTheme()
@@ -46,7 +46,7 @@ export default function CatalogPage() {
     setShowModal(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.nome || !formData.preco || !formData.imagem || !formData.link) {
       alert('Preencha todos os campos!')
       return
@@ -59,15 +59,45 @@ export default function CatalogPage() {
     }
     setProducts(updated)
     saveToStorage(updated)
+
+    // Sincronizar com Supabase
+    try {
+      const result = await upsertProducts(updated)
+      if (result.success) {
+        console.log('✅ Produto sincronizado com Supabase')
+        alert('Produto salvo com sucesso!')
+      } else {
+        console.error('Erro ao sincronizar:', result.error)
+        alert('Produto salvo localmente, mas erro ao sincronizar com Supabase')
+      }
+    } catch (err) {
+      console.error('Erro na sincronização:', err)
+      alert('Erro ao sincronizar com Supabase: ' + err.message)
+    }
+
     setShowModal(false)
     setFormData({ id: null, nome: '', preco: '', imagem: '', link: '', categoria: '' })
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm('Tem certeza que quer deletar?')) {
       const updated = products.filter(p => p.id !== id)
       setProducts(updated)
       saveToStorage(updated)
+
+      // Sincronizar deleção com Supabase
+      try {
+        const result = await upsertProducts(updated)
+        if (result.success) {
+          console.log('✅ Produto deletado da Supabase')
+        } else {
+          console.error('Erro ao deletar:', result.error)
+          alert('Produto deletado localmente, mas erro ao sincronizar com Supabase')
+        }
+      } catch (err) {
+        console.error('Erro na sincronização:', err)
+        alert('Erro ao sincronizar: ' + err.message)
+      }
     }
   }
 
