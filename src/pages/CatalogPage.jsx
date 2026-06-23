@@ -10,7 +10,7 @@ export default function CatalogPage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
   const [copyFeedback, setCopyFeedback] = useState(null)
-  const [formData, setFormData] = useState({ id: null, nome: '', preco: '', imagem: '', link: '', categoria: '' })
+  const [formData, setFormData] = useState({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [sortBy, setSortBy] = useState('default')
 
@@ -35,7 +35,7 @@ export default function CatalogPage() {
   }
 
   const openAddModal = () => {
-    setFormData({ id: null, nome: '', preco: '', imagem: '', link: '', categoria: '' })
+    setFormData({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
     setEditingId(null)
     setShowModal(true)
   }
@@ -76,7 +76,7 @@ export default function CatalogPage() {
     }
 
     setShowModal(false)
-    setFormData({ id: null, nome: '', preco: '', imagem: '', link: '', categoria: '' })
+    setFormData({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
   }
 
   const handleDelete = async (id) => {
@@ -373,21 +373,35 @@ export default function CatalogPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
-                { label: 'Nome', key: 'nome', placeholder: 'Ex: Tenis Nike Dunk' },
-                { label: 'Preço', key: 'preco', placeholder: 'Ex: R$ 459,00' },
-                { label: 'Categoria', key: 'categoria', placeholder: 'Ex: Tênis, Perfumes, Camisetas...' },
-                { label: 'URL da Imagem', key: 'imagem', placeholder: 'https://...' },
-                { label: 'Link do Produto', key: 'link', placeholder: 'https://primestoremen.com.br/...' },
-              ].map(({ label, key, placeholder }) => (
+                { label: 'Nome *', key: 'nome', placeholder: 'Ex: Tenis Nike Dunk', required: true },
+                { label: 'Preço *', key: 'preco', placeholder: 'Ex: R$ 459,00', required: true },
+                { label: 'Categoria *', key: 'categoria', placeholder: 'Ex: Tênis, Perfumes, Camisetas...', required: true },
+                { label: 'Preço Original', key: 'price_original', placeholder: 'Ex: 599.90 (sem formatação)', type: 'number' },
+                { label: 'Preço com Desconto', key: 'price_discount', placeholder: 'Ex: 459.90 (sem formatação)', type: 'number' },
+                { label: 'Código/SKU', key: 'codigo', placeholder: 'Ex: NIKE-001' },
+                { label: 'Status', key: 'status', type: 'select', options: [{ value: 'active', label: 'Ativo' }, { value: 'inactive', label: 'Inativo' }] },
+                { label: 'URL da Imagem *', key: 'imagem', placeholder: 'https://...', required: true },
+                { label: 'Link do Produto *', key: 'link', placeholder: 'https://primestoremen.com.br/...', required: true },
+              ].map(({ label, key, placeholder, type, options, required }) => (
                 <div key={key}>
                   <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>{label}</label>
-                  <input
-                    type="text"
-                    value={formData[key] || ''}
-                    onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
-                    placeholder={placeholder}
-                  />
+                  {type === 'select' ? (
+                    <select
+                      value={formData[key] || ''}
+                      onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                      style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                    >
+                      {options?.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type={type || 'text'}
+                      value={formData[key] || ''}
+                      onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                      style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                      placeholder={placeholder}
+                    />
+                  )}
                   {key === 'imagem' && formData.imagem && (
                     <img src={formData.imagem} alt="preview" style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150, borderRadius: 6 }} onError={e => e.target.style.display = 'none'} />
                   )}
