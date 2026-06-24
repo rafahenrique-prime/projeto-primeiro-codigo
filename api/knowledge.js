@@ -44,7 +44,7 @@ async function searchProducts(message) {
   // Busca produtos no Supabase por nome — usa * como wildcard (% precisa de encoding na URL)
   const orFilter = words.map(w => `nome.ilike.*${w}*`).join(',')
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/products?or=(${orFilter})&limit=5&select=nome,preco,imagem,link`,
+    `${SUPABASE_URL}/rest/v1/products?or=(${orFilter})&status=eq.active&limit=5&select=nome,preco,imagem,link`,
     {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -116,6 +116,7 @@ export default async function handler(req, res) {
         let line = `• ${p.nome}`
         if (p.preco) line += ` — ${p.preco}`
         if (p.link) line += `\n  Link: ${p.link}`
+        if (p.imagem) line += `\n  Foto: ${p.imagem}`
         sections.push(line)
       }
     }
