@@ -88,7 +88,11 @@ export default function CatalogPage() {
   }
 
   const openEditModal = (product) => {
-    setFormData(product)
+    setFormData({
+      ...product,
+      price_original: product.price_original || '',
+      price_discount: product.price_discount || ''
+    })
     setEditingId(product.id)
     setImagemFile(null)
     setImagemPreview(product.imagem || null)
@@ -443,8 +447,16 @@ export default function CatalogPage() {
   }
 
   const handlePriceChange = (field, value) => {
-    const formatted = formatPrice(value)
-    setFormData({ ...formData, [field]: formatted })
+    // Apenas 'preco' recebe formatação com R$
+    // 'price_original' e 'price_discount' recebem apenas números
+    if (field === 'preco') {
+      const formatted = formatPrice(value)
+      setFormData({ ...formData, [field]: formatted })
+    } else {
+      // Para price_original e price_discount: apenas números
+      const numOnly = String(value).replace(/\D/g, '')
+      setFormData({ ...formData, [field]: numOnly })
+    }
   }
 
   const filtered = products
@@ -837,8 +849,9 @@ export default function CatalogPage() {
                           setFormData({ ...formData, [key]: e.target.value })
                         }
                       }}
-                      style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box', cursor: 'text' }}
                       placeholder={placeholder}
+                      disabled={false}
                     />
                   )}
                 </div>

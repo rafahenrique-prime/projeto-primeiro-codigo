@@ -2,8 +2,19 @@
 // Gabriela chama este endpoint antes de responder ao cliente
 // O retorno é injetado como contexto na resposta dela
 
+const fs = require('fs')
+const path = require('path')
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
+
+// Função para logar requisições
+function logRequest(data) {
+  const timestamp = new Date().toISOString()
+  const logEntry = `\n[${timestamp}]\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
+  const logPath = path.join(__dirname, '../knowledge-requests.log')
+  fs.appendFileSync(logPath, logEntry, 'utf8')
+}
 
 
 async function searchKnowledge(message) {
@@ -73,8 +84,18 @@ export default async function handler(req, res) {
   try {
     const body = req.body || {}
 
-    // Log completo para descobrir quais campos o GPT Maker envia
-    console.log('[knowledge] Body recebido:', JSON.stringify(body).slice(0, 500))
+    // Log COMPLETO para descobrir como GPT Maker identifica agente
+    const logData = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: body,
+      allFields: Object.keys(body)
+    }
+
+    logRequest(logData)
+    console.log('[CONHECIMENTO] Requisição registrada em knowledge-requests.log')
 
     // GPT Maker pode enviar a mensagem em vários campos
     const message =
