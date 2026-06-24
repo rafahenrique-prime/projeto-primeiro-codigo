@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase, upsertProducts, uploadImageToStorage } from '../services/catalogSyncService'
+import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 
 export default function CatalogPage() {
@@ -31,6 +31,8 @@ export default function CatalogPage() {
     const supabaseProducts = await getProductsFromSupabase()
     setProducts(supabaseProducts)
     saveToStorage(supabaseProducts)
+    // Limpar categorias órfãs do localStorage
+    localStorage.removeItem('test_category')
   }
 
   const handleRefresh = async () => {
@@ -120,18 +122,16 @@ export default function CatalogPage() {
   }
 
   const handleConfirmExtractedData = async () => {
-    if (!urlImageFile) {
-      setExtractError('Selecione uma imagem para o produto')
-      return
-    }
-
     // Normalizar dados
     const normalized = normalizeExtractedData(extractedData)
 
     // Preencher formulário
     setFormData(normalized)
-    setImagemFile(urlImageFile)
-    setImagemPreview(urlImagePreview)
+    // Imagem é opcional - seleciona depois no modal principal se necessário
+    if (urlImageFile) {
+      setImagemFile(urlImageFile)
+      setImagemPreview(urlImagePreview)
+    }
 
     // Carregar categorias atualizadas
     const cats = Array.from(new Set(products.map(p => p.categoria).filter(Boolean))).sort()
@@ -145,7 +145,7 @@ export default function CatalogPage() {
     setUrlImagePreview(null)
     setShowModal(true)
 
-    console.log('✅ Pronto para salvar!')
+    console.log('✅ Pronto para salvar! (Imagem é opcional)')
   }
 
   const handleUrlImageSelect = (e) => {
@@ -163,11 +163,6 @@ export default function CatalogPage() {
   const handleSave = async () => {
     if (!formData.nome || !formData.preco || !formData.link) {
       alert('Preencha nome, preço e link!')
-      return
-    }
-
-    if (!imagemFile && !formData.imagem) {
-      alert('Selecione uma imagem!')
       return
     }
 
@@ -202,27 +197,52 @@ export default function CatalogPage() {
     const dataComImagem = { ...formData, imagem: imagemUrl }
 
     let updated
+    let newId = null
+    let productToSync = { ...dataComImagem }
+
     if (editingId) {
-      updated = products.map(p => p.id === editingId ? dataComImagem : p)
+      // EDIÇÃO: preserva o ID original
+      productToSync = { ...dataComImagem, id: editingId }
+      updated = products.map(p => p.id === editingId ? productToSync : p)
     } else {
-      updated = [...products, { ...dataComImagem, id: Math.max(...products.map(p => p.id), 0) + 1 }]
+      // NOVO: gera ID local temporário
+      const validIds = products.map(p => p.id).filter(id => typeof id === 'number' && !isNaN(id))
+      newId = validIds.length > 0 ? Math.max(...validIds) + 1 : 1
+      productToSync = { ...dataComImagem, id: newId }
+      updated = [...products, productToSync]
     }
     setProducts(updated)
     saveToStorage(updated)
 
-    // Sincronizar com Supabase
+    const isNewProduct = !editingId
+    const successMessage = isNewProduct ? '✅ Produto adicionado com sucesso!' : '✅ Produto atualizado com sucesso!'
+    alert(successMessage)
+
+    // Sincronizar APENAS este produto com Supabase (não toda a lista)
     try {
-      const result = await upsertProducts(updated)
-      if (result.success) {
-        console.log('✅ Produto sincronizado com Supabase')
-        alert('Produto salvo com sucesso!')
-      } else {
+      const result = await upsertProducts([productToSync])
+      console.log('[CatalogPage] Resultado upsert:', result)
+
+      // Se foi inserido novo produto, atualizar localmente com UUID do Supabase
+      if (isNewProduct && result?.success === true && result?.inserted > 0 && result?.produtos?.[0]?.supabaseId) {
+        const supabaseId = result.produtos[0].supabaseId
+        const updatedLocal = updated.map(p =>
+          p.id === newId ? { ...p, id: supabaseId } : p
+        )
+        setProducts(updatedLocal)
+        saveToStorage(updatedLocal)
+        console.log('[CatalogPage] ✅ UUID atualizado:', supabaseId)
+      }
+
+      if (result?.success === false) {
         console.error('Erro ao sincronizar:', result.error)
-        alert('Produto salvo localmente, mas erro ao sincronizar com Supabase')
+        alert('⚠️ Erro ao sincronizar com Supabase: ' + (result.error || 'Desconhecido'))
+      } else if (result?.success === true) {
+        console.log('✅ Sincronizado com Supabase:', result.inserted, 'inseridos,', result.updated, 'atualizados')
       }
     } catch (err) {
       console.error('Erro na sincronização:', err)
-      alert('Erro ao sincronizar com Supabase: ' + err.message)
+      alert('⚠️ Erro: ' + err.message)
     }
 
     setShowModal(false)
@@ -237,8 +257,14 @@ export default function CatalogPage() {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 
-      // Gerar nome único do arquivo
-      const fileName = `${productName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}.jpg`
+      // Converter arquivo para blob
+      const blob = file instanceof Blob ? file : await file.arrayBuffer().then(b => new Blob([b], { type: file.type }))
+
+      // Gerar nome único do arquivo com extensão correta
+      const ext = file.type === 'image/webp' ? 'webp' : 'jpg'
+      const fileName = `${productName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}.${ext}`
+
+      console.log(`📤 Fazendo upload: ${fileName} (${(blob.size / 1024).toFixed(2)}KB)`)
 
       // Fazer upload
       const uploadRes = await fetch(
@@ -248,14 +274,15 @@ export default function CatalogPage() {
           headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': file.type || 'image/jpeg',
           },
-          body: file,
+          body: blob,
         }
       )
 
       if (!uploadRes.ok) {
         const error = await uploadRes.text()
-        console.error('Erro no upload:', error)
+        console.error('Erro no upload:', uploadRes.status, error)
         return null
       }
 
@@ -274,19 +301,20 @@ export default function CatalogPage() {
       const updated = products.filter(p => p.id !== id)
       setProducts(updated)
       saveToStorage(updated)
+      alert('✅ Produto deletado localmente!')
 
-      // Sincronizar deleção com Supabase
+      // Sincronizar deleção APENAS deste produto com Supabase
       try {
-        const result = await upsertProducts(updated)
+        const result = await deleteProductFromSupabase(id)
         if (result.success) {
-          console.log('✅ Produto deletado da Supabase')
+          console.log('✅ Produto deletado do Supabase')
         } else {
           console.error('Erro ao deletar:', result.error)
-          alert('Produto deletado localmente, mas erro ao sincronizar com Supabase')
+          alert('⚠️ Erro ao deletar do Supabase: ' + (result.error || 'Desconhecido'))
         }
       } catch (err) {
         console.error('Erro na sincronização:', err)
-        alert('Erro ao sincronizar: ' + err.message)
+        alert('⚠️ Erro: ' + err.message)
       }
     }
   }
@@ -576,7 +604,7 @@ export default function CatalogPage() {
                 { label: 'Preço com Desconto', key: 'price_discount', placeholder: 'Ex: 459.90 (sem formatação)', type: 'number' },
                 { label: 'Código/SKU', key: 'codigo', placeholder: 'Ex: NIKE-001' },
                 { label: 'Status', key: 'status', type: 'select', options: [{ value: 'active', label: 'Ativo' }, { value: 'inactive', label: 'Inativo' }] },
-                { label: 'Imagem *', key: 'imagem', type: 'image-upload', required: true },
+                { label: 'Imagem', key: 'imagem', type: 'image-upload' },
                 { label: 'Link do Produto *', key: 'link', placeholder: 'https://primestoremen.com.br/...', required: true },
               ].map(({ label, key, placeholder, type, options, required }) => (
                 <div key={key}>

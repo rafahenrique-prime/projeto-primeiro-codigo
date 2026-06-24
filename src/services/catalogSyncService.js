@@ -82,9 +82,10 @@ export async function upsertProducts(products) {
     const resultados = []
 
     for (const p of products) {
-      // 0. Download e upload da imagem para Supabase Storage
+      // 0. Download e upload da imagem para Supabase Storage (só se for URL externa ou arquivo novo)
       let imagemUrl = p.imagem
-      if (p.imagem && p.imagem.trim() !== '') {
+      if (p.imagem && p.imagem.trim() !== '' && !p.imagem.includes('supabase.co')) {
+        // Só tenta upload se não for já uma URL do Supabase Storage
         imagemUrl = await uploadImageToStorage(p.imagem, p.nome)
       }
 
@@ -131,14 +132,16 @@ export async function upsertProducts(products) {
           base(),
           {
             method: 'POST',
-            headers,
+            headers: { ...headers, 'Prefer': 'return=representation' },
             body: JSON.stringify(dados),
           }
         )
         if (insertRes.ok) {
           inserted++
-          resultados.push({ nome: p.nome, acao: 'inserido' })
-          console.log(`[CatalogSync] ➕ Inserido: ${p.nome}`)
+          const insertedProduct = await insertRes.json()
+          const supabaseId = insertedProduct[0]?.id
+          resultados.push({ nome: p.nome, acao: 'inserido', supabaseId })
+          console.log(`[CatalogSync] ➕ Inserido: ${p.nome} (ID: ${supabaseId})`)
         }
       }
     }
@@ -225,6 +228,29 @@ export async function findProduct(name) {
     return data.length > 0 ? data[0] : null
   } catch {
     return null
+  }
+}
+
+// Deleta um produto do Supabase
+export async function deleteProductFromSupabase(id) {
+  try {
+    console.log('[CatalogSync] Deletando produto ID:', id)
+    const response = await fetch(
+      `${base()}?id=eq.${id}`,
+      {
+        method: 'DELETE',
+        headers
+      }
+    )
+    if (!response.ok) {
+      console.error('[CatalogSync] Erro ao deletar:', response.status)
+      return { success: false, error: `HTTP ${response.status}` }
+    }
+    console.log('[CatalogSync] ✅ Produto deletado com sucesso')
+    return { success: true }
+  } catch (e) {
+    console.error('[CatalogSync] Erro:', e.message)
+    return { success: false, error: e.message }
   }
 }
 
