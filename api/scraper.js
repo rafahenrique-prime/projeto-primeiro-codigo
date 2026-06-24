@@ -125,49 +125,11 @@ function extractPrices(html) {
     }
   }
 
-  // NOVO: Procurar por padrões CSS específicos (PrimeStore)
-  let original = ''
-  let discount = ''
-
-  // 1. Procurar preço RISCADO (<strike>, <s>, <del>) = ORIGINAL
-  const strikePrice = html.match(/<(?:strike|s|del)[^>]*>\s*R\$\s*([\d.,]+)/i)
-  if (strikePrice) {
-    original = `R$ ${strikePrice[1]}`
-  }
-
-  // 2. Procurar classes CSS comuns para desconto
-  const discountMatch = html.match(/(?:class|data-price)="[^"]*(?:discount|sale|final|current|promo)[^"]*"[^>]*>.*?R\$\s*([\d.,]+)/i)
-  if (discountMatch) {
-    discount = `R$ ${discountMatch[1]}`
-  }
-
-  // 3. Se não achou com padrões CSS, usar ordem padrão:
-  // - Se achou original riscado, o primeiro não-riscado é o desconto
-  // - Senão, 1º = original, 2º = desconto
-  if (!original && !discount) {
-    original = uniquePrices[0] || ''
-    discount = uniquePrices[1] || ''
-  } else if (original && !discount) {
-    // Se achou só original, o primeiro preço diferente é o desconto
-    discount = uniquePrices.find(p => p !== original) || ''
-  } else if (!original && discount) {
-    // Se achou só desconto, procura original
-    original = uniquePrices.find(p => p !== discount) || ''
-  }
-
-  // Garantir que desconto < original (lógica financeira)
-  const originalVal = parseFloat(original.replace(/\D/g, '.').replace(/\./g, '').replace(',', '.'))
-  const discountVal = parseFloat(discount.replace(/\D/g, '.').replace(/\./g, '').replace(',', '.'))
-
-  if (discountVal > originalVal && original !== '') {
-    // Se desconto > original, inverte
-    ;[original, discount] = [discount, original]
-  }
-
+  // 1º = original, 2º = desconto (mas retorna TODOS para teste)
   return {
-    original: original,
-    discount: discount,
-    allPrices: uniquePrices  // Retorna TODOS os preços para referência
+    original: uniquePrices[0],
+    discount: uniquePrices[1],
+    allPrices: uniquePrices  // Retorna TODOS os preços encontrados
   }
 }
 
