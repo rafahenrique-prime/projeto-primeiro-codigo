@@ -45,11 +45,13 @@ export default async function handler(req, res) {
 
 // Extrair dados do HTML usando regex e padrões
 function extractData(html, url) {
+  const prices = extractPrices(html)
   return {
     nome: extractName(html),
-    price_original: extractPrices(html).original || '',
-    price_discount: extractPrices(html).discount || '',
-    preco: extractPrices(html).discount || extractPrices(html).original || '',
+    price_original: prices.original || '',
+    price_discount: prices.discount || '',
+    preco: prices.discount || prices.original || '',
+    allPrices: prices.allPrices || [],  // NOVO: Retorna TODOS os preços para debug
     categoria: '', // Deixar vazio - usuário seleciona depois
     imagem: extractImage(html, url),
     link: url,
@@ -58,27 +60,40 @@ function extractData(html, url) {
 
 // Extrair nome do produto
 function extractName(html) {
+  let nome = ''
+
   // Procurar em meta tags
   const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i)
-  if (ogTitle) return ogTitle[1]
+  if (ogTitle) nome = ogTitle[1]
 
-  const twitterTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/i)
-  if (twitterTitle) return twitterTitle[1]
-
-  // Procurar em <title>
-  const title = html.match(/<title>([^<]+)<\/title>/i)
-  if (title) {
-    // Remove domínio do title
-    let text = title[1]
-    text = text.replace(/[|–-].*$/, '').trim() // Remove tudo depois de | – ou -
-    if (text.length > 10) return text
+  // Fallback: twitter:title
+  if (!nome) {
+    const twitterTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/i)
+    if (twitterTitle) nome = twitterTitle[1]
   }
 
-  // Procurar em <h1>
-  const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-  if (h1) return h1[1].trim()
+  // Fallback: Procurar em <title>
+  if (!nome) {
+    const title = html.match(/<title>([^<]+)<\/title>/i)
+    if (title) {
+      let text = title[1]
+      text = text.replace(/[|–-].*$/, '').trim()
+      if (text.length > 10) nome = text
+    }
+  }
 
-  return ''
+  // Fallback: Procurar em <h1>
+  if (!nome) {
+    const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+    if (h1) nome = h1[1].trim()
+  }
+
+  // LIMPAR LIXO: Remover "| Prime Store | PRIME STORE" e variações
+  nome = nome.replace(/\s*\|\s*Prime Store\s*\|\s*PRIME STORE\s*$/i, '')
+  nome = nome.replace(/\s*\|\s*Prime Store\s*$/i, '')
+  nome = nome.trim()
+
+  return nome
 }
 
 // Extrair preços (original e desconto)
@@ -91,24 +106,30 @@ function extractPrices(html) {
     prices.push(`R$ ${match[1]}`)
   }
 
-  // Remover duplicatas
+  // Remover duplicatas mantendo ordem
   const uniquePrices = [...new Set(prices)]
 
   if (uniquePrices.length === 0) {
-    return { original: '', discount: '' }
+    return {
+      original: '',
+      discount: '',
+      allPrices: []
+    }
   }
 
   if (uniquePrices.length === 1) {
     return {
       original: '',
       discount: uniquePrices[0],
+      allPrices: uniquePrices
     }
   }
 
-  // 1º = original, 2º = desconto
+  // 1º = original, 2º = desconto (mas retorna TODOS para teste)
   return {
     original: uniquePrices[0],
     discount: uniquePrices[1],
+    allPrices: uniquePrices  // Retorna TODOS os preços encontrados
   }
 }
 

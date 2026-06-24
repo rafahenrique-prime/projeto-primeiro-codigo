@@ -78,23 +78,36 @@ export default async function handler(req, res) {
 
 // Extrair nome do produto
 function extractName(html) {
+  let nome = ''
+
   const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i)
-  if (ogTitle) return ogTitle[1]
+  if (ogTitle) nome = ogTitle[1]
 
-  const twitterTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/i)
-  if (twitterTitle) return twitterTitle[1]
-
-  const title = html.match(/<title>([^<]+)<\/title>/i)
-  if (title) {
-    let text = title[1]
-    text = text.replace(/[|–-].*$/, '').trim()
-    if (text.length > 10) return text
+  if (!nome) {
+    const twitterTitle = html.match(/<meta\s+name="twitter:title"\s+content="([^"]+)"/i)
+    if (twitterTitle) nome = twitterTitle[1]
   }
 
-  const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-  if (h1) return h1[1].trim()
+  if (!nome) {
+    const title = html.match(/<title>([^<]+)<\/title>/i)
+    if (title) {
+      let text = title[1]
+      text = text.replace(/[|–-].*$/, '').trim()
+      if (text.length > 10) nome = text
+    }
+  }
 
-  return ''
+  if (!nome) {
+    const h1 = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+    if (h1) nome = h1[1].trim()
+  }
+
+  // LIMPAR: Remover "| Prime Store | PRIME STORE"
+  nome = nome.replace(/\s*\|\s*Prime Store\s*\|\s*PRIME STORE\s*$/i, '')
+  nome = nome.replace(/\s*\|\s*Prime Store\s*$/i, '')
+  nome = nome.trim()
+
+  return nome
 }
 
 // Extrair preços
@@ -108,16 +121,17 @@ function extractPrices(html) {
   const uniquePrices = [...new Set(prices)]
 
   if (uniquePrices.length === 0) {
-    return { original: '', discount: '' }
+    return { original: '', discount: '', allPrices: [] }
   }
 
   if (uniquePrices.length === 1) {
-    return { original: '', discount: uniquePrices[0] }
+    return { original: '', discount: uniquePrices[0], allPrices: uniquePrices }
   }
 
   return {
     original: uniquePrices[0],
     discount: uniquePrices[1],
+    allPrices: uniquePrices
   }
 }
 
