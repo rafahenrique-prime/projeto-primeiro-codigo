@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
+import SupabaseStorageCard from '../components/SupabaseStorageCard'
 
 function today() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -91,8 +92,13 @@ export default function DashboardNewPage({ conversations = [] }) {
       {/* Body */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16 }}>
 
-        {/* Left — Inbox recentes */}
-        <div style={{ background: t.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${t.border}` }}>
+        {/* Left column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Storage Card */}
+          <SupabaseStorageCard />
+
+          {/* Inbox recentes */}
+          <div style={{ background: t.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <SectionTitle t={t} primary={primary}>INBOX — RECENTES</SectionTitle>
             <span style={{ fontSize: 11, color: primary, fontWeight: 700, cursor: 'pointer' }}>Ver tudo →</span>
@@ -120,6 +126,7 @@ export default function DashboardNewPage({ conversations = [] }) {
               </div>
             ))
           }
+          </div>
         </div>
 
         {/* Right column */}
