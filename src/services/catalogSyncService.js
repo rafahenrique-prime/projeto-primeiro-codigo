@@ -1,6 +1,8 @@
 // Sincronização de catálogo Bagy → Supabase
 // UPSERT pattern: insere ou atualiza produtos por nome
 
+import { validarProdutoUnico } from './knowledgeGenerator'
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 const TABLE = 'products'
@@ -147,6 +149,14 @@ export async function upsertProducts(products) {
           await logAction('edit', p.nome, id)
         }
       } else {
+        // CAMADA 2: Validação de Duplicata - Evita inserir duplicatas
+        const validacao = await validarProdutoUnico(p.nome);
+        if (validacao.existe) {
+          console.warn(`[CatalogSync] ⏭️  Produto duplicado ignorado: "${p.nome}" já existe como "${validacao.produtoExistente}"`);
+          resultados.push({ nome: p.nome, acao: 'ignorado_duplicata', motivo: validacao.mensagem });
+          continue; // Pula para próximo produto
+        }
+
         // INSERT: produto novo
         const insertRes = await fetch(
           base(),
