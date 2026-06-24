@@ -454,6 +454,10 @@ export default function CatalogPage() {
       return matchSearch && matchCat
     })
     .sort((a, b) => {
+      if (sortBy === 'lastAdded') {
+        // Ordenar por data mais recente primeiro (últimos adicionados)
+        return new Date(b.synced_at || 0) - new Date(a.synced_at || 0)
+      }
       if (sortBy === 'az') return a.nome.localeCompare(b.nome, 'pt-BR')
       if (sortBy === 'preco') return parsePreco(a.preco) - parsePreco(b.preco)
       if (sortBy === 'preco_desc') return parsePreco(b.preco) - parsePreco(a.preco)
@@ -598,15 +602,31 @@ export default function CatalogPage() {
             </button>
           ))}
 
-          {/* Separador + Ordenação */}
+          {/* Separador + Filtros especiais */}
           <div style={{ width: 1, height: 20, background: t.border, margin: '0 4px', flexShrink: 0 }} />
+          <button
+            onClick={() => setSortBy(sortBy === 'lastAdded' ? 'default' : 'lastAdded')}
+            style={{
+              padding: '4px 10px',
+              borderRadius: 20,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: sortBy === 'lastAdded' ? 'none' : `1px solid ${t.border}`,
+              background: sortBy === 'lastAdded' ? '#667EEA' : t.bgSecondary,
+              color: sortBy === 'lastAdded' ? '#fff' : t.textMuted,
+              transition: 'all 0.15s',
+            }}
+          >
+            📊 Últimos Adicionados
+          </button>
           <select
-            value={sortBy}
+            value={sortBy === 'lastAdded' ? 'default' : sortBy}
             onChange={e => setSortBy(e.target.value)}
             style={{
               fontSize: 11,
               fontWeight: 600,
-              color: sortBy !== 'default' ? '#667EEA' : t.textMuted,
+              color: sortBy !== 'default' && sortBy !== 'lastAdded' ? '#667EEA' : t.textMuted,
               background: 'transparent',
               border: 'none',
               outline: 'none',
