@@ -278,6 +278,29 @@ export async function deleteProductFromSupabase(id, produtoNome = 'Desconhecido'
   }
 }
 
+// Recupera histórico de ações do catálogo
+export async function getCatalogHistory(limit = 100) {
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/catalog_history?order=timestamp.desc&limit=${limit}`,
+      { headers }
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return data.map(h => ({
+      id: h.id,
+      action: h.action, // 'add', 'edit', 'delete'
+      produto_nome: h.produto_nome,
+      produto_id: h.produto_id,
+      timestamp: new Date(h.timestamp),
+      created_at: h.created_at
+    }))
+  } catch (e) {
+    console.error('[CatalogSync] Erro ao buscar histórico:', e)
+    return []
+  }
+}
+
 // Sincroniza incrementalmente: 24 → 50 → 520
 export async function syncCatalogPhased(productsPerPhase = [24, 50, 520]) {
   console.log('[CatalogSync] Iniciando sincronização faseada:', productsPerPhase)

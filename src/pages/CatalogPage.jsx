@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase } from '../services/catalogSyncService'
+import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 
 export default function CatalogPage() {
@@ -34,6 +34,11 @@ export default function CatalogPage() {
   const [testExtractedData, setTestExtractedData] = useState(null)
   const [testImageFile, setTestImageFile] = useState(null)
   const [testImagePreview, setTestImagePreview] = useState(null)
+  // Histórico do catálogo
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [history, setHistory] = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [sortByFilter, setSortByFilter] = useState('default') // 'default', 'lastAdded'
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -47,6 +52,13 @@ export default function CatalogPage() {
     setIsRefreshing(true)
     await loadProducts()
     setTimeout(() => setIsRefreshing(false), 1000)
+  }
+
+  const handleOpenHistory = async () => {
+    setShowHistoryModal(true)
+    if (history.length === 0) {
+      await loadHistory()
+    }
   }
 
   useEffect(() => {
@@ -543,6 +555,13 @@ export default function CatalogPage() {
             title="Versão de teste - extrai foto automaticamente"
           >
             🧪 URL (TESTE)
+          </button>
+          <button
+            onClick={handleOpenHistory}
+            style={{ background: '#8B5CF6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            title="Ver histórico de ações"
+          >
+            📊 Histórico
           </button>
         </div>
       </div>
@@ -1077,6 +1096,49 @@ export default function CatalogPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Histórico */}
+      {showHistoryModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 600, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
+              📊 Histórico do Catálogo
+            </h3>
+
+            {loadingHistory ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: t.textMuted }}>
+                ⏳ Carregando histórico...
+              </div>
+            ) : history.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: t.textMuted }}>
+                📭 Nenhuma ação registrada ainda
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {history.map((h, idx) => (
+                  <div key={idx} style={{ padding: '10px 12px', background: t.bgSecondary, borderRadius: 6, fontSize: 11, borderLeft: `3px solid ${h.action === 'add' ? '#0EC331' : h.action === 'delete' ? '#DC2626' : '#3B82F6'}` }}>
+                    <div style={{ fontWeight: 600, color: t.text, marginBottom: 4 }}>
+                      {h.action === 'add' ? '➕ Adicionado' : h.action === 'delete' ? '🗑️ Deletado' : '✏️ Editado'}: {h.produto_nome}
+                    </div>
+                    <div style={{ color: t.textMuted }}>
+                      {h.timestamp.toLocaleString('pt-BR')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✓ Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}
