@@ -26,6 +26,14 @@ export default function CatalogPage() {
   const [extractedData, setExtractedData] = useState(null)
   const [urlImageFile, setUrlImageFile] = useState(null)
   const [urlImagePreview, setUrlImagePreview] = useState(null)
+  // Modal de TESTE (novo)
+  const [showUrlTestModal, setShowUrlTestModal] = useState(false)
+  const [testUrlInput, setTestUrlInput] = useState('')
+  const [testExtracting, setTestExtracting] = useState(false)
+  const [testExtractError, setTestExtractError] = useState('')
+  const [testExtractedData, setTestExtractedData] = useState(null)
+  const [testImageFile, setTestImageFile] = useState(null)
+  const [testImagePreview, setTestImagePreview] = useState(null)
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -158,6 +166,88 @@ export default function CatalogPage() {
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  // NOVO: Funções para MODAL DE TESTE
+  const handleExtractFromUrlTest = async () => {
+    if (!testUrlInput.trim()) {
+      setTestExtractError('Colar uma URL válida')
+      return
+    }
+
+    setTestExtracting(true)
+    setTestExtractError('')
+
+    try {
+      const extracted = await extractProductData(testUrlInput)
+
+      if (!extracted || !extracted.nome) {
+        setTestExtractError('❌ Não foi possível extrair dados.')
+        setTestExtracting(false)
+        return
+      }
+
+      console.log('✅ [TESTE] Dados extraídos:', extracted)
+
+      // Se tiver imagem, fazer download
+      if (extracted.imagem) {
+        try {
+          const imgResponse = await fetch(extracted.imagem)
+          const blob = await imgResponse.blob()
+          const file = new File([blob], 'produto-imagem.jpg', { type: blob.type })
+          setTestImageFile(file)
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            setTestImagePreview(event.target?.result)
+          }
+          reader.readAsDataURL(blob)
+          console.log('✅ [TESTE] Imagem baixada')
+        } catch (err) {
+          console.warn('[TESTE] Erro ao baixar imagem:', err.message)
+        }
+      }
+
+      setTestExtractedData(extracted)
+      setTestExtractError('')
+
+    } catch (err) {
+      console.error('[TESTE] Erro:', err)
+      setTestExtractError('❌ Erro ao extrair: ' + err.message)
+    } finally {
+      setTestExtracting(false)
+    }
+  }
+
+  const handleConfirmTestData = async () => {
+    if (!testExtractedData) return
+
+    const normalized = {
+      nome: testExtractedData.nome || '',
+      preco: testExtractedData.preco || '',
+      price_original: testExtractedData.price_original || '',
+      price_discount: testExtractedData.price_discount || '',
+      imagem: testExtractedData.imagem || '',
+      categoria: '',
+      link: testExtractedData.link || testUrlInput,
+      status: 'active',
+      codigo: ''
+    }
+
+    setFormData(normalized)
+    if (testImageFile) {
+      setImagemFile(testImageFile)
+      setImagemPreview(testImagePreview)
+    }
+
+    // Fechar modal de teste e abrir formulário
+    setShowUrlTestModal(false)
+    setTestUrlInput('')
+    setTestExtractedData(null)
+    setTestImageFile(null)
+    setTestImagePreview(null)
+    setShowModal(true)
+
+    console.log('✅ [TESTE] Pronto para salvar com foto!')
   }
 
   const handleSave = async () => {
@@ -428,6 +518,13 @@ export default function CatalogPage() {
             style={{ background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             📎 Adicionar via URL
+          </button>
+          <button
+            onClick={() => setShowUrlTestModal(true)}
+            style={{ background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            title="Versão de teste - extrai foto automaticamente"
+          >
+            🧪 URL (TESTE)
           </button>
         </div>
       </div>
@@ -829,6 +926,126 @@ export default function CatalogPage() {
                     onClick={handleConfirmExtractedData}
                     disabled={!urlImageFile}
                     style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: urlImageFile ? 'pointer' : 'not-allowed', opacity: urlImageFile ? 1 : 0.5 }}
+                  >
+                    ✅ Confirmar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de TESTE: Adicionar via URL c/ Foto Automática */}
+      {showUrlTestModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
+              🧪 Adicionar via URL (TESTE) - Foto Automática
+            </h3>
+
+            {!testExtractedData ? (
+              // ESTADO 1: Extração
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
+                    Cole a URL do produto
+                  </label>
+                  <input
+                    type="text"
+                    value={testUrlInput}
+                    onChange={e => setTestUrlInput(e.target.value)}
+                    placeholder="https://www.primestoremen.com.br/tenis-new-balance-9060"
+                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                {testExtractError && (
+                  <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
+                    {testExtractError}
+                  </div>
+                )}
+
+                <div style={{ background: '#FEF3C7', borderRadius: 6, padding: '10px', fontSize: 11, color: '#92400E' }}>
+                  ⚠️ <strong>TESTE:</strong> Extrai nome, preço e <strong>FOTO automaticamente</strong>. Categoria você seleciona depois.
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setShowUrlTestModal(false)
+                      setTestUrlInput('')
+                      setTestExtractError('')
+                      setTestExtractedData(null)
+                      setTestImageFile(null)
+                      setTestImagePreview(null)
+                    }}
+                    style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleExtractFromUrlTest}
+                    disabled={testExtracting}
+                    style={{ flex: 1, background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: testExtracting ? 'wait' : 'pointer', opacity: testExtracting ? 0.7 : 1 }}
+                  >
+                    {testExtracting ? '⏳ Extraindo...' : '🔍 Extrair + Foto'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // ESTADO 2: Preview + Confirmar
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '10px', fontSize: 11, color: '#059669' }}>
+                  ✅ Dados + Foto extraídos! Confirme para prosseguir.
+                </div>
+
+                {/* Preview dos dados extraídos */}
+                <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Nome:</strong> {testExtractedData.nome}
+                  </div>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Preço:</strong> {testExtractedData.preco}
+                    {testExtractedData.price_original && ` (de ${testExtractedData.price_original})`}
+                  </div>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Link:</strong> <a href={testExtractedData.link} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', fontSize: 10 }}>Ver página</a>
+                  </div>
+                </div>
+
+                {/* Preview da Imagem */}
+                {testImagePreview && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
+                      📸 Foto Extraída
+                    </label>
+                    <img src={testImagePreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 6, objectFit: 'cover' }} />
+                  </div>
+                )}
+
+                {testExtractError && (
+                  <div style={{ background: '#FEE2E2', color: '#DC2626', borderRadius: 6, padding: '8px 12px', fontSize: 11 }}>
+                    {testExtractError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      setTestExtractedData(null)
+                      setTestUrlInput('')
+                      setTestImageFile(null)
+                      setTestImagePreview(null)
+                      setTestExtractError('')
+                    }}
+                    style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={handleConfirmTestData}
+                    style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                   >
                     ✅ Confirmar
                   </button>
