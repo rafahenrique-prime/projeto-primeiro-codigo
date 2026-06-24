@@ -602,31 +602,15 @@ export default function CatalogPage() {
             </button>
           ))}
 
-          {/* Separador + Filtros especiais */}
+          {/* Separador + Ordenação */}
           <div style={{ width: 1, height: 20, background: t.border, margin: '0 4px', flexShrink: 0 }} />
-          <button
-            onClick={() => setSortBy(sortBy === 'lastAdded' ? 'default' : 'lastAdded')}
-            style={{
-              padding: '4px 10px',
-              borderRadius: 20,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-              border: sortBy === 'lastAdded' ? 'none' : `1px solid ${t.border}`,
-              background: sortBy === 'lastAdded' ? '#667EEA' : t.bgSecondary,
-              color: sortBy === 'lastAdded' ? '#fff' : t.textMuted,
-              transition: 'all 0.15s',
-            }}
-          >
-            📊 Últimos Adicionados
-          </button>
           <select
-            value={sortBy === 'lastAdded' ? 'default' : sortBy}
+            value={sortBy}
             onChange={e => setSortBy(e.target.value)}
             style={{
               fontSize: 11,
               fontWeight: 600,
-              color: sortBy !== 'default' && sortBy !== 'lastAdded' ? '#667EEA' : t.textMuted,
+              color: sortBy !== 'default' ? '#667EEA' : t.textMuted,
               background: 'transparent',
               border: 'none',
               outline: 'none',
@@ -635,6 +619,7 @@ export default function CatalogPage() {
             }}
           >
             <option value="default">Ordenar</option>
+            <option value="lastAdded">📊 Últimos Adicionados</option>
             <option value="az">A → Z</option>
             <option value="preco">Menor preço</option>
             <option value="preco_desc">Maior preço</option>
