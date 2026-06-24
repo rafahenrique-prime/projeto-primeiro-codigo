@@ -417,6 +417,22 @@ export default function CatalogPage() {
     return parseFloat(str) || 0
   }
 
+  // Formatar preço enquanto digita: "449" → "R$ 449,00"
+  const formatPrice = (value) => {
+    if (!value) return ''
+    // Remove tudo que não é número
+    const numStr = String(value).replace(/\D/g, '')
+    if (!numStr) return ''
+    // Converte para número e formata
+    const num = parseInt(numStr, 10) / 100
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
+  }
+
+  const handlePriceChange = (field, value) => {
+    const formatted = formatPrice(value)
+    setFormData({ ...formData, [field]: formatted })
+  }
+
   const filtered = products
     .filter(p => {
       const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase())
@@ -787,7 +803,14 @@ export default function CatalogPage() {
                     <input
                       type={type || 'text'}
                       value={formData[key] || ''}
-                      onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                      onChange={e => {
+                        // Formatar preço automaticamente para campos de preço
+                        if (['preco', 'price_original', 'price_discount'].includes(key)) {
+                          handlePriceChange(key, e.target.value)
+                        } else {
+                          setFormData({ ...formData, [key]: e.target.value })
+                        }
+                      }}
                       style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
                       placeholder={placeholder}
                     />
