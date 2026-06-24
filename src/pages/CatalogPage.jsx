@@ -3,6 +3,7 @@ import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 import { regenerateKnowledgeUnico } from '../services/knowledgeGenerator'
+import SupabaseStorageCard from '../components/SupabaseStorageCard'
 
 export default function CatalogPage({ onNavigate }) {
   const { theme: t } = useTheme()
@@ -737,6 +738,13 @@ export default function CatalogPage({ onNavigate }) {
           {syncMessage}
         </div>
       )}
+
+      {/* Storage Card */}
+      <div style={{ padding: '8px 20px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
+        <div style={{ maxWidth: 200 }}>
+          <SupabaseStorageCard />
+        </div>
+      </div>
 
       {/* Search + Filtro categoria */}
       <div style={{ padding: '10px 20px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
