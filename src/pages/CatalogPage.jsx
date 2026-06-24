@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
+import { regenerateKnowledgeUnico } from '../services/knowledgeGenerator'
 
 export default function CatalogPage() {
   const { theme: t } = useTheme()
@@ -39,6 +40,8 @@ export default function CatalogPage() {
   const [history, setHistory] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [sortByFilter, setSortByFilter] = useState('default') // 'default', 'lastAdded'
+  const [loadingSync, setLoadingSync] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -402,6 +405,26 @@ export default function CatalogPage() {
     }
   }
 
+  const handleSyncKnowledge = async () => {
+    setLoadingSync(true)
+    setSyncMessage('🔄 Sincronizando Knowledge Base...')
+
+    try {
+      const result = await regenerateKnowledgeUnico()
+
+      if (result.ok) {
+        setSyncMessage(`✅ Knowledge sincronizado: ${result.totalProdutos} produtos (${result.duplicatasRemovidas} duplicatas removidas)`)
+        setTimeout(() => setSyncMessage(''), 5000)
+      } else {
+        setSyncMessage(`❌ Erro: ${result.erro}`)
+      }
+    } catch (err) {
+      setSyncMessage(`❌ Erro ao sincronizar: ${err.message}`)
+    } finally {
+      setLoadingSync(false)
+    }
+  }
+
   const handleDelete = async (id) => {
     if (confirm('Tem certeza que quer deletar?')) {
       const produtoADeletar = products.find(p => p.id === id)
@@ -579,8 +602,43 @@ export default function CatalogPage() {
           >
             📊 Histórico
           </button>
+          <button
+            onClick={handleSyncKnowledge}
+            disabled={loadingSync}
+            style={{
+              padding: '10px 16px',
+              background: loadingSync ? '#ccc' : t.primary || '#667EEA',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: loadingSync ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              opacity: loadingSync ? 0.7 : 1,
+              transition: 'all 0.2s'
+            }}
+            title="Sincronizar Knowledge Base"
+          >
+            {loadingSync ? '⏳ Sincronizando...' : '🔄 Sincronizar Knowledge'}
+          </button>
         </div>
       </div>
+
+      {/* Mensagem de feedback do sync */}
+      {syncMessage && (
+        <div style={{
+          marginTop: 0,
+          padding: '12px 20px',
+          background: syncMessage.includes('✅') ? '#e8f5e9' : '#ffebee',
+          color: syncMessage.includes('✅') ? '#2e7d32' : '#c62828',
+          borderBottom: `1px solid ${syncMessage.includes('✅') ? '#c8e6c9' : '#ffcdd2'}`,
+          fontSize: 13,
+          fontWeight: 500,
+          borderRadius: 0
+        }}>
+          {syncMessage}
+        </div>
+      )}
 
       {/* Search + Filtro categoria */}
       <div style={{ padding: '10px 20px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
