@@ -1,5 +1,5 @@
 // Gerador de Knowledge Base com proteção contra duplicatas
-// Sincroniza Supabase → MD estruturado → Trainings
+// Sincroniza Supabase → MD estruturado → Tabela knowledge
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
@@ -121,39 +121,36 @@ export async function regenerateKnowledgeUnico() {
     const mdContent = formatarMD(unique)
     console.log(`[KnowledgeGenerator] 📝 Markdown gerado (${mdContent.length} caracteres)`)
 
-    // 4. Salvar em Supabase trainings (upsert)
-    const trainingData = {
-      nome: 'knowledge_gabriela_supabase_completo',
-      conteudo: mdContent,
-      categoria: 'PRODUTOS',
-      tipo: 'MARKDOWN',
-      produtos_total: unique.length,
-      duplicatas_removidas: totalRemovidas,
-      ultima_sincronizacao: new Date().toISOString(),
+    // 4. Salvar em Supabase knowledge (upsert)
+    const knowledgeData = {
+      title: 'knowledge_gabriela_supabase_completo',
+      content: mdContent,
+      category: 'PRODUTOS',
+      source: 'MARKDOWN',
     }
 
     const upsertRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/trainings?nome=eq.knowledge_gabriela_supabase_completo`,
+      `${SUPABASE_URL}/rest/v1/knowledge?title=eq.knowledge_gabriela_supabase_completo`,
       {
         method: 'PATCH',
         headers: sbHeaders,
-        body: JSON.stringify(trainingData),
+        body: JSON.stringify(knowledgeData),
       }
     )
 
     if (!upsertRes.ok) {
       // Se update não achou, tenta insert
       const insertRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/trainings`,
+        `${SUPABASE_URL}/rest/v1/knowledge`,
         {
           method: 'POST',
           headers: sbHeaders,
-          body: JSON.stringify(trainingData),
+          body: JSON.stringify(knowledgeData),
         }
       )
 
       if (!insertRes.ok) {
-        throw new Error(`Trainings error: ${insertRes.status}`)
+        throw new Error(`Knowledge error: ${insertRes.status}`)
       }
     }
 
