@@ -388,6 +388,8 @@ export default function CatalogPage() {
 
   const handleDelete = async (id) => {
     if (confirm('Tem certeza que quer deletar?')) {
+      const produtoADeletar = products.find(p => p.id === id)
+      const produtoNome = produtoADeletar?.nome || 'Desconhecido'
       const updated = products.filter(p => p.id !== id)
       setProducts(updated)
       saveToStorage(updated)
@@ -395,7 +397,7 @@ export default function CatalogPage() {
 
       // Sincronizar deleção APENAS deste produto com Supabase
       try {
-        const result = await deleteProductFromSupabase(id)
+        const result = await deleteProductFromSupabase(id, produtoNome)
         if (result.success) {
           console.log('✅ Produto deletado do Supabase')
         } else {

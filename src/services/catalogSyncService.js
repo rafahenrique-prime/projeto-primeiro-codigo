@@ -16,6 +16,24 @@ function base() {
   return `${SUPABASE_URL}/rest/v1/${TABLE}`
 }
 
+// Logar ação no histórico do catálogo
+async function logAction(action, produto_nome, produto_id = null) {
+  try {
+    await fetch('/api/log-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action, // 'add', 'edit', 'delete'
+        produto_nome,
+        produto_id
+      })
+    })
+  } catch (e) {
+    console.warn('[CatalogSync] Erro ao logar:', e.message)
+    // Não quebra a operação principal
+  }
+}
+
 // Download de imagem e upload para Supabase Storage
 export async function uploadImageToStorage(imageUrl, productName) {
   if (!imageUrl || imageUrl.trim() === '') {
@@ -125,6 +143,8 @@ export async function upsertProducts(products) {
           updated++
           resultados.push({ nome: p.nome, acao: 'atualizado' })
           console.log(`[CatalogSync] ✏️ Atualizado: ${p.nome}`)
+          // LOG: Registrar edição
+          await logAction('edit', p.nome, id)
         }
       } else {
         // INSERT: produto novo
@@ -142,6 +162,8 @@ export async function upsertProducts(products) {
           const supabaseId = insertedProduct[0]?.id
           resultados.push({ nome: p.nome, acao: 'inserido', supabaseId })
           console.log(`[CatalogSync] ➕ Inserido: ${p.nome} (ID: ${supabaseId})`)
+          // LOG: Registrar adição
+          await logAction('add', p.nome, supabaseId)
         }
       }
     }
@@ -232,7 +254,7 @@ export async function findProduct(name) {
 }
 
 // Deleta um produto do Supabase
-export async function deleteProductFromSupabase(id) {
+export async function deleteProductFromSupabase(id, produtoNome = 'Desconhecido') {
   try {
     console.log('[CatalogSync] Deletando produto ID:', id)
     const response = await fetch(
@@ -247,6 +269,8 @@ export async function deleteProductFromSupabase(id) {
       return { success: false, error: `HTTP ${response.status}` }
     }
     console.log('[CatalogSync] ✅ Produto deletado com sucesso')
+    // LOG: Registrar deleção
+    await logAction('delete', produtoNome, id)
     return { success: true }
   } catch (e) {
     console.error('[CatalogSync] Erro:', e.message)
