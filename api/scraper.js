@@ -50,7 +50,8 @@ function extractData(html, url) {
     price_original: extractPrices(html).original || '',
     price_discount: extractPrices(html).discount || '',
     preco: extractPrices(html).discount || extractPrices(html).original || '',
-    categoria: extractCategory(html, url),
+    categoria: '', // Deixar vazio - usuário seleciona depois
+    imagem: extractImage(html, url),
     link: url,
   }
 }
@@ -131,4 +132,45 @@ function extractCategory(html, url) {
   if (categoryMeta) return categoryMeta[1]
 
   return ''
+}
+
+// Extrair imagem do produto
+function extractImage(html, url) {
+  // 1. Procurar og:image (mais confiável)
+  const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i)
+  if (ogImage && ogImage[1]) return ogImage[1]
+
+  // 2. Procurar twitter:image
+  const twitterImage = html.match(/<meta\s+name="twitter:image"\s+content="([^"]+)"/i)
+  if (twitterImage && twitterImage[1]) return twitterImage[1]
+
+  // 3. Procurar primeira img src com tamanho razoável
+  const imgMatches = html.match(/<img[^>]+src="([^"]+)"[^>]*>/gi)
+  if (imgMatches) {
+    for (const img of imgMatches) {
+      const src = img.match(/src="([^"]+)"/i)
+      if (src && src[1]) {
+        const imgUrl = src[1]
+        // Ignorar imagens muito pequenas (ícones, logos)
+        if (!imgUrl.includes('icon') && !imgUrl.includes('logo') && !imgUrl.includes('placeholder')) {
+          return resolveUrl(imgUrl, url)
+        }
+      }
+    }
+  }
+
+  return ''
+}
+
+// Resolver URL relativa para absoluta
+function resolveUrl(relativeUrl, baseUrl) {
+  if (!relativeUrl) return ''
+  if (relativeUrl.startsWith('http')) return relativeUrl
+  if (relativeUrl.startsWith('//')) return 'https:' + relativeUrl
+
+  try {
+    return new URL(relativeUrl, baseUrl).toString()
+  } catch {
+    return relativeUrl
+  }
 }
