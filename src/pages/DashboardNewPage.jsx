@@ -60,6 +60,11 @@ export default function DashboardNewPage({ conversations = [] }) {
         <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>{today()} · PRIME STORE Uberlândia</div>
       </div>
 
+      {/* Storage Card */}
+      <div style={{ marginBottom: 16, maxWidth: 280 }}>
+        <SupabaseStorageCard />
+      </div>
+
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         <KpiCard
