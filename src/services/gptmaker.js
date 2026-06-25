@@ -175,6 +175,7 @@ export async function listContacts(page = 1, pageSize = 20) {
 async function dashboardRequest(path) {
   const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'omit',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
   const data = await res.json()
