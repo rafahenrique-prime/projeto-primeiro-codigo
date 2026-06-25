@@ -348,6 +348,19 @@ export default function CatalogPage() {
         alert('⚠️ Erro ao sincronizar com Supabase: ' + (result.error || 'Desconhecido'))
       } else if (result?.success === true) {
         console.log('✅ Sincronizado com Supabase:', result.inserted, 'inseridos,', result.updated, 'atualizados')
+
+        // PASSO 5.1: Regenerar knowledge automaticamente após salvar
+        console.log('[CatalogPage] 🔄 Iniciando sincronização automática da knowledge...')
+        try {
+          const knowledgeResult = await regenerateKnowledgeUnico()
+          if (knowledgeResult.ok) {
+            console.log('[CatalogPage] ✅ Knowledge sincronizado automaticamente:', knowledgeResult.mensagem)
+          } else {
+            console.warn('[CatalogPage] ⚠️ Erro ao sincronizar knowledge:', knowledgeResult.erro)
+          }
+        } catch (err) {
+          console.error('[CatalogPage] 🔴 Erro na sincronização automática:', err.message)
+        }
       }
     } catch (err) {
       console.error('Erro na sincronização:', err)
