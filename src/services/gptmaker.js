@@ -1,45 +1,45 @@
-const TOKEN = import.meta.env.VITE_GPTMAKER_TOKEN
 const WS = import.meta.env.VITE_GPTMAKER_WORKSPACE
 const BASE = 'https://api.gptmaker.ai'
 
-// USER_TOKEN: token de sessão do usuário (expira ~7 dias). Diferente do API token.
+let _apiToken = import.meta.env.VITE_GPTMAKER_TOKEN
 let _userToken = import.meta.env.VITE_GPTMAKER_USER_TOKEN
+let _refreshing = false
 
-function isTokenExpired(token) {
+async function refreshToken() {
+  if (_refreshing) return
+  _refreshing = true
+  const email = import.meta.env.VITE_GPTMAKER_EMAIL
+  const password = import.meta.env.VITE_GPTMAKER_PASSWORD
+  if (!email || !password) { _refreshing = false; return }
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.exp && Date.now() / 1000 > payload.exp - 300
-  } catch { return true }
+    const endpoints = ['/auth/login', '/v2/user/login', '/api/auth/login']
+    for (const ep of endpoints) {
+      const res = await fetch(`${BASE}${ep}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: email, password }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.token) { _apiToken = data.token; _userToken = data.token; break }
+      }
+    }
+  } catch {}
+  _refreshing = false
 }
 
 async function getUserTokenAuto() {
-  if (!_userToken || isTokenExpired(_userToken)) {
-    const email = import.meta.env.VITE_GPTMAKER_EMAIL
-    const password = import.meta.env.VITE_GPTMAKER_PASSWORD
-    if (email && password) {
-      try {
-        const res = await fetch(`${BASE}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login: email, password }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data.token) _userToken = data.token
-        }
-      } catch {}
-    }
-  }
-  return _userToken
+  if (!_userToken) await refreshToken()
+  return _userToken || _apiToken
 }
 
-const headers = () => ({
-  'Authorization': `Bearer ${TOKEN}`,
-  'Content-Type': 'application/json',
-})
-
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, { ...options, headers: headers() })
+  const token = _apiToken
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    credentials: 'omit',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+  })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Erro na API GPT Maker')
   return data
@@ -140,6 +140,7 @@ export async function assumeChat(chatId) {
   const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/start-attendance`, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao assumir chat')
@@ -150,6 +151,7 @@ export async function releaseChat(chatId) {
   const token = await getUserTokenAuto()
   const res = await fetch(`${BASE}/chat-context/conversation/${chatId}/return-to-agent`, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
   })
   if (!res.ok && res.status !== 204) throw new Error('Erro ao voltar pro agente')

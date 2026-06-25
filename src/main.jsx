@@ -10,9 +10,7 @@ syncFromSupabase()        // carrega follow-up do Supabase para localStorage
 syncCatalogFromSupabase() // carrega catálogo do Supabase para localStorage
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
-  </React.StrictMode>,
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>,
 )
