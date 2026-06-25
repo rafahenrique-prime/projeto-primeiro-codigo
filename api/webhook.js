@@ -216,16 +216,50 @@ export default async function handler(req, res) {
   try {
     console.log('[Webhook] 📨 Requisição recebida:', req.body)
 
-    // Validar request
-    const validacao = validarRequest(req.body)
-    if (!validacao.valido) {
+    // Extrair pergunta de várias formas possíveis
+    let pergunta = req.body?.pergunta ||
+                   req.body?.message ||
+                   req.body?.text ||
+                   req.body?.input ||
+                   req.body?.msg ||
+                   req.body?.content ||
+                   req.body?.query ||
+                   req.body?.body ||
+                   req.body?.prompt ||
+                   null
+
+    // Se ainda não tem, tenta pegar do contexto
+    if (!pergunta && req.body?.conversas) {
+      const ultima = req.body.conversas[req.body.conversas.length - 1]
+      pergunta = ultima?.texto || ultima?.message || null
+    }
+
+    // Se ainda não tem, tenta pegar de qualquer chave que parece ser texto longo
+    if (!pergunta) {
+      for (const [chave, valor] of Object.entries(req.body || {})) {
+        if (typeof valor === 'string' && valor.length > 3 && valor.length < 500) {
+          pergunta = valor
+          break
+        }
+      }
+    }
+
+    // Validar que temos uma pergunta
+    if (!pergunta || pergunta.trim().length < 3) {
       return res.status(400).json({
         sucesso: false,
-        erro: validacao.erro
+        erro: 'Não consegui encontrar a pergunta no payload',
+        debug: {
+          body_recebido: req.body,
+          chaves_disponiveis: Object.keys(req.body || {})
+        }
       })
     }
 
-    const { pergunta, cliente_id, tipo_busca } = req.body
+    console.log(`[Webhook] 🔍 Pergunta extraída: "${pergunta}"`)
+
+    const cliente_id = req.body?.cliente_id || 'desconhecido'
+    const tipo_busca = req.body?.tipo_busca || 'auto'
 
     console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
 
