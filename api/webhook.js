@@ -2,7 +2,151 @@
 // Processa perguntas do cliente e retorna dados do Supabase
 // Integrado com GPT Maker
 
-import { searchKnowledge, buscarProdutoEspecifico } from '../src/services/searchKnowledge.js'
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
+
+const sbHeaders = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+}
+
+// Normaliza texto para busca
+function normalizarBusca(texto) {
+  if (!texto) return ''
+  return texto
+    .toLowerCase()
+    .trim()
+    .replace(/[àáâãäå]/g, 'a')
+    .replace(/[èéêë]/g, 'e')
+    .replace(/[ìíîï]/g, 'i')
+    .replace(/[òóôõö]/g, 'o')
+    .replace(/[ùúûü]/g, 'u')
+    .replace(/[ç]/g, 'c')
+    .replace(/\s+/g, ' ')
+}
+
+// Calcula score de similaridade
+function calcularSimilaridade(texto1, texto2) {
+  const t1 = normalizarBusca(texto1)
+  const t2 = normalizarBusca(texto2)
+
+  if (t1 === t2) return 100
+  if (t2.includes(t1) || t1.includes(t2)) return 80
+
+  const palavras1 = t1.split(' ')
+  const palavras2 = t2.split(' ')
+  const comuns = palavras1.filter(p => palavras2.includes(p)).length
+
+  if (comuns > 0) {
+    return Math.round((comuns / Math.max(palavras1.length, palavras2.length)) * 70)
+  }
+
+  return 0
+}
+
+// Busca produtos no Supabase
+async function buscarProdutos(pergunta) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=id,nome,categoria,preco,imagem,link,codigo`,
+      { headers: sbHeaders }
+    )
+
+    if (!res.ok) return []
+
+    const produtos = await res.json()
+
+    const produtosComScore = produtos
+      .map(p => ({
+        ...p,
+        score: calcularSimilaridade(pergunta, p.nome)
+      }))
+      .filter(p => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+
+    return produtosComScore
+  } catch (err) {
+    console.error('[Webhook] Erro ao buscar produtos:', err.message)
+    return []
+  }
+}
+
+// Busca knowledge no Supabase
+async function buscarKnowledge(pergunta) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/knowledge?title=eq.knowledge_gabriela_supabase_completo&select=title,content,category`,
+      { headers: sbHeaders }
+    )
+
+    if (!res.ok) return null
+
+    const knowledge = await res.json()
+    if (!knowledge || knowledge.length === 0) return null
+
+    return knowledge[0]
+  } catch (err) {
+    console.error('[Webhook] Erro ao buscar knowledge:', err.message)
+    return null
+  }
+}
+
+// Função de busca integrada
+async function searchKnowledge(pergunta) {
+  try {
+    if (!pergunta || pergunta.trim().length < 3) {
+      return {
+        ok: false,
+        erro: 'Pergunta muito curta',
+        dados: null
+      }
+    }
+
+    console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
+
+    const [produtos, knowledgeBase] = await Promise.all([
+      buscarProdutos(pergunta),
+      buscarKnowledge(pergunta)
+    ])
+
+    console.log(`[Webhook] ✅ Encontrados ${produtos.length} produtos`)
+
+    const resposta = {
+      ok: true,
+      pergunta,
+      timestamp: new Date().toISOString(),
+      dados: {
+        produtos: produtos.map(p => ({
+          id: p.id,
+          nome: p.nome,
+          categoria: p.categoria,
+          preco: p.preco,
+          imagem: p.imagem,
+          link: p.link,
+          codigo: p.codigo,
+          score: p.score
+        })),
+        knowledge: knowledgeBase ? {
+          titulo: knowledgeBase.title,
+          categoria: knowledgeBase.category,
+          conteudo: knowledgeBase.content
+        } : null,
+        totalResultados: produtos.length
+      }
+    }
+
+    return resposta
+  } catch (err) {
+    console.error('[Webhook] 🔴 ERRO em searchKnowledge:', err.message)
+    return {
+      ok: false,
+      erro: err.message,
+      dados: null
+    }
+  }
+}
 
 // Validar request
 function validarRequest(body) {
