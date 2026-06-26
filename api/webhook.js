@@ -245,8 +245,9 @@ export default async function handler(req, res) {
   try {
     console.log('[Webhook] 📨 Requisição recebida:', req.body)
 
-    // Extrair pergunta de várias formas possíveis
-    let pergunta = req.body?.pergunta ||
+    // Extrair pergunta - GPT Maker envia em "prompt" (campo obrigatório)
+    let pergunta = req.body?.prompt ||
+                   req.body?.pergunta ||
                    req.body?.message ||
                    req.body?.text ||
                    req.body?.input ||
@@ -254,7 +255,6 @@ export default async function handler(req, res) {
                    req.body?.content ||
                    req.body?.query ||
                    req.body?.body ||
-                   req.body?.prompt ||
                    null
 
     // Se ainda não tem, tenta pegar do contexto
