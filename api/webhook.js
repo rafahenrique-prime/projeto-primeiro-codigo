@@ -11,6 +11,21 @@ const sbHeaders = {
   'Content-Type': 'application/json',
 }
 
+// Stop words do português para remover da busca
+const STOP_WORDS = new Set([
+  'voce', 'você', 'tem', 'temos', 'tenho', 'quero', 'queria', 'queria',
+  'preciso', 'precisa', 'busco', 'busca', 'procuro', 'procura', 'vende',
+  'vender', 'vende', 'vendido', 'disponivel', 'disponível', 'ter',
+  'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
+  'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas',
+  'por', 'para', 'com', 'se', 'me', 'te', 'ele', 'ela', 'eles', 'elas',
+  'que', 'e', 'ou', 'mas', 'pra', 'pro', 'ai', 'ai', 'ja', 'já',
+  'nao', 'não', 'sim', 'tipo', 'algum', 'alguma', 'vc', 'vcs', 'esse',
+  'essa', 'esses', 'essas', 'isso', 'aqui', 'la', 'lá', 'ate', 'até',
+  'mais', 'menos', 'muito', 'muita', 'pouco', 'pouca', 'seu', 'sua',
+  'meu', 'minha', 'nos', 'agora', 'hoje', 'quando', 'como', 'qual', 'quais'
+])
+
 // Normaliza texto para busca
 function normalizarBusca(texto) {
   if (!texto) return ''
@@ -23,7 +38,16 @@ function normalizarBusca(texto) {
     .replace(/[òóôõö]/g, 'o')
     .replace(/[ùúûü]/g, 'u')
     .replace(/[ç]/g, 'c')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Extrai keywords relevantes removendo stop words
+function extrairKeywords(texto) {
+  const normalizado = normalizarBusca(texto)
+  const palavras = normalizado.split(' ').filter(p => p.length > 1 && !STOP_WORDS.has(p))
+  return palavras.length > 0 ? palavras.join(' ') : normalizado
 }
 
 // Calcula score de similaridade
@@ -57,10 +81,14 @@ async function buscarProdutos(pergunta) {
 
     const produtos = await res.json()
 
+    // Extrai keywords da pergunta para melhorar a busca
+    const keywords = extrairKeywords(pergunta)
+    console.log(`[Webhook] 🔑 Keywords extraídas: "${keywords}" (de: "${pergunta}")`)
+
     const produtosComScore = produtos
       .map(p => ({
         ...p,
-        score: calcularSimilaridade(pergunta, p.nome)
+        score: calcularSimilaridade(keywords, p.nome)
       }))
       .filter(p => p.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -166,7 +194,8 @@ function formatarRespostaGPT(dadosBusca) {
     contexto: {
       pergunta: dadosBusca.pergunta,
       produtos_encontrados: produtos?.length || 0,
-      tem_conhecimento: !!knowledge
+      tem_produtos: (produtos?.length || 0) > 0,
+      tem_base_conhecimento: !!knowledge
     },
     dados: {
       produtos: [],
