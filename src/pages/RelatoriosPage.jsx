@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getDashboardData } from '../services/gptmaker'
+import { getDashboardData, checkUserTokenStatus } from '../services/gptmaker'
 
 const GREEN = '#0EC331'
 const PURPLE = '#8B5CF6'
@@ -105,8 +105,21 @@ export default function RelatoriosPage() {
             </div>
           </div>
         ) : error ? (
-          <div style={{ background: dark ? '#2a1520' : '#fff5f5', border: '1px solid #fca5a5', borderRadius: 12, padding: 20, color: '#E8192C', fontSize: 13 }}>
-            Erro ao carregar: {error}
+          <div style={{ background: dark ? '#2a1520' : '#fff5f5', border: '1px solid #fca5a5', borderRadius: 12, padding: 20, fontSize: 13 }}>
+            <div style={{ color: '#E8192C', fontWeight: 700, marginBottom: 8 }}>Erro ao carregar relatórios</div>
+            <div style={{ color: dark ? '#fca5a5' : '#991b1b', marginBottom: 12 }}>{error}</div>
+            {(error.includes('Token') || error.includes('token')) && (
+              <div style={{ color: dark ? '#ccc' : '#555', fontSize: 12, lineHeight: 1.6 }}>
+                <strong>Como resolver:</strong><br/>
+                1. Abra <a href="https://app.gptmaker.ai/browse/developers" target="_blank" rel="noreferrer" style={{ color: '#E8192C' }}>app.gptmaker.ai → Chave de API</a><br/>
+                2. No Console do Chrome (F12), digite:<br/>
+                <code style={{ background: dark ? '#333' : '#f0f0f0', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
+                  JSON.parse(document.getElementById('__NEXT_DATA__').textContent).props.pageProps.user.token
+                </code><br/>
+                3. Copie o resultado e atualize <code>VITE_GPTMAKER_USER_TOKEN</code> no .env.local<br/>
+                4. Reinicie o servidor (Ctrl+C → npm run dev)
+              </div>
+            )}
           </div>
         ) : tab === 'geral' ? (
           <GeralTab data={data} t={t} dark={dark} />

@@ -3,34 +3,29 @@ const BASE = 'https://api.gptmaker.ai'
 
 let _apiToken = import.meta.env.VITE_GPTMAKER_TOKEN
 let _userToken = import.meta.env.VITE_GPTMAKER_USER_TOKEN
-let _refreshing = false
 
-async function refreshToken() {
-  if (_refreshing) return
-  _refreshing = true
-  const email = import.meta.env.VITE_GPTMAKER_EMAIL
-  const password = import.meta.env.VITE_GPTMAKER_PASSWORD
-  if (!email || !password) { _refreshing = false; return }
+function isTokenExpired(token) {
+  if (!token) return true
   try {
-    const endpoints = ['/auth/login', '/v2/user/login', '/api/auth/login']
-    for (const ep of endpoints) {
-      const res = await fetch(`${BASE}${ep}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: email, password }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.token) { _apiToken = data.token; _userToken = data.token; break }
-      }
-    }
-  } catch {}
-  _refreshing = false
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (!payload.exp) return false
+    return Date.now() > payload.exp * 1000
+  } catch { return false }
+}
+
+function getTokenExpiryInfo(token) {
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (!payload.exp) return null
+    const hoursLeft = (payload.exp * 1000 - Date.now()) / 3600000
+    return { expired: hoursLeft <= 0, hoursLeft: Math.round(hoursLeft * 10) / 10 }
+  } catch { return null }
 }
 
 async function getUserTokenAuto() {
-  if (!_userToken) await refreshToken()
-  return _userToken || _apiToken
+  if (_userToken && !isTokenExpired(_userToken)) return _userToken
+  return _apiToken
 }
 
 async function request(path, options = {}) {
@@ -174,10 +169,17 @@ export async function listContacts(page = 1, pageSize = 20) {
 // Dashboard — usa USER_TOKEN (endpoints /dashboard/ exigem sessão de usuário)
 async function dashboardRequest(path) {
   const token = await getUserTokenAuto()
+  const expiry = getTokenExpiryInfo(token)
+  if (expiry?.expired) {
+    throw new Error('Token expirado. Abra app.gptmaker.ai, vá em Chave de API, e atualize o VITE_GPTMAKER_USER_TOKEN no .env.local')
+  }
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'omit',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   })
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Token inválido. Abra app.gptmaker.ai, copie o token de sessão e atualize VITE_GPTMAKER_USER_TOKEN no .env.local')
+  }
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || data.message || 'Erro na API Dashboard')
   return data
@@ -212,6 +214,14 @@ export async function getDashboardData(startDate, endDate) {
     dashboardRequest(dashboardUrl('credits/consumption/by-channel', startDate, endDate)),
   ])
   return { resolved, credits, contacts, appointments, creditsByPeriod, creditsByModel, assistantsPerf, contactsPerf, byHour, byChannel }
+}
+
+export function checkUserTokenStatus() {
+  const expiry = getTokenExpiryInfo(_userToken)
+  if (!_userToken) return { valid: false, message: 'Token de usuário não configurado' }
+  if (expiry?.expired) return { valid: false, message: `Token expirado. Atualize o VITE_GPTMAKER_USER_TOKEN` }
+  if (expiry && expiry.hoursLeft < 2) return { valid: true, message: `Token expira em ${expiry.hoursLeft}h` }
+  return { valid: true, message: null }
 }
 
 // Treinamentos
