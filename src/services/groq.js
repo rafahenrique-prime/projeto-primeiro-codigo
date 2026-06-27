@@ -1,4 +1,5 @@
 import { getProfile } from './customerProfileService'
+import { getTimeInStage } from './stageHistory'
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -55,7 +56,7 @@ export async function groqRequest(body) {
   throw new Error('Todos os modelos atingiram o limite. Tente novamente em alguns minutos.')
 }
 
-function detectFunnelStage(msgs = [], lastMsg = '') {
+export function detectFunnelStage(msgs = [], lastMsg = '') {
   const text = (msgs.map(m => m.text || m.content || '').join(' ') + ' ' + lastMsg).toLowerCase()
 
   // Calcula score para CADA stage (não early return)
@@ -102,6 +103,7 @@ function buildContext(conversations = []) {
         nao_lidas: c.unread || 0,
         ultima_msg_cliente: truncate(lastClientMsg?.text || lastClientMsg?.content || c.lastMsg || ''),
         estagio_funil: stage,
+        tempo_no_estagio: getTimeInStage(c.id)?.label || null,
         historico: msgs.slice(-3).map(m => ({
           de: m.role === 'user' ? 'cliente' : 'agente',
           texto: truncate(m.text || m.content, 100),

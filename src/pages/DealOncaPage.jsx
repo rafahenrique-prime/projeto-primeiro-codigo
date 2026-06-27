@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding } from '../services/groq'
+import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage } from '../services/groq'
+import { recordStage, cleanupOldEntries } from '../services/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog } from '../services/followUpService'
 import { listChannels, getChatMessages, listAgents, listTrainings, createTraining } from '../services/gptmaker'
@@ -316,6 +317,15 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       }
       setRichConversations(results)
       setLoadingHistory(false)
+
+      // Grava transições de estágio para rastreamento de tempo
+      cleanupOldEntries()
+      results.forEach(c => {
+        if (c._loadedOk) {
+          const stage = detectFunnelStage(c.fullMessages || [], c.lastMsg || '')
+          recordStage(c.id, stage)
+        }
+      })
 
       // Alerta de leads quentes sem resposta
       const leadsQuentes = results.filter(c => (c.nao_lidas || 0) > 0 && c.mode !== 'copilot')
