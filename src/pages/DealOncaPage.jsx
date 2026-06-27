@@ -1205,6 +1205,27 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
 
         {!saved ? (
           <>
+            {/* Produto Info */}
+            <div style={{ background: '#F5F3FF', border: '2px solid #DDD6FE', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#82829B', marginBottom: 8 }}>📦 PRODUTO</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: '#82829B', marginBottom: 2 }}>Nome</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0A0A0A' }}>{current.nome}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#82829B', marginBottom: 2 }}>Categoria</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0A0A0A' }}>{current.categoria || 'Sem categoria'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#82829B', marginBottom: 2 }}>Link atual</div>
+                  <a href={current.link} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#7C3AED', textDecoration: 'none', wordBreak: 'break-all' }}>
+                    {current.link?.slice(0, 80)}...
+                  </a>
+                </div>
+              </div>
+            </div>
+
             {/* URL Input */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', display: 'block', marginBottom: 6 }}>📎 URL da Imagem</label>
