@@ -69,8 +69,26 @@ function calcularSimilaridade(texto1, texto2) {
   return 0
 }
 
-// Busca produtos no Supabase
-async function buscarProdutos(pergunta) {
+// Warm-up: acorda o Supabase (evita cold start)
+async function warmupSupabase() {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+
+    await fetch(`${SUPABASE_URL}/rest/v1/products?select=id&limit=1`, {
+      headers: sbHeaders,
+      signal: controller.signal
+    })
+
+    clearTimeout(timeout)
+    console.log('[Webhook] ⚡ Warm-up Supabase: OK')
+  } catch (err) {
+    console.log('[Webhook] ⚡ Warm-up Supabase: skipped')
+  }
+}
+
+// Busca produtos no Supabase com retry automático (até 5 tentativas)
+async function buscarProdutos(pergunta, tentativa = 1) {
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/products?select=id,nome,categoria,preco,imagem,link,codigo`,
@@ -93,6 +111,17 @@ async function buscarProdutos(pergunta) {
       .filter(p => p.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
+
+    // Retry automático: até 5 tentativas com delay de 2s cada (total 10s)
+    if (produtosComScore.length === 0 && tentativa < 5) {
+      console.log(`[Webhook] ⏳ Tentativa ${tentativa}/5: 0 produtos. Aguardando 2s...`)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      return buscarProdutos(pergunta, tentativa + 1)
+    }
+
+    if (tentativa > 1 && produtosComScore.length > 0) {
+      console.log(`[Webhook] 🔄 Tentativa ${tentativa}/5 - SUCESSO! Encontrados ${produtosComScore.length} produtos`)
+    }
 
     return produtosComScore
   } catch (err) {
@@ -244,6 +273,9 @@ export default async function handler(req, res) {
 
   try {
     console.log('[Webhook] 📨 Requisição recebida:', req.body)
+
+    // Warm-up: acorda o Supabase em background (não bloqueia a resposta)
+    warmupSupabase().catch(() => {})
 
     // Extrair pergunta - GPT Maker envia em "prompt" (campo obrigatório)
     let pergunta = req.body?.prompt ||
