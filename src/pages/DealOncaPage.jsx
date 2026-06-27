@@ -7,7 +7,7 @@ import { listChannels, getChatMessages, listAgents, listTrainings, createTrainin
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
-import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription } from '../services/imageReviewService'
+import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete } from '../services/imageReviewService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -928,14 +928,23 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         <ImageReviewPanel
           products={productsWithoutImages}
           onClose={() => setShowImageReview(false)}
-          onUpload={async (productId, file, description) => {
+          onUpload={async (productId, imageUrl, formData) => {
             try {
-              await uploadProductImage(productId, file)
-              await updateProductDescription(productId, description)
-              setMessages(prev => [...prev, {
-                id: Date.now() + 1, from: 'codex',
-                text: `✅ Foto adicionada com sucesso para "${productsWithoutImages[0]?.nome || 'produto'}"!`
-              }])
+              const imageBlob = await validateImageUrl(imageUrl)
+              const reader = new FileReader()
+              reader.onload = async () => {
+                const base64 = reader.result
+                await updateProductComplete(productId, {
+                  imagem: imageUrl,
+                  nome: formData.nome,
+                  marca: formData.marca || null,
+                  cor: formData.cor || null,
+                  categoria: formData.categoria || null,
+                  preco: `R$ ${formData.preco || '0'}`,
+                  caracteristicas: formData.caracteristicas || null,
+                })
+              }
+              reader.readAsDataURL(imageBlob)
             } catch (err) {
               throw err
             }
@@ -1105,106 +1114,163 @@ function TypingIndicator() {
 // ─── Image Review Panel ───────────────────────────────────────────────────────
 function ImageReviewPanel({ products, onClose, onUpload }) {
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [uploadedFile, setUploadedFile] = useState(null)
+  const [imageUrl, setImageUrl] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
-  const [aiDescription, setAiDescription] = useState(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const fileInputRef = useRef(null)
+  const [validating, setValidating] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState({})
 
   const current = products[currentIdx]
   if (!current) return null
 
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setUploadedFile(file)
-    const reader = new FileReader()
-    reader.onload = () => setImagePreview(reader.result)
-    reader.readAsDataURL(file)
-    setAiDescription(null)
+  // Inicializa form com dados do produto
+  const initializeForm = () => {
+    setFormData({
+      nome: current.nome || '',
+      marca: '',
+      cor: '',
+      categoria: current.categoria || '',
+      preco: current.preco?.replace('R$ ', '') || '',
+      caracteristicas: '',
+    })
   }
 
-  const handleAnalyze = async () => {
-    if (!uploadedFile) return
-    setAnalyzing(true)
+  const handleValidateUrl = async () => {
+    if (!imageUrl.trim()) return
+    setValidating(true)
     try {
-      const result = await identifyProductFromPhoto(uploadedFile, msg => console.log(msg))
-      setAiDescription(result.text)
+      const blob = await validateImageUrl(imageUrl)
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImagePreview(reader.result)
+        if (!formData.nome) initializeForm()
+      }
+      reader.readAsDataURL(blob)
     } catch (err) {
-      setAiDescription(`❌ Erro na análise: ${err.message}`)
+      alert('❌ ' + err.message)
     } finally {
-      setAnalyzing(false)
+      setValidating(false)
     }
   }
 
-  const handleConfirm = async () => {
-    if (!uploadedFile || !aiDescription) return
+  const handleSave = async () => {
+    if (!imagePreview || !formData.nome) {
+      alert('Preencha todos os campos obrigatórios')
+      return
+    }
+    setSaving(true)
     try {
-      await onUpload(current.id, uploadedFile, aiDescription)
-      setUploadedFile(null)
-      setImagePreview(null)
-      setAiDescription(null)
-      setCurrentIdx(prev => prev + 1)
+      await onUpload(current.id, imageUrl, formData)
+      setSaved(true)
     } catch (err) {
       alert('Erro ao salvar: ' + err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleSkip = () => {
-    setUploadedFile(null)
-    setImagePreview(null)
-    setAiDescription(null)
-    setCurrentIdx(prev => prev + 1)
+  const handleNext = () => {
+    if (currentIdx < products.length - 1) {
+      setCurrentIdx(prev => prev + 1)
+      setImageUrl('')
+      setImagePreview(null)
+      setSaved(false)
+      setFormData({})
+    } else {
+      onClose()
+    }
+  }
+
+  const handlePrev = () => {
+    if (currentIdx > 0) {
+      setCurrentIdx(prev => prev - 1)
+      setImageUrl('')
+      setImagePreview(null)
+      setSaved(false)
+      setFormData({})
+    }
   }
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#0A0A0A', marginBottom: 4 }}>🖼️ Revisor de Fotos</div>
-        <div style={{ fontSize: 12, color: '#82829B', marginBottom: 16 }}>Produto {currentIdx + 1} de {products.length}</div>
-
-        <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: 12, marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', marginBottom: 4 }}>{current.nome}</div>
-          <div style={{ fontSize: 11, color: '#82829B' }}>Link: <a href={current.link} target="_blank" rel="noreferrer" style={{ color: '#7C3AED', textDecoration: 'none' }}>{current.link?.slice(0, 50)}...</a></div>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 700, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#0A0A0A' }}>🖼️ Revisor de Fotos</div>
+            <div style={{ fontSize: 12, color: '#82829B' }}>Produto {currentIdx + 1} de {products.length}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
 
-        {!imagePreview ? (
-          <div style={{ marginBottom: 16 }}>
-            <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', background: '#F5F3FF', border: '2px dashed #DDD6FE', borderRadius: 10, padding: 24, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 20 }}>📤</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED' }}>Clique para enviar foto</span>
-              <span style={{ fontSize: 11, color: '#82829B' }}>ou arraste aqui</span>
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
-          </div>
-        ) : (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#82829B', marginBottom: 4 }}>✅ Preview da Foto</div>
-              <img src={imagePreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 250, borderRadius: 8, border: '1px solid #DDD6FE' }} />
+        {!saved ? (
+          <>
+            {/* URL Input */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', display: 'block', marginBottom: 6 }}>📎 URL da Imagem</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={imageUrl}
+                  onChange={e => setImageUrl(e.target.value)}
+                  placeholder="https://cdn.bagy.com/produto.jpg"
+                  style={{ flex: 1, border: '1px solid #E5E5E5', borderRadius: 8, padding: 10, fontSize: 12, outline: 'none' }}
+                />
+                <button onClick={handleValidateUrl} disabled={validating || !imageUrl.trim()} style={{ background: validating ? '#DDD6FE' : '#7C3AED', border: 'none', borderRadius: 8, padding: '10px 16px', color: '#fff', fontWeight: 600, cursor: validating ? 'not-allowed' : 'pointer', fontSize: 12 }}>
+                  {validating ? '⏳' : '✓'} Validar
+                </button>
+              </div>
             </div>
 
-            {aiDescription ? (
-              <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', marginBottom: 6 }}>🤖 Análise da IA</div>
-                <div style={{ fontSize: 12, color: '#78350F', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{aiDescription}</div>
+            {/* Image Preview */}
+            {imagePreview && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#82829B', marginBottom: 8 }}>✅ Preview</div>
+                <img src={imagePreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 250, borderRadius: 8, border: '1px solid #DDD6FE' }} />
               </div>
-            ) : (
-              <button onClick={handleAnalyze} disabled={analyzing} style={{ width: '100%', background: analyzing ? '#DDD6FE' : '#7C3AED', border: 'none', borderRadius: 8, padding: 10, color: '#fff', fontSize: 12, fontWeight: 600, cursor: analyzing ? 'not-allowed' : 'pointer', marginBottom: 12 }}>
-                {analyzing ? '⏳ Analisando...' : '🔍 Analisar com IA'}
+            )}
+
+            {/* Form */}
+            {imagePreview && (
+              <div style={{ marginBottom: 16, background: '#F9FAFB', border: '1px solid #E5E5E5', borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', marginBottom: 12 }}>📋 Dados do Produto</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <input type="text" placeholder="Nome" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                  <input type="text" placeholder="Marca" value={formData.marca || ''} onChange={e => setFormData({...formData, marca: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                  <input type="text" placeholder="Cor" value={formData.cor || ''} onChange={e => setFormData({...formData, cor: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                  <input type="text" placeholder="Categoria" value={formData.categoria || ''} onChange={e => setFormData({...formData, categoria: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                  <input type="text" placeholder="Preço (sem R$)" value={formData.preco || ''} onChange={e => setFormData({...formData, preco: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                  <input type="text" placeholder="Características" value={formData.caracteristicas || ''} onChange={e => setFormData({...formData, caracteristicas: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            {imagePreview && (
+              <button onClick={handleSave} disabled={saving} style={{ width: '100%', background: saving ? '#DDD6FE' : '#0EC331', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 12, marginBottom: 8 }}>
+                {saving ? '⏳ Salvando...' : '✅ Confirmar e Salvar'}
               </button>
             )}
+          </>
+        ) : (
+          /* Success Message */
+          <div style={{ background: '#ECFDF5', border: '2px solid #0EC331', borderRadius: 8, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#0EC331', marginBottom: 4 }}>Produto adicionado com sucesso!</div>
+            <div style={{ fontSize: 11, color: '#059669' }}>
+              {current.nome} · Imagem validada · Dados salvos
+            </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
-          <button onClick={() => { setUploadedFile(null); setImagePreview(null); setAiDescription(null); }} style={{ flex: 1, background: '#F3F4F6', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#6B7280', cursor: 'pointer' }}>Limpar</button>
-          <button onClick={handleSkip} style={{ flex: 1, background: '#FEE2E2', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#DC2626', cursor: 'pointer' }}>Pular</button>
-          <button onClick={handleConfirm} disabled={!uploadedFile || !aiDescription || analyzing} style={{ flex: 1, background: (!uploadedFile || !aiDescription || analyzing) ? '#DDD6FE' : '#0EC331', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#fff', cursor: (!uploadedFile || !aiDescription || analyzing) ? 'not-allowed' : 'pointer' }}>✅ Confirmar</button>
+        {/* Navigation */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+          <button onClick={handlePrev} disabled={currentIdx === 0} style={{ flex: 1, background: currentIdx === 0 ? '#F3F4F6' : '#fff', border: '1px solid #E5E5E5', borderRadius: 8, padding: 10, fontWeight: 600, color: currentIdx === 0 ? '#D1D5DB' : '#6B7280', cursor: currentIdx === 0 ? 'not-allowed' : 'pointer', fontSize: 12 }}>← Anterior</button>
+          <div style={{ padding: '10px 12px', fontSize: 12, color: '#82829B', fontWeight: 600 }}>{currentIdx + 1} / {products.length}</div>
+          <button onClick={handleNext} style={{ flex: 1, background: '#7C3AED', border: 'none', borderRadius: 8, padding: 10, color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>
+            {currentIdx === products.length - 1 ? 'Fechar' : 'Próximo'} →
+          </button>
         </div>
-
-        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
       </div>
     </div>
   )

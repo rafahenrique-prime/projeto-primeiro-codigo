@@ -121,3 +121,40 @@ export async function markAsReviewedFailed(productId, reason) {
     throw err
   }
 }
+
+// Valida e faz download de imagem via URL (reutiliza lógica do catalog)
+export async function validateImageUrl(url) {
+  if (!url || !url.trim()) return null
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 5000
+    })
+    if (!res.ok) throw new Error('URL inválida ou inacessível')
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) throw new Error('Arquivo não é uma imagem')
+    return blob
+  } catch (err) {
+    throw new Error(`Erro ao validar imagem: ${err.message}`)
+  }
+}
+
+// Atualiza produto com todos os dados
+export async function updateProductComplete(productId, data) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`,
+      {
+        method: 'PATCH',
+        headers: sbHeaders,
+        body: JSON.stringify(data),
+      }
+    )
+
+    if (!res.ok) throw new Error('Erro ao atualizar produto')
+    return { success: true }
+  } catch (err) {
+    console.error('[ImageReview] Erro:', err)
+    throw err
+  }
+}
