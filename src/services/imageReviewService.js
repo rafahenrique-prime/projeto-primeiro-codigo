@@ -163,14 +163,12 @@ export async function updateProductComplete(productId, data) {
 export async function getUniqueFieldValues(field) {
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=${field}`,
-      {
-        headers: { ...sbHeaders, 'Range': '0-9999' }
-      }
+      `${SUPABASE_URL}/rest/v1/products?select=${field}&order=${field}.asc`,
+      { headers: sbHeaders }
     )
-    if (!res.ok) throw new Error(`Status ${res.status}: Erro ao carregar valores`)
+    if (!res.ok) throw new Error('Erro ao carregar valores')
     const data = await res.json()
-    const values = [...new Set(data.map(p => p[field]).filter(Boolean))].sort()
+    const values = [...new Set(data.map(p => p[field]).filter(Boolean))]
     return values
   } catch (err) {
     console.error(`[ImageReview] Erro ao carregar ${field}:`, err)
