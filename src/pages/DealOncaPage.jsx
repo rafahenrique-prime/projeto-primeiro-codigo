@@ -85,6 +85,8 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     { id: 'openrouter::mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',           provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
     { id: 'openrouter::nousresearch/hermes-3-llama-3.1-8b:free',   label: 'Hermes 3 8B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
     { id: 'openrouter::deepseek/deepseek-chat:free',                label: 'DeepSeek Chat',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Alternativa gratuita — raciocínio forte' },
+    { id: 'openrouter::deepseek/deepseek-r1:free',                  label: 'DeepSeek V4 R1',       provider: 'openrouter', badge: 'OpenRouter', desc: '🔥 DeepSeek V4 — reasoning muito forte' },
+    { id: 'openrouter::qwen/qwen-plus',                             label: 'Qwen 3.5 Plus',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Alibaba — português excelente' },
     { id: 'openrouter::google/gemma-3-27b-it:free',                 label: 'Gemma 3 27B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Google Gemma — grátis e rápido' },
   ]
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('codex_model') || 'groq::llama-3.3-70b-versatile')
