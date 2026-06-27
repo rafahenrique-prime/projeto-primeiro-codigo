@@ -61,10 +61,10 @@ export function detectFunnelStage(msgs = [], lastMsg = '') {
 
   // Calcula score para CADA stage (não early return)
   const stages = {
-    QUENTE_FECHAR: (/manda o link|como fa[cç]o o pedido|quero comprar|vou levar|fecha|finalizar|confirma/.test(text) ? 1 : 0),
-    DECISAO_OBJECAO: (/aceita pix|quanto fica o frete|tem parcel|desconto|[cç]upom|promo[cç]|mais barato|caro/.test(text) ? 1 : 0),
-    CONSIDERACAO: (/tem tamanho|tem em estoque|tem na cor|disponivel|chega quando|prazo/.test(text) ? 1 : 0),
-    CURIOSIDADE: (/quanto custa|qual o pre[cç]o|valor|quanto [eé]|me mostra|tem o modelo/.test(text) ? 1 : 0),
+    QUENTE_FECHAR: (/manda o link|me passa o link|me manda o link|como fa[cç]o o pedido|como (fa[cç]o |eu )?compro|quero comprar|vou levar|vou querer|vou ficar com|quero (esse|esse a[ií]|levar|pedir|ficar)|fecha(r)?( comigo| negócio)?|finalizar|confirma|pode mandar|manda pra mim|como (eu )?pago|como (eu )?finalizo|onde compro|bora fechar|tô dentro|t[oó] dentro|aceita cart[aã]o|aceita d[eé]bito|aceita transfer|como adquiro|faz o pedido/.test(text) ? 1 : 0),
+    DECISAO_OBJECAO: (/aceita pix|quanto fica o frete|tem parcel|desconto|[cç]upom|promo[cç]|mais barato|caro|vi mais barato|consegue (baixar|diminuir|melhorar)|faz um desconto|tem desconto|[aà] vista|no cart[aã]o|no d[eé]bito|boleto|transfer[eê]ncia|frete gr[aá]tis|entrega gr[aá]tis|sem frete|isenta o frete/.test(text) ? 1 : 0),
+    CONSIDERACAO: (/tem tamanho|tem (o )?n[uú]mero|tem em estoque|tem na cor|tem (foto|fotos)|me manda (foto|fotos)|disponiv|chega quando|prazo|qual o (material|caimento|tamanho)|[eé] original|[eé] leg[ií]timo|[eé] import|vale a pena|[eé] bom|como fica|tem (PP|GG|XG|XL|grade)|tem garantia|entrega em quanto/.test(text) ? 1 : 0),
+    CURIOSIDADE: (/quanto custa|qual o pre[cç]o|valor|quanto [eé]|quanto (t[aá]|fica)|o pre[cç]o|me mostra|tem o modelo|voc[eê]s (t[eê]m|vendem|trabalha)|trabalha com|tem (esse|esse modelo|esse t[eê]nis)|existe (esse|esse modelo)/.test(text) ? 1 : 0),
   }
 
   // Se encontrou MÚLTIPLOS stages, prioriza por importância
@@ -702,7 +702,7 @@ ${JSON.stringify(priority)}${dataAviso}
 ${buildTrainingsContext(trainings)}${smartCtx}`
 
   const msgs = [
-    ...history.slice(-4).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),
+    ...history.slice(-8).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),
     { role: 'user', content: userMessage },
   ]
 
