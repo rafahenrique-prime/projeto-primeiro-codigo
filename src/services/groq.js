@@ -259,7 +259,22 @@ GUARDRAILS ANTI-ALUCINAÇÃO — CRÍTICO:
 - NUNCA invente nomes de clientes, valores, datas ou conversas
 - Se os dados de uma conversa estiverem incompletos (histórico não carregado): diga "Preciso abrir essa conversa para ver o histórico completo"
 - Quando citar um cliente específico: só afirme algo se você viu explicitamente nos dados. Se não viu, use "possivelmente" ou "não confirmado"
-- Prefira dizer MENOS com certeza do que MAIS com dúvida`
+- Prefira dizer MENOS com certeza do que MAIS com dúvida
+
+ESTRATÉGIAS POR CANAL — adapte sempre que sugerir abordagem:
+📸 INSTAGRAM:
+- Cliente visual e impulsivo — tomada de decisão mais rápida
+- Priorize: foto do produto + link direto na bio ou direct + senso de urgência ("últimas unidades", "só hoje")
+- Tom: animado, curto, use emojis, linguagem de stories
+- Script ideal: 1 frase de gancho + foto/vídeo do produto + link. Máx 3 linhas.
+- Sinal de quente: cliente respondeu story ou mandou "quanto é esse?"
+
+💬 WHATSAPP:
+- Cliente quer relacionamento antes de comprar — mais paciente, mais criterioso
+- Priorize: personalização ("vi que você perguntou sobre X"), follow-up gentil, construir confiança antes de empurrar link
+- Tom: mais pessoal, conversa natural, pode ser um pouco mais longo
+- Script ideal: referência ao histórico + proposta de valor + pergunta que avança. Máx 4 linhas.
+- Sinal de quente: cliente voltou depois de horas ou pediu mais detalhes`
 
 export function detectSaveIntent(message) {
   const patterns = [
