@@ -930,21 +930,16 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           onClose={() => setShowImageReview(false)}
           onUpload={async (productId, imageUrl, formData) => {
             try {
-              const imageBlob = await validateImageUrl(imageUrl)
-              const reader = new FileReader()
-              reader.onload = async () => {
-                const base64 = reader.result
-                await updateProductComplete(productId, {
-                  imagem: imageUrl,
-                  nome: formData.nome,
-                  marca: formData.marca || null,
-                  cor: formData.cor || null,
-                  categoria: formData.categoria || null,
-                  preco: `R$ ${formData.preco || '0'}`,
-                  caracteristicas: formData.caracteristicas || null,
-                })
-              }
-              reader.readAsDataURL(imageBlob)
+              await updateProductComplete(productId, {
+                imagem: imageUrl,
+                nome: formData.nome || undefined,
+                categoria: formData.categoria || undefined,
+                preco: formData.preco || undefined,
+                price_original: formData.price_original || undefined,
+                price_discount: formData.price_discount || undefined,
+                codigo: formData.codigo || undefined,
+                status: formData.status || undefined,
+              })
             } catch (err) {
               throw err
             }
