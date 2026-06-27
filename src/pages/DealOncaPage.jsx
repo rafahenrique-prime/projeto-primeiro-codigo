@@ -7,7 +7,7 @@ import { listChannels, getChatMessages, listAgents, listTrainings, createTrainin
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
-import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete } from '../services/imageReviewService'
+import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/imageReviewService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -1120,17 +1120,44 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({})
+  const [categorias, setCategorias] = useState([])
+  const [statusOpcoes, setStatusOpcoes] = useState([])
+  const [loadingOptions, setLoadingOptions] = useState(true)
 
   const current = products[currentIdx]
   if (!current) return null
 
+  // Carrega categorias e status da Supabase
+  useEffect(() => {
+    const loadOptions = async () => {
+      setLoadingOptions(true)
+      try {
+        const [cats, stats] = await Promise.all([
+          getUniqueFieldValues('categoria'),
+          getUniqueFieldValues('status'),
+        ])
+        setCategorias(cats)
+        setStatusOpcoes(stats)
+      } catch (err) {
+        console.error('Erro ao carregar opções:', err)
+      } finally {
+        setLoadingOptions(false)
+      }
+    }
+    loadOptions()
+  }, [])
+
   // Inicializa form com dados do produto
   const initializeForm = () => {
-    if (!formData.categoria) {
+    if (!formData.nome) {
       setFormData({
-        categoria: current.categoria || '',
+        nome: current.nome || '',
         preco: current.preco || '',
-        caracteristicas: '',
+        price_original: current.price_original || '',
+        price_discount: current.price_discount || '',
+        categoria: current.categoria || '',
+        status: current.status || 'Ativo',
+        codigo: current.codigo || '',
       })
     }
   }
@@ -1254,10 +1281,41 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
             {imagePreview && (
               <div style={{ marginBottom: 16, background: '#F9FAFB', border: '1px solid #E5E5E5', borderRadius: 8, padding: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', marginBottom: 12 }}>📋 Dados do Produto</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <input type="text" placeholder="Categoria" value={formData.categoria || ''} onChange={e => setFormData({...formData, categoria: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Preço" value={formData.preco || ''} onChange={e => setFormData({...formData, preco: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Características" value={formData.caracteristicas || ''} onChange={e => setFormData({...formData, caracteristicas: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none', gridColumn: 'span 2' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Nome</label>
+                    <input type="text" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Preço</label>
+                    <input type="text" value={formData.preco || ''} onChange={e => setFormData({...formData, preco: e.target.value})} style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Preço Original</label>
+                    <input type="text" value={formData.price_original || ''} onChange={e => setFormData({...formData, price_original: e.target.value})} placeholder="Ex: 599.90" style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Preço com Desconto</label>
+                    <input type="text" value={formData.price_discount || ''} onChange={e => setFormData({...formData, price_discount: e.target.value})} placeholder="Ex: 459.90" style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Categoria</label>
+                    <select value={formData.categoria || ''} onChange={e => setFormData({...formData, categoria: e.target.value})} disabled={loadingOptions} style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', background: '#fff', cursor: loadingOptions ? 'not-allowed' : 'pointer', boxSizing: 'border-box' }}>
+                      <option value="">Selecionar...</option>
+                      {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Status</label>
+                    <select value={formData.status || 'Ativo'} onChange={e => setFormData({...formData, status: e.target.value})} disabled={loadingOptions} style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', background: '#fff', cursor: loadingOptions ? 'not-allowed' : 'pointer', boxSizing: 'border-box' }}>
+                      <option value="">Selecionar...</option>
+                      {statusOpcoes.map(st => <option key={st} value={st}>{st}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, color: '#82829B', display: 'block', marginBottom: 3 }}>Código/SKU</label>
+                    <input type="text" value={formData.codigo || ''} onChange={e => setFormData({...formData, codigo: e.target.value})} placeholder="Ex: NIKE-001" style={{ width: '100%', border: '1px solid #E5E5E5', borderRadius: 6, padding: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
                 </div>
               </div>
             )}
