@@ -676,15 +676,15 @@ export async function askCODEX(userMessage, history = [], conversations = [], tr
 
   const semResposta = ctx.filter(c => c.nao_lidas > 0)
   const quentes = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
+  // Ordenar por urgência: quentes com mais tempo esperando primeiro, depois não lidas, depois o resto
+  const byWaitTime = (a, b) => (getTimeInStage(b.id)?.minutes || 0) - (getTimeInStage(a.id)?.minutes || 0)
   const priority = [
-    ...ctx.filter(c => c.nao_lidas > 0 || c.estagio_funil === 'QUENTE_FECHAR'),
+    ...ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR').sort(byWaitTime),
+    ...ctx.filter(c => c.nao_lidas > 0 && c.estagio_funil !== 'QUENTE_FECHAR').sort(byWaitTime),
     ...ctx.filter(c => c.nao_lidas === 0 && c.estagio_funil !== 'QUENTE_FECHAR'),
   ].slice(0, 12)
 
   const smartCtx = buildSmartContext(userMessage, validConvs)
-
-  // Limitar a 5 conversas prioritárias para evitar excesso de tokens
-  const limitedPriority = priority.slice(0, 5)
 
   // Guardrail: se não tem conversas, avisar o LLM
   const dataAviso = ctx.length === 0
@@ -697,8 +697,8 @@ export async function askCODEX(userMessage, history = [], conversations = [], tr
 Total: ${ctx.length} | Instagram: ${porCanal.instagram} | WhatsApp: ${porCanal.whatsapp}
 Não lidas: ${semResposta.length} | Prontos para fechar: ${quentes.length}
 
-CONVERSAS PRIORITÁRIAS:
-${JSON.stringify(limitedPriority)}${dataAviso}
+CONVERSAS PRIORITÁRIAS (ordenadas por urgência — maior tempo esperando primeiro):
+${JSON.stringify(priority)}${dataAviso}
 ${buildTrainingsContext(trainings)}${smartCtx}`
 
   const msgs = [
