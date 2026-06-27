@@ -923,6 +923,25 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         )}
       </div>
 
+      {/* Image Review Panel */}
+      {showImageReview && (
+        <ImageReviewPanel
+          products={productsWithoutImages}
+          onClose={() => setShowImageReview(false)}
+          onUpload={async (productId, file, description) => {
+            try {
+              await uploadProductImage(productId, file)
+              await updateProductDescription(productId, description)
+              setMessages(prev => [...prev, {
+                id: Date.now() + 1, from: 'codex',
+                text: `✅ Foto adicionada com sucesso para "${productsWithoutImages[0]?.nome || 'produto'}"!`
+              }])
+            } catch (err) {
+              throw err
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1079,6 +1098,114 @@ function TypingIndicator() {
         <span style={{ fontSize: 12, color: '#82829B', marginLeft: 8 }}>Analisando...</span>
       </div>
       <style>{`@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}`}</style>
+    </div>
+  )
+}
+
+// ─── Image Review Panel ───────────────────────────────────────────────────────
+function ImageReviewPanel({ products, onClose, onUpload }) {
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [uploadedFile, setUploadedFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [aiDescription, setAiDescription] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const current = products[currentIdx]
+  if (!current) return null
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadedFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setImagePreview(reader.result)
+    reader.readAsDataURL(file)
+    setAiDescription(null)
+  }
+
+  const handleAnalyze = async () => {
+    if (!uploadedFile) return
+    setAnalyzing(true)
+    try {
+      const result = await identifyProductFromPhoto(uploadedFile, msg => console.log(msg))
+      setAiDescription(result.text)
+    } catch (err) {
+      setAiDescription(`❌ Erro na análise: ${err.message}`)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!uploadedFile || !aiDescription) return
+    try {
+      await onUpload(current.id, uploadedFile, aiDescription)
+      setUploadedFile(null)
+      setImagePreview(null)
+      setAiDescription(null)
+      setCurrentIdx(prev => prev + 1)
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message)
+    }
+  }
+
+  const handleSkip = () => {
+    setUploadedFile(null)
+    setImagePreview(null)
+    setAiDescription(null)
+    setCurrentIdx(prev => prev + 1)
+  }
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#0A0A0A', marginBottom: 4 }}>🖼️ Revisor de Fotos</div>
+        <div style={{ fontSize: 12, color: '#82829B', marginBottom: 16 }}>Produto {currentIdx + 1} de {products.length}</div>
+
+        <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', marginBottom: 4 }}>{current.nome}</div>
+          <div style={{ fontSize: 11, color: '#82829B' }}>Link: <a href={current.link} target="_blank" rel="noreferrer" style={{ color: '#7C3AED', textDecoration: 'none' }}>{current.link?.slice(0, 50)}...</a></div>
+        </div>
+
+        {!imagePreview ? (
+          <div style={{ marginBottom: 16 }}>
+            <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', background: '#F5F3FF', border: '2px dashed #DDD6FE', borderRadius: 10, padding: 24, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>📤</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED' }}>Clique para enviar foto</span>
+              <span style={{ fontSize: 11, color: '#82829B' }}>ou arraste aqui</span>
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
+          </div>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#82829B', marginBottom: 4 }}>✅ Preview da Foto</div>
+              <img src={imagePreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 250, borderRadius: 8, border: '1px solid #DDD6FE' }} />
+            </div>
+
+            {aiDescription ? (
+              <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', marginBottom: 6 }}>🤖 Análise da IA</div>
+                <div style={{ fontSize: 12, color: '#78350F', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{aiDescription}</div>
+              </div>
+            ) : (
+              <button onClick={handleAnalyze} disabled={analyzing} style={{ width: '100%', background: analyzing ? '#DDD6FE' : '#7C3AED', border: 'none', borderRadius: 8, padding: 10, color: '#fff', fontSize: 12, fontWeight: 600, cursor: analyzing ? 'not-allowed' : 'pointer', marginBottom: 12 }}>
+                {analyzing ? '⏳ Analisando...' : '🔍 Analisar com IA'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
+          <button onClick={() => { setUploadedFile(null); setImagePreview(null); setAiDescription(null); }} style={{ flex: 1, background: '#F3F4F6', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#6B7280', cursor: 'pointer' }}>Limpar</button>
+          <button onClick={handleSkip} style={{ flex: 1, background: '#FEE2E2', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#DC2626', cursor: 'pointer' }}>Pular</button>
+          <button onClick={handleConfirm} disabled={!uploadedFile || !aiDescription || analyzing} style={{ flex: 1, background: (!uploadedFile || !aiDescription || analyzing) ? '#DDD6FE' : '#0EC331', border: 'none', borderRadius: 8, padding: 10, fontWeight: 600, color: '#fff', cursor: (!uploadedFile || !aiDescription || analyzing) ? 'not-allowed' : 'pointer' }}>✅ Confirmar</button>
+        </div>
+
+        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
+      </div>
     </div>
   )
 }
