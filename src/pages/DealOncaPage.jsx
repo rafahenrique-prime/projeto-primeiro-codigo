@@ -7,6 +7,7 @@ import { listChannels, getChatMessages, listAgents, listTrainings, createTrainin
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
+import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription } from '../services/imageReviewService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -38,6 +39,7 @@ const QUICK_ACTIONS = [
   { icon: '📉', label: 'Relatório perdas',  cmd: '__FUNNEL_LOSS__' },
   { icon: '📬', label: 'Follow-up',         cmd: '__FOLLOWUP_PANEL__' },
   { icon: '🔁', label: 'Reengajar clientes', cmd: '__REENGAGE__' },
+  { icon: '🖼️', label: 'Revisor de fotos',   cmd: '__IMAGE_REVIEW__' },
 ]
 
 export default function DealOncaPage({ conversations = [], setPage }) {
@@ -109,6 +111,12 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [showFollowUpPanel, setShowFollowUpPanel] = useState(false)
   const [followUpRunning, setFollowUpRunning] = useState(false)
   const [followUpResult, setFollowUpResult] = useState(null)
+
+  // ─── Image Review ───────────────────────────────────────────────────────────
+  const [showImageReview, setShowImageReview] = useState(false)
+  const [productsWithoutImages, setProductsWithoutImages] = useState([])
+  const [imageReviewLoading, setImageReviewLoading] = useState(false)
+  const [reviewingProduct, setReviewingProduct] = useState(null)
 
   const runFollowUp = async (dryRun = false) => {
     const ctx = richConversations.length > 0 ? richConversations : conversations
@@ -588,6 +596,26 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         setMessages(prev => [...prev, { id: Date.now() + 1, from: 'codex', text: `⚠️ Erro ao gerar relatório: ${err.message}` }])
       } finally {
         setLoading(false)
+      }
+      return
+    }
+
+    // Revisor de fotos
+    if (t === '__IMAGE_REVIEW__') {
+      setMessages(prev => [...prev, { id: Date.now(), from: 'user', text: '🖼️ Abrir revisor de fotos' }])
+      setImageReviewLoading(true)
+      try {
+        const products = await loadProductsWithoutImages()
+        setProductsWithoutImages(products)
+        setShowImageReview(true)
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, from: 'codex',
+          text: `🖼️ **REVISOR DE FOTOS**\n\n${products.length} produtos sem foto encontrados. Você pode fazer upload de fotos ou pular para revisão manual depois.`,
+        }])
+      } catch (err) {
+        setMessages(prev => [...prev, { id: Date.now() + 1, from: 'codex', text: `⚠️ Erro ao carregar produtos: ${err.message}` }])
+      } finally {
+        setImageReviewLoading(false)
       }
       return
     }
