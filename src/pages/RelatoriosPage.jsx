@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getDashboardData, checkUserTokenStatus } from '../services/gptmaker'
+import { getDashboardData, checkUserTokenStatus, updateUserToken } from '../services/gptmaker'
 
 const GREEN = '#0EC331'
 const PURPLE = '#8B5CF6'
@@ -28,6 +28,9 @@ export default function RelatoriosPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
+  const [showTokenModal, setShowTokenModal] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
+  const [tokenSaving, setTokenSaving] = useState(false)
 
   const load = useCallback(async (days) => {
     setLoading(true)
@@ -47,6 +50,16 @@ export default function RelatoriosPage() {
   useEffect(() => {
     load(PRESETS[preset].days)
   }, [preset])
+
+  function saveToken() {
+    if (!tokenInput.trim()) return
+    setTokenSaving(true)
+    updateUserToken(tokenInput.trim())
+    setShowTokenModal(false)
+    setTokenInput('')
+    setTokenSaving(false)
+    load(PRESETS[preset].days)
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.appBg, overflow: 'hidden' }}>
@@ -105,20 +118,17 @@ export default function RelatoriosPage() {
             </div>
           </div>
         ) : error ? (
-          <div style={{ background: dark ? '#2a1520' : '#fff5f5', border: '1px solid #fca5a5', borderRadius: 12, padding: 20, fontSize: 13 }}>
-            <div style={{ color: '#E8192C', fontWeight: 700, marginBottom: 8 }}>Erro ao carregar relatórios</div>
-            <div style={{ color: dark ? '#fca5a5' : '#991b1b', marginBottom: 12 }}>{error}</div>
+          <div style={{ background: dark ? '#1a0a0a' : '#fff5f5', border: '1px solid #fca5a5', borderRadius: 12, padding: 24, fontSize: 13 }}>
+            <div style={{ color: '#E8192C', fontWeight: 700, marginBottom: 6, fontSize: 15 }}>Erro ao carregar relatórios</div>
+            <div style={{ color: dark ? '#fca5a5' : '#991b1b', marginBottom: 16 }}>{error}</div>
             {(error.includes('Token') || error.includes('token')) && (
-              <div style={{ color: dark ? '#ccc' : '#555', fontSize: 12, lineHeight: 1.6 }}>
-                <strong>Como resolver:</strong><br/>
-                1. Abra <a href="https://app.gptmaker.ai/browse/developers" target="_blank" rel="noreferrer" style={{ color: '#E8192C' }}>app.gptmaker.ai → Chave de API</a><br/>
-                2. No Console do Chrome (F12), digite:<br/>
-                <code style={{ background: dark ? '#333' : '#f0f0f0', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
-                  JSON.parse(document.getElementById('__NEXT_DATA__').textContent).props.pageProps.user.token
-                </code><br/>
-                3. Copie o resultado e atualize <code>VITE_GPTMAKER_USER_TOKEN</code> no .env.local<br/>
-                4. Reinicie o servidor (Ctrl+C → npm run dev)
-              </div>
+              <button onClick={() => setShowTokenModal(true)} style={{
+                background: '#E8192C', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                🔑 Renovar Token
+              </button>
             )}
           </div>
         ) : tab === 'geral' ? (
@@ -129,6 +139,66 @@ export default function RelatoriosPage() {
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Modal Renovar Token */}
+      {showTokenModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowTokenModal(false)}>
+          <div style={{
+            background: dark ? '#161616' : '#fff', borderRadius: 16, padding: 28, width: 540, maxWidth: '90vw',
+            border: `1px solid ${dark ? '#2a2a2a' : '#e5e5e5'}`, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: dark ? '#fff' : '#111', marginBottom: 4 }}>
+              🔑 Renovar Token GPT Maker
+            </div>
+            <div style={{ fontSize: 12, color: dark ? '#888' : '#666', marginBottom: 20 }}>
+              Token salvo no navegador — sem editar arquivo, sem reiniciar servidor.
+            </div>
+
+            <div style={{ background: dark ? '#0d0d0d' : '#f4f4f4', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 11, color: dark ? '#aaa' : '#555', lineHeight: 1.8 }}>
+              <strong style={{ color: dark ? '#fff' : '#111' }}>Como obter o token:</strong><br/>
+              1. Abra <a href="https://app.gptmaker.ai" target="_blank" rel="noreferrer" style={{ color: '#E8192C' }}>app.gptmaker.ai</a> logado<br/>
+              2. Pressione <strong>F12</strong> → aba <strong>Console</strong><br/>
+              3. Cole e pressione Enter:<br/>
+              <code style={{
+                display: 'block', background: dark ? '#1a1a1a' : '#e8e8e8', padding: '6px 8px',
+                borderRadius: 4, marginTop: 6, fontSize: 10, wordBreak: 'break-all', color: dark ? '#e2e2e2' : '#333',
+              }}>
+                JSON.parse(document.getElementById('__NEXT_DATA__').textContent).props.pageProps.user.token
+              </code>
+              4. Copie o resultado (começa com <strong>eyJ...</strong>) e cole abaixo
+            </div>
+
+            <textarea
+              value={tokenInput}
+              onChange={e => setTokenInput(e.target.value)}
+              placeholder="Cole aqui o token (eyJ...)"
+              style={{
+                width: '100%', height: 80, resize: 'vertical', fontSize: 11, fontFamily: 'monospace',
+                background: dark ? '#0d0d0d' : '#f9f9f9', color: dark ? '#fff' : '#111',
+                border: `1px solid ${tokenInput ? '#E8192C' : (dark ? '#2a2a2a' : '#ddd')}`,
+                borderRadius: 8, padding: 10, outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowTokenModal(false); setTokenInput('') }} style={{
+                background: 'transparent', border: `1px solid ${dark ? '#333' : '#ddd'}`,
+                borderRadius: 8, padding: '9px 18px', fontSize: 13, color: dark ? '#aaa' : '#666', cursor: 'pointer',
+              }}>Cancelar</button>
+              <button onClick={saveToken} disabled={!tokenInput.trim() || tokenSaving} style={{
+                background: tokenInput.trim() ? '#E8192C' : '#666', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 700,
+                cursor: tokenInput.trim() ? 'pointer' : 'not-allowed', transition: 'background 0.15s',
+              }}>
+                {tokenSaving ? 'Salvando...' : '✓ Salvar e Carregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

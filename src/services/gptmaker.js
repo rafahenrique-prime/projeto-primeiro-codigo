@@ -2,7 +2,12 @@ const WS = import.meta.env.VITE_GPTMAKER_WORKSPACE
 const BASE = 'https://api.gptmaker.ai'
 
 let _apiToken = import.meta.env.VITE_GPTMAKER_TOKEN
-let _userToken = import.meta.env.VITE_GPTMAKER_USER_TOKEN
+let _userToken = localStorage.getItem('gptmaker_user_token') || import.meta.env.VITE_GPTMAKER_USER_TOKEN
+
+export function updateUserToken(token) {
+  _userToken = token.trim()
+  localStorage.setItem('gptmaker_user_token', _userToken)
+}
 
 function isTokenExpired(token) {
   if (!token) return true

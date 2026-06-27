@@ -6,8 +6,15 @@ import { syncFromSupabase } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
 import './index.css'
 
-syncFromSupabase()        // carrega follow-up do Supabase para localStorage
-syncCatalogFromSupabase() // carrega catálogo do Supabase para localStorage
+syncFromSupabase()
+syncCatalogFromSupabase()
+
+// Captura token via URL — bookmarklet envia ?gptmaker_token=eyJ...
+const _tk = new URLSearchParams(window.location.search).get('gptmaker_token')
+if (_tk && _tk.startsWith('eyJ')) {
+  localStorage.setItem('gptmaker_user_token', _tk)
+  window.history.replaceState({}, '', window.location.pathname)
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ThemeProvider>
