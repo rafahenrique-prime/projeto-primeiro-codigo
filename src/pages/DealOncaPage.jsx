@@ -7,7 +7,7 @@ import { listChannels, getChatMessages, listAgents, listTrainings, createTrainin
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
-import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete } from '../services/imageReviewService'
+import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/imageReviewService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -1120,9 +1120,33 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({})
+  const [marcas, setMarcas] = useState([])
+  const [cores, setCores] = useState([])
+  const [categorias, setCategorias] = useState([])
+  const [precos, setPrecos] = useState([])
+  const [loadingOptions, setLoadingOptions] = useState(true)
 
   const current = products[currentIdx]
   if (!current) return null
+
+  // Carrega opções da Supabase
+  useEffect(() => {
+    const loadOptions = async () => {
+      setLoadingOptions(true)
+      const [m, c, cat, p] = await Promise.all([
+        getUniqueFieldValues('marca'),
+        getUniqueFieldValues('cor'),
+        getUniqueFieldValues('categoria'),
+        getUniqueFieldValues('preco'),
+      ])
+      setMarcas(m)
+      setCores(c)
+      setCategorias(cat)
+      setPrecos(p)
+      setLoadingOptions(false)
+    }
+    loadOptions()
+  }, [])
 
   // Inicializa form com dados do produto
   const initializeForm = () => {
@@ -1131,7 +1155,7 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
       marca: '',
       cor: '',
       categoria: current.categoria || '',
-      preco: current.preco?.replace('R$ ', '') || '',
+      preco: current.preco || '',
       caracteristicas: '',
     })
   }
@@ -1257,10 +1281,27 @@ function ImageReviewPanel({ products, onClose, onUpload }) {
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#0A0A0A', marginBottom: 12 }}>📋 Dados do Produto</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <input type="text" placeholder="Nome" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Marca" value={formData.marca || ''} onChange={e => setFormData({...formData, marca: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Cor" value={formData.cor || ''} onChange={e => setFormData({...formData, cor: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Categoria" value={formData.categoria || ''} onChange={e => setFormData({...formData, categoria: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
-                  <input type="text" placeholder="Preço (sem R$)" value={formData.preco || ''} onChange={e => setFormData({...formData, preco: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
+
+                  <select value={formData.marca || ''} onChange={e => setFormData({...formData, marca: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none', background: '#fff', cursor: 'pointer' }} disabled={loadingOptions}>
+                    <option value="">Marca</option>
+                    {marcas.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+
+                  <select value={formData.cor || ''} onChange={e => setFormData({...formData, cor: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none', background: '#fff', cursor: 'pointer' }} disabled={loadingOptions}>
+                    <option value="">Cor</option>
+                    {cores.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+
+                  <select value={formData.categoria || ''} onChange={e => setFormData({...formData, categoria: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none', background: '#fff', cursor: 'pointer' }} disabled={loadingOptions}>
+                    <option value="">Categoria</option>
+                    {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+
+                  <select value={formData.preco || ''} onChange={e => setFormData({...formData, preco: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none', background: '#fff', cursor: 'pointer' }} disabled={loadingOptions}>
+                    <option value="">Preço</option>
+                    {precos.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+
                   <input type="text" placeholder="Características" value={formData.caracteristicas || ''} onChange={e => setFormData({...formData, caracteristicas: e.target.value})} style={{ border: '1px solid #E5E5E5', borderRadius: 6, padding: 8, fontSize: 11, outline: 'none' }} />
                 </div>
               </div>

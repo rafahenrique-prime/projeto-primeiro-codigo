@@ -158,3 +158,20 @@ export async function updateProductComplete(productId, data) {
     throw err
   }
 }
+
+// Carrega valores únicos de um campo da Supabase
+export async function getUniqueFieldValues(field) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=${field}&order=${field}.asc`,
+      { headers: sbHeaders }
+    )
+    if (!res.ok) throw new Error('Erro ao carregar valores')
+    const data = await res.json()
+    const values = [...new Set(data.map(p => p[field]).filter(Boolean))]
+    return values
+  } catch (err) {
+    console.error(`[ImageReview] Erro ao carregar ${field}:`, err)
+    return []
+  }
+}
