@@ -4,6 +4,16 @@ import { getTimeInStage } from './stageHistory'
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
+// Log de debug para Groq
+const DEBUG = {
+  apiKeySet: !!GROQ_API_KEY,
+  apiKeyLength: GROQ_API_KEY?.length || 0,
+}
+
+if (!GROQ_API_KEY) {
+  console.warn('[Groq] ⚠️ VITE_GROQ_API_KEY não configurada. Usar fallbacks automáticos.')
+}
+
 // Monta um bloco de contexto a partir do perfil persistente do cliente (Supabase).
 // Equivale ao módulo Supabase que ficaria ANTES do Groq no Make.
 function buildProfileBlock(profile) {
@@ -24,7 +34,19 @@ function buildProfileBlock(profile) {
 const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'meta-llama/llama-4-scout-17b-16e-instruct']
 
 export async function groqRequest(body) {
+  // Se não tem API key, retorna fallback imediato
+  if (!GROQ_API_KEY || GROQ_API_KEY.trim() === '') {
+    console.warn('[Groq] API key não configurada, usando fallback automático')
+    return {
+      choices: [{ message: { content: body.fallbackText || 'Oi! Ainda posso te ajudar? 😊' } }],
+      model: 'fallback',
+      usage: { prompt_tokens: 0, completion_tokens: 0 },
+    }
+  }
+
   const preferred = body.model ? [body.model, ...MODELS.filter(m => m !== body.model)] : MODELS
+  let lastError = null
+
   for (const model of preferred) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30000)
@@ -43,17 +65,41 @@ export async function groqRequest(body) {
       }
       const err = await res.json()
       const msg = err.error?.message || ''
-      const isRateLimit = res.status === 429 || msg.includes('Rate limit')
+      const status = res.status
+      const isRateLimit = status === 429 || msg.includes('Rate limit')
       const isDecommissioned = msg.includes('decommissioned') || msg.includes('deprecated') || msg.includes('no longer supported')
+      const isUnauth = status === 401 || status === 403 || msg.includes('Invalid API')
+
+      lastError = { status, msg, model, isUnauth, isRateLimit, isDecommissioned }
+      console.warn(`[Groq] ${model} falhou: ${status} - ${msg}`)
+
+      if (isUnauth) {
+        console.error('[Groq] ❌ API key inválida ou expirada')
+        return {
+          choices: [{ message: { content: body.fallbackText || 'Oi! Ainda posso te ajudar? 😊' } }],
+          model: 'fallback-auth-error',
+        }
+      }
       if (!isRateLimit && !isDecommissioned) throw new Error(msg || 'Erro na API Groq')
-      // rate limit ou modelo desativado → tenta próximo
     } catch (e) {
       clearTimeout(timeout)
-      if (e.name === 'AbortError') throw new Error('Groq não respondeu em 30 segundos. Tente novamente.')
-      throw e
+      if (e.name === 'AbortError') {
+        console.error('[Groq] Timeout 30s no modelo ' + model)
+        lastError = { error: 'Timeout', model }
+      } else {
+        lastError = { error: e.message, model }
+        console.error('[Groq] Erro:', e.message)
+      }
     }
   }
-  throw new Error('Todos os modelos atingiram o limite. Tente novamente em alguns minutos.')
+
+  // Se chegou aqui, todos falharam → retorna fallback
+  console.warn('[Groq] Todos os modelos falharam, usando fallback', lastError)
+  return {
+    choices: [{ message: { content: body.fallbackText || 'Oi! Ainda posso te ajudar? 😊' } }],
+    model: 'fallback-all-failed',
+    error: lastError,
+  }
 }
 
 export function detectFunnelStage(msgs = [], lastMsg = '') {

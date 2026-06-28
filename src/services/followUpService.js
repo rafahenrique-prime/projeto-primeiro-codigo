@@ -269,6 +269,13 @@ export async function runFollowUpCheck(conversations = [], options = {}) {
     if (wasSent(conv.id, stage, state)) continue
 
     try {
+      // Validação crítica: conv.id DEVE existir
+      if (!conv.id) {
+        console.warn(`[FollowUp] ⚠️ Conversa "${conv.name}" sem ID, pulando`)
+        errors.push({ conv: conv.name, stage, error: 'Conversa sem ID' })
+        continue
+      }
+
       const stageCfg = getStages().find(s => s.id === stage) || {}
       const action = stageCfg.action || 'message'
 
@@ -289,14 +296,17 @@ export async function runFollowUpCheck(conversations = [], options = {}) {
         markSent(conv.id, stage, state)
         sent.push({ conv: conv.name, stage, text })
         appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
+        console.log(`[FollowUp] ✅ "${conv.name}" (fixed): mensagem enviada`)
       } else {
         const text = await generateFollowUpText(conv, stage)
         await sendMessage(conv.id, text)
         markSent(conv.id, stage, state)
         sent.push({ conv: conv.name, stage, text })
         appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
+        console.log(`[FollowUp] ✅ "${conv.name}" (${stage}): "${text.slice(0, 40)}..."`)
       }
     } catch (err) {
+      console.error(`[FollowUp] ❌ "${conv.name}" (${stage}): ${err.message}`)
       errors.push({ conv: conv.name, stage, error: err.message })
       appendLog({ conv: conv.name, convId: conv.id, stage, status: 'error', error: err.message })
     }
