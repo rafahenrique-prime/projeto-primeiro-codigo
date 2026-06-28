@@ -78,18 +78,45 @@ export default function FollowUpPage({ conversations = [] }) {
     if (!enabled || !withinSchedule) return
     setSendingEdited(true)
     const results = []
+
     for (const msg of editedMessages) {
-      if (!msg.convId || !msg.text.trim()) continue
-      try {
-        await sendMessage(msg.convId, msg.text)
-        results.push({ ...msg, status: 'sent' })
-      } catch {
-        results.push({ ...msg, status: 'error' })
+      if (!msg.convId || !msg.text.trim()) {
+        console.warn(`[FollowUp] ⚠️ Pulando mensagem inválida:`, msg)
+        continue
+      }
+
+      // Retry logic: tenta 3 vezes com backoff
+      let sent = false
+      let lastError = null
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await sendMessage(msg.convId, msg.text)
+          console.log(`[FollowUp] ✅ Enviado para "${msg.conv}" (tentativa ${attempt})`)
+          results.push({ ...msg, status: 'sent', attempts: attempt })
+          sent = true
+          break
+        } catch (err) {
+          lastError = err
+          console.warn(`[FollowUp] Tentativa ${attempt}/3 falhou para "${msg.conv}": ${err.message}`)
+          if (attempt < 3) {
+            // Aguarda 500ms * tentativa antes de retentar
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+          }
+        }
+      }
+
+      if (!sent) {
+        console.error(`[FollowUp] ❌ Falha final para "${msg.conv}": ${lastError?.message}`)
+        results.push({ ...msg, status: 'error', error: lastError?.message })
       }
     }
+
     setSendingEdited(false)
     setEditedMessages([])
-    setResult({ dryRun: false, sent: results.filter(r => r.status === 'sent'), errors: results.filter(r => r.status === 'error') })
+    const sent = results.filter(r => r.status === 'sent')
+    const errors = results.filter(r => r.status === 'error')
+    console.log(`[FollowUp] Resumo: ${sent.length} enviados, ${errors.length} erros`)
+    setResult({ dryRun: false, sent, errors })
     refresh()
   }
 
