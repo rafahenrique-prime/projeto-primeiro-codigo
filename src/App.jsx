@@ -266,7 +266,7 @@ export default function App() {
           {page === 'agents'   && <AgentsPage />}
           {page === 'knowledge'&& <KnowledgePage />}
           {page === 'simulador' && <SimuladorClientePage />}
-          {page === 'catalogo' && <CatalogPage />}
+          {page === 'catalogo' && <CatalogPage onNavigate={setPage} />}
           {page === 'importar' && <ImportCatalogPage />}
           {page === 'importar-backup' && <ImportReviewPage />}
           {page === 'photo' && <PhotoRecognitionPage />}

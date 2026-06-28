@@ -4,7 +4,7 @@ import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deletePr
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 import { regenerateKnowledgeUnico } from '../services/knowledgeGenerator'
 
-export default function CatalogPage() {
+export default function CatalogPage({ onNavigate }) {
   const { theme: t } = useTheme()
   const [products, setProducts] = useState([])
   const [showModal, setShowModal] = useState(false)
@@ -578,6 +578,13 @@ export default function CatalogPage() {
           <p style={{ margin: '4px 0 0 0', fontSize: 12, color: t.textMuted }}>
             {filtered.length} de {products.length} produtos
             {activeCategory !== 'Todos' ? ` · ${activeCategory}` : ''}
+            {' · '}
+            <span style={{ color: '#10B981' }}>📷 {products.filter(p => p.imagem && p.imagem.trim()).length} com foto</span>
+            {products.filter(p => !p.imagem || !p.imagem.trim()).length > 0 && (
+              <span style={{ color: '#EF4444', marginLeft: 6 }}>
+                · {products.filter(p => !p.imagem || !p.imagem.trim()).length} sem foto
+              </span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -604,16 +611,16 @@ export default function CatalogPage() {
           <button
             onClick={() => setShowUrlTestModal(true)}
             style={{ background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            title="Versão de teste - extrai foto automaticamente"
+            title="Adicionar produto com foto via URL"
           >
-            🧪 URL (TESTE)
+            ✏️ URL C/ FOTO
           </button>
           <button
-            onClick={handleOpenHistory}
+            onClick={() => onNavigate && onNavigate('image-extractor')}
             style={{ background: '#8B5CF6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            title="Ver histórico de ações"
+            title="Gerenciar fotos dos produtos"
           >
-            📊 Histórico
+            🖼️ Revisor de Fotos
           </button>
           <button
             onClick={handleSyncKnowledge}
