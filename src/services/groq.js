@@ -1,5 +1,6 @@
 import { getProfile } from './customerProfileService'
 import { getTimeInStage } from './stageHistory'
+import { askDeepSeek } from './deepseek'
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -768,6 +769,15 @@ ${buildTrainingsContext(trainings)}${smartCtx}`
   ]
 
   const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_KEY || ''
+
+  if (modelConfig && modelConfig.provider === 'deepseek') {
+    try {
+      return await askDeepSeek(systemPrompt, msgs, 800)
+    } catch (e) {
+      console.error('[askCODEX] DeepSeek erro:', e.message)
+      throw e
+    }
+  }
 
   if (modelConfig && modelConfig.provider === 'openrouter') {
     if (!OPENROUTER_KEY) throw new Error('Chave OpenRouter não configurada')

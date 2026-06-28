@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
+import TokenUsageCard from '../components/TokenUsageCard'
+import GPTMakerCreditsCard from '../components/GPTMakerCreditsCard'
 
 function today() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -48,14 +50,14 @@ export default function DashboardNewPage({ conversations = [] }) {
   const recent = conversations.slice(0, 6)
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: t.appBg, padding: '24px 28px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', background: t.appBg, padding: '0 28px 24px 28px' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 8 }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 11, color: primary, letterSpacing: '1px', marginBottom: 2 }}>///</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: t.text, letterSpacing: '-0.5px', lineHeight: 1, textTransform: 'uppercase' }}>DASHBOARD</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: primary, letterSpacing: '-0.5px', lineHeight: 1, textTransform: 'uppercase' }}>/// DASHBOARD</div>
-        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 6 }}>{today()} · PRIME STORE Uberlândia</div>
+        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>{today()} · PRIME STORE Uberlândia</div>
       </div>
 
       {/* KPI cards */}
@@ -94,8 +96,11 @@ export default function DashboardNewPage({ conversations = [] }) {
 
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Storage Card */}
-          <SupabaseStorageCard />
+          {/* Storage + Tokens Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <SupabaseStorageCard />
+            <TokenUsageCard />
+          </div>
 
           {/* Inbox recentes */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${t.border}` }}>
@@ -130,7 +135,7 @@ export default function DashboardNewPage({ conversations = [] }) {
         </div>
 
         {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {/* Agentes */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
@@ -143,6 +148,9 @@ export default function DashboardNewPage({ conversations = [] }) {
               <MiniStat label="PENDENTE" value={stats.aguardando.length} color={primary} t={t} />
             </div>
           </div>
+
+          {/* GPTMaker Credits */}
+          <GPTMakerCreditsCard />
 
           {/* Canais hoje */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
