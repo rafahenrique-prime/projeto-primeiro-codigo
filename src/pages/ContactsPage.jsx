@@ -14,6 +14,24 @@ function daysAgo(dateStr) {
 function normalizeContact(c) {
   const name = c.name || c.username || c.phone || 'Sem nome'
   const channelType = c.type === 'INSTAGRAM' ? 'instagram' : c.type === 'Z_API' ? 'whatsapp' : 'other'
+
+  // Tenta múltiplas fontes de foto (hierarquia de prioridade)
+  let picture = c.picture || c.avatar || c.profileImage || c.photo || c.image
+
+  // Se ainda sem foto, tenta extrair de objetos aninhados
+  if (!picture) {
+    picture = c.igProfile?.profile_pic_url ||
+              c.instagramProfile?.profile_pic_url ||
+              c.profileData?.picture ||
+              c.metadata?.picture ||
+              null
+  }
+
+  // Se for contato do Instagram e tem username, tenta construir URL
+  if (!picture && channelType === 'instagram' && c.username) {
+    // Nota: Isso seria para futuro, caso tenhamos acesso à API Instagram
+  }
+
   return {
     id: c.id,
     name,
@@ -24,7 +42,7 @@ function normalizeContact(c) {
     city: c.city || null,
     channel: channelType,
     channelLabel: channelType === 'instagram' ? 'Instagram' : channelType === 'whatsapp' ? 'WhatsApp' : c.type || '—',
-    picture: c.picture || null,
+    picture,
     createdAt: c.createdAt || null,
     createdAtLabel: c.createdAt ? new Date(c.createdAt).toLocaleDateString('pt-BR') : '—',
     daysOld: daysAgo(c.createdAt),
@@ -85,6 +103,21 @@ export default function ContactsPage() {
         setProfiles(profileMap)
       }
       const normalized = data.map(normalizeContact)
+      // Debug: verificar contatos sem foto e campos disponíveis
+      const withoutPicture = normalized.filter(c => !c.picture)
+      if (withoutPicture.length > 0) {
+        const details = withoutPicture.map(c => {
+          const raw = data.find(d => d.id === c.id)
+          const hasAlternatives = {
+            igProfile: !!raw.igProfile,
+            instagramProfile: !!raw.instagramProfile,
+            profileData: !!raw.profileData,
+            metadata: !!raw.metadata,
+          }
+          return { name: c.name, id: c.id, channel: c.channel, alternatives: hasAlternatives }
+        })
+        console.log(`[Contatos] ${withoutPicture.length} de ${normalized.length} SEM FOTO:`, details)
+      }
       if (p === 1) { setContacts(normalized); if (normalized.length > 0) setSelected(normalized[0]) }
       else setContacts(prev => [...prev, ...normalized])
       setHasMore(data.length === 50)
@@ -348,9 +381,46 @@ function ProfileIATab({ profile, t }) {
 // ── Sub-components ──
 
 function Avatar({ contact, size=38, fontSize=13 }) {
-  return contact.picture
-    ? <img src={contact.picture} alt="" style={{ width:size, height:size, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} onError={e=>e.target.style.display='none'}/>
-    : <div style={{ width:size, height:size, borderRadius:'50%', background:contact.color, display:'flex', alignItems:'center', justifyContent:'center', fontSize, fontWeight:800, color:'#fff', flexShrink:0 }}>{contact.initials}</div>
+  if (contact.picture) {
+    return (
+      <img
+        src={contact.picture}
+        alt=""
+        style={{ width:size, height:size, borderRadius:'50%', objectFit:'cover', flexShrink:0, border: '2px solid #E5E5E5' }}
+        onError={e => {
+          e.target.style.display = 'none'
+          // Fallback para initiais se imagem quebrar
+          const container = e.target.parentElement
+          if (container) {
+            const initials = document.createElement('div')
+            initials.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${contact.color};display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;font-weight:800;color:#fff;flex-shrink:0;`
+            initials.textContent = contact.initials
+            container.appendChild(initials)
+          }
+        }}
+      />
+    )
+  }
+
+  return (
+    <div style={{
+      width:size,
+      height:size,
+      borderRadius:'50%',
+      background:contact.color,
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      fontSize,
+      fontWeight:800,
+      color:'#fff',
+      flexShrink:0,
+      border: '2px solid rgba(255,255,255,0.5)',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      {contact.initials}
+    </div>
+  )
 }
 
 function ContactRow({ contact, isActive, onClick, t }) {
