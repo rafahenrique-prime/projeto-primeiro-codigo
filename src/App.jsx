@@ -259,7 +259,7 @@ export default function App() {
           )}
           {page === 'channels' && <ChannelsPage />}
           {page === 'dealonca' && <DealOncaPage conversations={conversations} setPage={setPage} />}
-          {page === 'contacts' && <ContactsPage />}
+          {page === 'contacts' && <ContactsPage conversations={conversations} setPage={setPage} activeConv={activeConv} setActiveConv={setActiveConv} />}
           {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
           {page === 'reports'    && <DashboardPage conversations={conversations} />}
           {page === 'relatorios' && <RelatoriosPage />}

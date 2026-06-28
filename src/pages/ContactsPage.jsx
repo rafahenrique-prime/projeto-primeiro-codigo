@@ -64,7 +64,7 @@ const CHANNEL_FILTERS = [
   { id: 'instagram', label: 'Instagram' },
 ]
 
-export default function ContactsPage() {
+export default function ContactsPage({ conversations = [], setPage: onNavigate, activeConv, setActiveConv }) {
   const { theme: t } = useTheme()
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -87,6 +87,25 @@ export default function ContactsPage() {
     setSyncing(true)
     await load(1)
     setSyncing(false)
+  }
+
+  function openConversation(contact) {
+    if (!conversations.length) {
+      alert('Nenhuma conversa disponível. Volte a Mensagens primeiro.')
+      return
+    }
+    // Busca conversa correspondente ao contato (por phone ou email)
+    const conversation = conversations.find(c =>
+      (contact.phone && c.phone?.includes(contact.phone.replace(/\D/g, ''))) ||
+      (contact.email && c.email?.toLowerCase() === contact.email.toLowerCase()) ||
+      (contact.name && c.name?.toLowerCase().includes(contact.name.toLowerCase()))
+    )
+    if (conversation) {
+      setActiveConv(conversation)
+      onNavigate('inbox')
+    } else {
+      alert(`Nenhuma conversa encontrada para ${contact.name}`)
+    }
   }
 
   async function load(p) {
@@ -230,7 +249,7 @@ export default function ContactsPage() {
                   ))}
                 </div>
               </div>
-              <button style={{ background:'#0EC331', color:'#fff', border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+              <button onClick={() => openConversation(selected)} style={{ background:'#0EC331', color:'#fff', border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', flexShrink:0, transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#0EC331CC'} onMouseLeave={e => e.currentTarget.style.background = '#0EC331'}>
                 💬 Conversar
               </button>
             </div>
