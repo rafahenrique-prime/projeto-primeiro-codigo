@@ -35,8 +35,18 @@ docs/
 │   ├── api/                  ← Integrações, endpoints, HTTP
 │   ├── deployment/           ← Vercel, deploy, produção
 │   └── integrations/         ← APIs externas, tokens, webhooks
-├── INDEX.md                  ← Este arquivo
-└── (em breve: architecture/, patterns/, decisions/)
+└── INDEX.md                  ← Este arquivo
+
+knowledge/                    ← Fatos puros (O QUÊ)
+├── products.md               ← Catálogo, categorias, busca
+├── gptmaker.md               ← Credenciais, webhooks, fluxo
+├── pricing.md                ← Preços, frete, pagamento
+└── policy.md                 ← Trocas, garantia, políticas
+
+strategy/                     ← Comportamento (COMO agir)
+├── sales-tactics.md          ← Fluxo de venda, scripts, upsell
+├── objection-handling.md     ← Contorno de objeções
+└── gptmaker-tactics.md       ← Operação do GPT Maker
 ```
 
 ---
@@ -48,6 +58,17 @@ docs/
   - Quando: Card de créditos fica "Carregando..."
   - Solução: Implementar fallback/mock data
   - Diagnóstico: 30 segundos com checklist
+
+### Knowledge (Fatos — O QUÊ)
+- ✅ [Produtos](../knowledge/products.md) — Catálogo, categorias, estrutura Supabase
+- ✅ [GPT Maker](../knowledge/gptmaker.md) — Credenciais, webhooks, fluxo de integração
+- ✅ [Preços](../knowledge/pricing.md) — Tabela de preços, frete, pagamento
+- ✅ [Políticas](../knowledge/policy.md) — Trocas, garantia, scripts de atendimento
+
+### Strategy (Comportamento — COMO agir)
+- ✅ [Táticas de Venda](../strategy/sales-tactics.md) — Fluxo ideal, scripts, upsell
+- ✅ [Contorno de Objeções](../strategy/objection-handling.md) — "Está caro", "vou pensar"...
+- ✅ [Operação GPT Maker](../strategy/gptmaker-tactics.md) — Modos, métricas, problemas comuns
 
 ---
 
@@ -111,8 +132,8 @@ Cada bug tem:
 
 | Métrica | Valor |
 |---------|-------|
-| Documentos | 1 |
-| Categorias | 5 (frontend, backend, api, deployment, integrations) |
+| Documentos | 8 |
+| Categorias | troubleshooting (5) + knowledge (4) + strategy (3) |
 | Problemas resolvidos | 1 |
 | Tempo médio de diagnóstico | 30 segundos |
 
