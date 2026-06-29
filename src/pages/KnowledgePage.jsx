@@ -64,6 +64,7 @@ export default function KnowledgePage() {
   const [localEntries, setLocalEntries]   = useState([])
   const [localCount, setLocalCount]       = useState(0)
   const [localSearch, setLocalSearch]     = useState('')
+  const [localCatFilter, setLocalCatFilter] = useState('ALL')
   const [localView, setLocalView]         = useState('list') // 'list' | 'history' | 'add'
   const [localPage, setLocalPage]         = useState(1)
   const LOCAL_PER_PAGE = 10
@@ -541,7 +542,8 @@ export default function KnowledgePage() {
       {/* ── Base Local (layout idêntico ao Dealism) ── */}
       {activeTab === 'local' && (() => {
         const filtered = localEntries.filter(e =>
-          !localSearch || `${e.title} ${e.content} ${e.source || ''}`.toLowerCase().includes(localSearch.toLowerCase())
+          (!localSearch || `${e.title} ${e.content} ${e.source || ''}`.toLowerCase().includes(localSearch.toLowerCase())) &&
+          (localCatFilter === 'ALL' || e.category === localCatFilter)
         )
         const totalLocalPages = Math.max(1, Math.ceil(filtered.length / LOCAL_PER_PAGE))
         const paginated = filtered.slice((localPage - 1) * LOCAL_PER_PAGE, localPage * LOCAL_PER_PAGE)
@@ -566,10 +568,21 @@ export default function KnowledgePage() {
                   Histórico de uploads
                 </button>
                 {localView === 'list' && (
-                  <div style={{ position: 'relative', marginLeft: 'auto' }}>
-                    <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input value={localSearch} onChange={e => { setLocalSearch(e.target.value); setLocalPage(1) }} placeholder="Pesquisar..."
-                      style={{ border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 12px 7px 32px', fontSize: 13, outline: 'none', width: 200 }} />
+                  <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
+                    <select
+                      value={localCatFilter}
+                      onChange={e => { setLocalCatFilter(e.target.value); setLocalPage(1) }}
+                      style={{ border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 10px', fontSize: 13, outline: 'none', color: '#374151', background: '#fff', cursor: 'pointer' }}>
+                      <option value="ALL">Todas</option>
+                      {Object.entries(CATEGORIES).map(([key, cat]) => (
+                        <option key={key} value={key}>{cat.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ position: 'relative' }}>
+                      <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      <input value={localSearch} onChange={e => { setLocalSearch(e.target.value); setLocalPage(1) }} placeholder="Pesquisar..."
+                        style={{ border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 12px 7px 32px', fontSize: 13, outline: 'none', width: 180 }} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -870,8 +883,8 @@ export default function KnowledgePage() {
                               </td>
                               <td style={td}>
                                 {cat && (
-                                  <span style={{ background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                    {cat.label.toLowerCase().replace(' ', '_')}
+                                  <span style={{ background: cat.bg, color: cat.color, border: `1px solid ${cat.color}30`, borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    {cat.label}
                                   </span>
                                 )}
                               </td>

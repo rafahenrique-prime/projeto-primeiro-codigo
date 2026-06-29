@@ -358,6 +358,14 @@ function buildTrainingsContext(trainings = []) {
   return `\n\n═══ BASE DE CONHECIMENTO (${trainings.length} itens) ═══\n${preview}`
 }
 
+function buildLocalKnowledgeContext(entries = []) {
+  if (!entries.length) return ''
+  const preview = entries.slice(0, 40).map(e =>
+    `• [${e.category || 'GERAL'}] ${e.title}: ${(e.content || '').slice(0, 300)}`
+  ).join('\n')
+  return `\n\n═══ CONHECIMENTO INTERNO — PRIME STORE (${entries.length} entradas) ═══\n${preview}\n\nUSE ESTE CONHECIMENTO para responder perguntas sobre políticas, pagamento, frete, trocas, táticas de venda e operação do sistema.`
+}
+
 // ─── ONBOARDING 5 ETAPAS ───────────────────────────────────────────────────────
 
 const ONBOARDING_SOUL = `Você é o CODEX — parceiro de vendas IA da PRIME STORE.
@@ -720,7 +728,7 @@ function buildSmartContext(userMessage, conversations) {
   return blocks.length > 0 ? `\n\n═══ ANÁLISE ESPECÍFICA PARA ESTA PERGUNTA ═══\n${blocks.join('\n\n')}${aviso}` : ''
 }
 
-export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null) {
+export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null, localKnowledge = []) {
   // Filtrar e validar conversas antes de processar
   const validConvs = conversations.filter(c => {
     const msgs = c.fullMessages || []
@@ -761,7 +769,7 @@ Não lidas: ${semResposta.length} | Prontos para fechar: ${quentes.length}
 
 CONVERSAS PRIORITÁRIAS (ordenadas por urgência — maior tempo esperando primeiro):
 ${JSON.stringify(priority)}${dataAviso}
-${buildTrainingsContext(trainings)}${smartCtx}`
+${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}${smartCtx}`
 
   const msgs = [
     ...history.slice(-8).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),

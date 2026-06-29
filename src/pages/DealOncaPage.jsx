@@ -8,6 +8,7 @@ import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/imageReviewService'
+import { getAllEntries } from '../services/knowledgeDB'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -48,6 +49,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyProgress, setHistoryProgress] = useState(0)
   const [trainings, setTrainings] = useState([])
+  const [localKnowledge, setLocalKnowledge] = useState([])
   const [firstAgent, setFirstAgent] = useState(null)
 
   const WELCOME = {
@@ -307,6 +309,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
   }, [])
 
   useEffect(() => {
+    getAllEntries().then(setLocalKnowledge).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (conversations.length === 0) return
     setLoadingHistory(true)
     setHistoryProgress(0)
@@ -476,7 +482,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
             : []
           const [provider, modelId] = selectedModel.split('::')
-          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId })
+          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId }, localKnowledge)
         } else {
           reply = `📎 Arquivo recebido: **${file.name}** (${(file.size/1024).toFixed(0)}KB). No momento só consigo analisar imagens — envie uma foto e descreverei o produto.`
         }
@@ -678,7 +684,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
         : []
       const [provider, modelId] = selectedModel.split('::')
-      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId })
+      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId }, localKnowledge)
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         from: 'codex',
