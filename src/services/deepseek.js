@@ -99,12 +99,12 @@ export async function deepseekRequest(body) {
   }
 }
 
-export async function askDeepSeek(systemPrompt, messages, maxTokens = 800) {
+export async function askDeepSeek(systemPrompt, messages, maxTokens = 800, model = 'deepseek-reasoner') {
   const data = await deepseekRequest({
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
     temperature: 0.4,
     max_tokens: maxTokens,
-    model: 'deepseek-reasoner',
+    model,
   })
 
   if (!data.choices?.[0]?.message?.content) {

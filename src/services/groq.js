@@ -772,7 +772,7 @@ ${buildTrainingsContext(trainings)}${smartCtx}`
 
   if (modelConfig && modelConfig.provider === 'deepseek') {
     try {
-      return await askDeepSeek(systemPrompt, msgs, 800)
+      return await askDeepSeek(systemPrompt, msgs, 800, modelConfig.modelId)
     } catch (e) {
       console.error('[askCODEX] DeepSeek erro:', e.message)
       throw e

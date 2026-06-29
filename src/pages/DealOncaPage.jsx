@@ -84,6 +84,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     { id: 'groq::meta-llama/llama-4-scout-17b-16e-instruct',        label: 'Llama 4 Scout 17B',    provider: 'groq',       badge: 'Groq',       desc: 'Llama 4 — multimodal e preciso' },
     { id: 'groq::qwen/qwen3-32b',                                   label: 'Qwen 3 32B',           provider: 'groq',       badge: 'Groq',       desc: 'Excelente raciocínio e instruções' },
     { id: 'deepseek::deepseek-lite',                                label: 'DeepSeek Lite (Free)',  provider: 'deepseek',   badge: 'DeepSeek',   desc: '🆕 TESTE: 1M tokens FREE/mês' },
+    { id: 'deepseek::deepseek-reasoner',                           label: 'DeepSeek R1 (Pago)',    provider: 'deepseek',   badge: 'DeepSeek',   desc: '🧠 Sua conta paga — reasoning premium' },
     { id: 'openrouter::meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (OR)',   provider: 'openrouter', badge: 'OpenRouter', desc: 'Via OpenRouter — fallback gratuito' },
     { id: 'openrouter::mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',           provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
     { id: 'openrouter::nousresearch/hermes-3-llama-3.1-8b:free',   label: 'Hermes 3 8B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
