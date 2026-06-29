@@ -5,7 +5,7 @@ const GPTMAKER_URL = import.meta.env.VITE_GPTMAKER_URL || 'https://api.gptmaker.
 
 export async function getGPTMakerCredits() {
   try {
-    const endpoint = process.env.NODE_ENV === 'production'
+    const endpoint = import.meta.env.PROD
       ? '/api/gptmaker-credits'
       : 'http://localhost:5178/api/gptmaker-credits'
 
