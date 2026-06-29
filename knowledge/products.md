@@ -1,7 +1,7 @@
 # knowledge/products.md — Catálogo de Produtos PRIME STORE
 
 **Fonte de verdade:** Supabase (`products` table)  
-**Total:** 538 produtos  
+**Total:** consultar Supabase (`SELECT COUNT(*) FROM products`)  
 **Última revisão:** 2026-06-28
 
 ---
@@ -55,15 +55,10 @@
 
 ---
 
-## 💰 Faixas de Preço
+## 💰 Preços
 
-| Faixa | Produtos |
-|-------|---------|
-| R$ 20 - R$ 50 | Meias, cuecas, acessórios |
-| R$ 50 - R$ 120 | Camisetas, bonés |
-| R$ 120 - R$ 250 | Bermudas, calças |
-| R$ 250 - R$ 600 | Tênis (entrada) |
-| R$ 600+ | Tênis premium, kit completo |
+> **Fonte de verdade: Supabase (`products.price`)**  
+> Sempre consultar o campo `price` da tabela `products` — nunca usar valores fixos aqui.
 
 ---
 

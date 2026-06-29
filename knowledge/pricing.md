@@ -5,19 +5,10 @@
 
 ---
 
-## 💰 Tabela de Preços por Categoria
+## 💰 Preços
 
-| Categoria | Preço Mínimo | Preço Médio | Preço Máximo |
-|-----------|-------------|-------------|-------------|
-| Meias / Cuecas | R$ 20 | R$ 35 | R$ 60 |
-| Camisetas | R$ 50 | R$ 85 | R$ 140 |
-| Bonés | R$ 60 | R$ 90 | R$ 150 |
-| Bermudas | R$ 90 | R$ 140 | R$ 220 |
-| Calças | R$ 120 | R$ 180 | R$ 280 |
-| Tênis (entrada) | R$ 250 | R$ 380 | R$ 550 |
-| Tênis (premium) | R$ 550 | R$ 750 | R$ 1.200 |
-
-> ⚠️ Preços atualizados via Supabase. Sempre buscar price real da tabela `products`.
+> **Fonte de verdade: Supabase (`products.price`)**  
+> Nunca citar preço fixo aqui — buscar sempre o valor real da tabela `products` antes de responder ao cliente.
 
 ---
 
@@ -34,12 +25,8 @@ Se cliente perguntar sobre cupom ou desconto:
 
 ## 🚚 Informações de Frete
 
-> **Regra:** Consultar tabela de frete na hora da venda (varia por CEP)
-
-- **Frete grátis:** Acima de R$ 300 (verificar promoções ativas)
-- **PAC:** Mais barato, prazo 7-15 dias úteis
-- **SEDEX:** Mais rápido, prazo 2-5 dias úteis
-- **Retirada local:** Disponível em Uberlândia-MG
+> **Política completa em:** `knowledge/policy.md` — seção "Política de Envio"  
+> Prazo e valor de frete variam por CEP — consultar na hora da venda.
 
 ---
 

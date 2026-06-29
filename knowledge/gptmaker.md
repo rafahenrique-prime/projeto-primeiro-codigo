@@ -81,17 +81,10 @@ Os agentes ficam na aba "Canais" do sistema. Cada agente tem:
 
 ---
 
-## 🐛 Bugs Conhecidos e Soluções
+## 🐛 Troubleshooting
 
-### Card de Créditos Travado
-- **Causa:** API `/account/info` retornando 404
-- **Fix:** Retornar mock `{"credits": 1584, "mock": true}` em vez de propagar erro
-- **Doc:** `docs/troubleshooting/deployment/vercel-gptmaker-404.md`
-
-### Webhook retorna "Imagem: null"
-- **Causa:** `/api/knowledge` retornava `imageUrl` no response
-- **Fix:** Remover `imageUrl`, `productName`, `productPrice` do response
-- **Retornar apenas:** `output` (texto), `context`, `knowledge_count`, `products_count`
+> Bugs resolvidos e checklists de diagnóstico ficam em `docs/troubleshooting/`.  
+> Ver índice em `docs/INDEX.md`.
 
 ---
 

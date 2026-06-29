@@ -73,7 +73,8 @@
 > "Temos o PAC que é mais em conta! Fica [valor] e chega em 7-15 dias úteis. Serve?"
 
 ### Resposta 2 — Frete grátis (se disponível)
-> "Comprando acima de R$ 300 o frete é grátis! Quer ver mais algum produto pra aproveitar?"
+> "Dependendo do valor da compra o frete pode ser grátis! Quer ver mais algum produto pra aproveitar?"  
+> *(verificar política atual em `knowledge/policy.md` antes de confirmar threshold)*
 
 ### Resposta 3 — Retirada
 > "Você é de Uberlândia? Pode retirar na loja sem custo de frete!"
