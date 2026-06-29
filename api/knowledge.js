@@ -1,12 +1,14 @@
 // Webhook para GPT Maker — Consultar base de conhecimento
 // Gabriela chama este endpoint antes de responder ao cliente
 // O retorno é injetado como contexto na resposta dela
+// Busca híbrida: keyword (grátis) + semântica via Cohere (fallback quando keyword retorna 0)
 
 const fs = require('fs')
 const path = require('path')
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
+const COHERE_API_KEY = process.env.COHERE_API_KEY
 
 // Função para logar requisições
 function logRequest(data) {
@@ -17,12 +19,48 @@ function logRequest(data) {
 }
 
 
+const SB_HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+}
+
+async function generateQueryEmbedding(text) {
+  if (!COHERE_API_KEY) return null
+  try {
+    const res = await fetch('https://api.cohere.com/v2/embed', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${COHERE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        texts: [text],
+        model: 'embed-multilingual-v3.0',
+        input_type: 'search_query',
+        embedding_types: ['float'],
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.embeddings?.float?.[0] || null
+  } catch {
+    return null
+  }
+}
+
+async function searchKnowledgeSemantic(embedding) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/match_knowledge`, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query_embedding: embedding, match_threshold: 0.45, match_count: 5 }),
+  })
+  if (!res.ok) return []
+  return res.json()
+}
+
 async function searchKnowledge(message) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/knowledge?order=created_at.desc`, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-    },
+    headers: SB_HEADERS,
   })
   if (!res.ok) throw new Error(`Supabase erro: ${res.status}`)
   const entries = await res.json()
@@ -31,18 +69,37 @@ async function searchKnowledge(message) {
     return entries.slice(0, 5)
   }
 
+  // Busca por keyword (grátis, sempre roda)
   const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2)
-  if (words.length === 0) return entries.slice(0, 5)
+  const scored = words.length > 0
+    ? entries.map(entry => {
+        const score = words.reduce((acc, w) => {
+          const titleHits = ((entry.title || '').toLowerCase().match(new RegExp(w, 'g')) || []).length * 3
+          const contentHits = ((entry.content || '').toLowerCase().match(new RegExp(w, 'g')) || []).length
+          return acc + titleHits + contentHits
+        }, 0)
+        return { ...entry, score }
+      }).filter(e => e.score > 0).sort((a, b) => b.score - a.score)
+    : []
 
-  const scored = entries.map(entry => {
-    const score = words.reduce((acc, w) => {
-      const titleHits = ((entry.title || '').toLowerCase().match(new RegExp(w, 'g')) || []).length * 3
-      const contentHits = ((entry.content || '').toLowerCase().match(new RegExp(w, 'g')) || []).length
-      return acc + titleHits + contentHits
-    }, 0)
-    return { ...entry, score }
-  }).filter(e => e.score > 0).sort((a, b) => b.score - a.score)
+  // Se keyword achou resultados, usa eles
+  if (scored.length >= 2) {
+    console.log(`[knowledge] keyword: ${scored.length} resultado(s)`)
+    return scored.slice(0, 5)
+  }
 
+  // Fallback semântico via Cohere — só chama quando keyword falha
+  console.log(`[knowledge] keyword sem resultado, tentando busca semântica...`)
+  const embedding = await generateQueryEmbedding(message)
+  if (embedding) {
+    const semantic = await searchKnowledgeSemantic(embedding)
+    if (semantic.length > 0) {
+      console.log(`[knowledge] semântica: ${semantic.length} resultado(s)`)
+      return semantic
+    }
+  }
+
+  // Fallback final: retorna entradas recentes
   return scored.length > 0 ? scored.slice(0, 5) : entries.slice(0, 3)
 }
 
