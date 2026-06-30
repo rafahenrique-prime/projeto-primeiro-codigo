@@ -90,6 +90,55 @@ function detectProductRequest(msg) {
   ].some(p => p.test(m))
 }
 
+// Detecta pedido de múltiplas fotos: "foto dos 2", "das duas", "ambas", etc.
+function detectMultiplePhotoRequest(msg) {
+  const m = (msg || '').toLowerCase()
+  return [
+    /(?:dos?|das?)\s+(?:2|dois|duas|ambas|ambos|3|três)/i,
+    /(?:foto|imagem)\s+(?:dos?|das?)\s+(?:2|dois|duas|ambas|ambos|3|três)/i,
+    /(?:de)\s+(?:ambas?|ambos)/i,
+    /(?:manda|envia)\s+(?:as?|uma?)\s+(?:2|dois|duas|ambas|ambos|3|três)\s+fotos/i,
+  ].some(p => p.test(m))
+}
+
+// Extrai quantas fotos o cliente quer (2, 3, etc)
+function extractPhotoCount(msg) {
+  const m = (msg || '').toLowerCase()
+  const match = m.match(/(\d+|dois|duas|ambas|ambos|três|3|2)/)
+  if (match) {
+    const num = match[1]
+    if (num === 'dois' || num === 'ambos' || num === '2') return 2
+    if (num === 'duas' || num === 'ambas' || num === '2') return 2
+    if (num === 'três' || num === '3') return 3
+    if (!isNaN(parseInt(num))) return Math.min(parseInt(num), 5) // max 5 fotos
+  }
+  return 2 // padrão se não conseguir extrair
+}
+
+// Procura na conversa pelos nomes dos produtos mencionados (listados pelo agente)
+function extractProductNamesFromChat(messages, count = 2) {
+  const productNames = []
+
+  // Procura por padrões como "1️⃣ Produto Nome" ou "1. Produto Nome"
+  const emojiPattern = /[1️⃣2️⃣3️⃣4️⃣5️⃣1-5️⃣•\d.]\s+([A-Za-z\s0-9À-ÿ]+?)(?:\n|$|—|R\$|💰)/g
+
+  for (const msg of messages) {
+    const text = msg.text || msg.content || msg.message || ''
+    let match
+    while ((match = emojiPattern.exec(text)) !== null) {
+      const productName = match[1].trim()
+      if (productName.length > 3 && !productNames.includes(productName)) {
+        productNames.push(productName)
+        if (productNames.length >= count) break
+      }
+    }
+    if (productNames.length >= count) break
+  }
+
+  console.log('[auto-photo] Produtos extraídos da conversa:', productNames)
+  return productNames.slice(0, count)
+}
+
 function extractProductName(msg) {
   const m = (msg || '').toLowerCase()
 
@@ -371,7 +420,62 @@ export default async function handler(req, res) {
     allMsgs.length > 0 ? Promise.resolve(allMsgs) : getChatMessages(chatId),
   ])
 
-  // 1. Tenta extrair produto da mensagem atual
+  // NOVA LÓGICA: Detectar se é pedido de múltiplas fotos (ex: "foto dos 2", "ambas")
+  if (detectMultiplePhotoRequest(message)) {
+    console.log('[auto-photo] 📸 MÚLTIPLAS FOTOS detectadas!')
+    const photoCount = extractPhotoCount(message)
+    const productNames = extractProductNamesFromChat(messages, photoCount)
+
+    if (productNames.length < 2) {
+      console.warn('[auto-photo] ⚠️  Não consegui extrair 2+ nomes de produtos da conversa')
+      return res.status(200).json({ ok: true, skipped: 'could not extract multiple product names' })
+    }
+
+    console.log(`[auto-photo] Enviando ${productNames.length} fotos para produtos:`, productNames)
+
+    try {
+      // Procura cada produto no catálogo
+      const produtos = []
+      for (const name of productNames) {
+        const found = findProductInText(name, catalog)
+        if (found && isValidImageUrl(found.imagem)) {
+          produtos.push(found)
+        }
+      }
+
+      if (produtos.length === 0) {
+        console.error('[auto-photo] ❌ Nenhum produto encontrado para múltiplas fotos')
+        return res.status(200).json({ ok: true, skipped: 'no products found for multiple photo request' })
+      }
+
+      // Envia cada foto com delay de 1000ms entre elas
+      for (let i = 0; i < produtos.length; i++) {
+        const p = produtos[i]
+        console.log(`[auto-photo] Enviando foto ${i + 1}/${produtos.length}: ${p.nome}`)
+
+        await sendMessage(chatId, p.nome, p.imagem)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        await sendMessage(chatId, `${p.preco}\n\n${p.link}`)
+
+        if (i < produtos.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+
+      console.log('[auto-photo] ✅ Todas as fotos enviadas com sucesso!')
+      return res.status(200).json({
+        ok: true,
+        tipo: 'multiple_photos',
+        produtos: produtos.map(p => p.nome),
+        chatId,
+      })
+    } catch (err) {
+      console.error('[auto-photo] 🔴 ERRO ao enviar múltiplas fotos:', err.message)
+      return res.status(500).json({ error: err.message })
+    }
+  }
+
+  // 1. Tenta extrair produto da mensagem atual (LÓGICA ORIGINAL PARA UMA FOTO)
   const nomeProduto = extractProductName(message)
   let produto = null
 

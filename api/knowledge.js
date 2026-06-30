@@ -248,8 +248,32 @@ export default async function handler(req, res) {
     }
 
     if (products.length > 0) {
-      sections.push('\n=== PRODUTOS ENCONTRADOS ===')
-      for (const p of products) {
+      // Detecta múltiplas opções e estrutura a resposta
+      if (products.length > 1) {
+        console.log(`[knowledge] ⚠️  MÚLTIPLAS OPÇÕES detectadas: ${products.length} produtos`)
+
+        // Mostra até 5 primeiras + aviso se há mais
+        sections.push('\n=== MÚLTIPLAS OPÇÕES ENCONTRADAS ===')
+        sections.push(`Encontrei ${products.length} opções para seu modelo.\n`)
+
+        const displayed = products.slice(0, 5)
+        for (let i = 0; i < displayed.length; i++) {
+          const p = displayed[i]
+          sections.push(`${i + 1}️⃣ ${p.nome}`)
+          if (p.preco) sections.push(`   💰 ${p.preco}`)
+          if (p.link) sections.push(`   🔗 ${p.link}`)
+        }
+
+        if (products.length > 5) {
+          sections.push(`\n... e mais ${products.length - 5} opções disponíveis.`)
+        }
+
+        sections.push('\n📋 Instrução: Liste as opções acima para o cliente e pergunte qual ele quer ver.')
+        sections.push('Aguarde a escolha dele antes de enviar foto/preço/link de uma opção específica.')
+      } else {
+        // Uma única opção — responde normalmente
+        sections.push('\n=== PRODUTOS ENCONTRADOS ===')
+        const p = products[0]
         let line = `• ${p.nome}`
         if (p.preco) line += ` — ${p.preco}`
         if (p.link) line += `\n  Link: ${p.link}`
@@ -259,12 +283,24 @@ export default async function handler(req, res) {
     }
 
     const context = sections.join('\n\n')
+    const hasMultipleOptions = products.length > 1
+
+    // Estrutura a lista de opções para auto-photo.js usar quando cliente pedir múltiplas fotos
+    const optionsList = products.slice(0, 5).map(p => ({
+      nome: p.nome,
+      preco: p.preco,
+      link: p.link,
+      imagem: p.imagem,
+    }))
 
     return res.status(200).json({
       output: context || 'Nenhuma informação encontrada na base de conhecimento para esta mensagem.',
       context,
       knowledge_count: knowledgeEntries.length,
       products_count: products.length,
+      has_multiple_options: hasMultipleOptions,
+      multiple_options_count: hasMultipleOptions ? products.length : 0,
+      options: hasMultipleOptions ? optionsList : [],
     })
   } catch (err) {
     console.error('[knowledge webhook] Erro:', err)
