@@ -159,22 +159,47 @@ async function searchKnowledge(message, conversationId) {
 async function searchProducts(message) {
   if (!message || message.trim().length < 2) return []
 
-  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+  // Stopwords que não ajudam na busca de produto
+  const STOPWORDS = new Set([
+    'tem', 'voce', 'você', 'qual', 'quero', 'ver', 'foto', 'imagem', 'manda',
+    'mostra', 'envia', 'quais', 'sao', 'são', 'como', 'que', 'para', 'por',
+    'com', 'uma', 'uns', 'umas', 'isso', 'esse', 'essa', 'este', 'esta',
+    'dele', 'dela', 'mais', 'alguma', 'algum', 'sim', 'nao', 'não'
+  ])
+
+  const words = message.toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOPWORDS.has(w))
+
   if (words.length === 0) return []
 
-  // Busca produtos no Supabase por nome — usa * como wildcard (% precisa de encoding na URL)
-  const orFilter = words.map(w => `nome.ilike.*${w}*`).join(',')
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/products?or=(${orFilter})&status=eq.active&limit=200&select=nome,preco,imagem,link`,
-    {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-      },
-    }
-  )
-  if (!res.ok) return []
-  return res.json()
+  // Estratégia AND via PostgREST: usa `and=(filtro1,filtro2)` para exigir todas as palavras
+  // Isso evita retornar "Cinto Marrom" quando o cliente pediu "New Balance 9060 Marrom"
+  let results = []
+
+  if (words.length >= 2) {
+    // AND nativo do PostgREST: and=(nome.ilike.*new*,nome.ilike.*balance*,...)
+    const andFilter = words.map(w => `nome.ilike.*${w}*`).join(',')
+    const resAnd = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?and=(${andFilter})&status=eq.active&limit=50&select=nome,preco,imagem,link`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    )
+    if (resAnd.ok) results = await resAnd.json()
+    console.log(`[knowledge] searchProducts AND: ${results.length} resultado(s) para "${words.join(' ')}"`)
+  }
+
+  // Fallback: OR se AND não encontrou nada (busca mais ampla)
+  if (results.length === 0) {
+    const orFilter = words.map(w => `nome.ilike.*${w}*`).join(',')
+    const resOr = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?or=(${orFilter})&status=eq.active&limit=200&select=nome,preco,imagem,link`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    )
+    if (resOr.ok) results = await resOr.json()
+    console.log(`[knowledge] searchProducts OR (fallback): ${results.length} resultado(s)`)
+  }
+
+  return results
 }
 
 export default async function handler(req, res) {
