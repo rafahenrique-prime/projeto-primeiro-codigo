@@ -3,12 +3,13 @@ import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport,
 import { recordStage, cleanupOldEntries } from '../services/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog } from '../services/followUpService'
-import { listChannels, getChatMessages, listAgents, listTrainings, createTraining } from '../services/gptmaker'
+import { listChannels, getChatMessages, listAgents, listTrainings, createTraining, sendMessage as gptSendMessage } from '../services/gptmaker'
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/imageReviewService'
 import { getAllEntries } from '../services/knowledgeDB'
+import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -29,6 +30,7 @@ const SUGGESTIONS = [
 
 const QUICK_ACTIONS = [
   { icon: '🔥', label: 'Leads quentes',    cmd: 'Quem está mais perto de comprar agora?' },
+  { icon: '🎯', label: 'Score ao vivo',     cmd: '__SCORE_LIVE__' },
   { icon: '📭', label: 'Sem resposta',      cmd: 'Quais clientes estão aguardando resposta há mais tempo?' },
   { icon: '💸', label: 'Pediram desconto',  cmd: 'Quem pediu desconto ou contestou o preço?' },
   { icon: '🚚', label: 'Pediram frete',     cmd: 'Quem perguntou sobre frete e não finalizou?' },
@@ -42,6 +44,20 @@ const QUICK_ACTIONS = [
   { icon: '🔁', label: 'Reengajar clientes', cmd: '__REENGAGE__' },
   { icon: '🖼️', label: 'Revisor de fotos',   cmd: '__IMAGE_REVIEW__' },
 ]
+
+// Cor do score (0-100) → vermelho → amarelo → verde
+function scoreColor(score) {
+  if (score >= 70) return '#0EC331'
+  if (score >= 40) return '#F59E0B'
+  return '#EF4444'
+}
+
+// Label do score
+function scoreLabel(score) {
+  if (score >= 70) return '🔥 Quente'
+  if (score >= 40) return '🌡️ Morno'
+  return '❄️ Frio'
+}
 
 export default function DealOncaPage({ conversations = [], setPage }) {
   const [channels, setChannels] = useState([])
@@ -110,6 +126,31 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     if (state) localStorage.setItem('codex_onboarding', JSON.stringify(state))
     else localStorage.removeItem('codex_onboarding')
   }
+
+  // ─── Modo do CODEX: 'auditor' (Gordon Ramsay) | 'consultor' (professor didático)
+  const [codexMode, setCodexMode] = useState(() => localStorage.getItem('codex_mode') || 'auditor')
+
+  const toggleMode = () => {
+    const next = codexMode === 'auditor' ? 'consultor' : 'auditor'
+    setCodexMode(next)
+    localStorage.setItem('codex_mode', next)
+    setMessages(prev => [...prev, {
+      id: Date.now(), from: 'codex',
+      text: next === 'consultor'
+        ? '📚 **Modo Consultor ativado!**\n\nAgora vou explicar tudo de forma didática, com exemplos reais e passo a passo. Pode perguntar qualquer coisa — estou aqui para ensinar. 😊'
+        : '🔥 **Modo Auditor ativado!**\n\nDe volta ao modo direto. Sem rodeios, sem enrolação — só dados e diagnóstico. 💀',
+    }])
+  }
+
+  // ─── Envio de mensagem via CODEX ───────────────────────────────────────────
+  const [pendingSend, setPendingSend] = useState(null) // { chatId, name, text }
+
+  // ─── Colapso do painel direito ─────────────────────────────────────────────
+  const [panelCollapsed, setPanelCollapsed] = useState({ analise: false, conhecimento: false, funil: false, canais: false })
+  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+
+  // ─── Perfis de leads (Score Dinâmico) ──────────────────────────────────────
+  const [leadProfiles, setLeadProfiles] = useState([])
 
   // ─── Follow-up ─────────────────────────────────────────────────────────────
   const [showFollowUpPanel, setShowFollowUpPanel] = useState(false)
@@ -312,6 +353,22 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     getAllEntries().then(setLocalKnowledge).catch(() => {})
   }, [])
 
+  // Carrega perfis de leads do Supabase quando conversas estiverem prontas
+  useEffect(() => {
+    if (richConversations.length === 0) return
+    const syncProfiles = async () => {
+      try {
+        const toSync = richConversations.filter(c => c._loadedOk && c.fullMessages?.length > 0).slice(0, 20)
+        await Promise.allSettled(toSync.map(c => upsertProfile(c, c.fullMessages || [])))
+        const profiles = await getAllProfiles()
+        setLeadProfiles(profiles)
+      } catch (e) {
+        console.warn('[CODEX] Sync perfis:', e.message)
+      }
+    }
+    syncProfiles()
+  }, [richConversations])
+
   useEffect(() => {
     if (conversations.length === 0) return
     setLoadingHistory(true)
@@ -479,10 +536,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
           // Usar apenas conversas com dados válidos carregados (richConversations já validadas)
           const validCtx = richConversations.length > 0
-            ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
+            ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0).slice(0, 10)
             : []
           const [provider, modelId] = selectedModel.split('::')
-          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId }, localKnowledge)
+          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode)
         } else {
           reply = `📎 Arquivo recebido: **${file.name}** (${(file.size/1024).toFixed(0)}KB). No momento só consigo analisar imagens — envie uma foto e descreverei o produto.`
         }
@@ -492,6 +549,39 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       } finally {
         setLoading(false)
       }
+      return
+    }
+
+    // Score ao vivo dos leads
+    if (t === '__SCORE_LIVE__') {
+      setMessages(prev => [...prev, { id: Date.now(), from: 'user', text: '🎯 Score de conversão ao vivo' }])
+      const profiles = leadProfiles.length > 0 ? leadProfiles : await getAllProfiles().catch(() => [])
+      if (!profiles.length) {
+        setMessages(prev => [...prev, { id: Date.now() + 1, from: 'codex', text: '⚠️ Nenhum perfil de lead encontrado ainda. Aguarde o carregamento das conversas.' }])
+        return
+      }
+      const sorted = [...profiles].sort((a, b) => (b.buy_score || 0) - (a.buy_score || 0))
+      const quentes = sorted.filter(p => (p.buy_score || 0) >= 70)
+      const mornos  = sorted.filter(p => (p.buy_score || 0) >= 40 && (p.buy_score || 0) < 70)
+      const frios   = sorted.filter(p => (p.buy_score || 0) < 40)
+
+      const fmt = (list) => list.slice(0, 5).map(p => {
+        const bar = '█'.repeat(Math.round((p.buy_score || 0) / 10)) + '░'.repeat(10 - Math.round((p.buy_score || 0) / 10))
+        const tags = (p.tags || []).slice(0, 2).join(', ')
+        return `**${p.name || 'Sem nome'}** — ${p.buy_score || 0}% ${bar}\n  Canal: ${p.channel || '?'} | CEP: ${p.cep || 'Pendente'} | Tam: ${p.size || 'Pendente'}${tags ? ` | ${tags}` : ''}`
+      }).join('\n\n')
+
+      const text = [
+        `🎯 **SCORE DE CONVERSÃO — ${profiles.length} leads analisados**`,
+        '',
+        quentes.length ? `🔥 **QUENTES (≥70%) — ${quentes.length} leads**\n${fmt(quentes)}` : '',
+        mornos.length  ? `🌡️ **MORNOS (40-69%) — ${mornos.length} leads**\n${fmt(mornos)}` : '',
+        frios.length   ? `❄️ **FRIOS (<40%) — ${frios.length} leads**\n${fmt(frios)}` : '',
+        '',
+        `💡 _Score sobe quando lead informa CEP, tamanho e cor. Cai com inatividade._`,
+      ].filter(Boolean).join('\n')
+
+      setMessages(prev => [...prev, { id: Date.now() + 1, from: 'codex', text }])
       return
     }
 
@@ -675,16 +765,56 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       return
     }
 
+    // ─── Detectar intenção de envio de mensagem ────────────────────────────────
+    const sendMatch = t.match(/(?:envi[ae]|manda|send)(?:\s+(?:uma?\s+)?(?:mensagem|msg))?\s+(?:para|pro|pra)\s+(?:o\s+|a\s+)?(.+?)(?:\s*[:]\s*(.+))?$/i)
+    if (sendMatch) {
+      const rawName = sendMatch[1].trim().replace(/:.*$/, '').trim()
+      const inlineText = sendMatch[2]?.trim()
+      const nameLower = rawName.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      const allConvs = richConversations.length > 0 ? richConversations : conversations
+      const match = allConvs.find(c => {
+        const cname = (c.name || c.clientName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        return cname.includes(nameLower) || nameLower.includes(cname.split(' ')[0])
+      })
+      if (match) {
+        const msgText = inlineText || `Olá ${match.name || rawName}! 👋`
+        setPendingSend({ chatId: match.id, name: match.name || rawName, text: msgText })
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, from: 'codex',
+          text: `📤 **Pronto para enviar para ${match.name || rawName}**\n\nConfirme abaixo antes de enviar.`,
+          pendingSendId: Date.now(),
+        }])
+        setLoading(false)
+        return
+      }
+    }
+
     setLoading(true)
 
     try {
       const history = messages.filter(m => m.from === 'user' || m.from === 'codex')
       // Usar apenas conversas com dados válidos carregados (richConversations já validadas)
       const validCtx = richConversations.length > 0
-        ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0)
+        ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0).slice(0, 10)
         : []
       const [provider, modelId] = selectedModel.split('::')
-      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId }, localKnowledge)
+      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode)
+
+      // Detectar se o CODEX gerou um bloco de envio de mensagem
+      const sendBlockMatch = reply.match(/ENVIO DE MENSAGEM PARA (.+?)(?:\n|$)([\s\S]+)/i)
+      if (sendBlockMatch) {
+        const contactName = sendBlockMatch[1].trim().replace(/NO WHATSAPP|NO INSTAGRAM/gi, '').trim()
+        const msgBody = sendBlockMatch[2].replace(/AGUARDANDO RESPOSTA\.\.\..*$/i, '').trim()
+        const nameLower = contactName.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        const match = richConversations.find(c => {
+          const cname = (c.name || c.clientName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+          return cname.includes(nameLower) || nameLower.includes(cname.split(' ')[0])
+        })
+        if (match) {
+          setPendingSend({ chatId: match.id, name: match.name || contactName, text: msgBody })
+        }
+      }
+
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         from: 'codex',
@@ -701,7 +831,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
   }
 
   return (
-    <div style={{ flex: 1, background: '#fff', borderRadius: 8, display: 'flex', overflow: 'hidden' }}>
+    <div style={{ flex: 1, background: '#fff', borderRadius: 8, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
       {/* Chat */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E5E5E5' }}>
@@ -747,13 +877,13 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A', letterSpacing: '0.5px' }}>CODEX</div>
             <div style={{ fontSize: 12, color: '#82829B', display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 7, height: 7, background: '#7C3AED', borderRadius: '50%', display: 'inline-block' }} />
-              Diretor Comercial IA · PRIME STORE ·
+              Diretor Comercial ·
               <button
                 onClick={() => setShowModelMenu(v => !v)}
                 style={{ background: 'none', border: 'none', padding: '0 2px', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 3 }}
               >
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: activeModel.provider === 'groq' ? '#F0EBFF' : '#E6F1FB', color: activeModel.provider === 'groq' ? '#7C3AED' : '#185FA5' }}>{activeModel.badge}</span>
-                {activeModel.label} ▾
+                {activeModel.label.split(' ').slice(0,2).join(' ')} ▾
               </button>
             </div>
           </div>
@@ -784,35 +914,72 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
               ))}
             </div>
           )}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
             {trainings.length > 0 && (
-              <span style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 9999, padding: '4px 12px', fontSize: 12, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span title="Treinamentos na base de conhecimento" style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                 🧠 {trainings.length} na base
               </span>
             )}
             {loadingHistory ? (
-              <span style={{ background: '#FFF8E1', border: '1px solid #FCD34D', borderRadius: 9999, padding: '4px 12px', fontSize: 12, color: '#92400E', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }} />
-                Carregando... {historyProgress}%
+              <span title="Carregando histórico de conversas..." style={{ background: '#FFF8E1', border: '1px solid #FCD34D', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#92400E', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }} />
+                {historyProgress}%
               </span>
             ) : (
-              <span style={{ background: '#EFFDF4', border: '1px solid #B9F8CF', borderRadius: 9999, padding: '4px 12px', fontSize: 12, color: '#0EC331', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#0EC331', display: 'inline-block' }} />
-                {richConversations.length} conversas
+              <span title="Conversas abertas carregadas" style={{ background: '#EFFDF4', border: '1px solid #B9F8CF', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#0EC331', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0EC331', display: 'inline-block' }} />
+                {richConversations.length} conv.
               </span>
             )}
-            <span style={{ background: '#FFF8E1', border: '1px solid #FFC300', borderRadius: 9999, padding: '4px 12px', fontSize: 12, color: '#856404' }}>
-              🔔 {conversations.filter(c => c.unread > 0).length} não lidas
+            <span title="Não lidas" style={{ background: '#FFF8E1', border: '1px solid #FFC300', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#856404', whiteSpace: 'nowrap' }}>
+              🔔 {conversations.filter(c => c.unread > 0).length}
             </span>
+            {leadProfiles.length > 0 && (leadProfiles.filter(p => (p.buy_score||0) >= 70).length > 0 || leadProfiles.filter(p => (p.buy_score||0) >= 40 && (p.buy_score||0) < 70).length > 0) && (
+              <span
+                onClick={() => send('__SCORE_LIVE__')}
+                title="Score de conversão dos leads"
+                style={{ background: '#F0FDF4', border: '1px solid #B9F8CF', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#0EC331', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}
+              >
+                🔥 {leadProfiles.filter(p => (p.buy_score || 0) >= 70).length}
+                <span style={{ color: '#F59E0B' }}>· {leadProfiles.filter(p => (p.buy_score || 0) >= 40 && (p.buy_score || 0) < 70).length}</span>
+              </span>
+            )}
+            {/* Toggle de modo — Auditor / Consultor */}
+            <div
+              onClick={toggleMode}
+              title={codexMode === 'auditor' ? 'Modo Auditor ativo — clique para Modo Consultor' : 'Modo Consultor ativo — clique para Modo Auditor'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 0,
+                background: '#F3F4F6', borderRadius: 9999, padding: 2,
+                cursor: 'pointer', border: '1px solid #E5E7EB', flexShrink: 0,
+              }}
+            >
+              <span style={{
+                padding: '3px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 700,
+                background: codexMode === 'auditor' ? '#7C3AED' : 'transparent',
+                color: codexMode === 'auditor' ? '#fff' : '#9CA3AF',
+                transition: 'all 0.2s',
+              }}>
+                🔥 Auditor
+              </span>
+              <span style={{
+                padding: '3px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 700,
+                background: codexMode === 'consultor' ? '#0EA5E9' : 'transparent',
+                color: codexMode === 'consultor' ? '#fff' : '#9CA3AF',
+                transition: 'all 0.2s',
+              }}>
+                📚 Consultor
+              </span>
+            </div>
+
             <button
               onClick={startOnboarding}
               style={{ background: onboarding ? '#7C3AED' : 'none', border: '1px solid ' + (onboarding ? '#7C3AED' : '#7C3AED'), borderRadius: 8, padding: '4px 12px', fontSize: 11, color: onboarding ? '#fff' : '#7C3AED', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
             >
               🚀 {onboarding ? `Etapa ${(onboarding.stage || 0) + 1}/5` : 'Novo Agente'}
             </button>
-            <button onClick={clearHistory} style={{ background: 'none', border: '1px solid #E5E5E5', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#82829B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              Limpar
+            <button onClick={clearHistory} title="Limpar histórico do chat" style={{ background: 'none', border: '1px solid #E5E5E5', borderRadius: 8, padding: '5px 7px', fontSize: 11, color: '#82829B', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </button>
           </div>
         </div>
@@ -831,6 +998,38 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           {loading && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
+
+        {/* Card de confirmação de envio */}
+        {pendingSend && (
+          <div style={{ margin: '0 24px 12px', background: '#FFF7ED', border: '2px solid #F59E0B', borderRadius: 12, padding: '14px 16px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>📤 Confirmar envio para {pendingSend.name}</div>
+            <div style={{ fontSize: 12, color: '#78350F', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '10px 12px', marginBottom: 12, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>
+              {pendingSend.text}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    await gptSendMessage(pendingSend.chatId, pendingSend.text)
+                    setMessages(prev => [...prev, { id: Date.now(), from: 'codex', text: `✅ Mensagem enviada para **${pendingSend.name}** com sucesso!` }])
+                  } catch (err) {
+                    setMessages(prev => [...prev, { id: Date.now(), from: 'codex', text: `❌ Erro ao enviar para ${pendingSend.name}: ${err.message}` }])
+                  }
+                  setPendingSend(null)
+                }}
+                style={{ flex: 1, background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✅ Confirmar Envio
+              </button>
+              <button
+                onClick={() => setPendingSend(null)}
+                style={{ flex: 1, background: '#F3F4F6', color: '#374151', border: 'none', borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Input */}
         <div style={{ padding: '14px 24px', borderTop: '1px solid #E5E5E5', flexShrink: 0 }}>
@@ -871,10 +1070,25 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       </div>
 
       {/* Right panel */}
-      <div style={{ width: 240, padding: '20px 16px', overflowY: 'auto', background: '#F7F7F7', flexShrink: 0 }}>
+      {/* Botão para abrir/fechar painel direito */}
+      <button
+        onClick={() => setRightPanelOpen(v => !v)}
+        title={rightPanelOpen ? 'Recolher painel' : 'Expandir painel'}
+        style={{ position: 'absolute', right: rightPanelOpen ? 248 : 8, top: '50%', transform: 'translateY(-50%)', zIndex: 10, background: '#fff', border: '1px solid #E5E5E5', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', transition: 'right 0.25s', flexShrink: 0 }}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#82829B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          {rightPanelOpen ? <polyline points="9 18 15 12 9 6"/> : <polyline points="15 18 9 12 15 6"/>}
+        </svg>
+      </button>
+      <div style={{ width: rightPanelOpen ? 240 : 0, minWidth: rightPanelOpen ? 240 : 0, padding: rightPanelOpen ? '20px 16px' : 0, overflowY: rightPanelOpen ? 'auto' : 'hidden', overflowX: 'hidden', background: '#F7F7F7', flexShrink: 0, transition: 'width 0.25s, min-width 0.25s, padding 0.25s' }}>
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Análise Rápida</div>
-        {QUICK_ACTIONS.map(item => (
+        {/* ── Análise Rápida ── */}
+        <div onClick={() => setPanelCollapsed(s => ({ ...s, analise: !s.analise }))}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: panelCollapsed.analise ? 0 : 10, userSelect: 'none' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Análise Rápida</span>
+          <span style={{ fontSize: 11, color: '#82829B', transition: 'transform 0.2s', display: 'inline-block', transform: panelCollapsed.analise ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+        </div>
+        {!panelCollapsed.analise && QUICK_ACTIONS.map(item => (
           <button key={item.label} onClick={() => send(item.cmd)} disabled={loading}
             style={{ width: '100%', background: '#fff', border: '1px solid #E5E5E5', borderRadius: 10, padding: '9px 12px', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8, cursor: loading ? 'not-allowed' : 'pointer', textAlign: 'left', opacity: loading ? 0.5 : 1 }}
             onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#F5F3FF' }}
@@ -884,34 +1098,117 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           </button>
         ))}
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 6px', paddingTop: 12, borderTop: '1px solid #E5E5E5' }}>Salvar Conhecimento</div>
-        <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Atalhos para o chat</div>
-        {[
-          { icon: '📦', label: 'Produto novo',   prefix: 'Adiciona que produto ' },
-          { icon: '💰', label: 'Preço / promo',  prefix: 'Adiciona que o preço ' },
-          { icon: '❓', label: 'Pergunta freq.', prefix: 'Adiciona que quando cliente perguntar ' },
-          { icon: '⚡', label: 'Estratégia',     prefix: 'Adiciona que a estratégia ' },
-          { icon: '📋', label: 'Política',       prefix: 'Adiciona que a política ' },
-        ].map(item => (
-          <button key={item.label} onClick={() => setInput(item.prefix)}
-            style={{ width: '100%', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '8px 12px', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#EDE9FE' }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#F5F3FF' }}>
-            <span style={{ fontSize: 14 }}>{item.icon}</span>
-            <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 500 }}>{item.label}</span>
-          </button>
-        ))}
+        {/* ── Salvar Conhecimento ── */}
+        <div onClick={() => setPanelCollapsed(s => ({ ...s, conhecimento: !s.conhecimento }))}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: '16px 0 6px', paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Salvar Conhecimento</span>
+          <span style={{ fontSize: 11, color: '#82829B', transition: 'transform 0.2s', display: 'inline-block', transform: panelCollapsed.conhecimento ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
+        </div>
+        {!panelCollapsed.conhecimento && <>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Atalhos para o chat</div>
+          {[
+            { icon: '📦', label: 'Produto novo',   prefix: 'Adiciona que produto ' },
+            { icon: '💰', label: 'Preço / promo',  prefix: 'Adiciona que o preço ' },
+            { icon: '❓', label: 'Pergunta freq.', prefix: 'Adiciona que quando cliente perguntar ' },
+            { icon: '⚡', label: 'Estratégia',     prefix: 'Adiciona que a estratégia ' },
+            { icon: '📋', label: 'Política',       prefix: 'Adiciona que a política ' },
+          ].map(item => (
+            <button key={item.label} onClick={() => setInput(item.prefix)}
+              style={{ width: '100%', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '8px 12px', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#EDE9FE' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#F5F3FF' }}>
+              <span style={{ fontSize: 14 }}>{item.icon}</span>
+              <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 500 }}>{item.label}</span>
+            </button>
+          ))}
+        </>}
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 10px', paddingTop: 12, borderTop: '1px solid #E5E5E5' }}>Canais</div>
-        {channels.length === 0
-          ? <div style={{ fontSize: 12, color: '#9CA3AF' }}>Carregando...</div>
-          : channels.map(ch => (
-            <div key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12, color: '#141413' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#0EC331', flexShrink: 0 }} />
-              {ch.name || ch.label || ch.type}
+        {/* Funil ao vivo — Score Dinâmico */}
+        {leadProfiles.length > 0 && (() => {
+          const sorted = [...leadProfiles].sort((a, b) => (b.buy_score || 0) - (a.buy_score || 0)).slice(0, 6)
+          const quentes = leadProfiles.filter(p => (p.buy_score || 0) >= 70).length
+          const mornos  = leadProfiles.filter(p => (p.buy_score || 0) >= 40 && (p.buy_score || 0) < 70).length
+          const frios   = leadProfiles.filter(p => (p.buy_score || 0) < 40).length
+          return (
+            <div style={{ marginBottom: 4 }}>
+              <div onClick={() => setPanelCollapsed(s => ({ ...s, funil: !s.funil }))}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 8, paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>🎯 Funil ao vivo</span>
+                <span style={{ fontSize: 11, color: '#82829B', display: 'inline-block', transform: panelCollapsed.funil ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▾</span>
+              </div>
+              {!panelCollapsed.funil && <>
+              {/* Barras de resumo */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                <div style={{ flex: 1, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>{frios}</div>
+                  <div style={{ fontSize: 9, color: '#EF4444' }}>❄️ Frios</div>
+                </div>
+                <div style={{ flex: 1, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 6, padding: '4px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B' }}>{mornos}</div>
+                  <div style={{ fontSize: 9, color: '#F59E0B' }}>🌡️ Mornos</div>
+                </div>
+                <div style={{ flex: 1, background: '#F0FDF4', border: '1px solid #B9F8CF', borderRadius: 6, padding: '4px 6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0EC331' }}>{quentes}</div>
+                  <div style={{ fontSize: 9, color: '#0EC331' }}>🔥 Quentes</div>
+                </div>
+              </div>
+              {/* Top leads por score */}
+              {sorted.map((p, i) => {
+                const score = p.buy_score || 0
+                const color = scoreColor(score)
+                const hasCep  = !!p.cep
+                const hasSize = !!p.size
+                return (
+                  <div key={p.conv_id || i} style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 10px', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#141413', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{p.name || 'Sem nome'}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>{score}%</span>
+                    </div>
+                    {/* Barra de progresso */}
+                    <div style={{ background: '#F3F4F6', borderRadius: 4, height: 4, overflow: 'hidden', marginBottom: 4 }}>
+                      <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.4s ease' }} />
+                    </div>
+                    {/* Checklist mini */}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: hasCep ? '#F0FDF4' : '#F9FAFB', color: hasCep ? '#0EC331' : '#9CA3AF', border: `1px solid ${hasCep ? '#B9F8CF' : '#E5E7EB'}` }}>
+                        {hasCep ? '✓' : '○'} CEP
+                      </span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: hasSize ? '#F0FDF4' : '#F9FAFB', color: hasSize ? '#0EC331' : '#9CA3AF', border: `1px solid ${hasSize ? '#B9F8CF' : '#E5E7EB'}` }}>
+                        {hasSize ? '✓' : '○'} Tam
+                      </span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: '#F0F9FF', color: '#0369A1', border: '1px solid #BAE6FD' }}>
+                        {p.channel === 'Instagram' ? '📸' : '💬'} {p.channel || '?'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+              <button onClick={() => send('__SCORE_LIVE__')} style={{ width: '100%', background: 'none', border: '1px dashed #DDD6FE', borderRadius: 8, padding: '6px', fontSize: 11, color: '#7C3AED', cursor: 'pointer', marginTop: 2 }}>
+                Ver todos os scores →
+              </button>
+            </>}
+            </div>
+          )
+        })()}
+
+        {/* ── Últimos Conhecimentos ── */}
+        <div onClick={() => setPanelCollapsed(s => ({ ...s, canais: !s.canais }))}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: '16px 0 10px', paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>✅ Últimos Conhecimentos</span>
+          <span style={{ fontSize: 11, color: '#82829B', display: 'inline-block', transform: panelCollapsed.canais ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▾</span>
+        </div>
+        {!panelCollapsed.canais && (localKnowledge.length === 0
+          ? <div style={{ fontSize: 12, color: '#9CA3AF' }}>Nenhum conhecimento salvo ainda.</div>
+          : localKnowledge.slice(0, 6).map(k => (
+            <div key={k.id} style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 8, padding: '7px 10px', marginBottom: 5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0EC331', flexShrink: 0 }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#141413', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.title || 'Sem título'}</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#9CA3AF' }}>{k.category || 'GERAL'}{k.created_at ? ` · ${new Date(k.created_at).toLocaleDateString('pt-BR')}` : ''}</div>
             </div>
           ))
-        }
+        )}
 
         <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 10px', paddingTop: 12, borderTop: '1px solid #E5E5E5' }}>📦 Buscar Produtos</div>
         <input type="text" placeholder="Nike, New Balance..." value={catalogSearch}
@@ -981,7 +1278,7 @@ function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed }) {
         <CodexIcon size={18} />
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '12px 16px', fontSize: 14, color: '#0A0A0A', lineHeight: 1.7 }}>
+        <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '14px 18px', fontSize: 15, color: '#0A0A0A', lineHeight: 1.75 }}>
           <Markdown text={msg.text} />
         </div>
         {msg.saveSuggestion && (
@@ -1073,11 +1370,11 @@ function Markdown({ text }) {
   return (
     <div>
       {lines.map((line, i) => {
-        if (!line.trim()) return <br key={i} />
+        if (!line.trim()) return <div key={i} style={{ height: 8 }} />
         if (line.startsWith('• ') || line.startsWith('- ')) {
-          return <div key={i} style={{ paddingLeft: 12, marginBottom: 2 }}>• <InlineFormat text={line.slice(2)} /></div>
+          return <div key={i} style={{ paddingLeft: 14, marginBottom: 5, display: 'flex', gap: 6 }}><span style={{ flexShrink: 0 }}>•</span><InlineFormat text={line.slice(2)} /></div>
         }
-        return <div key={i} style={{ marginBottom: 2 }}><InlineFormat text={line} /></div>
+        return <div key={i} style={{ marginBottom: 6 }}><InlineFormat text={line} /></div>
       })}
     </div>
   )

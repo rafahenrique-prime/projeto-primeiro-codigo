@@ -19,29 +19,59 @@ const intelItems = [
   { id: 'relatorios', label: 'Relatórios' },
 ]
 
-function getIcon(id) {
+function getIcon(id, size = 15) {
   switch(id) {
-    case 'inbox':      return <Msg />
-    case 'agents':     return <Ag />
-    case 'channels':   return <Ch />
-    case 'knowledge':  return <Kn />
-    case 'contacts':   return <Co />
-    case 'dealonca':   return <Da />
-    case 'relatorios': return <Rep />
-    case 'simulador':  return <Sim />
-    case 'catalogo':   return <Cat />
-    case 'importar':   return <Imp />
-    case 'importar-backup': return <Bak />
-    case 'photo':      return <Pho />
-    case 'extrator':   return <Ext />
+    case 'inbox':      return <Msg size={size} />
+    case 'agents':     return <Ag size={size} />
+    case 'channels':   return <Ch size={size} />
+    case 'knowledge':  return <Kn size={size} />
+    case 'contacts':   return <Co size={size} />
+    case 'dealonca':   return <Da size={size} />
+    case 'relatorios': return <Rep size={size} />
+    case 'simulador':  return <Sim size={size} />
+    case 'catalogo':   return <Cat size={size} />
+    case 'importar':   return <Imp size={size} />
+    case 'importar-backup': return <Bak size={size} />
+    case 'photo':      return <Pho size={size} />
+    case 'extrator':   return <Ext size={size} />
+    case 'image-extractor': return <ImgEx size={size} />
+    case 'lab':        return <Lab size={size} />
     default:           return <Dot />
   }
+}
+
+function getCollapsedIcon(id) {
+  const emojis = {
+    'inbox':           '💬',
+    'agents':          '🤖',
+    'channels':        '🔗',
+    'catalogo':        '📦',
+    'importar':        '⬇️',
+    'importar-backup': '💾',
+    'extrator':        '🔧',
+    'image-extractor': '🖼️',
+    'knowledge':       '📚',
+    'contacts':        '👤',
+    'photo':           '📸',
+    'lab':             '🧪',
+    'relatorios':      '📊',
+  }
+  const e = emojis[id]
+  if (!e) return <Dot />
+  return (
+    <span style={{
+      fontSize: 24,
+      lineHeight: 1,
+      display: 'flex',
+      filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.25))',
+    }}>{e}</span>
+  )
 }
 
 export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   const { theme: t, dark, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
-  const w = collapsed ? 56 : 240
+  const w = collapsed ? 72 : 240
 
   return (
     <div style={{ width: w, minWidth: w, background: t.navBg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${t.border}`, padding: '0 0 12px 0', transition: 'width 0.2s, min-width 0.2s, background 0.2s', overflow: 'hidden' }}>
@@ -78,20 +108,20 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         )}
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: collapsed ? '10px 6px 0' : '10px 10px 0', overflowY: 'auto', overflowX: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: collapsed ? '12px 8px 0' : '10px 10px 0', overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Dashboard */}
         <button onClick={() => setPage('dashboard')} title={collapsed ? 'Dashboard' : ''} style={{
           width: '100%',
           background: page === 'dashboard' ? '#E8192C' : (dark ? 'rgba(232,25,44,0.1)' : '#fff5f5'),
           color: page === 'dashboard' ? '#fff' : '#E8192C',
-          borderRadius: 10, padding: collapsed ? '10px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
           border: `1px solid ${page === 'dashboard' ? 'transparent' : (dark ? 'rgba(232,25,44,0.2)' : '#ffd0d5')}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
         }}>
-          <DashIcon active={page === 'dashboard'} />
+          {collapsed ? <span style={{ fontSize: 26, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }}>🏠</span> : <DashIcon active={page === 'dashboard'} />}
           {!collapsed && 'Dashboard'}
         </button>
 
@@ -100,13 +130,13 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           width: '100%',
           background: page === 'dealonca' ? '#7C3AED' : (dark ? 'rgba(124,58,237,0.12)' : '#F5F3FF'),
           color: page === 'dealonca' ? '#fff' : '#7C3AED',
-          borderRadius: 10, padding: collapsed ? '10px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
           border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? 'rgba(124,58,237,0.25)' : '#DDD6FE')}`,
-          marginBottom: 14, textAlign: 'left', cursor: 'pointer',
+          marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
         }}>
-          <CodexNavIcon size={20} active={page === 'dealonca'} />
+          <CodexNavIcon size={collapsed ? 28 : 20} active={page === 'dealonca'} />
           {!collapsed && 'CODEX'}
         </button>
 
@@ -115,25 +145,25 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           width: '100%',
           background: page === 'followup' ? '#059669' : (dark ? 'rgba(5,150,105,0.12)' : '#ECFDF5'),
           color: page === 'followup' ? '#fff' : '#059669',
-          borderRadius: 10, padding: collapsed ? '10px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
           border: `1px solid ${page === 'followup' ? 'transparent' : (dark ? 'rgba(5,150,105,0.25)' : '#A7F3D0')}`,
           marginBottom: 14, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
         }}>
-          <span style={{ fontSize: 18 }}>📬</span>
+          <span style={{ fontSize: collapsed ? 26 : 18, filter: collapsed ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' : 'none' }}>📬</span>
           {!collapsed && 'Follow-up'}
         </button>
 
         {!collapsed && <Label color={t.textMuted}>Espaço de Trabalho</Label>}
-        {collapsed && <div style={{ height: 6 }} />}
+        {collapsed && <div style={{ height: 4 }} />}
         {workItems.map(item => (
           <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)}
             badge={item.badge ? unreadCount : 0} t={t} collapsed={collapsed} />
         ))}
 
         {!collapsed && <Label color={t.textMuted} style={{ marginTop: 16 }}>Inteligência</Label>}
-        {collapsed && <div style={{ height: 10 }} />}
+        {collapsed && <div style={{ height: 2, background: t.border, margin: '6px 4px 8px' }} />}
         {intelItems.map(item => (
           <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)} badge={0} t={t} collapsed={collapsed} />
         ))}
@@ -150,6 +180,11 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
               <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Rafael</div>
               <div style={{ fontSize: 11, color: t.textMuted }}>PRIME STORE</div>
             </div>
+            <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
+              background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
+              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 14, transition: 'background 0.15s', flexShrink: 0,
+            }}>📊</button>
             <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
               background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
               width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -158,9 +193,14 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           </>
         )}
         {collapsed && (
-          <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
-            background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0,
-          }}>{dark ? '☀️' : '🌙'}</button>
+          <>
+            <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0,
+            }}>📊</button>
+            <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0,
+            }}>{dark ? '☀️' : '🌙'}</button>
+          </>
         )}
       </div>
     </div>
@@ -176,7 +216,9 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
   const primaryBg = t.primaryBg || '#fff5f5'
   return (
     <div onClick={onClick} title={collapsed ? item.label : ''} style={{
-      height: 40, padding: collapsed ? '0' : '0 10px', borderRadius: collapsed ? 8 : 6, marginBottom: 2,
+      height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
+      margin: collapsed ? '0 auto 10px' : '0 0 2px',
+      padding: collapsed ? '0' : '0 10px', borderRadius: collapsed ? 12 : 6,
       display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer',
       background: active ? primaryBg : 'transparent',
       color: active ? primary : t.textSecondary,
@@ -187,8 +229,8 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
     onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.bgTertiary }}
     onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
     >
-      <span style={{ position: 'relative', width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? primary : t.textMid, flexShrink: 0 }}>
-        {getIcon(item.id)}
+      <span style={{ position: 'relative', width: collapsed ? 22 : 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? primary : t.textMid, flexShrink: 0 }}>
+        {collapsed ? getCollapsedIcon(item.id) : getIcon(item.id)}
         {collapsed && badge > 0 && (
           <span style={{
             position: 'absolute', top: -6, right: -8,
@@ -221,9 +263,9 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
 function Msg() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> }
 function Ag()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg> }
 function Ch()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> }
-function Kn()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> }
-function Co()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
-function Da()  { return <CodexNavIcon size={15} /> }
+function Kn({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> }
+function Co({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
+function Da({ size = 15 })  { return <CodexNavIcon size={size} /> }
 function CodexNavIcon({ size = 20, active = false }) {
   const c = active ? '#fff' : '#7C3AED'
   return (
@@ -249,13 +291,15 @@ function ClawdIcon({ size = 20, active = false }) {
     </svg>
   )
 }
-function Rep()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> }
-function Sim()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg> }
-function Cat()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6-6 6 6M3 9h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><rect x="5" y="12" width="4" height="4"/><rect x="15" y="12" width="4" height="4"/></svg> }
-function Imp()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 19h18a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/></svg> }
-function Bak()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><path d="M19.07 4.93l-2.58 2.58A8 8 0 1 0 12 2c2.12 0 4.07.78 5.55 2.05"/><polyline points="13 2 19.07 2 19.07 8.07"/></svg> }
-function Pho()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }
-function Ext()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
+function Rep({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> }
+function Sim({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg> }
+function Cat({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6-6 6 6M3 9h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><rect x="5" y="12" width="4" height="4"/><rect x="15" y="12" width="4" height="4"/></svg> }
+function Imp({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 19h18a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/></svg> }
+function Bak({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><path d="M19.07 4.93l-2.58 2.58A8 8 0 1 0 12 2c2.12 0 4.07.78 5.55 2.05"/><polyline points="13 2 19.07 2 19.07 8.07"/></svg> }
+function Pho({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }
+function Ext({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
+function ImgEx({ size = 15 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> }
+function Lab({ size = 15 })   { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v6.5L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L15 8.5V2"/><path d="M9 2h6"/><path d="M8.5 14h7"/></svg> }
 function Dot() { return <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg> }
 function DashIcon({ active }) {
   const c = active ? '#fff' : '#E8192C'

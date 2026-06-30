@@ -35,7 +35,9 @@ export default function InboxList({ conversations, allConversations, active, onS
       {/* Header */}
       <div style={{ padding: '16px 14px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>Mensagens</div>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 16, color: t.text, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <span style={{ color: t.primary || '#E8192C' }}>/// </span>INBOX — RECENTES
+          </div>
           <span style={{ background: t.bgTertiary, color: t.textMid, fontSize: 11, fontWeight: 600, borderRadius: 9999, padding: '2px 8px' }}>{conversations.length}</span>
         </div>
         <div style={{ position: 'relative', marginBottom: 10, display: 'flex', gap: 6, alignItems: 'center' }}>

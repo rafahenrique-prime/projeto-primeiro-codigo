@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getDashboardData, checkUserTokenStatus, updateUserToken } from '../services/gptmaker'
+import { getConversionStats } from '../services/interactionsService'
 
 const GREEN = '#0EC331'
 const PURPLE = '#8B5CF6'
@@ -97,7 +98,7 @@ export default function RelatoriosPage() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, marginTop: 16, borderBottom: `1px solid ${t.border}` }}>
-          {[['geral', 'Visão Geral'], ['atendimento', 'Atendimento']].map(([id, label]) => (
+          {[['geral', 'Visão Geral'], ['atendimento', 'Atendimento'], ['conversoes', 'Conversões']].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               background: 'transparent', border: 'none', borderBottom: tab === id ? '2px solid #E8192C' : '2px solid transparent',
               padding: '8px 20px', fontSize: 13, fontWeight: tab === id ? 700 : 500,
@@ -133,8 +134,10 @@ export default function RelatoriosPage() {
           </div>
         ) : tab === 'geral' ? (
           <GeralTab data={data} t={t} dark={dark} />
-        ) : (
+        ) : tab === 'atendimento' ? (
           <AtendimentoTab data={data} t={t} dark={dark} />
+        ) : (
+          <ConversaoTab t={t} dark={dark} />
         )}
       </div>
 
@@ -199,6 +202,158 @@ export default function RelatoriosPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ─── ABA CONVERSÕES ─── */
+function ConversaoTab({ t, dark }) {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setStats(await getConversionStats())
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [])
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, border: `3px solid ${t.border}`, borderTopColor: '#E8192C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ color: t.textMuted, fontSize: 13 }}>Carregando conversões...</div>
+      </div>
+    </div>
+  )
+
+  if (error) return (
+    <div style={{ background: dark ? '#1a0a0a' : '#fff5f5', border: '1px solid #fca5a5', borderRadius: 12, padding: 24, fontSize: 13, color: '#E8192C' }}>
+      Erro: {error}
+    </div>
+  )
+
+  if (!stats || stats.total === 0) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12 }}>
+      <div style={{ fontSize: 40 }}>📊</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Nenhum resultado registrado ainda</div>
+      <div style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', maxWidth: 300 }}>
+        Use o painel do CODEX para registrar o resultado das conversas (Fechou, Sem Resposta, Perdeu).
+      </div>
+    </div>
+  )
+
+  const { total, won, loss, closed, open, rate, lossReasons, all } = stats
+
+  const LOSS_LABELS = {
+    objecao_preco: 'Preço',
+    objecao_frete: 'Frete',
+    tom: 'Tom',
+    resposta_redundante: 'Redundante',
+    sem_resposta: 'Sem resposta',
+    outro: 'Outro',
+  }
+
+  const OUTCOME_LABELS = { closed_won: 'Fechou', closed: 'Sem Resposta', loss: 'Perdeu', em_aberto: 'Em Aberto' }
+  const OUTCOME_COLORS = { closed_won: '#0EC331', closed: '#F59E0B', loss: '#E8192C', em_aberto: '#8B5CF6' }
+
+  return (
+    <div>
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ background: t.bg, border: `2px solid #E8192C`, borderRadius: 12, padding: '16px 18px', gridColumn: 'span 1' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#E8192C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Taxa de Conversão</div>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 48, lineHeight: 1, color: '#E8192C' }}>{rate}%</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>{won} ganhas / {won + loss + closed} finalizadas</div>
+        </div>
+        <KpiCard value={won}    label="Fechadas" sub="closed_won" icon="✅" t={t} />
+        <KpiCard value={closed} label="Sem Resposta" sub="closed" icon="😶" t={t} />
+        <KpiCard value={loss}   label="Perdidas" sub="loss" icon="❌" t={t} highlight />
+        <KpiCard value={open}   label="Em Aberto" sub="em_aberto" icon="🔄" t={t} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+        {/* Motivos de perda */}
+        <Card title="Motivos de Perda" sub="Breakdown das perdas registradas" t={t}>
+          {Object.keys(lossReasons).length === 0 ? (
+            <Empty t={t} msg="Nenhuma perda com motivo registrado" />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(lossReasons).sort((a, b) => b[1] - a[1]).map(([reason, count]) => {
+                const pct = loss > 0 ? Math.round((count / loss) * 100) : 0
+                return (
+                  <div key={reason}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: t.textSecondary, marginBottom: 3 }}>
+                      <span style={{ fontWeight: 600 }}>{LOSS_LABELS[reason] || reason}</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <span style={{ color: '#E8192C', fontWeight: 700 }}>{count}</span>
+                        <span style={{ color: t.textMuted }}>{pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 9999, background: t.bgTertiary }}>
+                      <div style={{ height: 4, borderRadius: 9999, background: '#E8192C', width: `${pct}%`, transition: 'width 0.5s' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Distribuição de outcomes */}
+        <Card title="Distribuição de Resultados" sub="Todos os resultados registrados" t={t}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[['closed_won', won], ['closed', closed], ['loss', loss], ['em_aberto', open]].map(([key, val]) => {
+              const pct = total > 0 ? Math.round((val / total) * 100) : 0
+              const color = OUTCOME_COLORS[key]
+              return (
+                <div key={key}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                    <span style={{ color: t.textSecondary, fontWeight: 600 }}>{OUTCOME_LABELS[key]}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ color, fontWeight: 700 }}>{val}</span>
+                      <span style={{ color: t.textMuted }}>{pct}%</span>
+                    </div>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 9999, background: t.bgTertiary }}>
+                    <div style={{ height: 4, borderRadius: 9999, background: color, width: `${pct}%`, transition: 'width 0.5s' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* Últimas interações */}
+      <Card title="Últimas Interações Registradas" sub={`${all.length} registros no total`} t={t}>
+        {all.slice(0, 15).length === 0 ? <Empty t={t} /> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {all.slice(0, 15).map((item, i) => {
+              const color = OUTCOME_COLORS[item.outcome] || t.textMuted
+              const label = OUTCOME_LABELS[item.outcome] || item.outcome
+              const date = new Date(item.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+              return (
+                <div key={item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: `1px solid ${t.borderLight}` }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color, background: `${color}18`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>{label}</span>
+                  <span style={{ flex: 1, fontSize: 12, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.client_name || item.conv_id}</span>
+                  {item.loss_reason && <span style={{ fontSize: 11, color: '#E8192C', background: '#fff5f5', borderRadius: 5, padding: '2px 7px' }}>{LOSS_LABELS[item.loss_reason] || item.loss_reason}</span>}
+                  <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>{date}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
