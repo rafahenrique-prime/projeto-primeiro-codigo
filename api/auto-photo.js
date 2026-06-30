@@ -382,38 +382,45 @@ export default async function handler(req, res) {
     console.log('[auto-photo] Busca por nome "' + nomeProduto + '":', produto?.nome || 'não encontrado')
   }
 
-  // 2. Se não achou, busca contexto nas mensagens recentes do agente
+  // 2. Se não achou, busca contexto nas mensagens recentes do CLIENTE (não do agente)
+  // Quando extractProductName retorna null, tenta combinar cor mencionada com contexto cliente
   if (!produto) {
-    // Se extractProductName retornou null (pronome rejeitado), PRIORIZAR última mensagem do agente
-    // Isso evita alucinação ao buscar em contexto muito antigo
-    const agentMsgsReverse = agentMsgsFromSearch.length > 0
-      ? agentMsgsFromSearch
-      : [...messages].reverse().filter(m => m.role !== 'user' && m.role !== 'client')
+    const clientMsgsReverse = [...messages].reverse().filter(m =>
+      m.role === 'user' || m.role === 'client' || m.role === 'human' || m.role === 'customer'
+    )
 
-    // Se não encontrou nome específico, busca na ÚLTIMA mensagem do agente primeiro
-    // (cliente disse "Me manda foto dela" → busca o produto mencionado LOGO ANTES)
-    if (!nomeProduto && agentMsgsReverse.length > 0) {
-      console.log('[auto-photo] Nome rejeitado ou vazio, buscando na ÚLTIMA mensagem do agente...')
-      const lastAgentMsg = agentMsgsReverse[0]
-      const texto = lastAgentMsg.text || lastAgentMsg.content || lastAgentMsg.message || ''
-      const found = findProductInText(texto, catalog)
+    // Extrai cor/variante da mensagem atual (ex: "marrom", "gelo", "azul")
+    const colorPatterns = /\b(preto|branco|vermelho|azul|verde|amarelo|rosa|roxo|cinza|cinzento|gelo|marrom|bege|ouro|prata|dourado|metalico|tamanho|numero|pp|p|m|g|gg|xg)\b/gi
+    const colorsInMessage = [...(message.match(colorPatterns) || [])].map(c => c.toLowerCase())
+    console.log('[auto-photo] Cores/variantes detectadas:', colorsInMessage)
+
+    // Combina as 5 últimas mensagens do cliente para ter contexto (similar a knowledge.js)
+    const recentContext = clientMsgsReverse.slice(0, 5)
+      .map(m => m.text || m.content || m.message || '')
+      .join(' ')
+      .toLowerCase()
+
+    if (recentContext && colorsInMessage.length > 0) {
+      console.log('[auto-photo] Buscando produto com contexto cliente recente + cores...')
+      const found = findProductInText(recentContext, catalog)
       if (found) {
-        produto = found
-        console.log('[auto-photo] ✅ Produto encontrado na ÚLTIMA mensagem do agente:', produto.nome)
+        // Valida se a cor está no nome do produto encontrado
+        const foundNameLower = (found.nome || '').toLowerCase()
+        const hasColor = colorsInMessage.some(color => foundNameLower.includes(color))
+        if (hasColor || colorsInMessage.length === 0) {
+          produto = found
+          console.log('[auto-photo] ✅ Produto encontrado no contexto cliente com cor:', found.nome)
+        }
       }
     }
 
-    // Se ainda não achou, busca nas últimas 10 mensagens do agente
-    if (!produto) {
-      console.log('[auto-photo] Buscando em histórico recente do agente...')
-      for (const m of agentMsgsReverse.slice(0, 10)) {
-        const texto = m.text || m.content || m.message || ''
-        const found = findProductInText(texto, catalog)
-        if (found) {
-          produto = found
-          console.log('[auto-photo] Produto encontrado no contexto histórico:', produto.nome)
-          break
-        }
+    // Se ainda não achou, tenta só o contexto recente do cliente sem filtro de cor
+    if (!produto && recentContext) {
+      console.log('[auto-photo] Tentando contexto cliente sem filtro de cor...')
+      const found = findProductInText(recentContext, catalog)
+      if (found) {
+        produto = found
+        console.log('[auto-photo] Produto encontrado no contexto cliente:', found.nome)
       }
     }
   }
