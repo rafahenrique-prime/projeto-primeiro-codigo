@@ -5,22 +5,25 @@
 
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
+import os from 'os'
 import { logCodexAlert } from './_codexAlerts.js'
 import { updateCustomerScore } from './_customerScoring.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const COHERE_API_KEY = process.env.COHERE_API_KEY
 
-// Função para logar requisições
+// Função para logar requisições — usa /tmp porque o resto do filesystem
+// é read-only no Vercel (EROFS). Nunca deixa o log derrubar o webhook.
 function logRequest(data) {
-  const timestamp = new Date().toISOString()
-  const logEntry = `\n[${timestamp}]\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
-  const logPath = path.join(__dirname, '../knowledge-requests.log')
-  fs.appendFileSync(logPath, logEntry, 'utf8')
+  try {
+    const timestamp = new Date().toISOString()
+    const logEntry = `\n[${timestamp}]\n${JSON.stringify(data, null, 2)}\n${'='.repeat(80)}\n`
+    const logPath = path.join(os.tmpdir(), 'knowledge-requests.log')
+    fs.appendFileSync(logPath, logEntry, 'utf8')
+  } catch (err) {
+    console.error('[knowledge] logRequest falhou (ignorado):', err.message)
+  }
 }
 
 
