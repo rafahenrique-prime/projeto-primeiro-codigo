@@ -25,6 +25,7 @@ import ImageExtractorPage from './pages/ImageExtractorPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
+import { getAllProfiles } from './services/customerProfileService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length] }
@@ -95,6 +96,7 @@ export default function App() {
   const [showPhotoHistory, setShowPhotoHistory] = useState(false)
   const [botSleep, setBotSleep] = useState(() => localStorage.getItem('bot_sleep') === 'true')
   const [sleepLoading, setSleepLoading] = useState(false)
+  const [profilesMap, setProfilesMap] = useState({})
   const chatRef = useRef(null)
   const convsRef = useRef([])
   const initialLoadDone = useRef(false)
@@ -120,6 +122,20 @@ export default function App() {
       }
     }
     const timer = setInterval(check, 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Score dinâmico + tags — recarrega perfis pra priorizar a fila do Inbox
+  useEffect(() => {
+    const loadProfiles = () => {
+      getAllProfiles().then(list => {
+        const map = {}
+        for (const p of list) map[p.conv_id] = p
+        setProfilesMap(map)
+      }).catch(() => {})
+    }
+    loadProfiles()
+    const timer = setInterval(loadProfiles, 60000)
     return () => clearInterval(timer)
   }, [])
 
@@ -197,6 +213,19 @@ export default function App() {
     chatRef.current?.fill(text)
   }, [])
 
+  // Fila priorizada: pedido de humano > score alto > esfriando com intenção > resto
+  function conversationPriority(c) {
+    const profile = profilesMap[c.id]
+    const score = profile?.buy_score ?? 0
+    const needsHuman = c.mode === 'copilot' && c.unread > 0
+    if (needsHuman) return 0
+    if (score >= 70) return 1
+    const inactiveMin = c.rawTime ? Math.floor((Date.now() - new Date(c.rawTime).getTime()) / 60000) : 0
+    if (score >= 30 && inactiveMin > 30) return 2
+    if (score >= 30) return 3
+    return 4
+  }
+
   const filtered = conversations.filter(c => {
     if (filter === 'unread') return c.unread > 0
     if (filter === 'meus') return c.mode === 'copilot'
@@ -210,6 +239,12 @@ export default function App() {
     if (!search.trim()) return true
     const q = search.toLowerCase()
     return c.name?.toLowerCase().includes(q) || c.lastMsg?.toLowerCase().includes(q)
+  }).sort((a, b) => {
+    const diff = conversationPriority(a) - conversationPriority(b)
+    if (diff !== 0) return diff
+    const scoreA = profilesMap[a.id]?.buy_score ?? 0
+    const scoreB = profilesMap[b.id]?.buy_score ?? 0
+    return scoreB - scoreA
   })
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
@@ -246,7 +281,7 @@ export default function App() {
             ) : <>
               <InboxList conversations={filtered} allConversations={conversations} active={activeConv} onSelect={selectConv}
                 filter={filter} setFilter={setFilter} search={search} setSearch={setSearch}
-                botSleep={botSleep} sleepLoading={sleepLoading} onToggleSleep={toggleBotSleep} />
+                botSleep={botSleep} sleepLoading={sleepLoading} onToggleSleep={toggleBotSleep} profilesMap={profilesMap} />
               {activeConv && <ChatArea ref={chatRef} conv={activeConv} onConvUpdate={c => {
                 setActiveConv(c)
                 setConversations(prev => prev.map(p => p.id === c.id ? { ...p, mode: c.mode } : p))

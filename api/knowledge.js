@@ -3,8 +3,13 @@
 // O retorno é injetado como contexto na resposta dela
 // Busca híbrida: keyword (grátis) + semântica via Cohere (fallback quando keyword retorna 0)
 
-const fs = require('fs')
-const path = require('path')
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { logCodexAlert } from './_codexAlerts.js'
+import { updateCustomerScore } from './_customerScoring.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
@@ -52,13 +57,22 @@ async function searchKnowledgeSemantic(embedding) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/match_knowledge`, {
     method: 'POST',
     headers: { ...SB_HEADERS, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query_embedding: embedding, match_threshold: 0.45, match_count: 5 }),
+    body: JSON.stringify({ query_embedding: embedding, match_threshold: 0.55, match_count: 5 }),
   })
   if (!res.ok) return []
   return res.json()
 }
 
-async function searchKnowledge(message) {
+const STOPWORDS_PT = new Set([
+  'qual', 'quais', 'como', 'para', 'pra', 'tem', 'vai', 'com', 'uma', 'umas', 'uns',
+  'que', 'sao', 'são', 'ser', 'esta', 'está', 'isso', 'aqui', 'voce', 'você', 'voces',
+  'vocês', 'ele', 'ela', 'eles', 'elas', 'meu', 'minha', 'seu', 'sua', 'mais', 'menos',
+  'muito', 'pelo', 'pela', 'mas', 'mesmo', 'ainda', 'todo', 'toda', 'todos', 'todas',
+  'esse', 'essa', 'esses', 'essas', 'este', 'esta', 'estes', 'estas', 'sobre', 'onde',
+  'quando', 'quem', 'porque', 'porquê', 'então', 'entao', 'assim', 'também', 'tambem',
+])
+
+async function searchKnowledge(message, conversationId) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/knowledge?order=created_at.desc`, {
     headers: SB_HEADERS,
   })
@@ -69,8 +83,8 @@ async function searchKnowledge(message) {
     return entries.slice(0, 5)
   }
 
-  // Busca por keyword (grátis, sempre roda)
-  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+  // Busca por keyword (grátis, sempre roda) — ignora stopwords pra não "achar" tudo com palavra comum
+  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !STOPWORDS_PT.has(w))
   const scored = words.length > 0
     ? entries.map(entry => {
         const score = words.reduce((acc, w) => {
@@ -98,6 +112,17 @@ async function searchKnowledge(message) {
       return semantic
     }
   }
+
+  // Gap real: nem keyword nem semântica encontraram nada relevante.
+  // O cliente perguntou algo que a base não cobre — sinal direto pro CODEX.
+  console.log(`[knowledge] ⚠️  GAP DE CONHECIMENTO: nenhuma busca encontrou resultado para "${message}"`)
+  logCodexAlert({
+    type: 'gap_conhecimento',
+    severity: 'atencao',
+    conversationId,
+    message: `Cliente perguntou algo sem resposta na base: "${message.slice(0, 200)}"`,
+    data: { query: message },
+  })
 
   // Fallback final: retorna entradas recentes
   return scored.length > 0 ? scored.slice(0, 5) : entries.slice(0, 3)
@@ -174,9 +199,13 @@ export default async function handler(req, res) {
       ''
 
     const [knowledgeEntries, products] = await Promise.all([
-      searchKnowledge(message),
+      searchKnowledge(message, chatId),
       searchProducts(message),
     ])
+
+    // Score dinâmico em background — não atrasa a resposta da Gabriela.
+    // Recalcula buy_score do lead e dispara alerta lead_quente se cruzar o threshold.
+    if (chatId) updateCustomerScore(chatId).catch(() => {})
 
     // Formata o contexto para a Gabriela usar na resposta
     const sections = []

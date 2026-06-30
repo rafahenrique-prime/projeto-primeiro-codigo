@@ -1,6 +1,8 @@
 // Webhook serverless — detecta pedido de foto e envia automaticamente
 // Roda 24/7 no Vercel, sem precisar do navegador aberto
 
+import { logCodexAlert } from './_codexAlerts.js'
+
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
 const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
@@ -200,6 +202,16 @@ async function getCatalog() {
       if (data.length > 0) return data
     }
   } catch {}
+
+  // Caiu no catálogo hardcoded (50 produtos congelados) — risco real de produto
+  // desatualizado/errado sendo enviado ao cliente. CODEX precisa saber disso.
+  console.error('[auto-photo] ⚠️  Supabase indisponível ou vazio — usando CATALOG_FALLBACK hardcoded')
+  logCodexAlert({
+    type: 'produto_fallback',
+    severity: 'critico',
+    message: 'auto-photo.js usou o catálogo hardcoded (CATALOG_FALLBACK) em vez do Supabase — produtos podem estar desatualizados.',
+    data: { fallback_size: CATALOG_FALLBACK.length },
+  })
   return CATALOG_FALLBACK
 }
 

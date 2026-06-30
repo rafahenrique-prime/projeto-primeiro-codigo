@@ -25,7 +25,7 @@ function igColorMap(conversations) {
   return map
 }
 
-export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch, botSleep, sleepLoading, onToggleSleep }) {
+export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch, botSleep, sleepLoading, onToggleSleep, profilesMap = {} }) {
   const { theme: t } = useTheme()
   const igColors = igColorMap(allConversations || conversations)
   const humanCount = (allConversations || conversations).filter(c => c.mode === 'copilot' && c.unread > 0).length
@@ -120,7 +120,7 @@ export default function InboxList({ conversations, allConversations, active, onS
         {conversations.length === 0
           ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Nenhuma conversa encontrada</div>
           : conversations.map(conv => (
-            <ConvItem key={conv.id} conv={conv} isActive={active?.id === conv.id} onClick={() => onSelect(conv)} t={t} igColors={igColors} />
+            <ConvItem key={conv.id} conv={conv} isActive={active?.id === conv.id} onClick={() => onSelect(conv)} t={t} igColors={igColors} buyScore={profilesMap[conv.id]?.buy_score} />
           ))
         }
       </div>
@@ -128,7 +128,7 @@ export default function InboxList({ conversations, allConversations, active, onS
   )
 }
 
-function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
+function ConvItem({ conv, isActive, onClick, t, igColors = {}, buyScore }) {
   const progress = conv.objective_progress || 0
   const isWa = conv.channel === 'whatsapp'
   const igBadgeColor = igColors[conv.igChannelId || conv.channelId] || '#E1306C'
@@ -188,6 +188,9 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {} }) {
             : <span style={{ fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F', background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4', borderRadius: 4, padding: '1px 6px' }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
           }
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {buyScore >= 70 && (
+              <span title="Score de conversão" style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', background: '#FEF2F2', color: '#E8192C' }}>🔥 {buyScore}</span>
+            )}
             {waitTime && (
               <span style={{
                 fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px',
