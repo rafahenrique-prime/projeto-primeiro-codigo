@@ -12,6 +12,31 @@ import { updateCustomerScore } from './_customerScoring.js'
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const COHERE_API_KEY = process.env.COHERE_API_KEY
+const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
+const GPT_BASE = 'https://api.gptmaker.ai'
+
+// Busca o histórico recente do chat e combina com a mensagem atual.
+// Resolve o caso "cliente pede chinelo, 3 turnos depois responde só 'qualquer
+// preço'" — sozinha essa mensagem não tem nenhuma keyword de produto.
+async function buildSearchQuery(currentMessage, chatId) {
+  if (!chatId || !GPTMAKER_TOKEN) return currentMessage
+  try {
+    const res = await fetch(`${GPT_BASE}/v2/chat/${chatId}/messages`, {
+      headers: { 'Authorization': `Bearer ${GPTMAKER_TOKEN}` },
+    })
+    if (!res.ok) return currentMessage
+    const msgs = await res.json()
+    const recentClientMsgs = msgs
+      .filter(m => m.role === 'user' || m.role === 'client')
+      .slice(-4)
+      .map(m => m.text || m.content || '')
+      .filter(Boolean)
+    if (recentClientMsgs.length === 0) return currentMessage
+    return recentClientMsgs.join(' ')
+  } catch {
+    return currentMessage
+  }
+}
 
 // Função para logar requisições — usa /tmp porque o resto do filesystem
 // é read-only no Vercel (EROFS). Nunca deixa o log derrubar o webhook.
@@ -201,9 +226,11 @@ export default async function handler(req, res) {
       body.id ||
       ''
 
+    const searchQuery = await buildSearchQuery(message, chatId)
+
     const [knowledgeEntries, products] = await Promise.all([
-      searchKnowledge(message, chatId),
-      searchProducts(message),
+      searchKnowledge(searchQuery, chatId),
+      searchProducts(searchQuery),
     ])
 
     // Score dinâmico em background — não atrasa a resposta da Gabriela.
