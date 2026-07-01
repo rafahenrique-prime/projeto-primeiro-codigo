@@ -3,13 +3,13 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 const GPTMAKER_TOKEN = import.meta.env.VITE_GPTMAKER_USER_TOKEN
 const GPTMAKER_URL = import.meta.env.VITE_GPTMAKER_URL || 'https://api.gptmaker.ai'
 
+// Endpoint fixo hospedado no ignite-webhook (Vercel) — mesmo em dev e produção,
+// assim não depende de rodar um servidor proxy local separado.
+const CREDITS_ENDPOINT = 'https://ignite-webhook.vercel.app/api/gptmaker-credits'
+
 export async function getGPTMakerCredits() {
   try {
-    const endpoint = import.meta.env.PROD
-      ? '/api/gptmaker-credits'
-      : 'http://localhost:5178/api/gptmaker-credits'
-
-    const res = await fetch(endpoint, {
+    const res = await fetch(CREDITS_ENDPOINT, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -23,8 +23,11 @@ export async function getGPTMakerCredits() {
 
     const data = await res.json()
     return {
-      credits: Math.round(data.credits),
+      creditsSpent: Math.round(data.creditsSpent ?? 0),
+      periodStart: data.periodStart,
+      periodEnd: data.periodEnd,
       timestamp: data.timestamp,
+      cached: !!data.cached,
       lastUpdated: new Date()
     }
   } catch (e) {

@@ -97,6 +97,18 @@ Posso remover essa worktree agora?
 
 **Por quê:** cada sessão nova só abre pasta de trabalho separada (worktree) em branch própria. Se o trabalho não é publicado, a pasta fica órfã e se acumula — em 2026-07-01 chegou a 12 pastas simultâneas, quase causando confusão sobre qual branch tinha o quê. Publicar com frequência e limpar após cada push elimina o problema pela raiz, sem depender da memória do Rafael.
 
+### 7. **Toda worktree nova precisa do `.env.local` copiado manualmente**
+
+**No início de QUALQUER sessão nova neste projeto, antes de rodar `npm run dev` ou abrir o preview:** checar se existe `.env.local` na raiz da worktree atual. Se não existir, copiar da pasta principal:
+
+```bash
+cp "/Users/macbook/Downloads/PROJETO DO CLAUDECODE/.env.local" "<raiz-da-worktree-atual>/.env.local"
+```
+
+**Por quê:** `.env.local` guarda tokens secretos (GPT Maker, Supabase, Groq) e é propositalmente ignorado pelo Git (`.gitignore`), então nunca vem junto quando uma worktree nova é criada. Sem ele, o app sobe normalmente mas falha silenciosamente ao autenticar nas APIs — parece "bug" (0 conversas abertas, painel de Análise Rápida sumido, sirene de alertas zerada) mas na verdade é só a pasta estar sem credenciais. Descoberto em 2026-07-01 comparando `localhost:5175` (pasta principal, com `.env.local`) vs `localhost:5199` (worktree nova, sem `.env.local`) — mesmo código, dados diferentes.
+
+**Sintoma para reconhecer isso rápido:** o app carrega, mas fica com "0 conversas", sem erros no console — só dados vazios/zerados.
+
 ---
 
 ## 🏗️ ARQUITETURA DO SISTEMA

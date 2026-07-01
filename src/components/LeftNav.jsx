@@ -203,6 +203,27 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           </>
         )}
       </div>
+
+      {!collapsed && <VersionBadge t={t} />}
+    </div>
+  )
+}
+
+function VersionBadge({ t }) {
+  const buildTime = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : null
+  const sha = typeof __COMMIT_SHA__ !== 'undefined' ? __COMMIT_SHA__ : 'local'
+  const isVercel = typeof __IS_VERCEL__ !== 'undefined' ? __IS_VERCEL__ : false
+  const dt = buildTime ? new Date(buildTime) : null
+  const formatted = dt
+    ? dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '—'
+  return (
+    <div title={`Publicado em ${formatted}`} style={{
+      textAlign: 'center', fontSize: 9.5, color: t.textMuted,
+      padding: '6px 8px 2px', borderTop: `1px solid ${t.border}`,
+      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    }}>
+      {isVercel ? '🌐' : '💻'} {formatted} · {sha}
     </div>
   )
 }
