@@ -3,6 +3,7 @@ import { useTheme } from '../theme.jsx'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
 import TokenUsageCard from '../components/TokenUsageCard'
 import GPTMakerCreditsCard from '../components/GPTMakerCreditsCard'
+import DeepSeekBalanceCard from '../components/DeepSeekBalanceCard'
 
 function today() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -96,10 +97,11 @@ export default function DashboardNewPage({ conversations = [] }) {
 
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Storage + Tokens Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <SupabaseStorageCard />
+          {/* Storage + Tokens + Saldo DeepSeek */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <SupabaseStorageCard boxed />
             <TokenUsageCard />
+            <DeepSeekBalanceCard boxed />
           </div>
 
           {/* Inbox recentes */}

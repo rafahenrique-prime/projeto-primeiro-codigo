@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseStorageInfo } from '../services/supabaseStorage'
 
-export default function SupabaseStorageCard() {
+export default function SupabaseStorageCard({ boxed = false }) {
   const [storage, setStorage] = useState(null)
 
   const loadStorage = useCallback(async () => {
@@ -15,17 +15,13 @@ export default function SupabaseStorageCard() {
     return () => clearInterval(interval)
   }, [loadStorage])
 
+  const boxStyle = boxed ? {
+    background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px',
+  } : {}
+
   if (!storage) {
     return (
-      <div style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        padding: '10px',
-        marginBottom: '12px',
-        fontSize: '12px',
-        color: '#9ca3af'
-      }}>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, ...boxStyle }}>
         📦 Carregando storage...
       </div>
     )
@@ -38,37 +34,34 @@ export default function SupabaseStorageCard() {
   }
 
   const barColor = getBarColor(storage.usedPercent)
+  const dbBarColor = storage.dbUsedPercent != null ? getBarColor(storage.dbUsedPercent) : '#e5e7eb'
 
   return (
-    <div style={{
-      background: '#ffffff',
-      border: '1px solid #e5e7eb',
-      borderRadius: 8,
-      padding: '10px',
-      marginBottom: '12px',
-      fontSize: '12px'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-        <span style={{ fontWeight: 600, color: '#1f2937' }}>📦 Storage</span>
-        <span style={{ fontWeight: 700, color: barColor }}>{storage.usedPercent}%</span>
+    <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 6, ...boxStyle }}>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginBottom: 3 }}>
+          <span style={{ fontWeight: 600, color: '#6b7280' }}>📦 Storage</span>
+          <span style={{ color: '#9ca3af' }}>
+            {storage.usedGB.toFixed(2)} GB / {storage.totalGB} GB · <span style={{ fontWeight: 700, color: barColor }}>{storage.usedPercent}%</span>
+          </span>
+        </div>
+        <div style={{ width: '100%', height: 3, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ width: `${storage.usedPercent}%`, height: '100%', background: barColor, transition: 'all 0.3s ease' }} />
+        </div>
       </div>
-      <div style={{
-        width: '100%',
-        height: 5,
-        background: '#e5e7eb',
-        borderRadius: 3,
-        overflow: 'hidden',
-        marginBottom: '6px'
-      }}>
-        <div style={{
-          width: `${storage.usedPercent}%`,
-          height: '100%',
-          background: barColor,
-          transition: 'all 0.3s ease'
-        }} />
-      </div>
-      <div style={{ color: '#9ca3af' }}>
-        {storage.usedGB.toFixed(2)} GB / {storage.totalGB} GB
+
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginBottom: 3 }}>
+          <span style={{ fontWeight: 600, color: '#6b7280' }}>🗄️ Database</span>
+          <span style={{ color: '#9ca3af' }}>
+            {storage.dbUsedMB != null ? (
+              <>{storage.dbUsedMB.toFixed(1)} MB / {storage.dbTotalMB} MB · <span style={{ fontWeight: 700, color: dbBarColor }}>{storage.dbUsedPercent}%</span></>
+            ) : '—'}
+          </span>
+        </div>
+        <div style={{ width: '100%', height: 3, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ width: `${storage.dbUsedPercent || 0}%`, height: '100%', background: dbBarColor, transition: 'all 0.3s ease' }} />
+        </div>
       </div>
     </div>
   )
