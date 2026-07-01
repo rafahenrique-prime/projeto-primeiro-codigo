@@ -1,6 +1,6 @@
 # CLAUDE.md — PROJETO DO CLAUDECODE
 
-**Última atualização:** 2026-06-28  
+**Última atualização:** 2026-07-01  
 **Mantido por:** Rafael Henrique  
 **Objetivo:** Garantir segurança, estabilidade e qualidade em todas as alterações
 
@@ -74,6 +74,28 @@ sendMessage(...)
 ```
 
 **Por quê:** GPT Maker throttles depois de 6 mensagens em <500ms. Erros silenciosos ficam escondidos.
+
+### 6. **Higiene de Git Worktrees — checar e limpar sempre**
+
+**No início de QUALQUER sessão nova neste projeto:** rodar `git worktree list` silenciosamente (sem perguntar, sem narrar). Se houver mais de 2 worktrees (a pasta raiz `main` + a worktree atual), avisar o Rafael:
+
+```
+⚠️ Encontrei N pastas de trabalho antigas (worktrees) além desta.
+Quer que eu confira se têm algo útil antes de limpar?
+```
+
+Se ele autorizar, seguir o processo já validado nesta sessão:
+1. Para cada worktree órfã, checar `git rev-list --count <branch-atual>..<branch-orfa>` — se der `0`, é 100% duplicada e pode ser removida com segurança (`git worktree remove --force`)
+2. Se der `>0`, **não apagar direto** — mostrar o `git log --oneline` dos commits exclusivos e perguntar o que fazer (trazer via cherry-pick / ignorar / manter guardada)
+3. Depois de trazer algo via cherry-pick, sempre re-testar visualmente (preview) antes de considerar concluído — cherry-picks em código que evoluiu podem gerar duplicatas silenciosas (ex.: um componente renderizado 2x)
+
+**Depois de QUALQUER push aprovado pro `main`:** perguntar proativamente:
+```
+✅ Publicado! A pasta desta sessão já foi absorvida pelo main.
+Posso remover essa worktree agora?
+```
+
+**Por quê:** cada sessão nova só abre pasta de trabalho separada (worktree) em branch própria. Se o trabalho não é publicado, a pasta fica órfã e se acumula — em 2026-07-01 chegou a 12 pastas simultâneas, quase causando confusão sobre qual branch tinha o quê. Publicar com frequência e limpar após cada push elimina o problema pela raiz, sem depender da memória do Rafael.
 
 ---
 
