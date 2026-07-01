@@ -17,6 +17,18 @@ function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
+function dayLabel(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const sameDay = (a, b) => a.toDateString() === b.toDateString()
+  if (sameDay(d, today)) return 'Hoje'
+  if (sameDay(d, yesterday)) return 'Ontem'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const { theme: t, dark } = useTheme()
   const [msgs, setMsgs] = useState([])
@@ -42,6 +54,8 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const [sending, setSending] = useState(false)
   const [modeHint, setModeHint] = useState(null)
   const bottomRef = useRef(null)
+  const messagesContainerRef = useRef(null)
+  const isNearBottomRef = useRef(true)
   // Base local
   const [kbEnabled, setKbEnabled] = useState(() => localStorage.getItem('kb_enabled') !== 'false')
   const [kbSuggestion, setKbSuggestion] = useState(null)
@@ -79,15 +93,27 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     setMode(conv.mode || 'autopilot')
     setClientProfile(null)
     lastProductContextRef.current = null
+    isNearBottomRef.current = true
     loadMessages()
     getProfile(conv.id).then(p => setClientProfile(p)).catch(() => {})
     const interval = setInterval(() => loadMessages(true), 5000)
     return () => clearInterval(interval)
   }, [conv.id])
 
+  // Só rola pro final sozinho se o usuário já estava perto do final —
+  // evita puxar a tela pra baixo enquanto ele lê mensagens antigas (o polling
+  // de 5s atualizava msgs e forçava a rolagem, travando a leitura de histórico)
   useEffect(() => {
-    if (!searchQuery) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!searchQuery && isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [msgs, searchQuery])
+
+  function handleMessagesScroll(e) {
+    const el = e.currentTarget
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    isNearBottomRef.current = distanceFromBottom < 120
+  }
 
   useEffect(() => {
     if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50)
@@ -560,16 +586,29 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
       )}
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 6, background: t.bgSecondary, position: 'relative' }}>
+      <div ref={messagesContainerRef} onScroll={handleMessagesScroll} style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', display: 'flex', flexDirection: 'column', gap: 6, background: t.bgSecondary, position: 'relative' }}>
         {loading
           ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Carregando mensagens...</div>
           : msgs.length === 0
             ? <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginTop: 40 }}>Nenhuma mensagem</div>
-            : filteredMsgs.map(msg => (
-                <MsgWrapper key={msg.id} msg={msg} selectMode={selectMode} selectedMsgs={selectedMsgs} toggleSelectMsg={toggleSelectMsg} onHide={() => setHiddenMsgs(prev => new Set([...prev, msg.id]))}>
-                  <Bubble msg={msg} conv={conv} t={t} highlight={searchQuery} />
-                </MsgWrapper>
-              ))
+            : filteredMsgs.map((msg, i) => {
+                const prevMsg = filteredMsgs[i - 1]
+                const showDayLabel = !prevMsg || dayLabel(msg.time) !== dayLabel(prevMsg.time)
+                return (
+                  <div key={msg.id}>
+                    {showDayLabel && (
+                      <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+                        <span style={{ background: t.bgTertiary || '#e5e7eb', color: t.textMuted, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 9999 }}>
+                          {dayLabel(msg.time)}
+                        </span>
+                      </div>
+                    )}
+                    <MsgWrapper msg={msg} selectMode={selectMode} selectedMsgs={selectedMsgs} toggleSelectMsg={toggleSelectMsg} onHide={() => setHiddenMsgs(prev => new Set([...prev, msg.id]))}>
+                      <Bubble msg={msg} conv={conv} t={t} highlight={searchQuery} />
+                    </MsgWrapper>
+                  </div>
+                )
+              })
         }
         <div ref={bottomRef} />
       </div>
