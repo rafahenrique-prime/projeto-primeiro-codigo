@@ -273,28 +273,72 @@ export default async function handler(req, res) {
     }
 
     if (products.length > 0) {
-      // Detecta múltiplas opções e estrutura a resposta
       if (products.length > 1) {
-        console.log(`[knowledge] ⚠️  MÚLTIPLAS OPÇÕES detectadas: ${products.length} produtos`)
+        console.log(`[knowledge] ⚠️  MÚLTIPLAS OPÇÕES detectadas: ${products.length} produtos — agrupando por cor`)
 
-        // Mostra até 5 primeiras + aviso se há mais
+        // Extrai a "cor base" do nome do produto para agrupar variações
+        // Ex: "Tenis New Balance 9060 Marrom Black" → cor base "Marrom"
+        const COLOR_KEYWORDS = [
+          'marrom', 'preto', 'branco', 'azul', 'cinza', 'chumbo', 'gelo', 'rosa',
+          'caramelo', 'bege', 'verde', 'vermelho', 'roxo', 'laranja', 'amarelo',
+          'ouro', 'prata', 'dourado', 'creme', 'nude', 'vinho', 'bordo', 'lilás',
+          'lilas', 'salmao', 'salmão', 'menta', 'sage', 'shadow', 'castlerock',
+          'off white', 'off-white', 'grey', 'gray', 'algodao', 'algodão',
+        ]
+
+        function extractColorGroup(nome) {
+          const lower = nome.toLowerCase()
+          for (const color of COLOR_KEYWORDS) {
+            if (lower.includes(color)) return color.charAt(0).toUpperCase() + color.slice(1)
+          }
+          return 'Outros'
+        }
+
+        // Agrupa produtos por cor
+        const groups = {}
+        for (const p of products) {
+          const cor = extractColorGroup(p.nome)
+          if (!groups[cor]) groups[cor] = []
+          groups[cor].push(p)
+        }
+
+        const colorEntries = Object.entries(groups)
+        const totalColors = colorEntries.length
+
         sections.push('\n=== MÚLTIPLAS OPÇÕES ENCONTRADAS ===')
-        sections.push(`Encontrei ${products.length} opções para seu modelo.\n`)
 
-        const displayed = products.slice(0, 5)
-        for (let i = 0; i < displayed.length; i++) {
-          const p = displayed[i]
-          sections.push(`${i + 1}️⃣ ${p.nome}`)
-          if (p.preco) sections.push(`   💰 ${p.preco}`)
-          if (p.link) sections.push(`   🔗 ${p.link}`)
+        // Se há só 1 cor (ex: 4 variações de Marrom) → lista direto os produtos
+        if (totalColors === 1) {
+          const [cor, items] = colorEntries[0]
+          sections.push(`Encontrei ${items.length} variações de ${cor}:\n`)
+          items.forEach((p, i) => {
+            sections.push(`${i + 1}️⃣ ${p.nome} — ${p.preco}`)
+            if (p.link) sections.push(`   🔗 ${p.link}`)
+          })
+          sections.push('\n📋 Instrução: Liste as variações acima e pergunte qual o cliente quer ver.')
+
+        } else {
+          // Múltiplas cores → agrupa por cor, mostra contagem de variações
+          sections.push(`Encontrei ${products.length} modelos em ${totalColors} cores disponíveis:\n`)
+          colorEntries.forEach(([cor, items], i) => {
+            const variacoes = items.length > 1 ? ` (${items.length} variações)` : ''
+            sections.push(`${i + 1}️⃣ ${cor}${variacoes} — ${items[0].preco}`)
+          })
+          sections.push('\n📋 Instrução: Liste as cores acima e pergunte qual cor o cliente prefere.')
+          sections.push('Após o cliente escolher a cor, mostre as variações dessa cor específica.')
+
+          // Inclui detalhes de cada cor para Gabriela poder responder quando cliente escolher
+          sections.push('\n--- DETALHES POR COR (usar quando cliente escolher) ---')
+          colorEntries.forEach(([cor, items]) => {
+            sections.push(`\n[${cor.toUpperCase()}]`)
+            items.forEach(p => {
+              sections.push(`• ${p.nome} — ${p.preco}`)
+              if (p.link) sections.push(`  🔗 ${p.link}`)
+            })
+          })
         }
 
-        if (products.length > 5) {
-          sections.push(`\n... e mais ${products.length - 5} opções disponíveis.`)
-        }
-
-        sections.push('\n📋 Instrução: Liste as opções acima para o cliente e pergunte qual ele quer ver.')
-        sections.push('Aguarde a escolha dele antes de enviar foto/preço/link de uma opção específica.')
+        sections.push('\nAguarde a escolha do cliente antes de enviar foto/preço de um produto específico.')
       } else {
         // Uma única opção — responde normalmente
         sections.push('\n=== PRODUTOS ENCONTRADOS ===')
