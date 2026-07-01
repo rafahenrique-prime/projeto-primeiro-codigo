@@ -29,7 +29,13 @@ Confirma? (Sim/Não)
 - **Duração:** ~24h (expira diariamente)
 - **Sintoma de expiração:** "Erro ao mudar modo. Token pode ter expirado"
 
-**Como atualizar:**
+**Como atualizar (jeito mais fácil — descoberto em 2026-07-01):**
+1. Estar logado em `app.gptmaker.ai`
+2. Abrir `view-source:https://app.gptmaker.ai/browse`
+3. `Ctrl+F` (ou Cmd+F) por `"token":` e copiar o valor (sem aspas, sem "Bearer")
+4. Atualizar `.env.local`:
+
+**Como atualizar (jeito antigo, alternativa):**
 1. Abrir `app.gptmaker.ai` logado
 2. DevTools (F12) → Network → copiar header `Authorization` (sem "Bearer")
 3. Atualizar `.env.local`:
@@ -37,6 +43,14 @@ Confirma? (Sim/Não)
    VITE_GPTMAKER_USER_TOKEN=seu_token_aqui
    ```
 4. Vite reinicia automaticamente
+
+**Desde 2026-07-01:** o card de créditos do Dashboard também depende desse token, mas configurado como variável de ambiente `Production` no projeto Vercel `ignite-webhook` (não no `.env.local`). Se o card mostrar "Token do GPTMaker expirado", precisa atualizar lá também:
+```bash
+cd ~/ignite-webhook
+vercel env rm VITE_GPTMAKER_USER_TOKEN production --yes
+echo "seu_token_aqui" | vercel env add VITE_GPTMAKER_USER_TOKEN production
+vercel --prod --yes
+```
 
 ### 3. **IDs GPTMaker são sagrados**
 
