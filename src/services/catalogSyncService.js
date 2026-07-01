@@ -3,6 +3,20 @@
 
 import { validarProdutoUnico } from './knowledgeGenerator'
 
+// Autocorreção de nomes: padroniza acentos e grafia ao salvar
+export function normalizarNomeProduto(nome) {
+  if (!nome) return nome
+  return nome
+    .replace(/^Bone\b/i, 'Boné')
+    .replace(/\bBone\b(?=\s+(New Era|Armani|Gucci|Dior|Boss|Burberry|Balenciaga|Philipp|Louis|Diesel|Versace|Armaf|Itals))/gi, 'Boné')
+    .replace(/^Tenis\b/i, 'Tênis')
+    .replace(/^Oculos\b/i, 'Óculos')
+    .replace(/^Calcado\b/i, 'Calçado')
+    .replace(/\bMarron\b/gi, 'Marrom')
+    .replace(/\bImportada\b/gi, 'Importado')
+    .trim()
+}
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 const TABLE = 'products'
@@ -109,9 +123,9 @@ export async function upsertProducts(products) {
         imagemUrl = await uploadImageToStorage(p.imagem, p.nome)
       }
 
-      // Formata dados completos
+      // Formata dados completos — normaliza nome antes de salvar
       const dados = {
-        nome: p.nome,
+        nome: normalizarNomeProduto(p.nome),
         preco: p.preco,
         imagem: imagemUrl, // URL da imagem salva no Storage
         link: p.link,

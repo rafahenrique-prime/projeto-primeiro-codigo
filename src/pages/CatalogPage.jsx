@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory } from '../services/catalogSyncService'
+import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
 import { regenerateKnowledgeUnico } from '../services/knowledgeGenerator'
 
@@ -327,8 +327,8 @@ export default function CatalogPage({ onNavigate }) {
       }
     }
 
-    // Atualizar formData com URL da imagem
-    const dataComImagem = { ...formData, imagem: imagemUrl }
+    // Atualizar formData com URL da imagem — normaliza nome automaticamente
+    const dataComImagem = { ...formData, imagem: imagemUrl, nome: normalizarNomeProduto(formData.nome) }
 
     let updated
     let newId = null
