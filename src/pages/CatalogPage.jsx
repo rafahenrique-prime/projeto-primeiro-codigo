@@ -275,13 +275,38 @@ export default function CatalogPage({ onNavigate }) {
       return
     }
 
-    // Verificar se produto com mesmo nome já existe
-    const produtoExistente = products.find(p => p.nome.toLowerCase() === formData.nome.toLowerCase() && p.id !== formData.id)
+    // Verificar se produto com mesmo nome já existe (exato)
+    const produtoExistente = products.find(p => p.nome.toLowerCase() === formData.nome.toLowerCase() && p.id !== editingId)
     if (produtoExistente) {
       const confirmar = confirm(`⚠️ Produto "${formData.nome}" já existe!\n\n✏️ Deseja editar o existente?\n\nClique "OK" para editar, "Cancelar" para adicionar novo mesmo assim.`)
       if (confirmar) {
         openEditModal(produtoExistente)
         return
+      }
+    }
+
+    // Verificar nomes similares (previne duplicata ao renomear)
+    // Ex: salvar "Marrom Black" quando "Marrom" já existe no catálogo
+    if (!editingId) {
+      const nomeNovo = formData.nome.toLowerCase()
+      const similares = products.filter(p => {
+        const nomeExist = p.nome.toLowerCase()
+        // Considera similar se um contém o outro e têm pelo menos 60% das palavras em comum
+        const palavrasNovo = nomeNovo.split(/\s+/).filter(w => w.length > 2)
+        const palavrasExist = nomeExist.split(/\s+/).filter(w => w.length > 2)
+        const emComum = palavrasNovo.filter(w => palavrasExist.includes(w)).length
+        const similaridade = emComum / Math.max(palavrasNovo.length, palavrasExist.length)
+        return similaridade >= 0.6 && p.id !== editingId && nomeExist !== nomeNovo
+      })
+
+      if (similares.length > 0) {
+        const lista = similares.slice(0, 3).map(p => `• ${p.nome}`).join('\n')
+        const confirmar = confirm(
+          `⚠️ ATENÇÃO: Encontrei ${similares.length} produto(s) com nome similar:\n\n${lista}\n\n` +
+          `Você quer adicionar "${formData.nome}" como produto NOVO?\n\n` +
+          `Clique "OK" para adicionar novo\nClique "Cancelar" para não adicionar`
+        )
+        if (!confirmar) return
       }
     }
 

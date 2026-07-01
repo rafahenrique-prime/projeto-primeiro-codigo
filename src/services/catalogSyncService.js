@@ -124,14 +124,26 @@ export async function upsertProducts(products) {
         synced_at: new Date().toISOString(),
       }
 
-      // 1. Buscar se produto com esse nome já existe
-      const existente = await fetch(
-        `${base()}?nome=eq.${encodeURIComponent(p.nome)}`,
-        { headers }
-      ).then(r => r.json())
+      // 1. Buscar produto — prioriza ID (UUID) para não criar duplicata ao renomear
+      // Se o produto tem UUID válido, busca por ele. Senão, busca por nome (fallback).
+      let existente = []
+      const isUUID = p.id && typeof p.id === 'string' && p.id.length === 36 && p.id.includes('-')
+
+      if (isUUID) {
+        existente = await fetch(`${base()}?id=eq.${p.id}`, { headers }).then(r => r.json())
+        if (existente?.length > 0) console.log(`[CatalogSync] 🔑 Encontrado por ID: ${p.nome}`)
+      }
+
+      // Fallback: sem UUID ou não encontrou — busca por nome
+      if (!existente || existente.length === 0) {
+        existente = await fetch(
+          `${base()}?nome=eq.${encodeURIComponent(p.nome)}`,
+          { headers }
+        ).then(r => r.json())
+      }
 
       if (existente && existente.length > 0) {
-        // UPDATE: produto já existe
+        // UPDATE: usa sempre o ID do Supabase (não o nome) para o PATCH
         const id = existente[0].id
         const updateRes = await fetch(
           `${base()}?id=eq.${id}`,
