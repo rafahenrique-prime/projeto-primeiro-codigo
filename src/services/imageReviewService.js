@@ -9,15 +9,21 @@ const sbHeaders = {
   'Content-Type': 'application/json',
 }
 
-// Carrega produtos sem foto da Supabase
+// Carrega produtos sem foto da Supabase (null OU string vazia)
 export async function loadProductsWithoutImages() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?imagem=is.null&order=created_at.desc`, {
-      headers: sbHeaders,
-    })
-    if (!res.ok) throw new Error('Erro ao carregar produtos')
-    const data = await res.json()
-    return data || []
+    // Busca null e string vazia separadamente e une os resultados
+    const [resNull, resEmpty] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/products?imagem=is.null&order=created_at.desc`, { headers: sbHeaders }),
+      fetch(`${SUPABASE_URL}/rest/v1/products?imagem=eq.&order=created_at.desc`, { headers: sbHeaders }),
+    ])
+    const [dataNullRaw, dataEmptyRaw] = await Promise.all([resNull.json(), resEmpty.json()])
+    const dataNull = Array.isArray(dataNullRaw) ? dataNullRaw : []
+    const dataEmpty = Array.isArray(dataEmptyRaw) ? dataEmptyRaw : []
+    // Remove duplicatas por id
+    const ids = new Set(dataNull.map(p => p.id))
+    const merged = [...dataNull, ...dataEmpty.filter(p => !ids.has(p.id))]
+    return merged
   } catch (err) {
     console.error('[ImageReview] Erro:', err)
     throw err

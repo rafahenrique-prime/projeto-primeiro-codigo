@@ -10,6 +10,7 @@ import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } 
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/imageReviewService'
 import { getAllEntries } from '../services/knowledgeDB'
 import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
+import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -162,6 +163,37 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [productsWithoutImages, setProductsWithoutImages] = useState([])
   const [imageReviewLoading, setImageReviewLoading] = useState(false)
   const [reviewingProduct, setReviewingProduct] = useState(null)
+
+  // ─── Alertas Proativos do CODEX ────────────────────────────────────────────
+  const [codexAlerts, setCodexAlerts] = useState([])
+  const [showAlertsPanel, setShowAlertsPanel] = useState(false)
+  const [loadingAlerts, setLoadingAlerts] = useState(false)
+
+  const loadCodexAlerts = async () => {
+    setLoadingAlerts(true)
+    try {
+      const alerts = await getUnresolvedAlerts()
+      setCodexAlerts(alerts)
+    } finally {
+      setLoadingAlerts(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCodexAlerts()
+    const interval = setInterval(loadCodexAlerts, 60000) // atualiza a cada 60s
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleResolveAlert = async (id) => {
+    setCodexAlerts(prev => prev.filter(a => a.id !== id)) // otimista
+    await resolveAlert(id)
+  }
+
+  const handleResolveAllAlerts = async () => {
+    setCodexAlerts([]) // otimista
+    await resolveAllAlerts()
+  }
 
   const runFollowUp = async (dryRun = false) => {
     const ctx = richConversations.length > 0 ? richConversations : conversations
@@ -934,6 +966,19 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <span title="Não lidas" style={{ background: '#FFF8E1', border: '1px solid #FFC300', borderRadius: 9999, padding: '3px 9px', fontSize: 11, color: '#856404', whiteSpace: 'nowrap' }}>
               🔔 {conversations.filter(c => c.unread > 0).length}
             </span>
+            <span
+              onClick={() => setShowAlertsPanel(v => !v)}
+              title="Alertas proativos do CODEX (lead quente, objeção recorrente, gaps de conhecimento)"
+              style={{
+                background: codexAlerts.length > 0 ? '#FEF2F2' : '#F3F4F6',
+                border: `1px solid ${codexAlerts.length > 0 ? '#FCA5A5' : '#E5E7EB'}`,
+                borderRadius: 9999, padding: '3px 9px', fontSize: 11,
+                color: codexAlerts.length > 0 ? '#B91C1C' : '#6B7280',
+                cursor: 'pointer', whiteSpace: 'nowrap', position: 'relative',
+              }}
+            >
+              🚨 {codexAlerts.length}
+            </span>
             {leadProfiles.length > 0 && (leadProfiles.filter(p => (p.buy_score||0) >= 70).length > 0 || leadProfiles.filter(p => (p.buy_score||0) >= 40 && (p.buy_score||0) < 70).length > 0) && (
               <span
                 onClick={() => send('__SCORE_LIVE__')}
@@ -1227,6 +1272,58 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           </div>
         )}
       </div>
+
+      {/* Painel de Alertas Proativos do CODEX */}
+      {showAlertsPanel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80 }}
+          onClick={() => setShowAlertsPanel(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: 480, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A' }}>🚨 Alertas do CODEX</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {codexAlerts.length > 0 && (
+                  <button onClick={handleResolveAllAlerts} style={{ fontSize: 11, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    Marcar todos como vistos
+                  </button>
+                )}
+                <button onClick={() => setShowAlertsPanel(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#82829B' }}>×</button>
+              </div>
+            </div>
+            <div style={{ overflowY: 'auto', padding: 12 }}>
+              {loadingAlerts ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#82829B', fontSize: 13 }}>Carregando...</div>
+              ) : codexAlerts.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#82829B', fontSize: 13 }}>✅ Nenhum alerta pendente</div>
+              ) : (
+                codexAlerts.map(alert => (
+                  <div key={alert.id} style={{ background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#B91C1C', textTransform: 'uppercase', marginBottom: 4 }}>
+                          {alert.type === 'lead_quente' && '🔥 Lead Quente'}
+                          {alert.type === 'objecao_recorrente' && '💸 Objeção Recorrente'}
+                          {alert.type === 'gap_conhecimento' && '📚 Gap de Conhecimento'}
+                          {alert.type === 'produto_fallback' && '📦 Produto Não Encontrado'}
+                          {alert.type === 'diagnostico_pronto' && '🔍 Diagnóstico Pronto'}
+                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto'].includes(alert.type) && alert.type}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
+                        <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
+                          {new Date(alert.created_at).toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+                      <button onClick={() => handleResolveAlert(alert.id)} title="Marcar como visto"
+                        style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#82829B', flexShrink: 0 }}>
+                        ✓
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image Review Panel */}
       {showImageReview && (

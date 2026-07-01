@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
@@ -42,6 +42,42 @@ export default function CatalogPage({ onNavigate }) {
   const [sortByFilter, setSortByFilter] = useState('default') // 'default', 'lastAdded'
   const [loadingSync, setLoadingSync] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  // Status do Knowledge: 'updated' | 'pending' | 'syncing'
+  const [knowledgeStatus, setKnowledgeStatus] = useState(() => {
+    return localStorage.getItem('knowledge_status') || 'updated'
+  })
+  const debounceRef = useRef(null)
+
+  // Marca knowledge como desatualizado e dispara sync com debounce de 30s
+  const markKnowledgeDirty = useCallback(() => {
+    setKnowledgeStatus('pending')
+    localStorage.setItem('knowledge_status', 'pending')
+
+    // Cancela timer anterior se houver (reset do debounce)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(async () => {
+      setKnowledgeStatus('syncing')
+      localStorage.setItem('knowledge_status', 'syncing')
+      try {
+        const result = await regenerateKnowledgeUnico()
+        if (result.ok) {
+          setKnowledgeStatus('updated')
+          localStorage.setItem('knowledge_status', 'updated')
+          console.log('[Knowledge] ✅ Auto-sync concluído:', result.mensagem)
+        } else {
+          setKnowledgeStatus('pending')
+          localStorage.setItem('knowledge_status', 'pending')
+          console.warn('[Knowledge] ⚠️ Erro no auto-sync:', result.erro)
+        }
+      } catch (err) {
+        setKnowledgeStatus('pending')
+        localStorage.setItem('knowledge_status', 'pending')
+        console.error('[Knowledge] ❌ Falha no auto-sync:', err.message)
+      }
+      debounceRef.current = null
+    }, 30000) // 30 segundos de debounce
+  }, [])
 
   const loadProducts = async () => {
     const supabaseProducts = await getProductsFromSupabase()
@@ -374,18 +410,8 @@ export default function CatalogPage({ onNavigate }) {
       } else if (result?.success === true) {
         console.log('✅ Sincronizado com Supabase:', result.inserted, 'inseridos,', result.updated, 'atualizados')
 
-        // PASSO 5.1: Regenerar knowledge automaticamente após salvar
-        console.log('[CatalogPage] 🔄 Iniciando sincronização automática da knowledge...')
-        try {
-          const knowledgeResult = await regenerateKnowledgeUnico()
-          if (knowledgeResult.ok) {
-            console.log('[CatalogPage] ✅ Knowledge sincronizado automaticamente:', knowledgeResult.mensagem)
-          } else {
-            console.warn('[CatalogPage] ⚠️ Erro ao sincronizar knowledge:', knowledgeResult.erro)
-          }
-        } catch (err) {
-          console.error('[CatalogPage] 🔴 Erro na sincronização automática:', err.message)
-        }
+        // Marca knowledge como desatualizado — sync automático em 30s (debounce)
+        markKnowledgeDirty()
       }
     } catch (err) {
       console.error('Erro na sincronização:', err)
@@ -444,19 +470,33 @@ export default function CatalogPage({ onNavigate }) {
   }
 
   const handleSyncKnowledge = async () => {
+    // Cancela debounce pendente para não sobrepor
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+
     setLoadingSync(true)
+    setKnowledgeStatus('syncing')
+    localStorage.setItem('knowledge_status', 'syncing')
     setSyncMessage('🔄 Sincronizando Knowledge Base...')
 
     try {
       const result = await regenerateKnowledgeUnico()
 
       if (result.ok) {
+        setKnowledgeStatus('updated')
+        localStorage.setItem('knowledge_status', 'updated')
         setSyncMessage(`✅ Knowledge sincronizado: ${result.totalProdutos} produtos (${result.duplicatasRemovidas} duplicatas removidas)`)
         setTimeout(() => setSyncMessage(''), 5000)
       } else {
+        setKnowledgeStatus('pending')
+        localStorage.setItem('knowledge_status', 'pending')
         setSyncMessage(`❌ Erro: ${result.erro}`)
       }
     } catch (err) {
+      setKnowledgeStatus('pending')
+      localStorage.setItem('knowledge_status', 'pending')
       setSyncMessage(`❌ Erro ao sincronizar: ${err.message}`)
     } finally {
       setLoadingSync(false)
@@ -477,6 +517,7 @@ export default function CatalogPage({ onNavigate }) {
         const result = await deleteProductFromSupabase(id, produtoNome)
         if (result.success) {
           console.log('✅ Produto deletado do Supabase')
+          markKnowledgeDirty()
         } else {
           console.error('Erro ao deletar:', result.error)
           alert('⚠️ Erro ao deletar do Supabase: ' + (result.error || 'Desconhecido'))
@@ -609,6 +650,18 @@ export default function CatalogPage({ onNavigate }) {
               <span style={{ color: '#EF4444', marginLeft: 6 }}>
                 · {products.filter(p => !p.imagem || !p.imagem.trim()).length} sem foto
               </span>
+            )}
+          </p>
+          {/* Indicador de status do Knowledge */}
+          <p style={{ margin: '3px 0 0 0', fontSize: 11, color: t.textMuted }}>
+            {knowledgeStatus === 'updated' && (
+              <span style={{ color: '#10B981', fontWeight: 600 }}>✅ Knowledge Atualizado</span>
+            )}
+            {knowledgeStatus === 'pending' && (
+              <span style={{ color: '#F59E0B', fontWeight: 600 }}>⚠️ Knowledge desatualizado · sync em 30s...</span>
+            )}
+            {knowledgeStatus === 'syncing' && (
+              <span style={{ color: '#6366F1', fontWeight: 600 }}>🔄 Sincronizando Knowledge...</span>
             )}
           </p>
         </div>
