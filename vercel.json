@@ -4,6 +4,7 @@
   "installCommand": "npm install",
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
   "crons": [
-    { "path": "/api/cron-diagnosis", "schedule": "0 12 * * *" }
+    { "path": "/api/cron-diagnosis", "schedule": "0 12 * * *" },
+    { "path": "/api/cron-diagnosis", "schedule": "0 18 * * *" }
   ]
 }

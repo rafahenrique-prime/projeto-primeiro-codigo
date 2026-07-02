@@ -593,6 +593,36 @@ Responda APENAS com JSON válido, sem texto antes ou depois:
   }
 }
 
+// ─── Venda → Script Vencedor: extrai a técnica que funcionou pra reaproveitar ───
+export async function suggestKnowledgeFromWin({ clientName = '', conversationExcerpt = '' }) {
+  if (!conversationExcerpt) return null
+
+  const prompt = `Uma venda foi FECHADA na PRIME STORE.
+${clientName ? `Cliente: ${clientName}` : ''}
+Trecho da conversa que levou ao fechamento:\n${conversationExcerpt}
+
+Identifique a técnica ou argumento específico que fez o cliente decidir comprar
+(ex: como uma objeção foi contornada, um gatilho que funcionou, uma forma de apresentar preço/produto).
+Proponha UMA entrada objetiva pra base de conhecimento do agente, como um script reutilizável
+pra próximas conversas parecidas. Só proponha se houver uma técnica real identificável —
+se o cliente já chegou decidido sem o agente fazer nada de especial, retorna content null.
+Seja específico e acionável — não escreva conselho genérico tipo "seja atencioso".
+
+Responda APENAS com JSON válido, sem texto antes ou depois:
+{"content": "texto do script/técnica, pronto pra salvar, ou null se não houver técnica identificável", "category": "PRODUTO|PRECO|FAQ|ESTRATEGIA|POLITICA|GUIA|GERAL"}`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 300 })
+  const raw = data?.choices?.[0]?.message?.content || ''
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
+    if (!json.content || json.content === 'null') return null
+    const category = ['PRODUTO', 'PRECO', 'FAQ', 'ESTRATEGIA', 'POLITICA', 'GUIA', 'GERAL'].includes(json.category) ? json.category : 'ESTRATEGIA'
+    return { content: json.content, category }
+  } catch {
+    return null
+  }
+}
+
 export async function askCODEXOnboarding(stage, userMessage, history = [], context = {}) {
   const stagePrompt = (STAGE_PROMPTS[stage] || STAGE_PROMPTS[0])
     .replace('{CONTEXT}', JSON.stringify(context))

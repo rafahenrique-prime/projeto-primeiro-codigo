@@ -9,12 +9,25 @@ const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const GROQ_API_KEY = process.env.VITE_GROQ_API_KEY
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 
 const GPT_BASE = 'https://api.gptmaker.ai'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'meta-llama/llama-4-scout-17b-16e-instruct']
 
 const CHATS_TO_ANALYZE = 30
+
+// ─── Alerta de Canal Silencioso — detecta possível queda do WhatsApp/Z-API ───
+// Se ninguém mandou mensagem há muito tempo em pleno horário comercial (BRT),
+// é mais provável que a integração caiu do que a loja ter ficado sem nenhum cliente.
+const SILENT_CHANNEL_HOURS = 3
+
+function isBusinessHoursBRT(date = new Date()) {
+  const brtHour = (date.getUTCHours() - 3 + 24) % 24
+  const brtDay = new Date(date.getTime() - 3 * 60 * 60 * 1000).getUTCDay() // 0=domingo
+  return brtDay >= 1 && brtDay <= 6 && brtHour >= 9 && brtHour < 20
+}
 
 // ─── Classificador de funil — cópia fiel de detectFunnelStage em src/services/groq.js ───
 // (duplicado de propósito: aquele arquivo só roda no browser, depende de import.meta.env)
@@ -223,6 +236,36 @@ async function saveWeeklyInsight(row) {
   })
 }
 
+// Relatório semanal automático no Telegram — mesmo bot já usado pelos alertas manuais
+// (api/telegram-alert.js). Fail-safe: nunca derruba o cron se o Telegram falhar.
+async function sendWeeklyTelegramReport(insight) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('[cron-diagnosis] Telegram não configurado, pulando relatório semanal')
+    return
+  }
+  const topObjections = (insight.objection_trend || []).slice(0, 3)
+    .map(o => `• ${o.category}: ${o.thisWeek}x (${o.pctChange >= 0 ? '+' : ''}${o.pctChange}%)`)
+    .join('\n') || '• sem mudança relevante'
+
+  const text = `📊 <b>RESUMO SEMANAL — PRIME STORE</b>\n` +
+    `<i>Semana de ${insight.week_start}</i>\n\n` +
+    `${insight.summary || ''}\n\n` +
+    `<b>Objeções em destaque:</b>\n${topObjections}\n\n` +
+    `<b>Sem resposta (média/dia):</b> ${insight.no_reply_trend?.thisWeekAvg ?? '?'} (era ${insight.no_reply_trend?.lastWeekAvg ?? '?'})\n` +
+    `<b>Produtos sem foto:</b> ${insight.products_without_photo ?? '?'}`
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
+    })
+    if (!res.ok) console.error('[cron-diagnosis] Telegram falhou:', await res.text())
+  } catch (e) {
+    console.error('[cron-diagnosis] Telegram erro:', e.message)
+  }
+}
+
 async function saveDiagnostic(report, stats) {
   await fetch(`${SUPABASE_URL}/rest/v1/diagnostics`, {
     method: 'POST',
@@ -372,10 +415,12 @@ export default async function handler(req, res) {
     const ctx = []
     const objectionRows = []
     const auditCandidates = []
+    let latestClientMsgTime = 0
     for (const chat of chats) {
       const msgs = await getChatMessages(chat.id)
       if (!msgs.length) continue
       const lastClientMsg = [...msgs].reverse().find(m => m.role === 'user' || m.role === 'client')
+      if (lastClientMsg?.time && lastClientMsg.time > latestClientMsgTime) latestClientMsgTime = lastClientMsg.time
       const lastMsgText = lastClientMsg?.text || lastClientMsg?.content || ''
       const stage = detectFunnelStage(msgs, lastMsgText)
       const lastFromAgent = [...msgs].reverse().find(m => m.role !== 'user' && m.role !== 'client')
@@ -424,6 +469,29 @@ export default async function handler(req, res) {
 
     await saveObjections(objectionRows)
     const ranking7d = await getObjectionRankingLast7Days()
+
+    // Canal Silencioso: horário comercial + ninguém mandou mensagem há SILENT_CHANNEL_HOURS
+    let channelSilentAlert = false
+    if (latestClientMsgTime > 0 && isBusinessHoursBRT()) {
+      const hoursSinceLastMsg = (Date.now() - latestClientMsgTime) / 3600000
+      if (hoursSinceLastMsg >= SILENT_CHANNEL_HOURS) {
+        channelSilentAlert = true
+        const sixHoursAgo = new Date(Date.now() - 6 * 3600000).toISOString()
+        const recentRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/codex_alerts?type=eq.canal_silencioso&created_at=gte.${sixHoursAgo}&select=id&limit=1`,
+          { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+        )
+        const alreadyAlerted = recentRes.ok && (await recentRes.json()).length > 0
+        if (!alreadyAlerted) {
+          await logCodexAlert({
+            type: 'canal_silencioso',
+            severity: 'atencao',
+            message: `⚠️ Nenhuma mensagem de cliente há ${Math.round(hoursSinceLastMsg)}h em horário comercial. Vale checar se o WhatsApp/Z-API está conectado — pode ter caído.`,
+            data: { hoursSinceLastMsg: Math.round(hoursSinceLastMsg) },
+          })
+        }
+      }
+    }
 
     // Score Híbrido: relê até SCORE_REFINE_CAP conversas com texto real do cliente e
     // corrige o buy_score (calculado por regex em tempo real) quando a IA discordar muito
@@ -504,6 +572,7 @@ export default async function handler(req, res) {
           data: weeklyInsight,
         })
       }
+      await sendWeeklyTelegramReport(weeklyInsight)
     }
 
     const quentes = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
@@ -558,6 +627,7 @@ Emojis generosos, sem rodeios.`
       agent_audits: { count: auditRows.length, avg_score: avgScore, low_score: lowScoreRows.length },
       score_hybrid: { checked: scoreCandidates.length, corrected: scoreCorrections.length, corrections: scoreCorrections },
       weekly_insight: weeklyInsight,
+      channel_silent_alert: channelSilentAlert,
     })
   } catch (err) {
     console.error('[cron-diagnosis] Erro:', err.message)

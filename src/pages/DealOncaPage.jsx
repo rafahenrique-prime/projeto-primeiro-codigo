@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss } from '../services/groq'
+import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss, suggestKnowledgeFromWin } from '../services/groq'
 import { recordStage, cleanupOldEntries } from '../services/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog } from '../services/followUpService'
@@ -1282,6 +1282,25 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                     }).catch(() => {})
                   }
 
+                  // Venda → Script Vencedor: extrai a técnica que funcionou pra reaproveitar
+                  if (outcomeResult === 'closed_won') {
+                    const excerpt = (conv?.fullMessages || []).slice(-8)
+                      .map(m => `${m.role === 'user' ? 'Cliente' : 'Agente'}: ${m.text || m.content || ''}`)
+                      .join('\n').slice(0, 1000)
+                    suggestKnowledgeFromWin({
+                      clientName: conv?.name || conv?.contact || '',
+                      conversationExcerpt: excerpt,
+                    }).then(suggestion => {
+                      if (!suggestion) return
+                      setMessages(prev => [...prev, {
+                        id: Date.now(),
+                        from: 'codex',
+                        text: `🎉 Fechou com **${conv?.name || conv?.contact || 'cliente'}**! Identifiquei uma técnica que funcionou — salvar como script pra próxima vez?`,
+                        saveSuggestion: suggestion,
+                      }])
+                    }).catch(() => {})
+                  }
+
                   setOutcomeConv('')
                   setOutcomeResult(null)
                   setOutcomeLossReason('')
@@ -1501,7 +1520,8 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                           {alert.type === 'auditoria_baixa' && '📋 Nota Baixa da Gabriela'}
                           {alert.type === 'score_corrigido' && '🎯 Score Corrigido'}
                           {alert.type === 'insight_semanal' && '📊 Resumo Semanal'}
-                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa','score_corrigido','insight_semanal'].includes(alert.type) && alert.type}
+                          {alert.type === 'canal_silencioso' && '📡 Canal Silencioso'}
+                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa','score_corrigido','insight_semanal','canal_silencioso'].includes(alert.type) && alert.type}
                         </div>
                         <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
                         <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
