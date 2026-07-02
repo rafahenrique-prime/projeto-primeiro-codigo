@@ -214,6 +214,9 @@ export default async function handler(req, res) {
       const lastMsgText = lastClientMsg?.text || lastClientMsg?.content || ''
       const stage = detectFunnelStage(msgs, lastMsgText)
       const lastFromAgent = [...msgs].reverse().find(m => m.role !== 'user' && m.role !== 'client')
+      // Pra auditoria: só resposta de texto real da assistente (pula system/notification
+      // e mensagens de mídia sem legenda, que ficariam com "Gabriela: " vazio)
+      const lastAgentTextMsg = [...msgs].reverse().find(m => m.role === 'assistant' && (m.text || m.content || '').trim())
       const naoLida = lastClientMsg && lastFromAgent
         ? new Date(lastClientMsg.createdAt || 0).getTime() > new Date(lastFromAgent.createdAt || 0).getTime()
         : !!lastClientMsg
@@ -232,14 +235,14 @@ export default async function handler(req, res) {
         })
       }
 
-      // Candidato à auditoria: só quando o agente já respondeu ao cliente (troca real, não silêncio)
-      if (lastFromAgent && lastClientMsg) {
+      // Candidato à auditoria: só quando o agente já respondeu com texto real (troca de verdade, não silêncio/mídia)
+      if (lastAgentTextMsg && lastClientMsg) {
         auditCandidates.push({
           chat_id: chat.id,
           cliente: chat.name || chat.lead?.name || chat.id,
           channel: chat.channel || null,
           clientMsg: lastMsgText.slice(0, 500),
-          agentMsg: (lastFromAgent.text || lastFromAgent.content || '').slice(0, 500),
+          agentMsg: (lastAgentTextMsg.text || lastAgentTextMsg.content || '').slice(0, 500),
         })
       }
 
