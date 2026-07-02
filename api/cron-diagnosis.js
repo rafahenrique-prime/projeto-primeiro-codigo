@@ -131,6 +131,98 @@ async function getObjectionRankingLast7Days() {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([category, count]) => ({ category, count }))
 }
 
+// ─── Inteligência Comercial — visão semanal agregada (roda só 1x/semana) ───
+// O diagnóstico diário só enxerga o dia. Isso compara esta semana com a anterior pra
+// responder "como estamos essa semana?" com dado real: objeção subindo, follow-up
+// piorando, produto sem foto sendo pedido. Injetado no prompt do CODEX depois.
+function getISOWeekStart(d = new Date()) {
+  const date = new Date(d)
+  const day = date.getUTCDay() || 7 // domingo=0 -> 7
+  date.setUTCDate(date.getUTCDate() - day + 1) // segunda-feira
+  date.setUTCHours(0, 0, 0, 0)
+  return date.toISOString().split('T')[0]
+}
+
+async function weeklyInsightExists(weekStart) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_insights?week_start=eq.${weekStart}&select=id&limit=1`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+  })
+  if (!res.ok) return false
+  const data = await res.json()
+  return data.length > 0
+}
+
+async function getObjectionCountsBetween(startIso, endIso) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/objections?select=category&created_at=gte.${startIso}&created_at=lt.${endIso}`,
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+  )
+  if (!res.ok) return {}
+  const rows = await res.json()
+  const counts = {}
+  for (const r of rows) counts[r.category] = (counts[r.category] || 0) + 1
+  return counts
+}
+
+function buildTrend(thisWeekCounts, lastWeekCounts) {
+  const categories = new Set([...Object.keys(thisWeekCounts), ...Object.keys(lastWeekCounts)])
+  return [...categories].map(category => {
+    const thisWeek = thisWeekCounts[category] || 0
+    const lastWeek = lastWeekCounts[category] || 0
+    const pctChange = lastWeek === 0 ? (thisWeek > 0 ? 100 : 0) : Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+    return { category, thisWeek, lastWeek, pctChange }
+  }).sort((a, b) => b.thisWeek - a.thisWeek)
+}
+
+async function getNoReplyTrend() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/diagnostics?select=no_reply,created_at&order=created_at.desc&limit=14`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+  })
+  if (!res.ok) return null
+  const rows = await res.json()
+  if (rows.length < 2) return null
+  const half = Math.ceil(rows.length / 2)
+  const thisWeek = rows.slice(0, half)
+  const lastWeek = rows.slice(half)
+  const avg = arr => arr.length ? Math.round((arr.reduce((s, r) => s + (r.no_reply || 0), 0) / arr.length) * 10) / 10 : 0
+  return { thisWeekAvg: avg(thisWeek), lastWeekAvg: avg(lastWeek) }
+}
+
+async function getProductsWithoutPhoto() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/products?select=id&or=(imagem.is.null,imagem.eq.)`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'count=exact' },
+  })
+  const total = parseInt(res.headers.get('content-range')?.split('/')[1] || '0')
+  return total
+}
+
+async function generateWeeklySummary({ objectionTrend, noReplyTrend, productsWithoutPhoto }) {
+  const topMovers = objectionTrend.filter(o => Math.abs(o.pctChange) >= 20).slice(0, 4)
+  const prompt = `Resuma a semana comercial da PRIME STORE em 1 parágrafo curto e direto (máx 60 palavras), sem enrolação:
+
+Objeções (esta semana vs anterior): ${topMovers.map(o => `${o.category} ${o.thisWeek}x (${o.pctChange >= 0 ? '+' : ''}${o.pctChange}%)`).join(', ') || 'sem mudança relevante'}
+Sem resposta (média/dia): esta semana ${noReplyTrend?.thisWeekAvg ?? '?'} vs anterior ${noReplyTrend?.lastWeekAvg ?? '?'}
+Produtos sem foto no catálogo: ${productsWithoutPhoto}
+
+Aponte só o que mudou de verdade e uma ação prática.`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 150 })
+  return data?.choices?.[0]?.message?.content || null
+}
+
+async function saveWeeklyInsight(row) {
+  await fetch(`${SUPABASE_URL}/rest/v1/weekly_insights`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify(row),
+  })
+}
+
 async function saveDiagnostic(report, stats) {
   await fetch(`${SUPABASE_URL}/rest/v1/diagnostics`, {
     method: 'POST',
@@ -200,21 +292,38 @@ const SCORE_REFINE_CAP = 20
 const SCORE_DIFF_THRESHOLD = 25
 
 async function refineScore({ clientText, stage, regexScore }) {
-  const prompt = `Um sistema simples de palavras-chave deu nota ${regexScore}/100 de intenção de compra pra este cliente
-(estágio detectado: ${stage}). Releia as mensagens dele e avalie se a nota faz sentido de verdade —
-considere tom, contexto e intenção real, não só palavras soltas.
+  const prompt = `Um sistema de palavras-chave deu nota ${regexScore}/100 de intenção de COMPRA (não de simpatia,
+não de bom humor, não de engajamento) pra este cliente (estágio: ${stage}).
+
+REGRA DE OURO: tom simpático, brincadeira, educação ou resposta curta NÃO é intenção de compra.
+Só suba a nota se houver sinal CONCRETO de que o cliente quer fechar pedido agora ou está avaliando
+seriamente comprar (pedir preço/pix/link/parcelamento/tamanho pra fechar, dizer que vai levar, etc).
+Na dúvida, mantenha a nota baixa — é melhor perder um lead morno do que gerar alerta falso.
+
+ÂNCORAS (use como referência):
+0-20: sem interesse, off-topic, brincadeira, spam, só "oi"
+20-40: curiosidade vaga ("quanto custa", "tem esse modelo")
+40-60: considerando, mas sem confirmar (perguntou detalhe, sumiu)
+60-80: objeção ativa que pode fechar se resolvida (preço, frete) OU pediu confirmação de estoque/tamanho pra decidir
+80-100: pediu link/PIX/forma de pagamento, confirmou que vai levar, ou perguntou "como faço o pedido"
 
 MENSAGENS DO CLIENTE: "${clientText.slice(0, 600)}"
 
-Responda APENAS com JSON válido, sem texto antes ou depois:
-{"score": 0-100, "reasoning": "motivo em poucas palavras"}`
+Responda APENAS com JSON válido, sem texto antes ou depois. "evidence" deve ser uma citação literal
+das mensagens do cliente que comprova a nota, ou null se a nota for baixa por falta de sinal:
+{"score": 0-100, "reasoning": "motivo em poucas palavras", "evidence": "citação literal ou null"}`
 
-  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 120 })
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 150 })
   const raw = data?.choices?.[0]?.message?.content || ''
   try {
     const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
     if (typeof json.score !== 'number') return null
-    return { score: Math.max(0, Math.min(100, Math.round(json.score))), reasoning: json.reasoning || null }
+    const score = Math.max(0, Math.min(100, Math.round(json.score)))
+    const evidence = (json.evidence || '').trim()
+    // Trava de segurança: nota alta sem citação literal do cliente no texto = modelo "chutando".
+    // Descarta em vez de arriscar inflar o score (evita alertas falsos de lead quente).
+    if (score >= 60 && (!evidence || !clientText.toLowerCase().includes(evidence.toLowerCase().slice(0, 30)))) return null
+    return { score, reasoning: json.reasoning || null }
   } catch {
     return null
   }
@@ -234,7 +343,7 @@ async function getCustomerProfile(convId) {
 }
 
 async function patchCustomerScore(convId, score) {
-  await fetch(`${SUPABASE_URL}/rest/v1/customer_profiles?conv_id=eq.${encodeURIComponent(convId)}`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/customer_profiles?conv_id=eq.${encodeURIComponent(convId)}`, {
     method: 'PATCH',
     headers: {
       'apikey': SUPABASE_KEY,
@@ -244,6 +353,7 @@ async function patchCustomerScore(convId, score) {
     },
     body: JSON.stringify({ buy_score: score }),
   })
+  return res.ok
 }
 
 export default async function handler(req, res) {
@@ -326,7 +436,8 @@ export default async function handler(req, res) {
       if (!refined) continue
       const diff = refined.score - profile.buy_score
       if (Math.abs(diff) < SCORE_DIFF_THRESHOLD) continue
-      await patchCustomerScore(cand.chat_id, refined.score)
+      const patched = await patchCustomerScore(cand.chat_id, refined.score)
+      if (!patched) continue
       scoreCorrections.push({ cliente: cand.cliente, from: profile.buy_score, to: refined.score, reasoning: refined.reasoning })
     }
 
@@ -366,6 +477,33 @@ export default async function handler(req, res) {
         message: `Nota média da Gabriela hoje: ${avgScore}/10 (${lowScoreRows.length} resposta(s) fraca(s) de ${auditRows.length} avaliadas). Vale revisar o comportamento do agente.`,
         data: { avgScore, lowScoreCount: lowScoreRows.length, total: auditRows.length },
       })
+    }
+
+    // Inteligência Comercial: roda só 1x/semana (checa se já existe insight pra semana atual)
+    const weekStart = getISOWeekStart()
+    let weeklyInsight = null
+    if (!(await weeklyInsightExists(weekStart))) {
+      const now = new Date()
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+      const [thisWeekObj, lastWeekObj, noReplyTrend, productsWithoutPhoto] = await Promise.all([
+        getObjectionCountsBetween(weekAgo.toISOString(), now.toISOString()),
+        getObjectionCountsBetween(twoWeeksAgo.toISOString(), weekAgo.toISOString()),
+        getNoReplyTrend(),
+        getProductsWithoutPhoto(),
+      ])
+      const objectionTrend = buildTrend(thisWeekObj, lastWeekObj)
+      const summary = await generateWeeklySummary({ objectionTrend, noReplyTrend, productsWithoutPhoto })
+      weeklyInsight = { week_start: weekStart, objection_trend: objectionTrend, no_reply_trend: noReplyTrend, products_without_photo: productsWithoutPhoto, summary }
+      await saveWeeklyInsight(weeklyInsight)
+      if (summary) {
+        await logCodexAlert({
+          type: 'insight_semanal',
+          severity: 'info',
+          message: `📊 Resumo da semana: ${summary}`,
+          data: weeklyInsight,
+        })
+      }
     }
 
     const quentes = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
@@ -419,6 +557,7 @@ Emojis generosos, sem rodeios.`
       objection_ranking_7d: ranking7d,
       agent_audits: { count: auditRows.length, avg_score: avgScore, low_score: lowScoreRows.length },
       score_hybrid: { checked: scoreCandidates.length, corrected: scoreCorrections.length, corrections: scoreCorrections },
+      weekly_insight: weeklyInsight,
     })
   } catch (err) {
     console.error('[cron-diagnosis] Erro:', err.message)

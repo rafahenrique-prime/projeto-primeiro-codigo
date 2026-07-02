@@ -429,6 +429,29 @@ function buildLocalKnowledgeContext(entries = []) {
   return `\n\n═══ CONHECIMENTO INTERNO — PRIME STORE (${entries.length} entradas) ═══\n${preview}\n\nUSE ESTE CONHECIMENTO para responder perguntas sobre políticas, pagamento, frete, trocas, táticas de venda e operação do sistema.`
 }
 
+// Visão semanal agregada (gerada 1x/semana pelo cron) — dá ao CODEX memória além
+// das conversas abertas agora, pra responder "como estamos essa semana?" com dado real.
+function buildWeeklyInsightContext(insight) {
+  if (!insight) return ''
+  const trend = (insight.objection_trend || [])
+    .filter(o => Math.abs(o.pctChange) >= 20)
+    .slice(0, 5)
+    .map(o => `${o.category}: ${o.thisWeek}x esta semana (${o.pctChange >= 0 ? '+' : ''}${o.pctChange}% vs semana anterior)`)
+    .join('\n') || 'sem mudança relevante nas objeções'
+  const noReply = insight.no_reply_trend
+    ? `Sem resposta (média/dia): ${insight.no_reply_trend.thisWeekAvg} esta semana vs ${insight.no_reply_trend.lastWeekAvg} na anterior`
+    : ''
+  return `\n\n═══ VISÃO SEMANAL (semana de ${insight.week_start}) ═══
+${insight.summary || ''}
+
+Objeções em destaque:
+${trend}
+${noReply}
+Produtos sem foto no catálogo: ${insight.products_without_photo ?? '?'}
+
+Use isso quando o Rafael perguntar sobre tendência, "como estamos essa semana", comparação com a semana passada, ou performance geral — não invente números fora disso.`
+}
+
 // ─── ONBOARDING 5 ETAPAS ───────────────────────────────────────────────────────
 
 const ONBOARDING_SOUL = `Você é o CODEX — parceiro de vendas IA da PRIME STORE.
@@ -856,7 +879,7 @@ export function estimateDeepSeekBudget({ userMessage = '', convCount = 0, mode =
   return { tier, maxTokens: isReasoner ? Math.max(budget, DEEPSEEK_REASONER_FLOOR) : budget }
 }
 
-export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null, localKnowledge = [], codexMode = 'auditor') {
+export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null, localKnowledge = [], codexMode = 'auditor', weeklyInsight = null) {
   // Filtrar e validar conversas antes de processar
   const validConvs = conversations.filter(c => {
     const msgs = c.fullMessages || []
@@ -899,7 +922,7 @@ Não lidas: ${semResposta.length} | Prontos para fechar: ${quentes.length}
 
 CONVERSAS PRIORITÁRIAS (ordenadas por urgência — maior tempo esperando primeiro):
 ${JSON.stringify(priority)}${dataAviso}
-${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}${smartCtx}`
+${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}${buildWeeklyInsightContext(weeklyInsight)}${smartCtx}`
 
   const msgs = [
     ...history.slice(-8).map(h => ({ role: h.from === 'user' ? 'user' : 'assistant', content: h.text })),

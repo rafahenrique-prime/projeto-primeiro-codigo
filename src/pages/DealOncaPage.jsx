@@ -13,6 +13,7 @@ import { getAllProfiles, upsertProfile } from '../services/customerProfileServic
 import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
 import { saveInteraction, autoCloseInactiveConversations } from '../services/interactionsService'
 import { getTodayAuditSummary } from '../services/agentAuditService'
+import { getLatestWeeklyInsight } from '../services/weeklyInsightService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -71,6 +72,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [localKnowledge, setLocalKnowledge] = useState([])
   const [firstAgent, setFirstAgent] = useState(null)
   const [auditSummary, setAuditSummary] = useState(null)
+  const [weeklyInsight, setWeeklyInsight] = useState(null)
 
   const WELCOME = {
     id: 0, from: 'codex',
@@ -412,6 +414,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     getTodayAuditSummary().then(setAuditSummary).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    getLatestWeeklyInsight().then(setWeeklyInsight).catch(() => {})
+  }, [])
+
   // Carrega perfis de leads do Supabase quando conversas estiverem prontas
   useEffect(() => {
     if (richConversations.length === 0) return
@@ -609,7 +615,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0).slice(0, 10)
             : []
           const [provider, modelId] = selectedModel.split('::')
-          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode)
+          reply = await askCODEX(prompt, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode, weeklyInsight)
         } else {
           reply = `📎 Arquivo recebido: **${file.name}** (${(file.size/1024).toFixed(0)}KB). No momento só consigo analisar imagens — envie uma foto e descreverei o produto.`
         }
@@ -868,7 +874,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         ? richConversations.filter(c => c._loadedOk === true && c.fullMessages?.length > 0).slice(0, 10)
         : []
       const [provider, modelId] = selectedModel.split('::')
-      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode)
+      const reply = await askCODEX(t, history, validCtx, trainings, { provider, modelId }, localKnowledge, codexMode, weeklyInsight)
 
       // Detectar se o CODEX gerou um bloco de envio de mensagem
       const sendBlockMatch = reply.match(/ENVIO DE MENSAGEM PARA (.+?)(?:\n|$)([\s\S]+)/i)
@@ -1493,7 +1499,9 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                           {alert.type === 'produto_fallback' && '📦 Produto Não Encontrado'}
                           {alert.type === 'diagnostico_pronto' && '🔍 Diagnóstico Pronto'}
                           {alert.type === 'auditoria_baixa' && '📋 Nota Baixa da Gabriela'}
-                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa'].includes(alert.type) && alert.type}
+                          {alert.type === 'score_corrigido' && '🎯 Score Corrigido'}
+                          {alert.type === 'insight_semanal' && '📊 Resumo Semanal'}
+                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa','score_corrigido','insight_semanal'].includes(alert.type) && alert.type}
                         </div>
                         <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
                         <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
