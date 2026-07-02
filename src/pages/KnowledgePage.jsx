@@ -6,6 +6,7 @@ import { saveCreated, getCreatedAt, isNew } from '../services/knowledgeTimestamp
 import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from '../services/knowledgeDB'
 import { extractTextFromImage, detectContentCategory, identifyProductFromPhoto } from '../services/ocrService'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/knowledgeParser'
+import { getAllLearnings, deleteLearning } from '../services/agentLearningsService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6', bg: '#EFF6FF' },
@@ -86,6 +87,10 @@ export default function KnowledgePage() {
   const [localEditContent, setLocalEditContent] = useState('')
   const [localEditCategory, setLocalEditCategory] = useState('GERAL')
   const [localEditSaving, setLocalEditSaving] = useState(false)
+  // Aprendizados (log separado do que o CODEX aprendeu sozinho)
+  const [learnings, setLearnings]         = useState([])
+  const [learningsCount, setLearningsCount] = useState(0)
+  const [learningsOriginFilter, setLearningsOriginFilter] = useState('ALL')
   // Identificar Produto por Foto
   const [photoFile, setPhotoFile]         = useState(null)
   const [photoPreview, setPhotoPreview]   = useState(null)
@@ -124,12 +129,19 @@ export default function KnowledgePage() {
       if (ag.length > 0) setSelectedAgent(ag[0])
     })
     loadLocalEntries()
+    loadLearnings()
   }, [])
 
   async function loadLocalEntries() {
     const entries = await getAllEntries()
     setLocalEntries(entries)
     setLocalCount(entries.length)
+  }
+
+  async function loadLearnings() {
+    const rows = await getAllLearnings()
+    setLearnings(rows)
+    setLearningsCount(rows.length)
   }
 
   useEffect(() => { if (selectedAgent) load() }, [selectedAgent])
@@ -503,6 +515,7 @@ export default function KnowledgePage() {
             { key: 'local',     label: `Base Local${localCount > 0 ? ` (${localCount})` : ''}`, icon: '🧠' },
             { key: 'extract',   label: 'Extrair da URL', icon: '🔗' },
             { key: 'history',   label: 'Histórico', icon: '🕐' },
+            { key: 'learnings', label: `Aprendizados${learningsCount > 0 ? ` (${learningsCount})` : ''}`, icon: '💡' },
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               background: 'none', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent',
@@ -1146,6 +1159,67 @@ export default function KnowledgePage() {
                 <PageBtn label="Próximo ›" disabled={histPage === histTotal} onClick={() => setHistPage(p => p + 1)} />
               </div>
             )}
+          </div>
+        )
+      })()}
+
+      {/* ── Aprendizados — log separado do que o CODEX aprendeu sozinho ── */}
+      {activeTab === 'learnings' && (() => {
+        const ORIGIN_INFO = {
+          auditoria: { label: 'Auditoria', icon: '📋', color: '#4338CA', bg: '#EEF2FF' },
+          venda:     { label: 'Venda',     icon: '🏆', color: '#0B5E20', bg: '#F0FDF4' },
+          perda:     { label: 'Perda',     icon: '📉', color: '#B91C1C', bg: '#FEF2F2' },
+        }
+        const filteredLearnings = learningsOriginFilter === 'ALL'
+          ? learnings
+          : learnings.filter(l => l.origin === learningsOriginFilter)
+
+        return (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px 12px' }}>
+              <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 14px', lineHeight: 1.6 }}>
+                O que o CODEX aprendeu sozinho analisando auditorias — revise e decida o que vale aplicar de verdade.
+              </p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button onClick={() => setLearningsOriginFilter('ALL')}
+                  style={{ fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer', background: learningsOriginFilter === 'ALL' ? '#7C3AED' : '#fff', color: learningsOriginFilter === 'ALL' ? '#fff' : '#4B5563', boxShadow: learningsOriginFilter === 'ALL' ? 'none' : 'inset 0 0 0 1px #E5E5E5', fontWeight: 600 }}>
+                  Todos
+                </button>
+                {Object.entries(ORIGIN_INFO).map(([key, info]) => (
+                  <button key={key} onClick={() => setLearningsOriginFilter(key)}
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer', background: learningsOriginFilter === key ? info.color : '#fff', color: learningsOriginFilter === key ? '#fff' : '#4B5563', boxShadow: learningsOriginFilter === key ? 'none' : 'inset 0 0 0 1px #E5E5E5', fontWeight: 600 }}>
+                    {info.icon} {info.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {filteredLearnings.length === 0 ? (
+                <div style={{ padding: 60, textAlign: 'center' }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
+                  <div style={{ fontSize: 14, color: '#82829B' }}>Nenhum aprendizado registrado ainda</div>
+                </div>
+              ) : filteredLearnings.map(l => {
+                const origin = ORIGIN_INFO[l.origin] || { label: l.origin, icon: '💡', color: '#6B7280', bg: '#F9FAFB' }
+                const cat = CATEGORIES[l.category] || CATEGORIES['GERAL']
+                return (
+                  <div key={l.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: origin.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>{origin.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 5 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: origin.bg, color: origin.color, textTransform: 'uppercase' }}>{origin.label}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: cat.bg, color: cat.color }}>{cat.label}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.5, marginBottom: 4 }}>{l.content}</div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF' }}>{l.client_name || '—'} · {new Date(l.created_at).toLocaleDateString('pt-BR')}</div>
+                    </div>
+                    <button onClick={() => deleteLearning(l.id).then(loadLearnings)} title="Excluir"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 14, padding: 4, flexShrink: 0 }}>✕</button>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })()}

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss, suggestKnowledgeFromWin } from '../services/groq'
-import { recordStage, cleanupOldEntries } from '../services/stageHistory'
+import { recordStage, cleanupOldEntries, getTimeInStage } from '../services/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
-import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog } from '../services/followUpService'
+import { runFollowUpCheck, getFollowUpSummary } from '../services/followUpService'
 import { listChannels, getChatMessages, listAgents, listTrainings, createTraining, sendMessage as gptSendMessage } from '../services/gptmaker'
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/ocrService'
@@ -101,6 +101,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const diagTimerRef = useRef(null)
   const pendingDiagRef = useRef(null)
   const diagShownThisSessionRef = useRef(!!sessionStorage.getItem('codex_diag_shown'))
+  const dailyPlanShownRef = useRef(!!sessionStorage.getItem('codex_daily_plan_shown'))
 
   const AI_MODELS = [
     { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — padrão recomendado' },
@@ -200,18 +201,24 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     await resolveAllAlerts()
   }
 
-  // Ação de 1 clique pro alerta de lead quente: prepara mensagem de reengajamento
-  // já com envio pronto pra confirmar (reaproveita o fluxo pendingSend existente)
+  // Ação de 1 clique: prepara mensagem de reengajamento já com envio pronto pra
+  // confirmar (reaproveita o fluxo pendingSend existente). Usado pelo alerta de
+  // lead quente e pelo Plano do Dia.
+  const reviveConversation = (convId, name) => {
+    const text = `Oi ${name}! Vi que ainda está pensando no pedido — ficou alguma dúvida? Posso te ajudar a fechar agora 😊`
+    setPendingSend({ chatId: convId, name, text })
+  }
+
   const handleReviveLead = (alert) => {
     const allConvs = richConversations.length > 0 ? richConversations : conversations
     const conv = allConvs.find(c => c.id === alert.conversation_id)
     const name = conv?.name || conv?.clientName || 'você'
-    const text = `Oi ${name}! Vi que ainda está pensando no pedido — ficou alguma dúvida? Posso te ajudar a fechar agora 😊`
-    setPendingSend({ chatId: alert.conversation_id, name, text })
+    reviveConversation(alert.conversation_id, name)
     setShowAlertsPanel(false)
     setCodexAlerts(prev => prev.filter(a => a.id !== alert.id)) // otimista
-    resolveAlert(alert.id)
+    resolveAlert(alert.id, true)
   }
+
 
   // ─── Registrar Resultado ────────────────────────────────────────────────────
   const [outcomeConv, setOutcomeConv] = useState('')
@@ -250,9 +257,6 @@ export default function DealOncaPage({ conversations = [], setPage }) {
       setFollowUpRunning(false)
     }
   }
-
-  const followUpSummary = getFollowUpSummary(richConversations.length > 0 ? richConversations : conversations)
-  const followUpLog = getFollowUpLog().slice(0, 5)
 
   const startOnboarding = () => {
     const state = { stage: 0, context: {}, agentId: null }
@@ -467,6 +471,38 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
         }
       })
 
+      // Plano do Dia — 3 prioridades reais (sem custo de IA), 1x por sessão, antes do diagnóstico.
+      // Não é chat, é pauta: o Rafael abre e já sabe o que fazer, sem precisar perguntar nada.
+      if (!dailyPlanShownRef.current) {
+        dailyPlanShownRef.current = true
+        sessionStorage.setItem('codex_daily_plan_shown', '1')
+
+        const okConvs = results.filter(c => c._loadedOk)
+        const withStage = okConvs.map(c => ({
+          ...c,
+          _stage: detectFunnelStage(c.fullMessages || [], c.lastMsg || ''),
+          _wait: getTimeInStage(c.id)?.minutes || 0,
+        }))
+        const quentes = withStage.filter(c => c._stage === 'QUENTE_FECHAR').sort((a, b) => b._wait - a._wait)
+        const semResposta = withStage.filter(c => (c.nao_lidas || 0) > 0 && c._stage !== 'QUENTE_FECHAR').sort((a, b) => b._wait - a._wait)
+        const objecao = withStage.filter(c => c._stage === 'DECISAO_OBJECAO' && c.nao_lidas === 0).sort((a, b) => b._wait - a._wait)
+
+        const plan = [
+          ...quentes.slice(0, 2).map(c => ({ type: 'quente', conv: c, label: `Fechar com ${c.name || 'cliente'}`, detail: 'Pronto pra comprar, esperando resposta' })),
+          ...semResposta.slice(0, 2).map(c => ({ type: 'sem_resposta', conv: c, label: `Responder ${c.name || 'cliente'}`, detail: `Esperando há ${getTimeInStage(c.id)?.label || 'um tempo'}` })),
+          ...objecao.slice(0, 1).map(c => ({ type: 'objecao', conv: c, label: `Contornar objeção de ${c.name || 'cliente'}`, detail: 'Tem objeção ativa sem resposta' })),
+        ].slice(0, 3)
+
+        if (plan.length > 0) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1,
+            from: 'codex',
+            text: `📋 **PLANO DO DIA**\n\nAntes de mais nada, isso aqui precisa da sua atenção:`,
+            dailyPlan: plan,
+          }])
+        }
+      }
+
       // Auto-close conversas inativas há 24h+
       autoCloseInactiveConversations(results).then(({ count }) => {
         if (count > 0) {
@@ -673,7 +709,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
       setLoading(true)
       try {
         const ctx = richConversations.length > 0 ? richConversations : conversations
-        const summary = getFollowUpSummary(ctx)
+        const summary = await getFollowUpSummary(ctx)
 
         if (summary.pending.length === 0) {
           setMessages(prev => [...prev, {
@@ -1082,6 +1118,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
               onSuggestion={send}
               agentId={firstAgent?.id}
               onSaveConfirmed={reloadTrainings}
+              onRevive={reviveConversation}
             />
           ))}
           {loading && <TypingIndicator />}
@@ -1521,13 +1558,15 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                           {alert.type === 'score_corrigido' && '🎯 Score Corrigido'}
                           {alert.type === 'insight_semanal' && '📊 Resumo Semanal'}
                           {alert.type === 'canal_silencioso' && '📡 Canal Silencioso'}
-                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa','score_corrigido','insight_semanal','canal_silencioso'].includes(alert.type) && alert.type}
+                          {alert.type === 'cobranca' && '⏰ Cobrança'}
+                          {alert.type === 'aprendizado_registrado' && '🧠 Aprendizado Registrado'}
+                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa','score_corrigido','insight_semanal','canal_silencioso','cobranca','aprendizado_registrado'].includes(alert.type) && alert.type}
                         </div>
                         <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
                         <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
                           {new Date(alert.created_at).toLocaleString('pt-BR')}
                         </div>
-                        {alert.type === 'lead_quente' && alert.conversation_id && (
+                        {(alert.type === 'lead_quente' || alert.type === 'cobranca') && alert.conversation_id && (
                           <button onClick={() => handleReviveLead(alert)}
                             style={{ marginTop: 8, background: '#7C3AED', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
                             💬 Reviver agora
@@ -1575,7 +1614,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 }
 
 // ─── Chat Message ─────────────────────────────────────────────────────────────
-function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed }) {
+function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed, onRevive }) {
   if (msg.from === 'user') {
     return (
       <div style={{ alignSelf: 'flex-end', maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -1603,6 +1642,9 @@ function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed }) {
         {msg.saveSuggestion && (
           <SaveCard suggestion={msg.saveSuggestion} agentId={agentId} onSaved={onSaveConfirmed} />
         )}
+        {msg.dailyPlan && (
+          <DailyPlanCard items={msg.dailyPlan} onRevive={onRevive} />
+        )}
         {msg.suggestions && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             {msg.suggestions.map(s => (
@@ -1614,6 +1656,37 @@ function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Plano do Dia ──────────────────────────────────────────────────────────────
+const PLAN_ICONS = { quente: '🔥', sem_resposta: '📭', objecao: '💸' }
+
+function DailyPlanCard({ items, onRevive }) {
+  const [acted, setActed] = useState({})
+
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {items.map((item, i) => (
+        <div key={item.conv.id} style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#92400E', width: 18, flexShrink: 0 }}>{i + 1}</span>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>{PLAN_ICONS[item.type] || '📌'}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#0A0A0A' }}>{item.label}</div>
+            <div style={{ fontSize: 11, color: '#92400E' }}>{item.detail}</div>
+          </div>
+          {acted[item.conv.id] ? (
+            <span style={{ fontSize: 11, color: '#0EC331', fontWeight: 600, flexShrink: 0 }}>✓ Pronto</span>
+          ) : (
+            <button
+              onClick={() => { onRevive(item.conv.id, item.conv.name || 'cliente'); setActed(prev => ({ ...prev, [item.conv.id]: true })) }}
+              style={{ background: '#7C3AED', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: '#fff', cursor: 'pointer', flexShrink: 0 }}>
+              💬 Agir
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

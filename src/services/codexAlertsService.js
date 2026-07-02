@@ -40,13 +40,15 @@ export async function countUnresolvedAlerts() {
   }
 }
 
-// Marca um alerta específico como resolvido
-export async function resolveAlert(id) {
+// Marca um alerta específico como resolvido. actioned=true quando resolvido por uma
+// ação real (ex: "Reviver agora"), false quando só dispensado ("✓ marcar como visto")
+// — usado pelo Ciclo de Cobrança pra saber se o Rafael agiu ou só ignorou.
+export async function resolveAlert(id, actioned = false) {
   try {
     const res = await fetch(`${base()}?id=eq.${id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ resolved: true }),
+      body: JSON.stringify({ resolved: true, actioned }),
     })
     return res.ok
   } catch (e) {

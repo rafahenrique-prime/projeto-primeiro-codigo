@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog, clearFollowUpState, getSchedule, saveSchedule, isWithinSchedule, getResponseRate, getStages, saveStages, DEFAULT_FIXED_TEXT } from '../services/followUpService'
+import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog, clearFollowUpState, getScheduleAsync, saveScheduleAsync, isWithinSchedule, getResponseRate, getStagesAsync, saveStagesAsync, DEFAULT_FIXED_TEXT, DEFAULT_SCHEDULE, DEFAULT_STAGES } from '../services/followUpService'
 import { sendMessage } from '../services/gptmaker'
 
 export default function FollowUpPage({ conversations = [] }) {
@@ -12,14 +12,14 @@ export default function FollowUpPage({ conversations = [] }) {
   const [confirmSend, setConfirmSend] = useState(false)
   const [filterStage, setFilterStage] = useState('all')
   const [activeTab, setActiveTab] = useState('pending')
-  const [schedule, setSchedule] = useState(getSchedule)
+  const [schedule, setSchedule] = useState(DEFAULT_SCHEDULE)
   const withinSchedule = isWithinSchedule(schedule)
   const [editedMessages, setEditedMessages] = useState([])
   const [sendingEdited, setSendingEdited] = useState(false)
   const [channelFilter, setChannelFilter] = useState({ whatsapp: true, instagram: true })
   const [responseRate, setResponseRate] = useState({ total: 0, responded: 0, rate: 0, byStage: {} })
   const [enabled, setEnabled] = useState(() => localStorage.getItem('followup_enabled') !== 'false')
-  const [stages, setStages] = useState(getStages)
+  const [stages, setStages] = useState(DEFAULT_STAGES)
   const [editingFixed, setEditingFixed] = useState({})
 
   function toggleEnabled() {
@@ -29,19 +29,29 @@ export default function FollowUpPage({ conversations = [] }) {
   }
 
   useEffect(() => {
+    getScheduleAsync().then(setSchedule)
+    getStagesAsync().then(setStages)
+  }, [])
+
+  useEffect(() => {
     refresh()
   }, [conversations])
 
-  function refresh() {
-    setSummary(getFollowUpSummary(conversations))
-    setLog(getFollowUpLog())
-    setResponseRate(getResponseRate(conversations))
+  async function refresh() {
+    const [s, l, r] = await Promise.all([
+      getFollowUpSummary(conversations),
+      getFollowUpLog(),
+      getResponseRate(conversations),
+    ])
+    setSummary(s)
+    setLog(l)
+    setResponseRate(r)
   }
 
-  function updateSchedule(patch) {
+  async function updateSchedule(patch) {
     const next = { ...schedule, ...patch }
     setSchedule(next)
-    saveSchedule(next)
+    await saveScheduleAsync(next)
   }
 
   async function run(dryRun) {
@@ -482,7 +492,7 @@ export default function FollowUpPage({ conversations = [] }) {
                         onChange={e => {
                           const opt = TIME_OPTIONS.find(o => o.label === e.target.value) || TIME_OPTIONS[1]
                           const next = stages.map((s, j) => j === i ? { ...s, min: opt.min, max: opt.max, label: opt.label } : s)
-                          setStages(next); saveStages(next)
+                          setStages(next); saveStagesAsync(next)
                         }}
                         style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                       >
@@ -493,7 +503,7 @@ export default function FollowUpPage({ conversations = [] }) {
                         value={stage.action}
                         onChange={e => {
                           const next = stages.map((s, j) => j === i ? { ...s, action: e.target.value } : s)
-                          setStages(next); saveStages(next)
+                          setStages(next); saveStagesAsync(next)
                         }}
                         style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                       >
@@ -506,7 +516,7 @@ export default function FollowUpPage({ conversations = [] }) {
                         <button
                           onClick={() => {
                             const next = stages.map((s, j) => j === i ? { ...s, enabled: !s.enabled } : s)
-                            setStages(next); saveStages(next)
+                            setStages(next); saveStagesAsync(next)
                           }}
                           style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
                             background: stage.enabled ? '#D1FAE5' : '#FEE2E2',
@@ -516,7 +526,7 @@ export default function FollowUpPage({ conversations = [] }) {
                         </button>
                         {stages.length > 1 && (
                           <button
-                            onClick={() => { const next = stages.filter((_, j) => j !== i); setStages(next); saveStages(next) }}
+                            onClick={() => { const next = stages.filter((_, j) => j !== i); setStages(next); saveStagesAsync(next) }}
                             style={{ fontSize: 13, padding: '4px 9px', borderRadius: 6, border: `1px solid #FECACA`, background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', fontWeight: 700 }}
                           >✕</button>
                         )}
@@ -545,7 +555,7 @@ export default function FollowUpPage({ conversations = [] }) {
                               value={stage.fixedText ?? DEFAULT_FIXED_TEXT}
                               onChange={e => {
                                 const next = stages.map((s, j) => j === i ? { ...s, fixedText: e.target.value } : s)
-                                setStages(next); saveStages(next)
+                                setStages(next); saveStagesAsync(next)
                               }}
                               rows={8}
                               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${t.border}`, fontSize: 13, color: t.text, background: t.appBg, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.6 }}
@@ -590,7 +600,7 @@ export default function FollowUpPage({ conversations = [] }) {
               <button
                 onClick={() => {
                   const next = [...stages, { id: `stage_${Date.now()}`, label: '1 hora', min: 60, max: 119, action: 'message', enabled: true, fixedText: DEFAULT_FIXED_TEXT }]
-                  setStages(next); saveStages(next)
+                  setStages(next); saveStagesAsync(next)
                 }}
                 style={{ background: 'transparent', border: `1px dashed ${t.border}`, color: t.textMuted, borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginTop: 2 }}
               >
@@ -660,7 +670,7 @@ export default function FollowUpPage({ conversations = [] }) {
               )}
 
               <button
-                onClick={() => { clearFollowUpState(); refresh(); setResult(null) }}
+                onClick={async () => { await clearFollowUpState(); await refresh(); setResult(null) }}
                 style={{ background: 'none', border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 10, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
               >
                 🗑 Resetar histórico de envios

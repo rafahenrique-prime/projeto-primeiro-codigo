@@ -2,11 +2,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { ThemeProvider } from './theme.jsx'
-import { syncFromSupabase } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
 import './index.css'
 
-syncFromSupabase()
 syncCatalogFromSupabase()
 
 // Captura token via URL — bookmarklet envia ?gptmaker_token=eyJ...

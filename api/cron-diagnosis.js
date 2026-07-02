@@ -288,6 +288,8 @@ async function saveDiagnostic(report, stats) {
 // fora de contexto? tom adequado? Cap de candidatos por rodada pra controlar custo/tempo.
 const AUDIT_CAP = 15
 
+const ISSUE_CATEGORIES = ['estoque', 'preco', 'prazo', 'tom', 'nao_respondeu', 'redundante', 'outro']
+
 async function auditAgentResponse({ clientMsg, agentMsg }) {
   const prompt = `Avalie esta resposta de uma vendedora IA (Gabriela) da PRIME STORE segundo a rubrica:
 1. Respondeu diretamente à pergunta do cliente?
@@ -299,14 +301,15 @@ CLIENTE: "${clientMsg}"
 GABRIELA: "${agentMsg}"
 
 Responda APENAS com JSON válido, sem texto antes ou depois:
-{"score": 0-10, "issue": "falha principal em poucas palavras ou null se não houver", "strength": "ponto forte em poucas palavras ou null"}`
+{"score": 0-10, "issue": "falha principal em poucas palavras ou null se não houver", "issue_category": "estoque|preco|prazo|tom|nao_respondeu|redundante|outro (só se houver falha)", "strength": "ponto forte em poucas palavras ou null"}`
 
   const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 150 })
   const raw = data?.choices?.[0]?.message?.content || ''
   try {
     const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
     if (typeof json.score !== 'number') return null
-    return { score: Math.max(0, Math.min(10, Math.round(json.score))), issue: json.issue || null, strength: json.strength || null }
+    const issueCategory = ISSUE_CATEGORIES.includes(json.issue_category) ? json.issue_category : null
+    return { score: Math.max(0, Math.min(10, Math.round(json.score))), issue: json.issue || null, issueCategory, strength: json.strength || null }
   } catch {
     return null
   }
@@ -397,6 +400,154 @@ async function patchCustomerScore(convId, score) {
     body: JSON.stringify({ buy_score: score }),
   })
   return res.ok
+}
+
+// ─── Ciclo de Cobrança — o CODEX cobra quando um lead quente de ontem foi ignorado ───
+// "Ignorado" = alerta lead_quente resolvido sem ação (dismiss) ou nunca resolvido,
+// e o lead esfriou (score caiu) ou continua sem resposta. Evita duplicar cobrança
+// checando se já existe uma pra esse mesmo alerta nas últimas 48h.
+async function checkIgnoredHotLeads() {
+  const dayAgo = new Date(Date.now() - 20 * 3600000).toISOString()
+  const twoDaysAgo = new Date(Date.now() - 48 * 3600000).toISOString()
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/codex_alerts?type=eq.lead_quente&created_at=lt.${dayAgo}&created_at=gte.${twoDaysAgo}&actioned=eq.false&select=id,conversation_id,message,created_at`,
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+  )
+  if (!res.ok) return
+  const ignoredAlerts = await res.json()
+  if (!ignoredAlerts.length) return
+
+  for (const alert of ignoredAlerts) {
+    if (!alert.conversation_id) continue
+
+    // Já cobrei por esse alerta antes? Não repete.
+    const alreadyRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/codex_alerts?type=eq.cobranca&data->>source_alert_id=eq.${alert.id}&select=id&limit=1`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    )
+    if (alreadyRes.ok && (await alreadyRes.json()).length > 0) continue
+
+    const profile = await getCustomerProfile(alert.conversation_id)
+    const currentScore = profile?.buy_score ?? null
+    const cooledOff = currentScore !== null && currentScore < 50
+    const stillHot = currentScore !== null && currentScore >= 70
+
+    // Só cobra se realmente esfriou ou ainda tá quente e nada foi feito — não cobra
+    // se o score sumiu (perfil pode ter sido recriado) sem sinal claro.
+    if (!cooledOff && !stillHot) continue
+
+    const clientName = profile?.name || 'um cliente'
+    const hoursAgo = Math.round((Date.now() - new Date(alert.created_at).getTime()) / 3600000)
+    const msg = cooledOff
+      ? `⏰ Você não agiu no alerta de lead quente de **${clientName}** há ${hoursAgo}h — o interesse esfriou (score caiu pra ${currentScore}). Pode já ter perdido essa venda.`
+      : `⏰ Você não agiu no alerta de lead quente de **${clientName}** há ${hoursAgo}h — e ele continua quente (score ${currentScore}). Ainda dá tempo de fechar.`
+
+    await logCodexAlert({
+      type: 'cobranca',
+      severity: 'atencao',
+      conversationId: alert.conversation_id,
+      message: msg,
+      data: { source_alert_id: alert.id, cooledOff, currentScore },
+    })
+  }
+}
+
+// ─── Ajuste Automático da Gabriela — detecta erro recorrente na auditoria diária ───
+// e propõe um adendo concreto pro comportamento do agente. NUNCA aplica sozinho —
+// só gera a proposta; a aplicação exige clique manual do Rafael no painel.
+const RECURRING_ISSUE_THRESHOLD = 3
+
+async function proposeAgentFix(issueLabel, examples) {
+  const prompt = `A vendedora IA Gabriela (PRIME STORE) está cometendo o mesmo tipo de erro repetidamente hoje:
+"${issueLabel}"
+
+Exemplos reais de hoje:
+${examples.map(e => `- Cliente: "${e.clientMsg}" | Gabriela: "${e.agentMsg}"`).join('\n')}
+
+Escreva UM adendo curto e concreto pro comportamento dela (system prompt) que corrija especificamente
+esse erro — uma regra direta, não conselho genérico tipo "seja mais atenciosa". Máx 2 frases.
+
+Responda APENAS com JSON válido, sem texto antes ou depois:
+{"fix": "texto do adendo, pronto pra adicionar ao comportamento do agente"}`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 150 })
+  const raw = data?.choices?.[0]?.message?.content || ''
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
+    return json.fix || null
+  } catch {
+    return null
+  }
+}
+
+// Mapeia a categoria de erro (rubrica da auditoria) pra categoria de conhecimento
+// do app, só pra exibição consistente na aba Aprendizados.
+const ISSUE_TO_KNOWLEDGE_CATEGORY = {
+  estoque: 'PRODUTO', preco: 'PRECO', prazo: 'POLITICA',
+  tom: 'ESTRATEGIA', nao_respondeu: 'ESTRATEGIA', redundante: 'ESTRATEGIA', outro: 'GERAL',
+}
+
+async function saveAgentLearning({ origin, category, content, clientName }) {
+  await fetch(`${SUPABASE_URL}/rest/v1/agent_learnings`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({ origin, category, content, client_name: clientName }),
+  })
+}
+
+async function checkRecurringAgentIssue(auditRows) {
+  // Agrupa por categoria FIXA (issue_category), não pelo texto livre do "issue" —
+  // a IA de auditoria varia a redação a cada chamada ("não confirmou o estoque" vs
+  // "não confirmou estoque"), então agrupar por string exata quase nunca bateria 3x igual.
+  const withIssue = auditRows.filter(r => r._issueCategory && r.score <= 6)
+  if (withIssue.length < RECURRING_ISSUE_THRESHOLD) return
+
+  const groups = {}
+  for (const row of withIssue) {
+    const key = row._issueCategory
+    if (!groups[key]) groups[key] = []
+    groups[key].push(row)
+  }
+  const [topCategory, rows] = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)[0]
+  if (rows.length < RECURRING_ISSUE_THRESHOLD) return
+  const topIssue = rows[0].issue || topCategory
+
+  // Já registrei um aprendizado pra esse mesmo problema hoje? Não repete.
+  const today = new Date().toISOString().split('T')[0]
+  const recentRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/agent_learnings?origin=eq.auditoria&category=eq.${ISSUE_TO_KNOWLEDGE_CATEGORY[topCategory] || 'GERAL'}&created_at=gte.${today}T00:00:00&select=id&limit=1`,
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+  )
+  if (recentRes.ok && (await recentRes.json()).length > 0) return
+
+  const examples = rows.slice(0, 3).map(r => {
+    const [clientMsg, agentMsg] = r.excerpt.replace('Cliente: ', '').split(' | Gabriela: ')
+    return { clientMsg: clientMsg || '', agentMsg: agentMsg || '' }
+  })
+  const fix = await proposeAgentFix(topIssue, examples)
+  if (!fix) return
+
+  await saveAgentLearning({
+    origin: 'auditoria',
+    category: ISSUE_TO_KNOWLEDGE_CATEGORY[topCategory] || 'GERAL',
+    content: fix,
+    clientName: `Detectado ${rows.length}x hoje`,
+  })
+
+  // Aviso leve — só pra você saber que caiu algo novo na aba Aprendizados,
+  // sem botão de ação (não há mais nada pra "aplicar" direto no comportamento).
+  await logCodexAlert({
+    type: 'aprendizado_registrado',
+    severity: 'info',
+    message: `🧠 Novo aprendizado registrado: a Gabriela repetiu o mesmo erro ${rows.length}x hoje ("${topIssue}"). Veja na aba Aprendizados, dentro de Conhecimento.`,
+    data: { issue: topIssue, count: rows.length },
+  })
 }
 
 export default async function handler(req, res) {
@@ -493,6 +644,9 @@ export default async function handler(req, res) {
       }
     }
 
+    // Ciclo de Cobrança: cobra alertas de lead quente de ontem que foram ignorados
+    await checkIgnoredHotLeads()
+
     // Score Híbrido: relê até SCORE_REFINE_CAP conversas com texto real do cliente e
     // corrige o buy_score (calculado por regex em tempo real) quando a IA discordar muito
     const scoreCandidates = ctx.filter(c => c.clientText && c.clientText.trim().length > 10).slice(0, SCORE_REFINE_CAP)
@@ -532,9 +686,10 @@ export default async function handler(req, res) {
         issue: result.issue,
         strength: result.strength,
         excerpt: `Cliente: ${cand.clientMsg.slice(0, 150)} | Gabriela: ${cand.agentMsg.slice(0, 150)}`,
+        _issueCategory: result.issueCategory, // local-only, não é coluna da tabela agent_audits
       })
     }
-    await saveAudits(auditRows)
+    await saveAudits(auditRows.map(({ _issueCategory, ...row }) => row))
     const avgScore = auditRows.length ? Math.round((auditRows.reduce((s, r) => s + r.score, 0) / auditRows.length) * 10) / 10 : null
     const lowScoreRows = auditRows.filter(r => r.score <= 4)
 
@@ -546,6 +701,11 @@ export default async function handler(req, res) {
         data: { avgScore, lowScoreCount: lowScoreRows.length, total: auditRows.length },
       })
     }
+
+    // Ajuste Automático da Gabriela: se o mesmo tipo de falha se repete >=3x hoje,
+    // propõe um ajuste concreto no comportamento — aprovação sempre manual (1 clique
+    // no painel), o cron NUNCA aplica direto no agente.
+    await checkRecurringAgentIssue(auditRows)
 
     // Inteligência Comercial: roda só 1x/semana (checa se já existe insight pra semana atual)
     const weekStart = getISOWeekStart()

@@ -1,76 +1,24 @@
 /**
  * Follow-up Service — Motor autônomo de reengajamento
- * Armazenamento: Supabase (persistência) + localStorage (cache rápido síncrono)
- * Na inicialização, carrega do Supabase para o localStorage.
- * Em cada escrita, salva nos dois.
+ * Armazenamento: 100% Supabase (sem localStorage) — acessível de qualquer dispositivo.
+ * O dedup de envios usa uma constraint única no banco (followup_sent) como trava
+ * atômica real: duas abas/sessões tentando enviar ao mesmo tempo só uma consegue
+ * gravar a reserva, a outra recebe conflito e desiste — sem janela de corrida.
  */
 
-import { sendMessage, finishChat } from './gptmaker'
+import { sendMessage } from './gptmaker'
 import { groqRequest } from './groq'
-
-const STATE_KEY    = 'followup_state'
-const LOG_KEY      = 'followup_log'
-const SCHEDULE_KEY = 'followup_schedule'
-const STAGES_KEY   = 'followup_stages'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
-const TABLE = 'followup_state'
 
 const headers = {
   'apikey': SUPABASE_KEY,
   'Authorization': `Bearer ${SUPABASE_KEY}`,
   'Content-Type': 'application/json',
-  'Prefer': 'return=representation,resolution=merge-duplicates',
 }
 
-// ─── Supabase key-value helpers ─────────────────────────────────────────────
-
-async function sbGet(key) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?key=eq.${encodeURIComponent(key)}&limit=1`, { headers })
-    if (!res.ok) return null
-    const data = await res.json()
-    return data[0]?.value ?? null
-  } catch { return null }
-}
-
-async function sbSet(key, value) {
-  try {
-    await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
-    })
-  } catch {}
-}
-
-// Carrega todos os dados do Supabase para o localStorage (chamado na inicialização)
-export async function syncFromSupabase() {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, { headers })
-    if (!res.ok) return
-    const rows = await res.json()
-    for (const row of rows) {
-      if (row.key && row.value !== undefined) {
-        localStorage.setItem(row.key, typeof row.value === 'string' ? row.value : JSON.stringify(row.value))
-      }
-    }
-  } catch {}
-}
-
-// ─── Helpers de escrita dupla (localStorage + Supabase) ─────────────────────
-
-function lsGet(key, fallback = null) {
-  try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback } catch { return fallback }
-}
-
-function lsSet(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
-  sbSet(key, value) // fire-and-forget
-}
-
-// ─── Schedule ───────────────────────────────────────────────────────────────
+// ─── Schedule + Stages (linha única de config em followup_config) ──────────
 
 const DEFAULT_SCHEDULE = {
   startHour: 9,
@@ -78,27 +26,6 @@ const DEFAULT_SCHEDULE = {
   blockSaturday: false,
   blockSunday: true,
 }
-
-export function getSchedule() {
-  return { ...DEFAULT_SCHEDULE, ...(lsGet(SCHEDULE_KEY) || {}) }
-}
-
-export function saveSchedule(schedule) {
-  lsSet(SCHEDULE_KEY, schedule)
-}
-
-export function isWithinSchedule(schedule = getSchedule()) {
-  if (schedule.startHour >= schedule.endHour) return true
-  const now = new Date()
-  const day = now.getDay()
-  const hour = now.getHours()
-  if (schedule.blockSunday && day === 0) return false
-  if (schedule.blockSaturday && day === 6) return false
-  if (hour < schedule.startHour || hour >= schedule.endHour) return false
-  return true
-}
-
-// ─── Stages ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_FIXED_TEXT = `Oi! Tudo bem? 😊
 
@@ -117,54 +44,123 @@ const DEFAULT_STAGES = [
   { id: '24h',   label: '24 horas',   min: 1440, max: 999999,  action: 'finalize', enabled: true },
 ]
 
-export { DEFAULT_FIXED_TEXT }
+export { DEFAULT_FIXED_TEXT, DEFAULT_SCHEDULE, DEFAULT_STAGES }
 
-export function getStages() {
-  const saved = lsGet(STAGES_KEY)
-  return Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_STAGES
+async function getConfigRow() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/followup_config?id=eq.1&limit=1`, { headers })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data[0] || null
+  } catch { return null }
 }
 
-export function saveStages(stages) {
-  lsSet(STAGES_KEY, stages)
+export async function getScheduleAsync() {
+  const row = await getConfigRow()
+  return { ...DEFAULT_SCHEDULE, ...(row?.schedule || {}) }
 }
 
-const STAGES = Object.fromEntries(DEFAULT_STAGES.map(s => [s.id, { min: s.min, max: s.max }]))
-
-// ─── Estado de envios ────────────────────────────────────────────────────────
-
-function loadState() {
-  return lsGet(STATE_KEY) || {}
+export async function getStagesAsync() {
+  const row = await getConfigRow()
+  return Array.isArray(row?.stages) && row.stages.length > 0 ? row.stages : DEFAULT_STAGES
 }
 
-function saveState(state) {
-  lsSet(STATE_KEY, state)
+async function upsertConfig(patch) {
+  const current = await getConfigRow()
+  const body = {
+    id: 1,
+    schedule: patch.schedule ?? current?.schedule ?? DEFAULT_SCHEDULE,
+    stages: patch.stages ?? current?.stages ?? DEFAULT_STAGES,
+    updated_at: new Date().toISOString(),
+  }
+  await fetch(`${SUPABASE_URL}/rest/v1/followup_config`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify(body),
+  })
 }
 
-function wasSent(convId, stage, state) {
-  return !!state[`${convId}_${stage}`]
+export async function saveScheduleAsync(schedule) {
+  await upsertConfig({ schedule })
 }
 
-function markSent(convId, stage, state) {
-  state[`${convId}_${stage}`] = { sentAt: new Date().toISOString() }
+export async function saveStagesAsync(stages) {
+  await upsertConfig({ stages })
+}
+
+export function isWithinSchedule(schedule = DEFAULT_SCHEDULE) {
+  if (schedule.startHour >= schedule.endHour) return true
+  const now = new Date()
+  const day = now.getDay()
+  const hour = now.getHours()
+  if (schedule.blockSunday && day === 0) return false
+  if (schedule.blockSaturday && day === 6) return false
+  if (hour < schedule.startHour || hour >= schedule.endHour) return false
+  return true
+}
+
+// ─── Reserva de envio — trava atômica real via constraint única no banco ───
+// claimSend tenta INSERIR a reserva; só uma chamada concorrente consegue (a
+// constraint unique(conv_id, stage) rejeita a segunda com 409). Se o envio
+// falhar depois (rede, rate-limit), releaseSend libera a reserva pra tentar
+// de novo no próximo ciclo — sem isso, uma falha de rede "queimaria" o envio
+// pra sempre.
+
+async function claimSend(convId, stage) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/followup_sent`, {
+      method: 'POST',
+      headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ conv_id: convId, stage }),
+    })
+    return res.status === 201
+  } catch {
+    return false // falha de rede: mais seguro não enviar do que arriscar duplicar
+  }
+}
+
+async function releaseSend(convId, stage) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/followup_sent?conv_id=eq.${encodeURIComponent(convId)}&stage=eq.${encodeURIComponent(stage)}`, {
+      method: 'DELETE',
+      headers,
+    })
+  } catch {}
 }
 
 // ─── Log ─────────────────────────────────────────────────────────────────────
 
-function appendLog(entry) {
-  const log = lsGet(LOG_KEY) || []
-  log.unshift({ ...entry, at: new Date().toISOString() })
-  lsSet(LOG_KEY, log.slice(0, 100))
+async function appendLog(entry) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/followup_log`, {
+      method: 'POST',
+      headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        conv_id: entry.convId || null,
+        conv_name: entry.conv || null,
+        stage: entry.stage || null,
+        text: entry.text || null,
+        action: entry.action || null,
+        status: entry.status || null,
+      }),
+    })
+  } catch {}
 }
 
-export function getFollowUpLog() {
-  return lsGet(LOG_KEY) || []
+export async function getFollowUpLog(limit = 100) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/followup_log?order=created_at.desc&limit=${limit}`, { headers })
+    if (!res.ok) return []
+    const rows = await res.json()
+    return rows.map(r => ({ conv: r.conv_name, convId: r.conv_id, stage: r.stage, text: r.text, action: r.action, status: r.status, at: r.created_at }))
+  } catch { return [] }
 }
 
-export function clearFollowUpState() {
-  localStorage.removeItem(STATE_KEY)
-  localStorage.removeItem(LOG_KEY)
-  sbSet(STATE_KEY, {})
-  sbSet(LOG_KEY, [])
+export async function clearFollowUpState() {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/followup_sent?conv_id=not.is.null`, { method: 'DELETE', headers })
+    await fetch(`${SUPABASE_URL}/rest/v1/followup_log?conv_id=not.is.null`, { method: 'DELETE', headers })
+  } catch {}
 }
 
 // ─── Cálculo de inatividade ──────────────────────────────────────────────────
@@ -185,9 +181,9 @@ function getInactiveMinutes(conv) {
   } catch { return null }
 }
 
-function detectStage(inactiveMin) {
+function detectStage(inactiveMin, stages) {
   if (inactiveMin === null) return null
-  for (const stage of getStages().filter(s => s.enabled)) {
+  for (const stage of stages.filter(s => s.enabled)) {
     if (inactiveMin >= stage.min && inactiveMin <= stage.max) return stage.id
   }
   return null
@@ -245,91 +241,98 @@ export async function runFollowUpCheck(conversations = [], options = {}) {
   _running = true
   _lastRun = Date.now()
 
-  const schedule = getSchedule()
+  const schedule = await getScheduleAsync()
   if (!options.dryRun && !isWithinSchedule(schedule)) {
     _running = false
     return { checked: 0, sent: [], errors: [], skipped: 'outside_schedule', schedule }
   }
 
-  const state  = loadState()
+  const stages = await getStagesAsync()
   const sent   = []
   const errors = []
   const debug  = []
 
   const autoConvs = conversations.filter(c => c.id)
 
+  // Trava real contra corrida entre abas/sessões: claimSend tenta INSERIR a reserva
+  // no banco (constraint unique conv_id+stage) ANTES de gerar texto ou enviar —
+  // se outra sessão já reservou, a segunda tentativa falha e pula (continue), sem
+  // nunca chegar perto de mandar mensagem duplicada. Se o envio falhar depois,
+  // releaseSend devolve a reserva pra tentar de novo no próximo ciclo.
   for (const conv of autoConvs) {
     const inactiveMin = getInactiveMinutes(conv)
     debug.push({ name: conv.name, rawTime: conv.rawTime, inactiveMin, mode: conv.mode })
 
     if (inactiveMin === null || inactiveMin < 30) continue
 
-    const stage = detectStage(inactiveMin)
+    const stage = detectStage(inactiveMin, stages)
     if (!stage) continue
-    if (wasSent(conv.id, stage, state)) continue
+
+    if (!conv.id) {
+      console.warn(`[FollowUp] ⚠️ Conversa "${conv.name}" sem ID, pulando`)
+      errors.push({ conv: conv.name, stage, error: 'Conversa sem ID' })
+      continue
+    }
+
+    const stageCfg = stages.find(s => s.id === stage) || {}
+    const action = stageCfg.action || 'message'
+
+    if (options.dryRun) {
+      const text = action === 'finalize' ? '[Finalizar atendimento]'
+        : action === 'fixed_and_finalize' ? `${stageCfg.fixedText || DEFAULT_FIXED_TEXT} → [Finalizar]`
+        : action === 'fixed' ? (stageCfg.fixedText || DEFAULT_FIXED_TEXT)
+        : await generateFollowUpText(conv, stage)
+      sent.push({ conv: conv.name, stage, text, action, dryRun: true })
+      await appendLog({ conv: conv.name, convId: conv.id, stage, text, action, status: 'simulated' })
+      continue
+    }
+
+    const claimed = await claimSend(conv.id, stage)
+    if (!claimed) continue // outra sessão já reservou/enviou esse estágio pra essa conversa
 
     try {
-      // Validação crítica: conv.id DEVE existir
-      if (!conv.id) {
-        console.warn(`[FollowUp] ⚠️ Conversa "${conv.name}" sem ID, pulando`)
-        errors.push({ conv: conv.name, stage, error: 'Conversa sem ID' })
-        continue
-      }
-
-      const stageCfg = getStages().find(s => s.id === stage) || {}
-      const action = stageCfg.action || 'message'
-
-      if (options.dryRun) {
-        const text = action === 'finalize' ? '[Finalizar atendimento]'
-          : action === 'fixed_and_finalize' ? `${stageCfg.fixedText || DEFAULT_FIXED_TEXT} → [Finalizar]`
-          : action === 'fixed' ? (stageCfg.fixedText || DEFAULT_FIXED_TEXT)
-          : await generateFollowUpText(conv, stage)
-        sent.push({ conv: conv.name, stage, text, action, dryRun: true })
-        appendLog({ conv: conv.name, convId: conv.id, stage, text, action, status: 'simulated' })
-      } else if (action === 'finalize') {
-        await finishChat(conv.id)
-        markSent(conv.id, stage, state)
+      if (action === 'finalize') {
+        // GPT Maker removeu o endpoint de "finish chat" da API — não há mais como
+        // encerrar o chat do lado deles. Aqui só paramos de mandar follow-up pra
+        // essa conversa (a reserva em followup_sent já garante isso).
         sent.push({ conv: conv.name, stage, action })
-        appendLog({ conv: conv.name, convId: conv.id, stage, action, status: 'finalized' })
+        await appendLog({ conv: conv.name, convId: conv.id, stage, action, status: 'finalized' })
       } else if (action === 'fixed') {
         const text = stageCfg.fixedText || DEFAULT_FIXED_TEXT
         await sendMessage(conv.id, text)
-        markSent(conv.id, stage, state)
         sent.push({ conv: conv.name, stage, text })
-        appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
+        await appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
         console.log(`[FollowUp] ✅ "${conv.name}" (fixed): mensagem enviada`)
       } else if (action === 'fixed_and_finalize') {
         const text = stageCfg.fixedText || DEFAULT_FIXED_TEXT
         await sendMessage(conv.id, text)
-        await finishChat(conv.id)
-        markSent(conv.id, stage, state)
         sent.push({ conv: conv.name, stage, text, action })
-        appendLog({ conv: conv.name, convId: conv.id, stage, text, action, status: 'finalized' })
+        await appendLog({ conv: conv.name, convId: conv.id, stage, text, action, status: 'finalized' })
         console.log(`[FollowUp] ✅ "${conv.name}" (fixed_and_finalize): mensagem enviada + finalizado`)
       } else {
         const text = await generateFollowUpText(conv, stage)
         await sendMessage(conv.id, text)
-        markSent(conv.id, stage, state)
         sent.push({ conv: conv.name, stage, text })
-        appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
+        await appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
         console.log(`[FollowUp] ✅ "${conv.name}" (${stage}): "${text.slice(0, 40)}..."`)
       }
     } catch (err) {
       console.error(`[FollowUp] ❌ "${conv.name}" (${stage}): ${err.message}`)
+      await releaseSend(conv.id, stage) // libera a reserva pra tentar de novo no próximo ciclo
       errors.push({ conv: conv.name, stage, error: err.message })
-      appendLog({ conv: conv.name, convId: conv.id, stage, status: 'error', error: err.message })
+      await appendLog({ conv: conv.name, convId: conv.id, stage, status: 'error', error: err.message })
     }
   }
 
-  if (!options.dryRun) saveState(state)
   _running = false
   return { checked: autoConvs.length, sent, errors, debug }
 }
 
 // ─── Taxa de resposta ─────────────────────────────────────────────────────────
 
-export function getResponseRate(conversations = []) {
-  const log = getFollowUpLog().filter(e => e.status === 'sent' && e.convId && e.at)
+export async function getResponseRate(conversations = []) {
+  const allLog = await getFollowUpLog()
+  const log = allLog.filter(e => e.status === 'sent' && e.convId && e.at)
   if (log.length === 0) return { total: 0, responded: 0, rate: 0, byStage: {} }
 
   const convMap = Object.fromEntries(conversations.map(c => [c.id, c]))
@@ -356,8 +359,20 @@ export function getResponseRate(conversations = []) {
 
 // ─── Sumário ──────────────────────────────────────────────────────────────────
 
-export function getFollowUpSummary(conversations = []) {
-  const state = loadState()
+// Busca em lote (1 request) quais conv_id+stage já têm reserva/envio registrado —
+// evita 1 request por conversa por estágio, que ficaria caro com dezenas de conversas.
+async function getSentSet() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/followup_sent?select=conv_id,stage`, { headers })
+    if (!res.ok) return new Set()
+    const rows = await res.json()
+    return new Set(rows.map(r => `${r.conv_id}_${r.stage}`))
+  } catch { return new Set() }
+}
+
+export async function getFollowUpSummary(conversations = []) {
+  const [stages, sentSet] = await Promise.all([getStagesAsync(), getSentSet()])
+  const wasSent = (convId, stage) => sentSet.has(`${convId}_${stage}`)
   const autoConvs = conversations.filter(c => c.id)
   const summary = { total: autoConvs.length, pending: [], sent: [], inactive: [] }
 
@@ -365,14 +380,12 @@ export function getFollowUpSummary(conversations = []) {
     const inactiveMin = getInactiveMinutes(conv)
     if (inactiveMin === null) continue
 
-    const stage = detectStage(inactiveMin)
-    const sentStages = Object.entries(STAGES)
-      .filter(([s]) => wasSent(conv.id, s, state))
-      .map(([s]) => s)
+    const stage = detectStage(inactiveMin, stages)
+    const sentStages = stages.map(s => s.id).filter(s => wasSent(conv.id, s))
 
-    if (inactiveMin >= 1440 && wasSent(conv.id, '24h', state)) {
+    if (inactiveMin >= 1440 && wasSent(conv.id, '24h')) {
       summary.inactive.push({ name: conv.name, inactiveMin })
-    } else if (stage && !wasSent(conv.id, stage, state)) {
+    } else if (stage && !wasSent(conv.id, stage)) {
       summary.pending.push({ name: conv.name, stage, inactiveMin })
     } else if (sentStages.length > 0) {
       summary.sent.push({ name: conv.name, stages: sentStages, inactiveMin })
