@@ -111,12 +111,12 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     { id: 'deepseek::deepseek-lite',                                label: 'DeepSeek Lite (Free)',  provider: 'deepseek',   badge: 'DeepSeek',   desc: '🆕 TESTE: 1M tokens FREE/mês' },
     { id: 'deepseek::deepseek-reasoner',                           label: 'DeepSeek R1 (Pago)',    provider: 'deepseek',   badge: 'DeepSeek',   desc: '🧠 Sua conta paga — reasoning premium' },
     { id: 'openrouter::meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (OR)',   provider: 'openrouter', badge: 'OpenRouter', desc: 'Via OpenRouter — fallback gratuito' },
-    { id: 'openrouter::mistralai/mistral-7b-instruct:free',         label: 'Mistral 7B',           provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
-    { id: 'openrouter::nousresearch/hermes-3-llama-3.1-8b:free',   label: 'Hermes 3 8B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
-    { id: 'openrouter::deepseek/deepseek-chat:free',                label: 'DeepSeek Chat',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Alternativa gratuita — raciocínio forte' },
-    { id: 'openrouter::deepseek/deepseek-r1:free',                  label: 'DeepSeek V4 R1',       provider: 'openrouter', badge: 'OpenRouter', desc: '🔥 DeepSeek V4 — reasoning muito forte' },
-    { id: 'openrouter::qwen/qwen-plus',                             label: 'Qwen 3.5 Plus',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Alibaba — português excelente' },
-    { id: 'openrouter::google/gemma-3-27b-it:free',                 label: 'Gemma 3 27B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Google Gemma — grátis e rápido' },
+    { id: 'openrouter::meta-llama/llama-3.2-3b-instruct:free',      label: 'Llama 3.2 3B',         provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
+    { id: 'openrouter::nousresearch/hermes-3-llama-3.1-405b:free', label: 'Hermes 3 405B',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
+    { id: 'openrouter::openai/gpt-oss-120b:free',                   label: 'GPT-OSS 120B',         provider: 'openrouter', badge: 'OpenRouter', desc: 'Alternativa gratuita — raciocínio forte' },
+    { id: 'openrouter::openai/gpt-oss-20b:free',                    label: 'GPT-OSS 20B',          provider: 'openrouter', badge: 'OpenRouter', desc: '🔥 Reasoning forte, mais rápido' },
+    { id: 'openrouter::qwen/qwen3-next-80b-a3b-instruct:free',      label: 'Qwen 3 Next 80B',      provider: 'openrouter', badge: 'OpenRouter', desc: 'Alibaba — português excelente' },
+    { id: 'openrouter::google/gemma-4-31b-it:free',                 label: 'Gemma 4 31B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Google Gemma — grátis e rápido' },
   ]
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('codex_model') || 'groq::llama-3.3-70b-versatile')
   const [showModelMenu, setShowModelMenu] = useState(false)
