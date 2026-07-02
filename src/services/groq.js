@@ -534,6 +534,42 @@ Responda em JSON:
 }`,
 }
 
+// ─── Perda → Conhecimento: sugere correção na base a partir de uma venda perdida ───
+const LOSS_REASON_LABELS = {
+  objecao_preco: 'objeção de preço',
+  objecao_frete: 'objeção de frete',
+  tom: 'tom / comunicação inadequada',
+  resposta_redundante: 'resposta redundante / repetitiva',
+  sem_resposta: 'cliente ficou sem resposta',
+  outro: 'motivo não especificado',
+}
+
+export async function suggestKnowledgeFromLoss({ lossReason, clientName = '', conversationExcerpt = '' }) {
+  const reasonLabel = LOSS_REASON_LABELS[lossReason] || lossReason || 'motivo não especificado'
+
+  const prompt = `Uma venda foi perdida na PRIME STORE. Motivo registrado: "${reasonLabel}".
+${clientName ? `Cliente: ${clientName}` : ''}
+${conversationExcerpt ? `Trecho da conversa:\n${conversationExcerpt}` : '(sem trecho de conversa disponível)'}
+
+Proponha UMA entrada objetiva pra base de conhecimento do agente de vendas, que ajude a evitar essa mesma perda no futuro
+(ex: uma regra de preço, um argumento pronto contra a objeção, uma política a deixar clara, um ajuste de tom).
+Seja específico e acionável — não escreva conselho genérico tipo "seja mais atencioso".
+
+Responda APENAS com JSON válido, sem texto antes ou depois:
+{"content": "texto da entrada de conhecimento, pronto pra salvar", "category": "PRODUTO|PRECO|FAQ|ESTRATEGIA|POLITICA|GUIA|GERAL"}`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 300 })
+  const raw = data?.choices?.[0]?.message?.content || ''
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
+    if (!json.content) return null
+    const category = ['PRODUTO', 'PRECO', 'FAQ', 'ESTRATEGIA', 'POLITICA', 'GUIA', 'GERAL'].includes(json.category) ? json.category : 'GERAL'
+    return { content: json.content, category }
+  } catch {
+    return null
+  }
+}
+
 export async function askCODEXOnboarding(stage, userMessage, history = [], context = {}) {
   const stagePrompt = (STAGE_PROMPTS[stage] || STAGE_PROMPTS[0])
     .replace('{CONTEXT}', JSON.stringify(context))

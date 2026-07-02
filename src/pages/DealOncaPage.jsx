@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage } from '../services/groq'
+import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss } from '../services/groq'
 import { recordStage, cleanupOldEntries } from '../services/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog } from '../services/followUpService'
@@ -196,6 +196,19 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const handleResolveAllAlerts = async () => {
     setCodexAlerts([]) // otimista
     await resolveAllAlerts()
+  }
+
+  // Ação de 1 clique pro alerta de lead quente: prepara mensagem de reengajamento
+  // já com envio pronto pra confirmar (reaproveita o fluxo pendingSend existente)
+  const handleReviveLead = (alert) => {
+    const allConvs = richConversations.length > 0 ? richConversations : conversations
+    const conv = allConvs.find(c => c.id === alert.conversation_id)
+    const name = conv?.name || conv?.clientName || 'você'
+    const text = `Oi ${name}! Vi que ainda está pensando no pedido — ficou alguma dúvida? Posso te ajudar a fechar agora 😊`
+    setPendingSend({ chatId: alert.conversation_id, name, text })
+    setShowAlertsPanel(false)
+    setCodexAlerts(prev => prev.filter(a => a.id !== alert.id)) // otimista
+    resolveAlert(alert.id)
   }
 
   // ─── Registrar Resultado ────────────────────────────────────────────────────
@@ -1242,6 +1255,27 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                     loss_reason: outcomeLossReason || null,
                   })
                   setOutcomeSuccess(true)
+
+                  // Perda → Conhecimento: propõe correção na base pra evitar a mesma perda de novo
+                  if (outcomeResult === 'loss') {
+                    const excerpt = (conv?.fullMessages || []).slice(-6)
+                      .map(m => `${m.role === 'user' ? 'Cliente' : 'Agente'}: ${m.text || m.content || ''}`)
+                      .join('\n').slice(0, 800)
+                    suggestKnowledgeFromLoss({
+                      lossReason: outcomeLossReason,
+                      clientName: conv?.name || conv?.contact || '',
+                      conversationExcerpt: excerpt,
+                    }).then(suggestion => {
+                      if (!suggestion) return
+                      setMessages(prev => [...prev, {
+                        id: Date.now(),
+                        from: 'codex',
+                        text: `📉 Registrei a perda de **${conv?.name || conv?.contact || 'cliente'}**. Pra evitar isso de novo, que tal salvar isto na base?`,
+                        saveSuggestion: suggestion,
+                      }])
+                    }).catch(() => {})
+                  }
+
                   setOutcomeConv('')
                   setOutcomeResult(null)
                   setOutcomeLossReason('')
@@ -1458,12 +1492,19 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                           {alert.type === 'gap_conhecimento' && '📚 Gap de Conhecimento'}
                           {alert.type === 'produto_fallback' && '📦 Produto Não Encontrado'}
                           {alert.type === 'diagnostico_pronto' && '🔍 Diagnóstico Pronto'}
-                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto'].includes(alert.type) && alert.type}
+                          {alert.type === 'auditoria_baixa' && '📋 Nota Baixa da Gabriela'}
+                          {!['lead_quente','objecao_recorrente','gap_conhecimento','produto_fallback','diagnostico_pronto','auditoria_baixa'].includes(alert.type) && alert.type}
                         </div>
                         <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
                         <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
                           {new Date(alert.created_at).toLocaleString('pt-BR')}
                         </div>
+                        {alert.type === 'lead_quente' && alert.conversation_id && (
+                          <button onClick={() => handleReviveLead(alert)}
+                            style={{ marginTop: 8, background: '#7C3AED', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+                            💬 Reviver agora
+                          </button>
+                        )}
                       </div>
                       <button onClick={() => handleResolveAlert(alert.id)} title="Marcar como visto"
                         style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#82829B', flexShrink: 0 }}>
