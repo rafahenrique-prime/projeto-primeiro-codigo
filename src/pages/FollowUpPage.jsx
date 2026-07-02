@@ -499,6 +499,7 @@ export default function FollowUpPage({ conversations = [] }) {
                       >
                         <option value="message">💬 Interagir com cliente (IA)</option>
                         <option value="fixed">📝 Mensagem fixa</option>
+                        <option value="fixed_and_finalize">📝 Mensagem + Finalizar</option>
                         <option value="finalize">🔚 Finalizar atendimento</option>
                       </select>
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
@@ -531,8 +532,13 @@ export default function FollowUpPage({ conversations = [] }) {
                         </span>
                       </div>
                     )}
-                    {stage.action === 'fixed' && (
+                    {(stage.action === 'fixed' || stage.action === 'fixed_and_finalize') && (
                       <div style={{ borderTop: `1px solid ${t.border}`, background: t.bg }}>
+                        {stage.action === 'fixed_and_finalize' && (
+                          <div style={{ padding: '6px 14px', background: '#FFFBEB', borderBottom: `1px solid #FDE68A`, fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                            ↳ Envia esta mensagem e em seguida finaliza a conversa automaticamente
+                          </div>
+                        )}
                         {editingFixed[stage.id] ? (
                           <div style={{ padding: '12px 14px' }}>
                             <textarea

@@ -148,6 +148,49 @@ async function saveDiagnostic(report, stats) {
   })
 }
 
+// ─── Supervisor Comercial — audita a última resposta da Gabriela por conversa ───
+// Rubrica fixa (0-10): respondeu a pergunta? tentou avançar a venda? não inventou dado
+// fora de contexto? tom adequado? Cap de candidatos por rodada pra controlar custo/tempo.
+const AUDIT_CAP = 15
+
+async function auditAgentResponse({ clientMsg, agentMsg }) {
+  const prompt = `Avalie esta resposta de uma vendedora IA (Gabriela) da PRIME STORE segundo a rubrica:
+1. Respondeu diretamente à pergunta do cliente?
+2. Tentou avançar a venda (ofereceu próximo passo, não deixou a conversa parada)?
+3. Não inventou preço/estoque/prazo sem confirmação?
+4. Tom adequado (natural, não robótico, não deselegante)?
+
+CLIENTE: "${clientMsg}"
+GABRIELA: "${agentMsg}"
+
+Responda APENAS com JSON válido, sem texto antes ou depois:
+{"score": 0-10, "issue": "falha principal em poucas palavras ou null se não houver", "strength": "ponto forte em poucas palavras ou null"}`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 150 })
+  const raw = data?.choices?.[0]?.message?.content || ''
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
+    if (typeof json.score !== 'number') return null
+    return { score: Math.max(0, Math.min(10, Math.round(json.score))), issue: json.issue || null, strength: json.strength || null }
+  } catch {
+    return null
+  }
+}
+
+async function saveAudits(rows) {
+  if (!rows.length) return
+  await fetch(`${SUPABASE_URL}/rest/v1/agent_audits`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify(rows),
+  })
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -163,6 +206,7 @@ export default async function handler(req, res) {
 
     const ctx = []
     const objectionRows = []
+    const auditCandidates = []
     for (const chat of chats) {
       const msgs = await getChatMessages(chat.id)
       if (!msgs.length) continue
@@ -188,6 +232,17 @@ export default async function handler(req, res) {
         })
       }
 
+      // Candidato à auditoria: só quando o agente já respondeu ao cliente (troca real, não silêncio)
+      if (lastFromAgent && lastClientMsg) {
+        auditCandidates.push({
+          chat_id: chat.id,
+          cliente: chat.name || chat.lead?.name || chat.id,
+          channel: chat.channel || null,
+          clientMsg: lastMsgText.slice(0, 500),
+          agentMsg: (lastFromAgent.text || lastFromAgent.content || '').slice(0, 500),
+        })
+      }
+
       ctx.push({
         cliente: chat.name || chat.lead?.name || chat.id,
         chat_id: chat.id,
@@ -200,6 +255,34 @@ export default async function handler(req, res) {
 
     await saveObjections(objectionRows)
     const ranking7d = await getObjectionRankingLast7Days()
+
+    // Supervisor Comercial: audita até AUDIT_CAP conversas com troca real (sequencial, controla custo)
+    const auditRows = []
+    for (const cand of auditCandidates.slice(0, AUDIT_CAP)) {
+      const result = await auditAgentResponse(cand)
+      if (!result) continue
+      auditRows.push({
+        conversation_id: cand.chat_id,
+        client_name: cand.cliente,
+        channel: cand.channel,
+        score: result.score,
+        issue: result.issue,
+        strength: result.strength,
+        excerpt: `Cliente: ${cand.clientMsg.slice(0, 150)} | Gabriela: ${cand.agentMsg.slice(0, 150)}`,
+      })
+    }
+    await saveAudits(auditRows)
+    const avgScore = auditRows.length ? Math.round((auditRows.reduce((s, r) => s + r.score, 0) / auditRows.length) * 10) / 10 : null
+    const lowScoreRows = auditRows.filter(r => r.score <= 4)
+
+    if (avgScore !== null && avgScore < 6) {
+      await logCodexAlert({
+        type: 'auditoria_baixa',
+        severity: 'atencao',
+        message: `Nota média da Gabriela hoje: ${avgScore}/10 (${lowScoreRows.length} resposta(s) fraca(s) de ${auditRows.length} avaliadas). Vale revisar o comportamento do agente.`,
+        data: { avgScore, lowScoreCount: lowScoreRows.length, total: auditRows.length },
+      })
+    }
 
     const quentes = ctx.filter(c => c.estagio_funil === 'QUENTE_FECHAR')
     const objecao = ctx.filter(c => c.estagio_funil === 'DECISAO_OBJECAO')
@@ -250,6 +333,7 @@ Emojis generosos, sem rodeios.`
       no_reply: semResposta.length,
       objecao: objecao.length,
       objection_ranking_7d: ranking7d,
+      agent_audits: { count: auditRows.length, avg_score: avgScore, low_score: lowScoreRows.length },
     })
   } catch (err) {
     console.error('[cron-diagnosis] Erro:', err.message)

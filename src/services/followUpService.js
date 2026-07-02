@@ -281,6 +281,7 @@ export async function runFollowUpCheck(conversations = [], options = {}) {
 
       if (options.dryRun) {
         const text = action === 'finalize' ? '[Finalizar atendimento]'
+          : action === 'fixed_and_finalize' ? `${stageCfg.fixedText || DEFAULT_FIXED_TEXT} → [Finalizar]`
           : action === 'fixed' ? (stageCfg.fixedText || DEFAULT_FIXED_TEXT)
           : await generateFollowUpText(conv, stage)
         sent.push({ conv: conv.name, stage, text, action, dryRun: true })
@@ -297,6 +298,14 @@ export async function runFollowUpCheck(conversations = [], options = {}) {
         sent.push({ conv: conv.name, stage, text })
         appendLog({ conv: conv.name, convId: conv.id, stage, text, status: 'sent' })
         console.log(`[FollowUp] ✅ "${conv.name}" (fixed): mensagem enviada`)
+      } else if (action === 'fixed_and_finalize') {
+        const text = stageCfg.fixedText || DEFAULT_FIXED_TEXT
+        await sendMessage(conv.id, text)
+        await finishChat(conv.id)
+        markSent(conv.id, stage, state)
+        sent.push({ conv: conv.name, stage, text, action })
+        appendLog({ conv: conv.name, convId: conv.id, stage, text, action, status: 'finalized' })
+        console.log(`[FollowUp] ✅ "${conv.name}" (fixed_and_finalize): mensagem enviada + finalizado`)
       } else {
         const text = await generateFollowUpText(conv, stage)
         await sendMessage(conv.id, text)

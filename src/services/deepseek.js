@@ -100,17 +100,24 @@ export async function deepseekRequest(body) {
 }
 
 export async function askDeepSeek(systemPrompt, messages, maxTokens = 800, model = 'deepseek-reasoner') {
+  // deepseek-reasoner "pensa" em reasoning_content antes de escrever a resposta final —
+  // com poucos tokens, ele pode gastar tudo raciocinando e deixar content vazio.
+  // Piso testado empiricamente: 2000 não é suficiente em prompts com contexto pesado (ex: CODEX).
+  const effectiveMaxTokens = model === 'deepseek-reasoner' ? Math.max(maxTokens, 3000) : maxTokens
+
   const data = await deepseekRequest({
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
     temperature: 0.4,
-    max_tokens: maxTokens,
+    max_tokens: effectiveMaxTokens,
     model,
   })
 
-  if (!data.choices?.[0]?.message?.content) {
-    const errMsg = data.error || JSON.stringify(data)
-    throw new Error(`DeepSeek: ${errMsg}`)
+  const content = data.choices?.[0]?.message?.content
+  if (!content) {
+    if (data.error) throw new Error(`DeepSeek: ${data.error}`)
+    console.warn('[DeepSeek] Resposta sem content (modelo não terminou a tempo):', data)
+    throw new Error('O modelo não terminou de responder a tempo. Tente novamente.')
   }
 
-  return data.choices[0].message.content
+  return content
 }

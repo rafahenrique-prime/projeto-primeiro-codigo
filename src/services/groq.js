@@ -791,6 +791,35 @@ function buildSmartContext(userMessage, conversations) {
   return blocks.length > 0 ? `\n\n═══ ANÁLISE ESPECÍFICA PARA ESTA PERGUNTA ═══\n${blocks.join('\n\n')}${aviso}` : ''
 }
 
+// Estima o orçamento de tokens ideal pra chamada ao DeepSeek, evitando gastar
+// tokens à toa em perguntas simples e evitando respostas cortadas (content vazio)
+// em análises pesadas — auditoria, cruzamento de várias conversas, relatórios completos.
+// Só o modelo deepseek-reasoner "pensa" antes de responder (reasoning_content),
+// por isso ele recebe um piso maior — modelos de chat comuns (deepseek-lite) não precisam.
+const DEEPSEEK_HEAVY_RX = /anal[ií]s|auditor|audit|cruz|detalh|completo|inteir[ao]|relat[óo]rio|diagn[óo]stico|todas as conversas|funil (completo|inteiro)|todos os (clientes|leads)|comparar|hist[óo]rico completo/i
+const DEEPSEEK_MEDIUM_RX = /resumo|explique|liste|quais (clientes|leads)|quem (est[áa]|precisa|sumiu)/i
+const DEEPSEEK_BUDGETS = { base: 800, medium: 1500, high: 3500 }
+// Piso de segurança pro deepseek-reasoner: o CODEX sempre injeta o contexto completo das
+// conversas no system prompt (é assim que ele responde com dados reais, não inventados),
+// então mesmo perguntas triviais ("oi") exigem que o modelo "pense" sobre esse contexto
+// pesado antes de responder — testado empiricamente: 2000 tokens não bastam, 3000 é o piso seguro.
+const DEEPSEEK_REASONER_FLOOR = 3000
+
+export function estimateDeepSeekBudget({ userMessage = '', convCount = 0, mode = 'auditor', isReasoner = false } = {}) {
+  // convCount (priority.length, capped em 12) NUNCA decide o tier sozinho — contas com
+  // inbox cheia sempre teriam convCount alto, inflando o custo de perguntas simples.
+  // Ele só reforça o tier quando a própria pergunta já sinaliza análise (heavy/medium).
+  let tier = 'base'
+  if (DEEPSEEK_HEAVY_RX.test(userMessage) || (DEEPSEEK_MEDIUM_RX.test(userMessage) && convCount > 8)) tier = 'high'
+  else if (DEEPSEEK_MEDIUM_RX.test(userMessage)) tier = 'medium'
+
+  // Modo consultor é didático por natureza — respostas mais longas mesmo em perguntas simples
+  if (mode === 'consultor' && tier === 'base') tier = 'medium'
+
+  const budget = DEEPSEEK_BUDGETS[tier]
+  return { tier, maxTokens: isReasoner ? Math.max(budget, DEEPSEEK_REASONER_FLOOR) : budget }
+}
+
 export async function askCODEX(userMessage, history = [], conversations = [], trainings = [], modelConfig = null, localKnowledge = [], codexMode = 'auditor') {
   // Filtrar e validar conversas antes de processar
   const validConvs = conversations.filter(c => {
@@ -845,7 +874,12 @@ ${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}
 
   if (modelConfig && modelConfig.provider === 'deepseek') {
     try {
-      return await askDeepSeek(systemPrompt, msgs, 800, modelConfig.modelId)
+      const isReasoner = modelConfig.modelId === 'deepseek-reasoner'
+      const { tier, maxTokens } = estimateDeepSeekBudget({
+        userMessage, convCount: priority.length, mode: codexMode, isReasoner,
+      })
+      console.log(`[askCODEX] DeepSeek budget: ${tier} (${maxTokens} tokens)`)
+      return await askDeepSeek(systemPrompt, msgs, maxTokens, modelConfig.modelId)
     } catch (e) {
       console.error('[askCODEX] DeepSeek erro:', e.message)
       throw e

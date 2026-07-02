@@ -12,6 +12,29 @@ const t = {
   info: '#2185FF',
 }
 
+const ROTEIRO_TEMPLATE = `## ROTEIRO DE VENDA (siga as etapas em ordem, sem pular)
+1. Identifique a intenção do cliente em 1-2 interações.
+2. Responda com base no catálogo e políticas verificadas — nunca invente produto, preço ou prazo.
+3. Pergunte o objetivo/uso principal do produto.
+4. Faça 1 pergunta de restrição adicional (tamanho, cor, orçamento).
+5. Recomende um único produto (ou registre para atendimento humano se não achar).
+6. Explique 1-2 benefícios reais e verificados do produto.
+7. Confirme variação, tamanho, cor e quantidade.
+8. Informe preço e promoções vigentes.
+9. Explique condições de entrega e pagamento.
+10. Envie o link de checkout.
+11. Peça confirmação após o pagamento.
+12. Informe o status do pedido quando solicitado.
+
+## SEMPRE FAÇA
+- Responda apenas com dados reais do catálogo e da base de conhecimento.
+- Seja direto e objetivo — no máximo 2-3 frases por resposta.
+
+## NUNCA FAÇA
+- Nunca invente preço, estoque ou prazo de entrega.
+- Nunca prometa desconto sem confirmação da política vigente.
+- Nunca repita a mesma pergunta já respondida pelo cliente.`
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState([])
   const [channels, setChannels] = useState([])
@@ -222,6 +245,15 @@ export default function AgentsPage() {
 
             {/* Card: Comportamento (Destaque) */}
             <CardSection title="🧠 Comportamento (System Prompt)" color="#FEF3C7" borderColor="#F59E0B" highlight>
+              {editing && (
+                <button
+                  onClick={() => setDraft(p => ({ ...p, behavior: `${p.behavior ? p.behavior + '\n\n' : ''}${ROTEIRO_TEMPLATE}` }))}
+                  style={{ marginBottom: 10, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, color: '#4F46E5', cursor: 'pointer' }}
+                  title="Insere um roteiro de venda estruturado em etapas, no estilo Dealism"
+                >
+                  📋 Aplicar Roteiro Estruturado
+                </button>
+              )}
               {editing
                 ? <textarea value={draft.behavior} onChange={e => setDraft(p => ({...p, behavior: e.target.value}))} rows={10} style={{...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: 12}} />
                 : <div style={{...valueStyle, fontFamily: 'monospace', fontSize: 12, background: '#1F2937', color: '#E5E7EB', borderRadius: 8, padding: 12, whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '300px', border: '1px solid #374151'}}>{selected.behavior}</div>}

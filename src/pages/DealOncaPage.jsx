@@ -11,6 +11,8 @@ import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductIma
 import { getAllEntries } from '../services/knowledgeDB'
 import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
 import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
+import { saveInteraction, autoCloseInactiveConversations } from '../services/interactionsService'
+import { getTodayAuditSummary } from '../services/agentAuditService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
@@ -68,6 +70,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const [trainings, setTrainings] = useState([])
   const [localKnowledge, setLocalKnowledge] = useState([])
   const [firstAgent, setFirstAgent] = useState(null)
+  const [auditSummary, setAuditSummary] = useState(null)
 
   const WELCOME = {
     id: 0, from: 'codex',
@@ -194,6 +197,13 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     setCodexAlerts([]) // otimista
     await resolveAllAlerts()
   }
+
+  // ─── Registrar Resultado ────────────────────────────────────────────────────
+  const [outcomeConv, setOutcomeConv] = useState('')
+  const [outcomeResult, setOutcomeResult] = useState(null)
+  const [outcomeLossReason, setOutcomeLossReason] = useState('')
+  const [savingOutcome, setSavingOutcome] = useState(false)
+  const [outcomeSuccess, setOutcomeSuccess] = useState(false)
 
   const runFollowUp = async (dryRun = false) => {
     const ctx = richConversations.length > 0 ? richConversations : conversations
@@ -385,6 +395,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
     getAllEntries().then(setLocalKnowledge).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    getTodayAuditSummary().then(setAuditSummary).catch(() => {})
+  }, [])
+
   // Carrega perfis de leads do Supabase quando conversas estiverem prontas
   useEffect(() => {
     if (richConversations.length === 0) return
@@ -433,6 +447,17 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           recordStage(c.id, stage)
         }
       })
+
+      // Auto-close conversas inativas há 24h+
+      autoCloseInactiveConversations(results).then(({ count }) => {
+        if (count > 0) {
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            from: 'codex',
+            text: `🔄 Automático: ${count} conversa${count > 1 ? 's' : ''} sem resposta há 24h+ foram marcadas como fechadas.`,
+          }])
+        }
+      }).catch(() => {})
 
       // Alerta de leads quentes sem resposta
       const leadsQuentes = results.filter(c => (c.nao_lidas || 0) > 0 && c.mode !== 'copilot')
@@ -1143,6 +1168,103 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           </button>
         ))}
 
+        {/* ─── Registrar Resultado ─── */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 8px', paddingTop: 12, borderTop: '1px solid #E5E5E5' }}>Registrar Resultado</div>
+
+        {outcomeSuccess ? (
+          <div style={{ background: '#EFFDF4', border: '1px solid #B9F8CF', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#0EC331', fontWeight: 600, textAlign: 'center', marginBottom: 8 }}>
+            ✅ Salvo com sucesso!
+          </div>
+        ) : (
+          <>
+            <select
+              value={outcomeConv}
+              onChange={e => setOutcomeConv(e.target.value)}
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #E5E5E5', padding: '7px 8px', fontSize: 11, color: '#141413', background: '#fff', marginBottom: 8, boxSizing: 'border-box', outline: 'none' }}
+            >
+              <option value="">Selecionar conversa...</option>
+              {(richConversations.length > 0 ? richConversations : conversations).map(c => (
+                <option key={c.id} value={c.id}>{c.name || c.contact || c.id}</option>
+              ))}
+            </select>
+
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              {[
+                { key: 'closed_won', icon: '✅', label: 'Fechou',    color: '#0EC331' },
+                { key: 'closed',     icon: '😶', label: 'S/ Resp.',  color: '#F59E0B' },
+                { key: 'loss',       icon: '❌', label: 'Perdeu',    color: '#E8192C' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => { setOutcomeResult(opt.key); if (opt.key !== 'loss') setOutcomeLossReason('') }}
+                  style={{
+                    flex: 1, background: outcomeResult === opt.key ? `${opt.color}18` : '#fff',
+                    border: `1px solid ${outcomeResult === opt.key ? opt.color : '#E5E5E5'}`,
+                    borderRadius: 8, padding: '6px 4px', fontSize: 10, fontWeight: 700,
+                    color: outcomeResult === opt.key ? opt.color : '#82829B',
+                    cursor: 'pointer', textAlign: 'center', lineHeight: 1.3,
+                  }}
+                >
+                  <div>{opt.icon}</div>
+                  <div>{opt.label}</div>
+                </button>
+              ))}
+            </div>
+
+            {outcomeResult === 'loss' && (
+              <select
+                value={outcomeLossReason}
+                onChange={e => setOutcomeLossReason(e.target.value)}
+                style={{ width: '100%', borderRadius: 8, border: '1px solid #fca5a5', padding: '7px 8px', fontSize: 11, color: '#141413', background: '#fff5f5', marginBottom: 8, boxSizing: 'border-box', outline: 'none' }}
+              >
+                <option value="">Motivo da perda...</option>
+                <option value="objecao_preco">Objeção de preço</option>
+                <option value="objecao_frete">Objeção de frete</option>
+                <option value="tom">Tom / comunicação</option>
+                <option value="resposta_redundante">Resposta redundante</option>
+                <option value="sem_resposta">Sem resposta</option>
+                <option value="outro">Outro</option>
+              </select>
+            )}
+
+            <button
+              disabled={!outcomeConv || !outcomeResult || savingOutcome}
+              onClick={async () => {
+                if (!outcomeConv || !outcomeResult) return
+                setSavingOutcome(true)
+                const conv = (richConversations.length > 0 ? richConversations : conversations).find(c => c.id === outcomeConv)
+                try {
+                  await saveInteraction({
+                    conv_id: outcomeConv,
+                    client_name: conv?.name || conv?.contact || '',
+                    channel: conv?.channel || 'whatsapp',
+                    outcome: outcomeResult,
+                    loss_reason: outcomeLossReason || null,
+                  })
+                  setOutcomeSuccess(true)
+                  setOutcomeConv('')
+                  setOutcomeResult(null)
+                  setOutcomeLossReason('')
+                  setTimeout(() => setOutcomeSuccess(false), 3000)
+                } catch (e) {
+                  setMessages(prev => [...prev, { id: Date.now(), from: 'codex', text: `⚠️ Erro ao salvar resultado: ${e.message}` }])
+                } finally {
+                  setSavingOutcome(false)
+                }
+              }}
+              style={{
+                width: '100%', borderRadius: 8, border: 'none',
+                padding: '8px 0', fontSize: 12, fontWeight: 700,
+                background: (!outcomeConv || !outcomeResult) ? '#E5E5E5' : '#7C3AED',
+                color: (!outcomeConv || !outcomeResult) ? '#9CA3AF' : '#fff',
+                cursor: (!outcomeConv || !outcomeResult) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {savingOutcome ? 'Salvando...' : 'Salvar resultado'}
+            </button>
+          </>
+        )}
+
         {/* ── Salvar Conhecimento ── */}
         <div onClick={() => setPanelCollapsed(s => ({ ...s, conhecimento: !s.conhecimento }))}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: '16px 0 6px', paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
@@ -1235,6 +1357,37 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             </div>
           )
         })()}
+
+        {/* ── Supervisor Comercial: Notas da Gabriela ── */}
+        <div onClick={() => setPanelCollapsed(s => ({ ...s, auditoria: !s.auditoria }))}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: '16px 0 10px', paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>📋 Notas da Gabriela</span>
+          <span style={{ fontSize: 11, color: '#82829B', display: 'inline-block', transform: panelCollapsed.auditoria ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▾</span>
+        </div>
+        {!panelCollapsed.auditoria && (!auditSummary || auditSummary.total === 0
+          ? <div style={{ fontSize: 12, color: '#9CA3AF' }}>Auditoria roda 1x/dia (cron). Sem dados ainda hoje.</div>
+          : <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #E5E5E5', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#6B7280' }}>Nota média hoje ({auditSummary.total} avaliadas)</span>
+                <span style={{
+                  fontSize: 14, fontWeight: 700,
+                  color: auditSummary.avgScore >= 7 ? '#0EC331' : auditSummary.avgScore >= 5 ? '#F59E0B' : '#E8192C',
+                }}>{auditSummary.avgScore}/10</span>
+              </div>
+              {auditSummary.lowScore.length === 0
+                ? <div style={{ fontSize: 11, color: '#0EC331', padding: '2px 2px 4px' }}>✅ Nenhuma resposta fraca hoje</div>
+                : auditSummary.lowScore.slice(0, 4).map(a => (
+                  <div key={a.id} style={{ background: '#FFF5F5', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 10px', marginBottom: 5 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#141413', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{a.client_name || 'Sem nome'}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#E8192C' }}>{a.score}/10</span>
+                    </div>
+                    {a.issue && <div style={{ fontSize: 10, color: '#9CA3AF' }}>{a.issue}</div>}
+                  </div>
+                ))
+              }
+            </>
+        )}
 
         {/* ── Últimos Conhecimentos ── */}
         <div onClick={() => setPanelCollapsed(s => ({ ...s, canais: !s.canais }))}
@@ -1374,8 +1527,8 @@ function ChatMessage({ msg, onSuggestion, agentId, onSaveConfirmed }) {
       <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#F0EBFF', border: '1.5px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
         <CodexIcon size={18} />
       </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '14px 18px', fontSize: 15, color: '#0A0A0A', lineHeight: 1.75 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: '16px 16px 16px 2px', padding: '14px 18px', fontSize: 15, color: '#0A0A0A', lineHeight: 1.75, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
           <Markdown text={msg.text} />
         </div>
         {msg.saveSuggestion && (

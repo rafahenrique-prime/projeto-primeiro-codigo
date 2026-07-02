@@ -188,9 +188,16 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {}, buyScore }) {
             : <span style={{ fontSize: 10, fontWeight: 600, color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F', background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4', borderRadius: 4, padding: '1px 6px' }}>{conv.mode === 'copilot' ? 'Copilot' : 'AutoPilot'}</span>
           }
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {buyScore >= 70 && (
-              <span title="Score de conversão" style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', background: '#FEF2F2', color: '#E8192C' }}>🔥 {buyScore}</span>
-            )}
+            {buyScore != null && (() => {
+              const hot = buyScore >= 70
+              const warm = buyScore >= 40 && buyScore < 70
+              const bg = hot ? '#FEF2F2' : warm ? '#FFFBEB' : '#F0FDF4'
+              const color = hot ? '#E8192C' : warm ? '#D97706' : '#0EC331'
+              const dot = hot ? '🔥' : warm ? '🌡️' : '❄️'
+              return (
+                <span title="Score de conversão" style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', background: bg, color }}>{dot} {buyScore}%</span>
+              )
+            })()}
             {waitTime && (
               <span style={{
                 fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px',
