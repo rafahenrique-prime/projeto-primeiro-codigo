@@ -191,6 +191,61 @@ async function saveAudits(rows) {
   })
 }
 
+// ─── Score Híbrido — refina à noite o buy_score calculado por regex em tempo real ───
+// O regex (calcBuyScore) é rápido e roda a cada mensagem, mas só reconhece frases
+// decoradas — erra em ironia, educação sem intenção real, ou intenção sem palavra-chave.
+// 1x/dia a IA relê a conversa e corrige o score só quando a diferença é grande (evita
+// custo e "achatismo": pequenas divergências de opinião não valem reescrever o dado).
+const SCORE_REFINE_CAP = 20
+const SCORE_DIFF_THRESHOLD = 25
+
+async function refineScore({ clientText, stage, regexScore }) {
+  const prompt = `Um sistema simples de palavras-chave deu nota ${regexScore}/100 de intenção de compra pra este cliente
+(estágio detectado: ${stage}). Releia as mensagens dele e avalie se a nota faz sentido de verdade —
+considere tom, contexto e intenção real, não só palavras soltas.
+
+MENSAGENS DO CLIENTE: "${clientText.slice(0, 600)}"
+
+Responda APENAS com JSON válido, sem texto antes ou depois:
+{"score": 0-100, "reasoning": "motivo em poucas palavras"}`
+
+  const data = await groqRequest({ messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 120 })
+  const raw = data?.choices?.[0]?.message?.content || ''
+  try {
+    const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
+    if (typeof json.score !== 'number') return null
+    return { score: Math.max(0, Math.min(100, Math.round(json.score))), reasoning: json.reasoning || null }
+  } catch {
+    return null
+  }
+}
+
+async function getCustomerProfile(convId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/customer_profiles?conv_id=eq.${encodeURIComponent(convId)}&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data[0] || null
+  } catch {
+    return null
+  }
+}
+
+async function patchCustomerScore(convId, score) {
+  await fetch(`${SUPABASE_URL}/rest/v1/customer_profiles?conv_id=eq.${encodeURIComponent(convId)}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({ buy_score: score }),
+  })
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -253,11 +308,37 @@ export default async function handler(req, res) {
         nao_lida: naoLida,
         total_msgs: msgs.length,
         objections,
+        clientText,
       })
     }
 
     await saveObjections(objectionRows)
     const ranking7d = await getObjectionRankingLast7Days()
+
+    // Score Híbrido: relê até SCORE_REFINE_CAP conversas com texto real do cliente e
+    // corrige o buy_score (calculado por regex em tempo real) quando a IA discordar muito
+    const scoreCandidates = ctx.filter(c => c.clientText && c.clientText.trim().length > 10).slice(0, SCORE_REFINE_CAP)
+    const scoreCorrections = []
+    for (const cand of scoreCandidates) {
+      const profile = await getCustomerProfile(cand.chat_id)
+      if (!profile || typeof profile.buy_score !== 'number') continue
+      const refined = await refineScore({ clientText: cand.clientText, stage: cand.estagio_funil, regexScore: profile.buy_score })
+      if (!refined) continue
+      const diff = refined.score - profile.buy_score
+      if (Math.abs(diff) < SCORE_DIFF_THRESHOLD) continue
+      await patchCustomerScore(cand.chat_id, refined.score)
+      scoreCorrections.push({ cliente: cand.cliente, from: profile.buy_score, to: refined.score, reasoning: refined.reasoning })
+    }
+
+    const upgradedLeads = scoreCorrections.filter(c => c.to - c.from >= SCORE_DIFF_THRESHOLD && c.to >= 70)
+    if (upgradedLeads.length > 0) {
+      await logCodexAlert({
+        type: 'score_corrigido',
+        severity: 'atencao',
+        message: `Score corrigido pela IA: ${upgradedLeads.map(l => `${l.cliente} (${l.from}→${l.to})`).join(', ')}. O robô de palavras-chave estava subestimando esses leads.`,
+        data: { corrections: upgradedLeads },
+      })
+    }
 
     // Supervisor Comercial: audita até AUDIT_CAP conversas com troca real (sequencial, controla custo)
     const auditRows = []
@@ -337,6 +418,7 @@ Emojis generosos, sem rodeios.`
       objecao: objecao.length,
       objection_ranking_7d: ranking7d,
       agent_audits: { count: auditRows.length, avg_score: avgScore, low_score: lowScoreRows.length },
+      score_hybrid: { checked: scoreCandidates.length, corrected: scoreCorrections.length, corrections: scoreCorrections },
     })
   } catch (err) {
     console.error('[cron-diagnosis] Erro:', err.message)
