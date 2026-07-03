@@ -14,6 +14,7 @@ const workItems = [
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
   { id: 'contacts',  label: 'Contatos' },
+  { id: 'contacts-new', label: 'Contatos (Beta)' },
   { id: 'photo',     label: 'Fotos' },
   { id: 'lab',       label: 'Lab IA' },
   { id: 'relatorios', label: 'Relatórios' },
@@ -26,6 +27,7 @@ function getIcon(id, size = 15) {
     case 'channels':   return <Ch size={size} />
     case 'knowledge':  return <Kn size={size} />
     case 'contacts':   return <Co size={size} />
+    case 'contacts-new': return <Lab size={size} />
     case 'dealonca':   return <Da size={size} />
     case 'relatorios': return <Rep size={size} />
     case 'simulador':  return <Sim size={size} />

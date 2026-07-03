@@ -562,9 +562,10 @@ export default function CatalogPage({ onNavigate }) {
     }
   }
 
+  const normalizeAccents = (str) => (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
   const filtered = products
     .filter(p => {
-      const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase())
+      const matchSearch = normalizeAccents(p.nome.toLowerCase()).includes(normalizeAccents(search.toLowerCase()))
       const matchCat = activeCategory === 'Todos' || p.categoria === activeCategory
       return matchSearch && matchCat
     })

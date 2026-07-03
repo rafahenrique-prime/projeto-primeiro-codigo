@@ -175,7 +175,10 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   // ─── Alertas Proativos do CODEX ────────────────────────────────────────────
   const [codexAlerts, setCodexAlerts] = useState([])
   const [showAlertsPanel, setShowAlertsPanel] = useState(false)
+  const [showLearningPanel, setShowLearningPanel] = useState(false)
   const [loadingAlerts, setLoadingAlerts] = useState(false)
+  const learningAlerts = codexAlerts.filter(a => a.type === 'aprendizado_registrado')
+  const otherAlerts = codexAlerts.filter(a => a.type !== 'aprendizado_registrado')
 
   const loadCodexAlerts = async () => {
     setLoadingAlerts(true)
@@ -199,8 +202,13 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   }
 
   const handleResolveAllAlerts = async () => {
-    setCodexAlerts([]) // otimista
-    await resolveAllAlerts()
+    setCodexAlerts(prev => prev.filter(a => a.type === 'aprendizado_registrado')) // otimista — só limpa os "outros"
+    for (const a of otherAlerts) await resolveAlert(a.id)
+  }
+
+  const handleResolveAllLearningAlerts = async () => {
+    setCodexAlerts(prev => prev.filter(a => a.type !== 'aprendizado_registrado')) // otimista
+    for (const a of learningAlerts) await resolveAlert(a.id)
   }
 
   // Ação de 1 clique: prepara mensagem de reengajamento já com envio pronto pra
@@ -987,7 +995,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F0EBFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CodexIcon size={24} />
           </div>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A', letterSpacing: '0.5px' }}>CODEX</div>
             <div style={{ fontSize: 12, color: '#82829B', display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 7, height: 7, background: '#7C3AED', borderRadius: '50%', display: 'inline-block' }} />
@@ -996,7 +1004,6 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                 onClick={() => setShowModelMenu(v => !v)}
                 style={{ background: 'none', border: 'none', padding: '0 2px', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', gap: 3 }}
               >
-                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: activeModel.provider === 'groq' ? '#F0EBFF' : '#E6F1FB', color: activeModel.provider === 'groq' ? '#7C3AED' : '#185FA5' }}>{activeModel.badge}</span>
                 {activeModel.label.split(' ').slice(0,2).join(' ')} ▾
               </button>
             </div>
@@ -1052,14 +1059,27 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
               onClick={() => setShowAlertsPanel(v => !v)}
               title="Alertas proativos do CODEX (lead quente, objeção recorrente, gaps de conhecimento)"
               style={{
-                background: codexAlerts.length > 0 ? '#FEF2F2' : '#F3F4F6',
-                border: `1px solid ${codexAlerts.length > 0 ? '#FCA5A5' : '#E5E7EB'}`,
+                background: otherAlerts.length > 0 ? '#FEF2F2' : '#F3F4F6',
+                border: `1px solid ${otherAlerts.length > 0 ? '#FCA5A5' : '#E5E7EB'}`,
                 borderRadius: 9999, padding: '3px 9px', fontSize: 11,
-                color: codexAlerts.length > 0 ? '#B91C1C' : '#6B7280',
+                color: otherAlerts.length > 0 ? '#B91C1C' : '#6B7280',
                 cursor: 'pointer', whiteSpace: 'nowrap', position: 'relative',
               }}
             >
-              🚨 {codexAlerts.length}
+              🚨 {otherAlerts.length}
+            </span>
+            <span
+              onClick={() => setShowLearningPanel(v => !v)}
+              title="Novos aprendizados detectados pela auditoria — pendentes de revisão"
+              style={{
+                background: learningAlerts.length > 0 ? '#F5F3FF' : '#F3F4F6',
+                border: `1px solid ${learningAlerts.length > 0 ? '#DDD6FE' : '#E5E7EB'}`,
+                borderRadius: 9999, padding: '3px 9px', fontSize: 11,
+                color: learningAlerts.length > 0 ? '#7C3AED' : '#6B7280',
+                cursor: 'pointer', whiteSpace: 'nowrap', position: 'relative',
+              }}
+            >
+              💡 {learningAlerts.length}
             </span>
             {leadProfiles.length > 0 && (leadProfiles.filter(p => (p.buy_score||0) >= 70).length > 0 || leadProfiles.filter(p => (p.buy_score||0) >= 40 && (p.buy_score||0) < 70).length > 0) && (
               <span
@@ -1101,9 +1121,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
 
             <button
               onClick={startOnboarding}
-              style={{ background: onboarding ? '#7C3AED' : 'none', border: '1px solid ' + (onboarding ? '#7C3AED' : '#7C3AED'), borderRadius: 8, padding: '4px 12px', fontSize: 11, color: onboarding ? '#fff' : '#7C3AED', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
+              title={onboarding ? `Criando novo agente — Etapa ${(onboarding.stage || 0) + 1}/5` : 'Criar novo agente'}
+              style={{ background: onboarding ? '#7C3AED' : 'none', border: '1px solid #7C3AED', borderRadius: 8, padding: '5px 8px', fontSize: 13, color: onboarding ? '#fff' : '#7C3AED', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}
             >
-              🚀 {onboarding ? `Etapa ${(onboarding.stage || 0) + 1}/5` : 'Novo Agente'}
+              🚀{onboarding && <span style={{ fontSize: 10 }}>{(onboarding.stage || 0) + 1}/5</span>}
             </button>
             <button onClick={clearHistory} title="Limpar histórico do chat" style={{ background: 'none', border: '1px solid #E5E5E5', borderRadius: 8, padding: '5px 7px', fontSize: 11, color: '#82829B', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -1363,30 +1384,33 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
           </>
         )}
 
-        {/* ── Salvar Conhecimento ── */}
+        {/* ── Aprendizados pendentes (auditoria) ── */}
         <div onClick={() => setPanelCollapsed(s => ({ ...s, conhecimento: !s.conhecimento }))}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', margin: '16px 0 6px', paddingTop: 12, borderTop: '1px solid #E5E5E5', userSelect: 'none' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Salvar Conhecimento</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#82829B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>💡 Aprendizados pendentes</span>
           <span style={{ fontSize: 11, color: '#82829B', transition: 'transform 0.2s', display: 'inline-block', transform: panelCollapsed.conhecimento ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▾</span>
         </div>
-        {!panelCollapsed.conhecimento && <>
-          <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Atalhos para o chat</div>
-          {[
-            { icon: '📦', label: 'Produto novo',   prefix: 'Adiciona que produto ' },
-            { icon: '💰', label: 'Preço / promo',  prefix: 'Adiciona que o preço ' },
-            { icon: '❓', label: 'Pergunta freq.', prefix: 'Adiciona que quando cliente perguntar ' },
-            { icon: '⚡', label: 'Estratégia',     prefix: 'Adiciona que a estratégia ' },
-            { icon: '📋', label: 'Política',       prefix: 'Adiciona que a política ' },
-          ].map(item => (
-            <button key={item.label} onClick={() => setInput(item.prefix)}
-              style={{ width: '100%', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '8px 12px', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#EDE9FE' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#F5F3FF' }}>
-              <span style={{ fontSize: 14 }}>{item.icon}</span>
-              <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 500 }}>{item.label}</span>
-            </button>
-          ))}
-        </>}
+        {!panelCollapsed.conhecimento && (
+          learningAlerts.length === 0 ? (
+            <div style={{ fontSize: 11, color: '#9CA3AF', padding: '4px 0 8px' }}>Nenhum aprendizado novo — tudo revisado.</div>
+          ) : (
+            <>
+              {learningAlerts.slice(0, 3).map(alert => (
+                <div key={alert.id} onClick={() => setShowLearningPanel(true)}
+                  style={{ width: '100%', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '8px 12px', marginBottom: 5, cursor: 'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#EDE9FE' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#F5F3FF' }}>
+                  <div style={{ fontSize: 11, color: '#5B21B6', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{alert.message}</div>
+                </div>
+              ))}
+              {learningAlerts.length > 3 && (
+                <button onClick={() => setShowLearningPanel(true)} style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '2px 0' }}>
+                  Ver todos ({learningAlerts.length})
+                </button>
+              )}
+            </>
+          )
+        )}
 
         {/* Funil ao vivo — Score Dinâmico */}
         {leadProfiles.length > 0 && (() => {
@@ -1532,7 +1556,7 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A' }}>🚨 Alertas do CODEX</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {codexAlerts.length > 0 && (
+                {otherAlerts.length > 0 && (
                   <button onClick={handleResolveAllAlerts} style={{ fontSize: 11, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     Marcar todos como vistos
                   </button>
@@ -1543,10 +1567,10 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
             <div style={{ overflowY: 'auto', padding: 12 }}>
               {loadingAlerts ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#82829B', fontSize: 13 }}>Carregando...</div>
-              ) : codexAlerts.length === 0 ? (
+              ) : otherAlerts.length === 0 ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#82829B', fontSize: 13 }}>✅ Nenhum alerta pendente</div>
               ) : (
-                codexAlerts.map(alert => (
+                otherAlerts.map(alert => (
                   <div key={alert.id} style={{ background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 8, padding: 12, marginBottom: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                       <div style={{ flex: 1 }}>
@@ -1574,6 +1598,51 @@ REGRAS ANTI-ALUCINAÇÃO — OBRIGATÓRIAS:
                             💬 Reviver agora
                           </button>
                         )}
+                      </div>
+                      <button onClick={() => handleResolveAlert(alert.id)} title="Marcar como visto"
+                        style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#82829B', flexShrink: 0 }}>
+                        ✓
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Painel dedicado — Aprendizados novos (auditoria) */}
+      {showLearningPanel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80 }}
+          onClick={() => setShowLearningPanel(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, width: 480, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0A' }}>💡 Aprendizados novos</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {learningAlerts.length > 0 && (
+                  <button onClick={handleResolveAllLearningAlerts} style={{ fontSize: 11, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    Marcar todos como vistos
+                  </button>
+                )}
+                <button onClick={() => setShowLearningPanel(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#82829B' }}>×</button>
+              </div>
+            </div>
+            <div style={{ padding: '10px 20px', fontSize: 12, color: '#6B7280', borderBottom: '1px solid #F3F4F6' }}>
+              A auditoria detectou um padrão de erro repetido da Gabriela e já registrou uma sugestão de correção na aba <strong>Aprendizados</strong>, dentro de Conhecimento. Nada é aplicado automaticamente — revise lá e decida.
+            </div>
+            <div style={{ overflowY: 'auto', padding: 12 }}>
+              {learningAlerts.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#82829B', fontSize: 13 }}>✅ Nenhum aprendizado novo pendente</div>
+              ) : (
+                learningAlerts.map(alert => (
+                  <div key={alert.id} style={{ background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: '#0A0A0A', lineHeight: 1.4 }}>{alert.message}</div>
+                        <div style={{ fontSize: 10, color: '#82829B', marginTop: 4 }}>
+                          {new Date(alert.created_at).toLocaleString('pt-BR')}
+                        </div>
                       </div>
                       <button onClick={() => handleResolveAlert(alert.id)} title="Marcar como visto"
                         style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', color: '#82829B', flexShrink: 0 }}>

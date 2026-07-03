@@ -12,6 +12,7 @@ import RelatoriosPage from './pages/RelatoriosPage'
 import AgentsPage from './pages/AgentsPage'
 import KnowledgePage from './pages/KnowledgePage'
 import ContactsPage from './pages/ContactsPage'
+import ContactsNewPage from './pages/ContactsNewPage'
 import SimuladorClientePage from './pages/SimuladorClientePage'
 import CatalogPage from './pages/CatalogPage'
 import ImportCatalogPage from './pages/ImportCatalogPage'
@@ -293,6 +294,7 @@ export default function App() {
           {page === 'channels' && <ChannelsPage />}
           {page === 'dealonca' && <DealOncaPage conversations={conversations} setPage={setPage} />}
           {page === 'contacts' && <ContactsPage conversations={conversations} setPage={setPage} activeConv={activeConv} setActiveConv={setActiveConv} />}
+          {page === 'contacts-new' && <ContactsNewPage conversations={conversations} />}
           {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
           {page === 'reports'    && <DashboardPage conversations={conversations} />}
           {page === 'relatorios' && <RelatoriosPage />}
