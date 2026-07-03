@@ -478,10 +478,10 @@ export default function KnowledgePage() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 12, overflow: 'hidden' }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #E5E5E5' }}>
+      <div style={{ padding: '22px 26px 0', borderBottom: '1px solid #F0F0F0' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F0EBFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -895,7 +895,7 @@ export default function KnowledgePage() {
                               </td>
                               <td style={td}>
                                 {cat && (
-                                  <span style={{ background: cat.bg, color: cat.color, border: `1px solid ${cat.color}30`, borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                  <span style={{ background: cat.bg, color: cat.color, borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap' }}>
                                     {cat.label}
                                   </span>
                                 )}
@@ -1535,6 +1535,6 @@ function ModalField({ label, children, style }) {
   )
 }
 
-const th = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left' }
-const td = { padding: '12px 16px', verticalAlign: 'middle' }
+const th = { padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left' }
+const td = { padding: '15px 16px', verticalAlign: 'middle' }
 const inputSt = { width: '100%', border: '1px solid #E5E5E5', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#0A0A0A', outline: 'none', boxSizing: 'border-box', background: '#fff', fontFamily: 'inherit' }
