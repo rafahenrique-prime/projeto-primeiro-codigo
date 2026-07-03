@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../theme.jsx'
 import { listAgents, listChannels, updateAgent, activateAgent, deactivateAgent, testAgentConversation, testChatId, deleteChat } from '../services/gptmaker'
+import { clearAvatarCache } from '../services/avatarCacheService'
 
 const ROTEIRO_TEMPLATE = `## ROTEIRO DE VENDA (siga as etapas em ordem, sem pular)
 1. Identifique a intenção do cliente em 1-2 interações.
@@ -36,6 +37,10 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [showClearAvatars, setShowClearAvatars] = useState(false)
+  const [clearPassword, setClearPassword] = useState('')
+  const [clearingAvatars, setClearingAvatars] = useState(false)
+  const [clearError, setClearError] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -78,6 +83,26 @@ export default function AgentsPage() {
       alert('Erro ao salvar: ' + e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const CLEAR_AVATARS_PASSWORD = 'CONFIRMAR'
+
+  const handleClearAvatars = async () => {
+    if (clearPassword.trim().toUpperCase() !== CLEAR_AVATARS_PASSWORD) {
+      setClearError('Digite exatamente "CONFIRMAR" pra prosseguir.')
+      return
+    }
+    setClearingAvatars(true)
+    setClearError(null)
+    try {
+      await clearAvatarCache()
+      setShowClearAvatars(false)
+      setClearPassword('')
+    } catch (e) {
+      setClearError('Erro ao apagar: ' + e.message)
+    } finally {
+      setClearingAvatars(false)
     }
   }
 
@@ -159,7 +184,47 @@ export default function AgentsPage() {
             )
           })}
         </div>
+        <div style={{ padding: 8, borderTop: `1px solid ${tt.border}` }}>
+          <button onClick={() => { setShowClearAvatars(true); setClearError(null); setClearPassword('') }}
+            style={{ width: '100%', background: 'none', border: `1px solid ${tt.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 12, color: tt.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            onMouseEnter={e => { e.currentTarget.style.color = tt.primary || '#E8192C'; e.currentTarget.style.borderColor = tt.primary || '#E8192C' }}
+            onMouseLeave={e => { e.currentTarget.style.color = tt.textMuted; e.currentTarget.style.borderColor = tt.border }}>
+            <IcoTrash size={13} /> Apagar avatares em cache
+          </button>
+        </div>
       </div>
+
+      {showClearAvatars && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => !clearingAvatars && setShowClearAvatars(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: tt.bg, borderRadius: 12, padding: 20, width: 320, boxShadow: '0 10px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: tt.text, marginBottom: 4 }}>Apagar avatares em cache?</div>
+            <div style={{ fontSize: 12, color: tt.textMuted, marginBottom: 14 }}>
+              Isso apaga todas as fotos salvas no Storage. As fotos voltam a ser buscadas da origem (WhatsApp/Instagram) na próxima vez que cada conversa abrir. Digite <strong>CONFIRMAR</strong> pra prosseguir.
+            </div>
+            <input
+              type="text"
+              value={clearPassword}
+              onChange={e => setClearPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleClearAvatars()}
+              placeholder="Digite CONFIRMAR"
+              autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${tt.border}`, borderRadius: 8, padding: '9px 12px', fontSize: 13, color: tt.text, background: tt.inputBg || tt.bg, outline: 'none', marginBottom: 8 }}
+            />
+            {clearError && <div style={{ fontSize: 12, color: '#E8192C', marginBottom: 8 }}>{clearError}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowClearAvatars(false)} disabled={clearingAvatars}
+                style={{ flex: 1, background: 'none', border: `1px solid ${tt.border}`, borderRadius: 8, padding: '9px 0', fontSize: 12, color: tt.textMid, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleClearAvatars} disabled={clearingAvatars || !clearPassword}
+                style={{ flex: 1, background: tt.primary || '#E8192C', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 12, fontWeight: 600, color: '#fff', cursor: clearingAvatars ? 'not-allowed' : 'pointer', opacity: clearingAvatars || !clearPassword ? 0.6 : 1 }}>
+                {clearingAvatars ? 'Apagando...' : 'CONFIRMAR'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Coluna 2 — Configuração */}
       {selected && draft && (
@@ -366,3 +431,4 @@ function inputStyle(t) {
 }
 
 function IcoPlus({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg> }
+function IcoTrash({ size = 13 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg> }

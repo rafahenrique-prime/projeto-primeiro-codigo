@@ -27,6 +27,7 @@ import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
 import { getAllProfiles } from './services/customerProfileService'
+import { ensureCachedAvatar } from './services/avatarCacheService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length] }
@@ -101,6 +102,7 @@ export default function App() {
   const convsRef = useRef([])
   const initialLoadDone = useRef(false)
   const manuallyReadRef = useRef(new Set())
+  const avatarCacheRef = useRef({}) // contactId -> url já resolvida nessa sessão (evita re-checar toda hora)
 
   useEffect(() => {
     Notification.requestPermission()
@@ -138,6 +140,20 @@ export default function App() {
     const timer = setInterval(loadProfiles, 60000)
     return () => clearInterval(timer)
   }, [])
+
+  // Garante que cada foto de contato seja salva no Storage próprio (uma vez por sessão),
+  // sem travar a UI — atualiza `conversations` aos poucos conforme cada foto termina.
+  async function cacheAvatarsInBackground(convs) {
+    const pending = convs.filter(c => c.picture && !avatarCacheRef.current[c.id])
+    for (const c of pending) {
+      const cachedUrl = await ensureCachedAvatar(c.id, c.picture)
+      avatarCacheRef.current[c.id] = cachedUrl
+      if (cachedUrl !== c.picture) {
+        setConversations(prev => prev.map(p => p.id === c.id ? { ...p, picture: cachedUrl } : p))
+      }
+      await new Promise(r => setTimeout(r, 150))
+    }
+  }
 
   async function loadChats(isFirst = false) {
     if (isFirst) setLoading(true)
@@ -177,6 +193,7 @@ export default function App() {
       convsRef.current = normalized
       initialLoadDone.current = true
       if (isFirst && normalized.length > 0) setActiveConv(normalized[0])
+      cacheAvatarsInBackground(normalized)
     } catch (e) {
       console.error('Erro ao carregar chats:', e)
     } finally {
