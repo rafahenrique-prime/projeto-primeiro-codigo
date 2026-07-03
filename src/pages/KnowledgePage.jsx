@@ -7,6 +7,7 @@ import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from
 import { extractTextFromImage, detectContentCategory, identifyProductFromPhoto } from '../services/ocrService'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/knowledgeParser'
 import { getAllLearnings, deleteLearning } from '../services/agentLearningsService'
+import PhotoHistoryPanel from '../components/PhotoHistoryPanel'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6', bg: '#EFF6FF' },
@@ -516,6 +517,7 @@ export default function KnowledgePage() {
             { key: 'extract',   label: 'Extrair da URL' },
             { key: 'history',   label: 'Histórico' },
             { key: 'learnings', label: `Aprendizados${learningsCount > 0 ? ` (${learningsCount})` : ''}` },
+            { key: 'photos', label: 'Histórico de Fotos' },
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               background: 'none', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent',
@@ -1218,6 +1220,9 @@ export default function KnowledgePage() {
           </div>
         )
       })()}
+
+      {/* ── Histórico de Fotos — envios automáticos e manuais ── */}
+      {activeTab === 'photos' && <PhotoHistoryPanel />}
 
       {/* ── Table (aba conhecimento) ── */}
       {activeTab === 'knowledge' && <div style={{ flex: 1, overflowY: 'auto' }}>

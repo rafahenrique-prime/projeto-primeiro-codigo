@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { getChatMessages, sendMessage, assumeChat, releaseChat } from '../services/gptmaker'
 import { getRespostaRecomendada } from '../services/groq'
+import { searchProduct, isValidImageUrl } from '../services/catalog'
+import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
 
 function calcProgress(msgs = [], lastMsg = '') {
@@ -24,10 +26,44 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
   const [progress, setProgress] = useState(conv.objective_progress || 0)
   const [togglingMode, setTogglingMode] = useState(false)
   const [toast, setToast] = useState(null)
+  const [showAgentBlock, setShowAgentBlock] = useState(true)
+  const [showObjective, setShowObjective] = useState(true)
+  const [showResumo, setShowResumo] = useState(true)
+  const [showProductSearch, setShowProductSearch] = useState(false)
+  const [productQuery, setProductQuery] = useState('')
+  const [productResults, setProductResults] = useState([])
+  const [sendingProduct, setSendingProduct] = useState(false)
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  function handleProductSearch(query) {
+    setProductQuery(query)
+    setProductResults(query.trim().length >= 2 ? searchProduct(query) : [])
+  }
+
+  async function sendProductPhoto(produto) {
+    if (!isValidImageUrl(produto.imagem)) {
+      showToast(`URL de imagem inválida para "${produto.nome}"`, 'error')
+      return
+    }
+    setSendingProduct(true)
+    try {
+      await sendMessage(conv.id, produto.nome, produto.imagem)
+      await new Promise(r => setTimeout(r, 1000))
+      sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(() => {})
+      addPhotoToHistory({ produto: produto.nome, cliente: conv.name, canal: conv.channelLabel, tipo: 'manual', sucesso: true })
+      showToast(`Foto de "${produto.nome}" enviada`)
+      setProductQuery('')
+      setProductResults([])
+    } catch (e) {
+      addPhotoToHistory({ produto: produto.nome, cliente: conv.name, canal: conv.channelLabel, tipo: 'manual', sucesso: false, erro: e.message })
+      showToast('Erro ao enviar foto: ' + e.message, 'error')
+    } finally {
+      setSendingProduct(false)
+    }
   }
 
   async function toggleMode() {
@@ -105,7 +141,13 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
       )}
 
       {/* Agente + Contato */}
-      <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${t.border}` }}>
+      <div style={{ padding: showAgentBlock ? '14px 16px 12px' : '10px 16px', borderBottom: `1px solid ${t.border}` }}>
+        <button onClick={() => setShowAgentBlock(s => !s)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showAgentBlock ? 8 : 0 }}>
+          <Label t={t} style={{ margin: 0 }}>Contato</Label>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showAgentBlock ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        {showAgentBlock && (<>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, background: t.bgSecondary, borderRadius: 10, padding: '8px 10px', border: `1px solid ${t.border}` }}>
           <div style={{
             width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
@@ -152,14 +194,20 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
             {conv.phone}
           </div>
         )}
+        </>)}
       </div>
 
       {/* Objetivo + Progresso */}
-      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EC331" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-          <Label t={t} style={{ margin: 0 }}>Objetivo</Label>
-        </div>
+      <div style={{ padding: showObjective ? '12px 16px' : '10px 16px', borderBottom: `1px solid ${t.border}` }}>
+        <button onClick={() => setShowObjective(s => !s)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showObjective ? 6 : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EC331" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <Label t={t} style={{ margin: 0 }}>Objetivo</Label>
+          </div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showObjective ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        {showObjective && (<>
         <div style={{ fontSize: 12, color: t.textSecondary, fontWeight: 500, marginBottom: 10, lineHeight: 1.5 }}>
           {conv.objective || 'Recommending Products and Driving Conversions'}
         </div>
@@ -174,6 +222,7 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: '#F97316', minWidth: 36 }}>{progress}%</span>
         </div>
         <div style={{ fontSize: 10, color: t.textMuted }}>Progresso do objetivo</div>
+        </>)}
       </div>
 
       {/* Tags */}
@@ -280,26 +329,71 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
 
       {/* Resumo da conversa */}
       {(resposta?.resumo || loadingResposta) && (
-        <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <Label t={t} style={{ margin: 0 }}>Resumo da Conversa</Label>
-          </div>
-          {loadingResposta ? (
-            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              {[0, 0.2, 0.4].map((d, i) => (
-                <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366F1', animation: `blink 1s ${d}s infinite` }} />
-              ))}
-              <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 4 }}>Analisando conversa...</span>
+        <div style={{ padding: showResumo ? '12px 16px' : '10px 16px', borderBottom: `1px solid ${t.border}` }}>
+          <button onClick={() => setShowResumo(s => !s)}
+            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showResumo ? 6 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <Label t={t} style={{ margin: 0 }}>Resumo da Conversa</Label>
             </div>
-          ) : (
-            <p style={{ fontSize: 13, color: t.textSecondary, lineHeight: 1.7, margin: 0, background: t.bgSecondary, borderRadius: 8, padding: '12px 14px', border: `1px solid ${t.border}` }}>
-              {resposta.resumo}
-            </p>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showResumo ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          {showResumo && (
+            loadingResposta ? (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                {[0, 0.2, 0.4].map((d, i) => (
+                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366F1', animation: `blink 1s ${d}s infinite` }} />
+                ))}
+                <span style={{ fontSize: 12, color: t.textMuted, marginLeft: 4 }}>Analisando conversa...</span>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: t.textSecondary, lineHeight: 1.7, margin: 0, background: t.bgSecondary, borderRadius: 8, padding: '12px 14px', border: `1px solid ${t.border}` }}>
+                {resposta.resumo}
+              </p>
+            )
           )}
         </div>
       )}
 
+      {/* Buscar produto — recolhível */}
+      <div style={{ borderBottom: `1px solid ${t.border}` }}>
+        <button onClick={() => setShowProductSearch(s => !s)}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EC331" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <Label t={t} style={{ margin: 0 }}>Buscar produto</Label>
+          </div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showProductSearch ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        {showProductSearch && (
+          <div style={{ padding: '0 16px 14px' }}>
+            <input
+              autoFocus
+              value={productQuery}
+              onChange={e => handleProductSearch(e.target.value)}
+              placeholder="Nome do produto..."
+              style={{ width: '100%', border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, color: t.text, background: t.inputBg, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+            />
+            {productResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+                {productResults.map(prod => (
+                  <button key={prod.id} onClick={() => sendProductPhoto(prod)} disabled={sendingProduct}
+                    style={{ display: 'flex', gap: 10, alignItems: 'center', background: t.bgSecondary, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 10px', textAlign: 'left', cursor: sendingProduct ? 'not-allowed' : 'pointer', opacity: sendingProduct ? 0.5 : 1 }}>
+                    {prod.imagem && <img src={prod.imagem} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prod.nome}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted }}>{prod.preco}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {productQuery && productResults.length === 0 && (
+              <div style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', padding: 12 }}>Nenhum produto encontrado</div>
+            )}
+          </div>
+        )}
+      </div>
 
       <style>{`@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}`}</style>
     </div>

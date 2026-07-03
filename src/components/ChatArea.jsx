@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
 import { detectProductRequest, groqRequest } from '../services/groq'
-import { findBestMatch, searchProduct, findProductInText, isValidImageUrl } from '../services/catalog'
+import { findBestMatch, findProductInText, isValidImageUrl } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
@@ -10,6 +10,8 @@ import { upsertProfile, getProfile } from '../services/customerProfileService'
 import { syncMessages, getConvHistory, deleteConvHistory, archiveConvHistory } from '../services/messageHistoryService'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
+
+const EMOJI_SET = ['😊','🙏','✅','❤️','🔥','👍','💰','📦','✨','😅','🎉','😉','🙌','💳','📸','⏰','😍','👏','💬','🚚','⭐','🤝','😄','💯']
 
 
 function fmtTime(ts) {
@@ -41,10 +43,11 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
   const lastAutoPhotoTimeRef = useRef(0)
   // Rastreamento de contexto Dealism-style: último produto em foco na conversa
   const lastProductContextRef = useRef(null)
-  const [showPhotoModal, setShowPhotoModal] = useState(false)
-  const [photoSearch, setPhotoSearch] = useState('')
-  const [photoResults, setPhotoResults] = useState([])
-  const [sendingPhoto, setSendingPhoto] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const fileInputRef = useRef(null)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showHeaderBadges, setShowHeaderBadges] = useState(true)
+  const emojiPickerRef = useRef(null)
 
   useImperativeHandle(ref, () => ({
     fill: (text) => setInput(text)
@@ -88,6 +91,13 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [showMenu])
+
+  useEffect(() => {
+    if (!showEmojiPicker) return
+    const close = (e) => { if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) setShowEmojiPicker(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showEmojiPicker])
 
   useEffect(() => {
     setMode(conv.mode || 'autopilot')
@@ -394,60 +404,34 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
     }
   }
 
-  const handlePhotoSearch = (query) => {
-    setPhotoSearch(query)
-    if (query.trim().length >= 2) {
-      setPhotoResults(searchProduct(query))
-    } else {
-      setPhotoResults([])
-    }
-  }
-
-  const sendPhotoManual = async (produto) => {
-    if (!isValidImageUrl(produto.imagem)) {
-      console.error('[ManualFoto] URL inválida:', produto.imagem)
-      alert(`⚠️ URL de imagem inválida para "${produto.nome}".\nURL: ${produto.imagem?.slice(0, 80)}`)
-      return
-    }
-    setSendingPhoto(true)
-    // Mostra a foto imediatamente no chat
-    const tempPhoto = { id: Date.now(), role: 'agent', text: produto.nome, image: produto.imagem, time: Date.now() }
-    setMsgs(prev => [...prev, tempPhoto])
+  async function uploadAndSendImage(file) {
+    if (!file || !file.type?.startsWith('image/')) return
+    setUploadingFile(true)
     try {
-      await sendMessage(conv.id, produto.nome, produto.imagem)
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+      const fileName = `chat_${conv.id.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.${ext}`
 
-      // Aguarda 1s antes de enviar preço/link (aumentado de 500ms para evitar rate-limit)
-      await new Promise(r => setTimeout(r, 1000))
-      sendMessage(conv.id, `${produto.preco}\n\n${produto.link}`).catch(err => {
-        console.error('[ManualFoto-PrecoLink] Erro ao enviar preço/link:', err.message)
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/produtos/${fileName}`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'image/jpeg' },
+        body: file,
       })
+      if (!uploadRes.ok) throw new Error('Falha no upload da imagem')
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/produtos/${fileName}`
 
-      // Registra no histórico
-      addPhotoToHistory({
-        produto: produto.nome,
-        cliente: conv.name,
-        canal: conv.channelLabel,
-        tipo: 'manual',
-        sucesso: true,
-      })
+      const tempPhoto = { id: Date.now(), role: 'agent', text: '', image: publicUrl, time: Date.now() }
+      setMsgs(prev => [...prev, tempPhoto])
+      await sendMessage(conv.id, '', publicUrl)
 
-      setShowPhotoModal(false)
-      setPhotoSearch('')
-      setPhotoResults([])
+      addPhotoToHistory({ produto: 'Upload manual', cliente: conv.name, canal: conv.channelLabel, tipo: 'manual', sucesso: true })
     } catch (e) {
-      console.error('Erro ao enviar foto:', e)
-
-      // Registra erro no histórico
-      addPhotoToHistory({
-        produto: produto.nome,
-        cliente: conv.name,
-        canal: conv.channelLabel,
-        tipo: 'manual',
-        sucesso: false,
-        erro: e.message,
-      })
+      console.error('[Upload] Erro ao enviar imagem:', e.message)
+      addPhotoToHistory({ produto: 'Upload manual', cliente: conv.name, canal: conv.channelLabel, tipo: 'manual', sucesso: false, erro: e.message })
+      alert('Não foi possível enviar a imagem: ' + e.message)
     } finally {
-      setSendingPhoto(false)
+      setUploadingFile(false)
     }
   }
 
@@ -461,36 +445,44 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
             : <div style={{ width: 38, height: 38, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#fff' }}>{conv.initials}</div>
           }
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{conv.name}</div>
-            <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}
-              <span style={{
-                fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
-                background: mode === 'copilot' ? '#FEE2E2' : '#F0FDF4',
-                color: mode === 'copilot' ? '#DC2626' : '#16A34A',
-              }}>
-                {mode === 'copilot' ? 'Você está atendendo' : 'Agente respondendo'}
-              </span>
-              {clientProfile?.buy_score > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px',
-                  background: clientProfile.buy_score >= 70 ? '#FEF9C3' : '#F3F4F6',
-                  color: clientProfile.buy_score >= 70 ? '#92400E' : '#6B7280',
-                }}>
-                  Score {clientProfile.buy_score}
-                </span>
-              )}
-              {clientProfile?.size && (
-                <span style={{ fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px', background: '#EDE9FE', color: '#5B21B6' }}>
-                  Tam. {clientProfile.size}
-                </span>
-              )}
-              {clientProfile?.tags?.slice(0, 2).map((tag, i) => (
-                <span key={i} style={{ fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '1px 6px', background: '#F0FDF4', color: '#166534' }}>
-                  {tag}
-                </span>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{conv.name}</div>
+              <button onClick={() => setShowHeaderBadges(s => !s)} title={showHeaderBadges ? 'Recolher detalhes' : 'Mostrar detalhes'}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 2, display: 'flex', alignItems: 'center' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showHeaderBadges ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}><polyline points="18 15 12 9 6 15"/></svg>
+              </button>
             </div>
+            {showHeaderBadges && (
+              <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}
+                <span style={{
+                  fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
+                  background: mode === 'copilot' ? '#FEE2E2' : '#F0FDF4',
+                  color: mode === 'copilot' ? '#DC2626' : '#16A34A',
+                }}>
+                  {mode === 'copilot' ? 'Você está atendendo' : 'Agente respondendo'}
+                </span>
+                {clientProfile?.buy_score > 0 && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px',
+                    background: clientProfile.buy_score >= 70 ? '#FEF9C3' : '#F3F4F6',
+                    color: clientProfile.buy_score >= 70 ? '#92400E' : '#6B7280',
+                  }}>
+                    Score {clientProfile.buy_score}
+                  </span>
+                )}
+                {clientProfile?.size && (
+                  <span style={{ fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px', background: '#EDE9FE', color: '#5B21B6' }}>
+                    Tam. {clientProfile.size}
+                  </span>
+                )}
+                {clientProfile?.tags?.slice(0, 2).map((tag, i) => (
+                  <span key={i} style={{ fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '1px 6px', background: '#F0FDF4', color: '#166534' }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -621,60 +613,49 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            onPaste={e => {
+              const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'))
+              if (item) { e.preventDefault(); uploadAndSendImage(item.getAsFile()) }
+            }}
             rows={2}
-            placeholder="Digite aqui..."
+            placeholder="Digite aqui... (cole uma imagem com Cmd+V para enviar)"
             style={{ background: 'transparent', border: 'none', fontSize: 14, color: t.text, outline: 'none', resize: 'none', width: '100%', fontFamily: 'inherit', lineHeight: 1.5 }}
           />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: 4, position: 'relative' }}>
-              <IconBtn title="Anexo" color={t.textMuted}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              </IconBtn>
-              <IconBtn title="Emoji" color={t.textMuted}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-              </IconBtn>
-
-              {/* Botão Enviar Foto */}
+              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadAndSendImage(f); e.target.value = '' }} />
               <button
-                onClick={() => setShowPhotoModal(!showPhotoModal)}
-                title="Enviar Foto"
-                style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center' }}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingFile}
+                title="Enviar imagem do computador"
+                style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: uploadingFile ? 'wait' : 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center', opacity: uploadingFile ? 0.5 : 1 }}
               >
-                <IcoCamera size={16} />
+                {uploadingFile
+                  ? <span style={{ display: 'inline-block', width: 15, height: 15, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>}
               </button>
 
-              {/* Modal Enviar Foto */}
-              {showPhotoModal && (
-                <div style={{ position: 'absolute', bottom: 40, left: 0, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10, minWidth: 200, maxWidth: 250, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000 }}>
-                  <input
-                    type="text"
-                    placeholder="Buscar produto..."
-                    value={photoSearch}
-                    onChange={e => handlePhotoSearch(e.target.value)}
-                    style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '6px 8px', fontSize: 12, marginBottom: 8 }}
-                  />
-                  {photoResults.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
-                      {photoResults.map(prod => (
-                        <button
-                          key={prod.id}
-                          onClick={() => sendPhotoManual(prod)}
-                          disabled={sendingPhoto}
-                          style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 6, padding: '6px 8px', textAlign: 'left', cursor: sendingPhoto ? 'not-allowed' : 'pointer', fontSize: 11, opacity: sendingPhoto ? 0.5 : 1 }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f0f0f0'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                        >
-                          <div style={{ fontWeight: 600, color: t.text }}>{prod.nome}</div>
-                          <div style={{ fontSize: 10, color: t.textMuted }}>{prod.preco}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {photoSearch && photoResults.length === 0 && (
-                    <div style={{ fontSize: 11, color: t.textMuted, textAlign: 'center', padding: 8 }}>Nenhum produto encontrado</div>
-                  )}
-                </div>
-              )}
+              <div ref={emojiPickerRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowEmojiPicker(s => !s)}
+                  title="Emoji"
+                  style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center' }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                </button>
+                {showEmojiPicker && (
+                  <div style={{ position: 'absolute', bottom: 32, left: 0, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 1000, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, width: 190 }}>
+                    {EMOJI_SET.map(e => (
+                      <button key={e} onClick={() => { setInput(v => v + e); setShowEmojiPicker(false) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: 4, borderRadius: 6, lineHeight: 1 }}
+                        onMouseEnter={ev => ev.currentTarget.style.background = t.bgTertiary}
+                        onMouseLeave={ev => ev.currentTarget.style.background = 'none'}
+                      >{e}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <button onClick={handleGerar} disabled={gerarLoading} style={{ background: gerarLoading ? '#6B7280' : 'linear-gradient(135deg, #0EC331, #10B981)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: gerarLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="#fff"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -817,18 +798,10 @@ function IcoChat({ size = 15, color = 'currentColor' }) { return <svg width={siz
 function IcoSave({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> }
 function IcoClear({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> }
 function IcoCheck({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> }
-function IcoCamera({ size = 16, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }
 function IcoArchive({ size = 20, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> }
 function IcoTrash({ size = 20, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg> }
 function IcoMic({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> }
 
-function IconBtn({ children, title, color }) {
-  return (
-    <button title={title} style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color, display: 'flex', alignItems: 'center' }}>
-      {children}
-    </button>
-  )
-}
 
 function ModeToggle({ mode, setMode, t }) {
   return (

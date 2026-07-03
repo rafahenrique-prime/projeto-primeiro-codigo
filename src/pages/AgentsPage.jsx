@@ -1,16 +1,6 @@
-import { useState, useEffect } from 'react'
-import { listAgents, listChannels, updateAgent, activateAgent, deactivateAgent } from '../services/gptmaker'
-
-const t = {
-  card: '#FFFFFF',
-  cardBorder: '#E5E5E5',
-  bg: '#F9F9FB',
-  text: '#0A0A0A',
-  textMuted: '#82829B',
-  primary: '#0EC331',
-  secondary: '#6366F1',
-  info: '#2185FF',
-}
+import { useState, useEffect, useRef } from 'react'
+import { useTheme } from '../theme.jsx'
+import { listAgents, listChannels, updateAgent, activateAgent, deactivateAgent, testAgentConversation, testChatId, deleteChat } from '../services/gptmaker'
 
 const ROTEIRO_TEMPLATE = `## ROTEIRO DE VENDA (siga as etapas em ordem, sem pular)
 1. Identifique a intenção do cliente em 1-2 interações.
@@ -35,19 +25,19 @@ const ROTEIRO_TEMPLATE = `## ROTEIRO DE VENDA (siga as etapas em ordem, sem pula
 - Nunca prometa desconto sem confirmação da política vigente.
 - Nunca repita a mesma pergunta já respondida pelo cliente.`
 
+const PREVIEW_TTL_MS = 10 * 60 * 1000
+
 export default function AgentsPage() {
+  const { theme: tt, dark } = useTheme()
   const [agents, setAgents] = useState([])
   const [channels, setChannels] = useState([])
   const [selected, setSelected] = useState(null)
-  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
@@ -56,7 +46,10 @@ export default function AgentsPage() {
       const [ag, ch] = await Promise.all([listAgents(), listChannels()])
       setAgents(ag)
       setChannels(ch)
-      if (ag.length > 0) setSelected(ag[0])
+      if (ag.length > 0) {
+        setSelected(ag[0])
+        setDraft({ ...ag[0] })
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -64,7 +57,10 @@ export default function AgentsPage() {
     }
   }
 
-  const startEdit = () => { setDraft({ ...selected }); setEditing(true) }
+  function selectAgent(agent) {
+    setSelected(agent)
+    setDraft({ ...agent })
+  }
 
   const saveEdit = async () => {
     setSaving(true)
@@ -78,7 +74,6 @@ export default function AgentsPage() {
       })
       setAgents(prev => prev.map(a => a.id === draft.id ? { ...a, ...draft } : a))
       setSelected({ ...selected, ...draft })
-      setEditing(false)
     } catch (e) {
       alert('Erro ao salvar: ' + e.message)
     } finally {
@@ -92,12 +87,12 @@ export default function AgentsPage() {
         await deactivateAgent(agent.id)
         const updated = { ...agent, status: 'DISABLED' }
         setAgents(prev => prev.map(a => a.id === agent.id ? updated : a))
-        if (selected?.id === agent.id) setSelected(updated)
+        if (selected?.id === agent.id) { setSelected(updated); setDraft(d => ({ ...d, status: 'DISABLED' })) }
       } else {
         await activateAgent(agent.id)
         const updated = { ...agent, status: 'ACTIVE' }
         setAgents(prev => prev.map(a => a.id === agent.id ? updated : a))
-        if (selected?.id === agent.id) setSelected(updated)
+        if (selected?.id === agent.id) { setSelected(updated); setDraft(d => ({ ...d, status: 'ACTIVE' })) }
       }
     } catch (e) {
       alert('Erro: ' + e.message)
@@ -108,57 +103,56 @@ export default function AgentsPage() {
   const initials = (name) => name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
   if (loading) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', borderRadius: 8 }}>
-      <div style={{ fontSize: 14, color: '#82829B' }}>Carregando agentes...</div>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: tt.bg, borderRadius: 12 }}>
+      <div style={{ fontSize: 13, color: tt.textMuted }}>Carregando agentes...</div>
     </div>
   )
 
   if (error) return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: '#fff', borderRadius: 8 }}>
-      <div style={{ fontSize: 32 }}>⚠️</div>
-      <div style={{ fontSize: 14, color: '#EF4444' }}>{error}</div>
-      <button onClick={load} style={{ background: '#0EC331', border: 'none', borderRadius: 8, padding: '8px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Tentar novamente</button>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: tt.bg, borderRadius: 12 }}>
+      <div style={{ fontSize: 13, color: '#DC2626' }}>{error}</div>
+      <button onClick={load} style={{ background: tt.primary || '#E8192C', border: 'none', borderRadius: 8, padding: '8px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Tentar novamente</button>
     </div>
   )
 
-  return (
-    <div style={{ flex: 1, display: 'flex', gap: 16, overflow: 'hidden', padding: 16, background: t.bg }}>
+  const dirty = selected && draft && (
+    draft.name !== selected.name || draft.behavior !== selected.behavior ||
+    draft.jobDescription !== selected.jobDescription || draft.jobSite !== selected.jobSite ||
+    draft.jobName !== selected.jobName
+  )
 
-      {/* Lista de agentes - MELHORADA */}
-      <div style={{ width: 280, background: t.card, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, border: `1px solid ${t.cardBorder}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ padding: '16px', borderBottom: `1px solid ${t.cardBorder}` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-            🤖 Agentes <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted }}>({agents.length})</span>
-          </div>
-          <button style={{ width: '100%', background: t.primary, border: 'none', borderRadius: 8, padding: '10px 12px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}>
-            ➕ Novo Agente
+  return (
+    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr 300px', gap: 14, overflow: 'hidden', padding: 14, background: tt.appBg }}>
+
+      {/* Coluna 1 — Lista de agentes */}
+      <div style={{ background: tt.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: `1px solid ${tt.border}` }}>
+        <div style={{ padding: 12, borderBottom: `1px solid ${tt.border}` }}>
+          <button style={{ width: '100%', background: tt.primary || '#E8192C', border: 'none', borderRadius: 8, padding: '9px 12px', fontSize: 13, fontWeight: 500, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <IcoPlus size={14} /> Criar agente
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {agents.map(agent => {
-            const numChannels = channels.filter(c => c.agentId === agent.id).length
+            const active = selected?.id === agent.id
             return (
-              <div key={agent.id} onClick={() => { setSelected(agent); setEditing(false) }}
+              <div key={agent.id} onClick={() => selectAgent(agent)}
                 style={{
-                  padding: '12px', margin: '8px', borderRadius: 10, cursor: 'pointer',
-                  display: 'flex', gap: 10, alignItems: 'flex-start',
-                  background: selected?.id === agent.id ? '#F0F4FF' : t.card,
-                  border: `1.5px solid ${selected?.id === agent.id ? t.secondary : t.cardBorder}`,
-                  transition: 'all 0.15s'
-                }}>
-                <img src={agent.avatar} alt="" style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} onError={e => e.target.style.display='none'} />
+                  padding: '9px 10px', borderRadius: 8, cursor: 'pointer',
+                  display: 'flex', gap: 8, alignItems: 'center',
+                  background: active ? (tt.primaryBg || '#fff5f5') : 'transparent',
+                  border: `1px solid ${active ? (tt.primary || '#E8192C') : 'transparent'}`,
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = tt.bgTertiary }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                {agent.avatar
+                  ? <img src={agent.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
+                  : <div style={{ width: 32, height: 32, borderRadius: '50%', background: tt.bgTertiary, color: tt.textMid, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{initials(agent.name)}</div>}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{agent.name}</div>
-                  <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{agent.jobName}</div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, background: agent.status === 'ACTIVE' ? '#EFFDF4' : '#F3F4F6', color: agent.status === 'ACTIVE' ? t.primary : '#9CA3AF', padding: '2px 8px', borderRadius: 4 }}>
-                      {agent.status === 'ACTIVE' ? '🟢 Ativo' : '⚫ Inativo'}
-                    </span>
-                    {numChannels > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 600, background: '#EFF6FF', color: t.info, padding: '2px 8px', borderRadius: 4 }}>
-                        📱 {numChannels}
-                      </span>
-                    )}
+                  <div style={{ fontSize: 13, fontWeight: 500, color: active ? (tt.primary || '#E8192C') : tt.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</div>
+                  <div style={{ fontSize: 11, color: tt.textMuted, display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: agent.status === 'ACTIVE' ? '#10B981' : tt.textMuted, flexShrink: 0 }} />
+                    {agent.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                   </div>
                 </div>
               </div>
@@ -167,130 +161,208 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Detalhe do agente - NOVO LAYOUT */}
-      {selected && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Header Card - Status + Actions */}
-          <div style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.cardBorder}`, padding: '20px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <img src={selected.avatar} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${selected.status === 'ACTIVE' ? t.primary : '#D1D5DB'}` }} />
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{selected.name}</div>
-                <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>
-                  {selected.jobName} • {selected.jobSite && <span>{selected.jobSite}</span>}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ background: selected.status === 'ACTIVE' ? '#EFFDF4' : '#F3F4F6', color: selected.status === 'ACTIVE' ? t.primary : '#9CA3AF', padding: '4px 12px', borderRadius: 20, fontSize: 11 }}>
-                    {selected.status === 'ACTIVE' ? '🟢 Ativo' : '⚫ Inativo'}
-                  </span>
-                  {agentChannels(selected.id).length > 0 && (
-                    <span style={{ background: '#EFF6FF', color: t.info, padding: '4px 12px', borderRadius: 20, fontSize: 11 }}>
-                      📱 {agentChannels(selected.id).length} canal{agentChannels(selected.id).length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-              </div>
+      {/* Coluna 2 — Configuração */}
+      {selected && draft && (
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 500, color: tt.text }}>Configuração do agente</div>
+              <div style={{ fontSize: 12, color: tt.textMuted, marginTop: 2 }}>Identidade, tom de voz e objetivo comercial</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => toggleActive(selected)}
-                style={{ background: selected.status === 'ACTIVE' ? '#FEF3C7' : '#DBEAFE', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, color: selected.status === 'ACTIVE' ? '#92400E' : '#0C4A6E', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-                {selected.status === 'ACTIVE' ? '⏸ Pausar' : '▶ Ativar'}
+                style={{ background: tt.bgTertiary, border: `1px solid ${tt.border}`, borderRadius: 8, padding: '8px 14px', fontSize: 12, color: tt.textSecondary, fontWeight: 500, cursor: 'pointer' }}>
+                {selected.status === 'ACTIVE' ? 'Pausar' : 'Ativar'}
               </button>
-              {!editing && <button onClick={startEdit} style={{ background: t.secondary, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, color: '#fff', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>✏️ Editar</button>}
-              {editing && <>
-                <button onClick={() => setEditing(false)} style={{ background: '#F3F4F6', border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '8px 16px', fontSize: 13, color: t.text, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={saveEdit} disabled={saving} style={{ background: t.primary, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, color: '#fff', fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'Salvando...' : '✓ Salvar'}
-                </button>
-              </>}
+              <button onClick={saveEdit} disabled={saving || !dirty}
+                style={{ background: dirty ? (tt.primary || '#E8192C') : tt.bgTertiary, border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 12, color: dirty ? '#fff' : tt.textMuted, fontWeight: 500, cursor: dirty ? 'pointer' : 'default' }}>
+                {saving ? 'Salvando...' : 'Salvar alterações'}
+              </button>
             </div>
           </div>
 
-          {/* Scroll area com cards */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {agentChannels(selected.id).length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {agentChannels(selected.id).map(ch => (
+                <span key={ch.id} style={{ background: ch.connected ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${ch.connected ? '#BBF7D0' : '#FECACA'}`, borderRadius: 6, padding: '4px 10px', fontSize: 11, color: ch.connected ? '#166534' : '#991B1B', fontWeight: 500 }}>
+                  {ch.name}
+                </span>
+              ))}
+            </div>
+          )}
 
-            {/* Card: Canais vinculados */}
-            {agentChannels(selected.id).length > 0 && (
-              <CardSection title="📱 Canais Vinculados" color="#EFF6FF" borderColor={t.info}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {agentChannels(selected.id).map(ch => (
-                    <span key={ch.id} style={{ background: ch.connected ? '#EFFDF4' : '#FEE2E2', border: `1px solid ${ch.connected ? '#B9F8CF' : '#FECACA'}`, borderRadius: 20, padding: '6px 14px', fontSize: 12, color: ch.connected ? '#065F46' : '#991B1B', fontWeight: 600 }}>
-                      {ch.type === 'INSTAGRAM' ? '📸' : ch.type === 'TELEGRAM' ? '✈️' : '💬'} {ch.name}
-                    </span>
-                  ))}
-                </div>
-              </CardSection>
-            )}
-
-            {/* Card: Informações da Empresa */}
-            <CardSection title="🏢 Informações da Empresa" color="#F0F9FF" borderColor={t.info}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <Field label="Empresa / Loja">
-                  {editing
-                    ? <input value={draft.jobName} onChange={e => setDraft(p => ({...p, jobName: e.target.value}))} style={inputStyle} />
-                    : <div style={valueStyle}>{selected.jobName}</div>}
-                </Field>
-                <Field label="Site">
-                  {editing
-                    ? <input value={draft.jobSite} onChange={e => setDraft(p => ({...p, jobSite: e.target.value}))} style={inputStyle} />
-                    : <div style={valueStyle}>{selected.jobSite || '—'}</div>}
-                </Field>
-              </div>
-              <Field label="Descrição">
-                {editing
-                  ? <textarea value={draft.jobDescription} onChange={e => setDraft(p => ({...p, jobDescription: e.target.value}))} rows={3} style={{...inputStyle, resize: 'vertical'}} />
-                  : <div style={valueStyle}>{selected.jobDescription}</div>}
+          <Card t={tt} title="Informações básicas">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <Field label="Nome" t={tt}>
+                <input value={draft.name || ''} onChange={e => setDraft(p => ({ ...p, name: e.target.value }))} style={inputStyle(tt)} />
               </Field>
-            </CardSection>
+              <Field label="Empresa / loja" t={tt}>
+                <input value={draft.jobName || ''} onChange={e => setDraft(p => ({ ...p, jobName: e.target.value }))} style={inputStyle(tt)} />
+              </Field>
+            </div>
+            <Field label="Site" t={tt}>
+              <input value={draft.jobSite || ''} onChange={e => setDraft(p => ({ ...p, jobSite: e.target.value }))} style={inputStyle(tt)} />
+            </Field>
+            <Field label="Descrição" t={tt}>
+              <textarea value={draft.jobDescription || ''} onChange={e => setDraft(p => ({ ...p, jobDescription: e.target.value }))} rows={3} style={{ ...inputStyle(tt), resize: 'vertical' }} />
+            </Field>
+          </Card>
 
-            {/* Card: Comportamento (Destaque) */}
-            <CardSection title="🧠 Comportamento (System Prompt)" color="#FEF3C7" borderColor="#F59E0B" highlight>
-              {editing && (
-                <button
-                  onClick={() => setDraft(p => ({ ...p, behavior: `${p.behavior ? p.behavior + '\n\n' : ''}${ROTEIRO_TEMPLATE}` }))}
-                  style={{ marginBottom: 10, background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 600, color: '#4F46E5', cursor: 'pointer' }}
-                  title="Insere um roteiro de venda estruturado em etapas, no estilo Dealism"
-                >
-                  📋 Aplicar Roteiro Estruturado
-                </button>
-              )}
-              {editing
-                ? <textarea value={draft.behavior} onChange={e => setDraft(p => ({...p, behavior: e.target.value}))} rows={10} style={{...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: 12}} />
-                : <div style={{...valueStyle, fontFamily: 'monospace', fontSize: 12, background: '#1F2937', color: '#E5E7EB', borderRadius: 8, padding: 12, whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '300px', border: '1px solid #374151'}}>{selected.behavior}</div>}
-            </CardSection>
-
-          </div>
+          <Card t={tt} title="Comportamento (system prompt)">
+            <button
+              onClick={() => setDraft(p => ({ ...p, behavior: `${p.behavior ? p.behavior + '\n\n' : ''}${ROTEIRO_TEMPLATE}` }))}
+              style={{ marginBottom: 10, background: tt.bgTertiary, border: `1px solid ${tt.border}`, borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 500, color: tt.textSecondary, cursor: 'pointer' }}
+              title="Insere um roteiro de venda estruturado em etapas"
+            >
+              Aplicar roteiro estruturado
+            </button>
+            <textarea value={draft.behavior || ''} onChange={e => setDraft(p => ({ ...p, behavior: e.target.value }))} rows={10}
+              style={{ ...inputStyle(tt), resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }} />
+          </Card>
         </div>
       )}
+
+      {/* Coluna 3 — Preview ao vivo */}
+      {selected && <LivePreview agent={selected} t={tt} dark={dark} />}
     </div>
   )
 }
 
-const inputStyle = { width: '100%', background: '#fff', border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: t.text, outline: 'none', boxSizing: 'border-box', transition: 'border 0.2s' }
-const valueStyle = { fontSize: 13, color: t.text, lineHeight: 1.6 }
+function LivePreview({ agent, t, dark }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const contextIdRef = useRef(null)
+  const expiresAtRef = useRef(null)
+  const [expiresIn, setExpiresIn] = useState(null)
 
-function CardSection({ title, color, borderColor, highlight, children }) {
+  useEffect(() => {
+    setMessages([])
+    contextIdRef.current = null
+    expiresAtRef.current = null
+    setExpiresIn(null)
+    return () => cleanup()
+  }, [agent.id])
+
+  useEffect(() => {
+    if (!expiresAtRef.current) return
+    const iv = setInterval(() => {
+      const remaining = expiresAtRef.current - Date.now()
+      if (remaining <= 0) {
+        cleanup()
+        setMessages([])
+        setExpiresIn(null)
+      } else {
+        setExpiresIn(Math.ceil(remaining / 60000))
+      }
+    }, 15000)
+    return () => clearInterval(iv)
+  }, [expiresAtRef.current])
+
+  async function cleanup() {
+    if (contextIdRef.current) {
+      const chatId = testChatId(agent.id, contextIdRef.current)
+      deleteChat(chatId)
+      contextIdRef.current = null
+    }
+  }
+
+  async function send() {
+    const text = input.trim()
+    if (!text || sending) return
+    setInput('')
+    setSending(true)
+    if (!contextIdRef.current) {
+      contextIdRef.current = `preview-${Date.now()}`
+      expiresAtRef.current = Date.now() + PREVIEW_TTL_MS
+      setExpiresIn(Math.ceil(PREVIEW_TTL_MS / 60000))
+    }
+    setMessages(m => [...m, { role: 'user', text }])
+    try {
+      const res = await testAgentConversation(agent.id, text, contextIdRef.current)
+      if (res.success === false) {
+        const friendly = res.error === 'assistant is disabled' ? 'Este agente está inativo — ative-o para testar.' : res.error
+        setMessages(m => [...m, { role: 'agent', text: friendly, isError: true }])
+      } else {
+        setMessages(m => [...m, { role: 'agent', text: res.message || '(sem texto na resposta)' }])
+      }
+    } catch (e) {
+      setMessages(m => [...m, { role: 'agent', text: 'Erro ao testar: ' + e.message }])
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
-    <div style={{
-      background: color,
-      border: `1.5px solid ${borderColor || t.cardBorder}`,
-      borderRadius: 12,
-      padding: 16,
-      boxShadow: highlight ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.05)',
-    }}>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        {title}
-      </h3>
+    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 11, color: t.textMuted }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: contextIdRef.current ? '#10B981' : t.textMuted }} />
+        {contextIdRef.current ? `Preview isolado · some em ${expiresIn ?? 10} min` : 'Preview isolado — não some no Inbox'}
+      </div>
+      {/* Moldura de celular fina */}
+      <div style={{ flex: 1, background: t.bgSecondary, borderRadius: 22, border: `2px solid ${t.borderMid || t.border}`, padding: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 44, height: 5, borderRadius: 4, background: t.borderMid || t.border }} />
+        </div>
+        <div style={{ flex: 1, background: t.bg, borderRadius: 14, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, borderBottom: `1px solid ${t.border}` }}>
+            {agent.avatar
+              ? <img src={agent.avatar} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+              : <div style={{ width: 24, height: 24, borderRadius: '50%', background: t.primary || '#E8192C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600 }}>{agent.name?.slice(0, 2).toUpperCase()}</div>}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text }}>{agent.name}</div>
+              <div style={{ fontSize: 10, color: '#10B981' }}>Testando ao vivo</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {messages.length === 0 && (
+              <div style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', marginTop: 20 }}>Digite uma mensagem para testar o agente ao vivo.</div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                background: m.role === 'user' ? (t.primary || '#E8192C') : m.isError ? '#FEF2F2' : t.bgSecondary,
+                color: m.role === 'user' ? '#fff' : m.isError ? '#DC2626' : t.text,
+                border: m.role === 'user' ? 'none' : `1px solid ${m.isError ? '#FECACA' : t.border}`,
+                borderRadius: 10, padding: '8px 10px', fontSize: 12, maxWidth: '85%',
+              }}>{m.text}</div>
+            ))}
+            {sending && <div style={{ alignSelf: 'flex-start', fontSize: 11, color: t.textMuted }}>Digitando...</div>}
+          </div>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder="Digite para testar..."
+            disabled={sending}
+            style={{ width: '100%', border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Card({ title, t, children }) {
+  return (
+    <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: t.text, marginBottom: 12 }}>{title}</div>
       {children}
     </div>
   )
 }
 
-function Field({ label, children }) {
+function Field({ label, t, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <label style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6, display: 'block' }}>{label}</label>
+      <label style={{ fontSize: 11, color: t.textMuted, marginBottom: 4, display: 'block' }}>{label}</label>
       {children}
     </div>
   )
 }
+
+function inputStyle(t) {
+  return { width: '100%', background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, color: t.text, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+}
+
+function IcoPlus({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg> }

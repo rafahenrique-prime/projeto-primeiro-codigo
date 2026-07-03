@@ -9,6 +9,29 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const BASE = 'https://api.gptmaker.ai'
 
+async function logPhotoHistory({ produto, cliente, canal, sucesso, erro }) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/photo_history`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        produto: produto || 'Desconhecido',
+        cliente: cliente || 'Cliente WhatsApp/Instagram',
+        canal: canal || 'Auto (webhook)',
+        tipo: 'automático',
+        sucesso: sucesso !== false,
+        erro: erro || null,
+      }),
+    })
+  } catch (e) {
+    console.error('[auto-photo] Erro ao gravar histórico:', e.message)
+  }
+}
+
 const PALAVRAS_GENERICAS = new Set([
   'tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto',
   'perfume', 'oculos', 'bone', 'blusa', 'moletom', 'masculino', 'feminino',
@@ -77,9 +100,9 @@ function isValidImageUrl(url) {
   )
 }
 
-function detectProductRequest(msg) {
+function detectProductRequest(msg, lastAssistantMsg) {
   const m = (msg || '').toLowerCase()
-  return [
+  const direct = [
     /mand[ae].*foto/,
     /me manda (a |uma )?foto/,
     /mostra.*foto/,
@@ -88,6 +111,18 @@ function detectProductRequest(msg) {
     /tem foto/,
     /manda (a |uma )?imagem/,
   ].some(p => p.test(m))
+  if (direct) return true
+
+  // Confirmação curta depois que a própria Gabriela ofereceu mandar foto
+  // Ex: Gabriela pergunta "Quer ver foto?" e o cliente só responde "Sim quero"
+  const assistantOfferedPhoto = /(quer|posso).{0,15}(ver|mandar?|enviar?).{0,10}foto|foto\?/.test((lastAssistantMsg || '').toLowerCase())
+  const isShortConfirmation = /^(sim|quero|sim quero|pode|manda|claro|isso|ok|show|beleza|bora|vai|✅|👍)[\s!.]*$/.test(m.trim())
+  return assistantOfferedPhoto && isShortConfirmation
+}
+
+function getLastAssistantText(msgs) {
+  const lastAssistant = [...(msgs || [])].reverse().find(m => m.role === 'assistant' || m.role === 'agent' || m.role === 'bot')
+  return lastAssistant ? (lastAssistant.text || lastAssistant.content || lastAssistant.message || '') : ''
 }
 
 // Detecta pedido de múltiplas fotos: "foto dos 2", "das duas", "ambas", etc.
@@ -327,7 +362,7 @@ async function findRecentPhotoChat(catalog) {
       const msgTime = new Date(lastClientMsg.createdAt || lastClientMsg.created_at || 0).getTime()
       const msgText = lastClientMsg.text || lastClientMsg.content || lastClientMsg.message || ''
 
-      if (msgTime > cutoff && detectProductRequest(msgText)) {
+      if (msgTime > cutoff && detectProductRequest(msgText, getLastAssistantText(msgs))) {
         console.log('[auto-photo] Chat encontrado via mensagens:', chat.id, '| msg:', msgText)
         // Também busca contexto do agente para identificar o produto
         const agentContext = msgs.slice(-10).filter(m => m.role !== 'user' && m.role !== 'client')
@@ -408,7 +443,7 @@ export default async function handler(req, res) {
     console.log('[auto-photo] Última mensagem do cliente:', message?.slice(0, 100))
   }
 
-  if (!detectProductRequest(message)) {
+  if (!detectProductRequest(message, getLastAssistantText(allMsgs))) {
     console.error('[auto-photo] ⏭️  Não é pedido de foto:', message?.slice(0, 50))
     return res.status(200).json({ ok: true, skipped: 'not a photo request', message: message?.slice(0, 50) })
   }
@@ -460,6 +495,8 @@ export default async function handler(req, res) {
         if (i < produtos.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000))
         }
+
+        await logPhotoHistory({ produto: p.nome, canal: chatId })
       }
 
       console.log('[auto-photo] ✅ Todas as fotos enviadas com sucesso!')
@@ -471,6 +508,7 @@ export default async function handler(req, res) {
       })
     } catch (err) {
       console.error('[auto-photo] 🔴 ERRO ao enviar múltiplas fotos:', err.message)
+      await logPhotoHistory({ produto: message?.slice(0, 60), canal: chatId, sucesso: false, erro: err.message })
       return res.status(500).json({ error: err.message })
     }
   }
@@ -547,9 +585,11 @@ export default async function handler(req, res) {
     await sendMessage(chatId, `${produto.preco}\n\n${produto.link}`)
 
     console.log('[auto-photo] ✅ Foto enviada com sucesso:', produto.nome, '| chatId:', chatId)
+    await logPhotoHistory({ produto: produto.nome, canal: chatId })
     return res.status(200).json({ ok: true, produto: produto.nome, chatId })
   } catch (err) {
     console.error('[auto-photo] 🔴 ERRO CRÍTICO ao enviar foto:', produto.nome, '| Erro:', err.message, '| Stack:', err.stack)
+    await logPhotoHistory({ produto: produto.nome, canal: chatId, sucesso: false, erro: err.message })
     return res.status(500).json({ error: err.message })
   }
 }

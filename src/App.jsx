@@ -4,7 +4,6 @@ import LeftNav from './components/LeftNav'
 import InboxList from './components/InboxList'
 import ChatArea from './components/ChatArea'
 import RightPanel from './components/RightPanel'
-import PhotoHistoryPanel from './components/PhotoHistoryPanel'
 import ChannelsPage from './pages/ChannelsPage'
 import DealOncaPage from './pages/DealOncaPage'
 import DashboardPage from './pages/DashboardPage'
@@ -93,7 +92,6 @@ export default function App() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [showPhotoHistory, setShowPhotoHistory] = useState(false)
   const [botSleep, setBotSleep] = useState(() => localStorage.getItem('bot_sleep') === 'true')
   const [sleepLoading, setSleepLoading] = useState(false)
   const [profilesMap, setProfilesMap] = useState({})
@@ -311,38 +309,6 @@ export default function App() {
           {page === 'followup' && <FollowUpPage conversations={conversations} />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
         </div>
-
-        {/* Botão flutuante Histórico de Fotos */}
-        <button
-          onClick={() => setShowPhotoHistory(true)}
-          title="Histórico de Fotos"
-          style={{
-            position: 'fixed',
-            bottom: 20,
-            right: 20,
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            background: '#0EC331',
-            border: 'none',
-            color: '#fff',
-            fontSize: 24,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            transition: 'transform 0.2s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          📸
-        </button>
-
-        {/* Painel de Histórico */}
-        <PhotoHistoryPanel isOpen={showPhotoHistory} onClose={() => setShowPhotoHistory(false)} theme={t} />
       </div>
     </div>
   )

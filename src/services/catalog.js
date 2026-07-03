@@ -127,28 +127,32 @@ function getActiveCatalog() {
   return catalog
 }
 
+function normalizeAccents(str) {
+  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 export function searchProduct(query) {
   if (!query || query.trim().length < 2) return []
 
-  const q = query.toLowerCase()
+  const q = normalizeAccents(query.toLowerCase())
   const activeCatalog = getActiveCatalog()
 
   console.log('[searchProduct] Query:', query, '| Catálogo tem', activeCatalog.length, 'produtos')
 
-  // Filtra produtos que contêm a query
+  // Filtra produtos que contêm a query (comparação sem acento)
   const matches = activeCatalog.filter(p => {
-    const nomeLower = p.nome.toLowerCase()
-    return nomeLower.includes(q) || (p.preco && p.preco.toLowerCase().includes(q))
+    const nomeNorm = normalizeAccents(p.nome.toLowerCase())
+    return nomeNorm.includes(q) || (p.preco && p.preco.toLowerCase().includes(q))
   })
 
   // Ordena por relevância: nome exato > começa com > contém
   const scored = matches.map(p => {
-    const nomeLower = p.nome.toLowerCase()
+    const nomeNorm = normalizeAccents(p.nome.toLowerCase())
     let score = 0
 
-    if (nomeLower === q) score = 1000  // Exato
-    else if (nomeLower.startsWith(q)) score = 500  // Começa com
-    else if (nomeLower.indexOf(q) === 0) score = 400  // Início
+    if (nomeNorm === q) score = 1000  // Exato
+    else if (nomeNorm.startsWith(q)) score = 500  // Começa com
+    else if (nomeNorm.indexOf(q) === 0) score = 400  // Início
     else score = 100  // Contém em qualquer lugar
 
     return { product: p, score }

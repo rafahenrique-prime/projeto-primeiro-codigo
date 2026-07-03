@@ -253,3 +253,14 @@ export async function updateTraining(trainingId, body) {
 export async function deleteTraining(trainingId) {
   return request(`/v2/training/${trainingId}`, { method: 'DELETE' })
 }
+
+export async function testAgentConversation(agentId, prompt, contextId) {
+  return request(`/v2/agent/${agentId}/conversation`, {
+    method: 'POST',
+    body: JSON.stringify({ contextId, prompt, chatName: 'Preview CODEX' }),
+  })
+}
+
+export function testChatId(agentId, contextId) {
+  return `public-api-${agentId}-${contextId}`
+}

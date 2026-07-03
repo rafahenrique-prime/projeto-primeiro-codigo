@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
 
 function timeSince(rawTime) {
@@ -27,20 +28,63 @@ function igColorMap(conversations) {
 
 export default function InboxList({ conversations, allConversations, active, onSelect, filter, setFilter, search, setSearch, botSleep, sleepLoading, onToggleSleep, profilesMap = {} }) {
   const { theme: t } = useTheme()
+  const [showFilters, setShowFilters] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
   const igColors = igColorMap(allConversations || conversations)
   const humanCount = (allConversations || conversations).filter(c => c.mode === 'copilot' && c.unread > 0).length
+
+  if (collapsed) {
+    return (
+      <div style={{ width: 64, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', transition: 'width 0.2s' }}>
+        <div style={{ padding: '14px 0 10px', display: 'flex', justifyContent: 'center', borderBottom: `1px solid ${t.border}` }}>
+          <button onClick={() => setCollapsed(false)} title="Expandir inbox"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          {conversations.map(conv => {
+            const isActive = active?.id === conv.id
+            return (
+              <div key={conv.id} onClick={() => onSelect(conv)} title={conv.name}
+                style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
+                {conv.picture
+                  ? <img src={conv.picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: isActive ? `2px solid ${t.primary || '#E8192C'}` : '2px solid transparent' }} onError={e => e.target.style.display = 'none'} />
+                  : <div style={{ width: 40, height: 40, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#fff', border: isActive ? `2px solid ${t.primary || '#E8192C'}` : '2px solid transparent' }}>{conv.initials}</div>
+                }
+                {conv.unread > 0 && (
+                  <span style={{ position: 'absolute', top: -2, right: -2, background: t.primary || '#E8192C', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 9999, minWidth: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: `2px solid ${t.bg}` }}>{conv.unread > 9 ? '9+' : conv.unread}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ width: 300, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       {/* Header */}
-      <div style={{ padding: '16px 14px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{ padding: showFilters ? '16px 14px 12px' : '14px 14px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showFilters ? 12 : 0 }}>
           <div style={{ fontSize: 15, color: t.text, letterSpacing: '0.2px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: t.primary || '#E8192C', fontWeight: 600 }}>///</span>
             <span style={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.3px', fontSize: 13 }}>Inbox — recentes</span>
           </div>
-          <span style={{ background: t.bgTertiary, color: t.textMid, fontSize: 11, fontWeight: 600, borderRadius: 9999, padding: '2px 8px' }}>{conversations.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ background: t.bgTertiary, color: t.textMid, fontSize: 11, fontWeight: 600, borderRadius: 9999, padding: '2px 8px' }}>{conversations.length}</span>
+            <button onClick={() => setShowFilters(s => !s)} title={showFilters ? 'Recolher busca e filtros' : 'Mostrar busca e filtros'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 2, display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showFilters ? 'none' : 'rotate(180deg)', transition: 'transform 0.15s' }}><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button onClick={() => setCollapsed(true)} title="Recolher inbox para a lateral"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 2, display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+          </div>
         </div>
+        {showFilters && (<>
         <div style={{ position: 'relative', marginBottom: 10, display: 'flex', gap: 6, alignItems: 'center' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -112,6 +156,7 @@ export default function InboxList({ conversations, allConversations, active, onS
             Instagram
           </button>
         </div>
+        </>)}
       </div>
 
       <div style={{ height: 1, background: t.border }} />
