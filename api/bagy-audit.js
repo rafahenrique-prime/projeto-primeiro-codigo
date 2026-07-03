@@ -70,13 +70,47 @@ function priceOf(local) {
   return Number(m[0].replace(/\./g, '').replace(',', '.'))
 }
 
+// Normaliza pra comparação "de conteúdo": sem acento, sem hífen/pontuação, sem espaço duplo.
+// Usado só pra CLASSIFICAR a divergência como cosmética — nunca decide sozinho, o item continua
+// aparecendo no relatório (com selo diferente) pra você confirmar.
+function normalizeForCompare(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/[-–—_.,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function classifyNameDiff(bagyName, localName) {
+  if (normalizeForCompare(bagyName) === normalizeForCompare(localName)) return 'cosmetic_name'
+  return 'real'
+}
+
+// PostgREST exige que TODOS os objetos de um insert em lote tenham exatamente as mesmas
+// chaves ("All object keys must match") — por isso todo row passa por aqui antes de gravar,
+// preenchendo com null o que não se aplica àquele tipo de linha.
+const ROW_SHAPE = {
+  run_id: null, url: null, status: null,
+  bagy_name: null, bagy_price: null, bagy_sku: null, bagy_stock: null,
+  catalog_id: null, catalog_name: null, catalog_price: null,
+  diff_kind: 'real', details: null,
+}
+function buildRow(overrides) {
+  return { ...ROW_SHAPE, ...overrides }
+}
+
 async function logRows(rows) {
   if (!rows.length) return
-  await fetch(`${SUPABASE_URL}/rest/v1/bagy_audit_log`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/bagy_audit_log`, {
     method: 'POST',
     headers: sbHeaders,
-    body: JSON.stringify(rows),
-  }).catch(err => console.error('[bagy-audit] falha ao gravar linhas:', err.message))
+    body: JSON.stringify(rows.map(buildRow)),
+  }).catch(err => { console.error('[bagy-audit] falha de rede ao gravar linhas:', err.message); return null })
+  if (res && !res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('[bagy-audit] Supabase recusou o insert:', res.status, body)
+  }
 }
 
 export default async function handler(req, res) {
@@ -111,8 +145,11 @@ export default async function handler(req, res) {
         catalog_price: priceOf(p),
         details: { motivo: 'link do catálogo não encontrado no sitemap atual da Bagy' },
       }))
+      // Linha "meta": guarda o total de URLs do sitemap dessa execução, pro resumo executivo
+      // calcular a % de saúde sem depender de um número fixo no frontend.
+      rows.push({ run_id: runId, status: 'meta', details: { totalUrls: sitemapUrls.length } })
       await logRows(rows)
-      return res.status(200).json({ done: true, finalized: true, missingInBagy: rows.length })
+      return res.status(200).json({ done: true, finalized: true, missingInBagy: rows.length - 1 })
     }
 
     const batch = sitemapUrls.slice(offset, offset + limit)
@@ -147,10 +184,12 @@ export default async function handler(req, res) {
       const nameDiff = local.nome && bagyName && local.nome.trim().toLowerCase() !== bagyName.trim().toLowerCase()
 
       if (priceDiff || nameDiff) {
+        const diffKind = nameDiff && !priceDiff ? classifyNameDiff(bagyName, local.nome) : 'real'
         rows.push({
           run_id: runId, url, status: priceDiff && nameDiff ? 'price_and_name_diff' : priceDiff ? 'price_diff' : 'name_diff',
           bagy_name: bagyName, bagy_price: bagyPrice, bagy_sku: String(product.sku || ''), bagy_stock: bagyStock,
           catalog_id: local.id, catalog_name: local.nome, catalog_price: localPrice,
+          diff_kind: diffKind,
         })
       }
     }

@@ -41,16 +41,20 @@ export async function runBagyAudit(onProgress) {
 export async function getAuditRuns(limit = 20) {
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/bagy_audit_log?select=run_id,created_at&order=created_at.desc&limit=500`,
+      `${SUPABASE_URL}/rest/v1/bagy_audit_log?select=run_id,created_at,status,ignored&order=created_at.desc&limit=2000`,
       { headers }
     )
     if (!res.ok) return []
     const rows = await res.json()
-    const seen = new Map()
+
+    const byRun = new Map()
     for (const r of rows) {
-      if (!seen.has(r.run_id)) seen.set(r.run_id, r.created_at)
+      if (!byRun.has(r.run_id)) byRun.set(r.run_id, { run_id: r.run_id, created_at: r.created_at, divergences: 0 })
+      if (r.status !== 'meta' && !r.ignored) byRun.get(r.run_id).divergences++
     }
-    return [...seen.entries()].slice(0, limit).map(([run_id, created_at]) => ({ run_id, created_at }))
+    return [...byRun.values()]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, limit)
   } catch {
     return []
   }
@@ -62,9 +66,25 @@ export async function getAuditResults(runId) {
       `${SUPABASE_URL}/rest/v1/bagy_audit_log?run_id=eq.${runId}&order=status.asc`,
       { headers }
     )
-    if (!res.ok) return []
-    return res.json()
+    if (!res.ok) return { items: [], totalUrls: null }
+    const rows = await res.json()
+    const metaRow = rows.find(r => r.status === 'meta')
+    const items = rows.filter(r => r.status !== 'meta')
+    return { items, totalUrls: metaRow?.details?.totalUrls ?? null }
   } catch {
-    return []
+    return { items: [], totalUrls: null }
+  }
+}
+
+export async function setDivergenceIgnored(id, ignored, reason) {
+  try {
+    const res = await fetch('/api/bagy-audit-ignore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ignored, reason }),
+    })
+    return res.ok
+  } catch {
+    return false
   }
 }
