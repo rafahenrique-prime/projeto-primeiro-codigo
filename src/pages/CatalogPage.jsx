@@ -480,7 +480,7 @@ export default function CatalogPage({ onNavigate }) {
     setLoadingSync(true)
     setKnowledgeStatus('syncing')
     localStorage.setItem('knowledge_status', 'syncing')
-    setSyncMessage('🔄 Sincronizando Knowledge Base...')
+    setSyncMessage('Sincronizando Knowledge Base...')
 
     try {
       const result = await regenerateKnowledgeUnico()
@@ -641,12 +641,12 @@ export default function CatalogPage({ onNavigate }) {
       {/* Header */}
       <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: t.text }}>📦 Catálogo Supabase</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: t.text }}>Catálogo Supabase</h2>
           <p style={{ margin: '4px 0 0 0', fontSize: 12, color: t.textMuted }}>
             {filtered.length} de {products.length} produtos
             {activeCategory !== 'Todos' ? ` · ${activeCategory}` : ''}
             {' · '}
-            <span style={{ color: '#10B981' }}>📷 {products.filter(p => p.imagem && p.imagem.trim()).length} com foto</span>
+            <span style={{ color: '#10B981' }}>{products.filter(p => p.imagem && p.imagem.trim()).length} com foto</span>
             {products.filter(p => !p.imagem || !p.imagem.trim()).length > 0 && (
               <span style={{ color: '#EF4444', marginLeft: 6 }}>
                 · {products.filter(p => !p.imagem || !p.imagem.trim()).length} sem foto
@@ -656,13 +656,13 @@ export default function CatalogPage({ onNavigate }) {
           {/* Indicador de status do Knowledge */}
           <p style={{ margin: '3px 0 0 0', fontSize: 11, color: t.textMuted }}>
             {knowledgeStatus === 'updated' && (
-              <span style={{ color: '#10B981', fontWeight: 600 }}>✅ Knowledge Atualizado</span>
+              <span style={{ color: '#10B981', fontWeight: 600 }}>Knowledge atualizado</span>
             )}
             {knowledgeStatus === 'pending' && (
-              <span style={{ color: '#F59E0B', fontWeight: 600 }}>⚠️ Knowledge desatualizado · sync em 30s...</span>
+              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Knowledge desatualizado · sync em 30s...</span>
             )}
             {knowledgeStatus === 'syncing' && (
-              <span style={{ color: '#6366F1', fontWeight: 600 }}>🔄 Sincronizando Knowledge...</span>
+              <span style={{ color: '#6366F1', fontWeight: 600 }}>Sincronizando Knowledge...</span>
             )}
           </p>
         </div>
@@ -673,33 +673,33 @@ export default function CatalogPage({ onNavigate }) {
             title="Atualizar catálogo do Supabase"
             style={{ background: isRefreshing ? '#A0AEC0' : '#667EEA', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 14px', fontSize: 12, fontWeight: 600, cursor: isRefreshing ? 'not-allowed' : 'pointer', opacity: isRefreshing ? 0.7 : 1, transition: 'all 0.2s' }}
           >
-            {isRefreshing ? '⟳ Atualizando...' : '🔄 Atualizar'}
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
           </button>
           <button
             onClick={openAddModal}
             style={{ background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
-            ➕ Adicionar Produto
+            Adicionar produto
           </button>
           <button
             onClick={() => setShowUrlModal(true)}
             style={{ background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
-            📎 Adicionar via URL
+            Adicionar via URL
           </button>
           <button
             onClick={() => setShowUrlTestModal(true)}
             style={{ background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
             title="Adicionar produto com foto via URL"
           >
-            ✏️ URL C/ FOTO
+            URL c/ foto
           </button>
           <button
             onClick={() => onNavigate && onNavigate('image-extractor')}
             style={{ background: '#8B5CF6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
             title="Gerenciar fotos dos produtos"
           >
-            🖼️ Revisor de Fotos
+            Revisor de fotos
           </button>
           <button
             onClick={handleSyncKnowledge}
@@ -718,7 +718,7 @@ export default function CatalogPage({ onNavigate }) {
             }}
             title="Sincronizar Knowledge Base"
           >
-            {loadingSync ? '⏳ Sincronizando...' : '🔄 Sincronizar Knowledge'}
+            {loadingSync ? 'Sincronizando...' : 'Sincronizar Knowledge'}
           </button>
         </div>
       </div>
@@ -795,7 +795,7 @@ export default function CatalogPage({ onNavigate }) {
             }}
           >
             <option value="default">Ordenar</option>
-            <option value="lastAdded">📊 Últimos Adicionados</option>
+            <option value="lastAdded">Últimos adicionados</option>
             <option value="az">A → Z</option>
             <option value="preco">Menor preço</option>
             <option value="preco_desc">Maior preço</option>
@@ -852,7 +852,7 @@ export default function CatalogPage({ onNavigate }) {
                       title="Enviar via WhatsApp"
                       style={{ ...btnStyle, background: '#25D366', color: '#fff' }}
                     >
-                      📲 Zap
+                      Zap
                     </button>
 
                     {/* Copiar foto */}
@@ -861,7 +861,7 @@ export default function CatalogPage({ onNavigate }) {
                       title="Copiar imagem"
                       style={{ ...btnStyle, background: copyFeedback === product.id ? '#0EC331' : t.bgSecondary, color: copyFeedback === product.id ? '#fff' : t.text, border: `1px solid ${t.border}` }}
                     >
-                      {copyFeedback === product.id ? '✅ Copiado' : '📋 Foto'}
+                      {copyFeedback === product.id ? 'Copiado' : 'Foto'}
                     </button>
 
                     {/* Copiar link */}
@@ -870,23 +870,25 @@ export default function CatalogPage({ onNavigate }) {
                       title="Copiar link do produto"
                       style={{ ...btnStyle, background: copyFeedback === `link-${product.id}` ? '#0EC331' : t.bgSecondary, color: copyFeedback === `link-${product.id}` ? '#fff' : t.text, border: `1px solid ${t.border}` }}
                     >
-                      {copyFeedback === `link-${product.id}` ? '✅ Link' : '🔗 Link'}
+                      {copyFeedback === `link-${product.id}` ? 'Copiado' : 'Link'}
                     </button>
 
                     {/* Editar */}
                     <button
                       onClick={() => openEditModal(product)}
+                      title="Editar"
                       style={{ ...btnStyle, background: '#3B82F6', color: '#fff' }}
                     >
-                      ✏️
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
 
                     {/* Deletar */}
                     <button
                       onClick={() => handleDelete(product.id)}
+                      title="Excluir"
                       style={{ ...btnStyle, background: '#EF4444', color: '#fff' }}
                     >
-                      🗑️
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                     </button>
                   </div>
                 </td>
@@ -1038,8 +1040,8 @@ export default function CatalogPage({ onNavigate }) {
       {showUrlModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
-              📎 Adicionar Produto via URL
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 15, fontWeight: 600, color: t.text }}>
+              Adicionar produto via URL
             </h3>
 
             {!extractedData ? (
@@ -1065,7 +1067,7 @@ export default function CatalogPage({ onNavigate }) {
                 )}
 
                 <div style={{ background: t.bgSecondary, borderRadius: 6, padding: '10px', fontSize: 11, color: t.textMuted }}>
-                  💡 O sistema vai extrair: <strong>nome, preços (original + desconto) e categoria</strong>. Você faz upload da foto e confirma.
+                  O sistema vai extrair: <strong>nome, preços (original + desconto) e categoria</strong>. Você faz upload da foto e confirma.
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1085,7 +1087,7 @@ export default function CatalogPage({ onNavigate }) {
                     disabled={extracting}
                     style={{ flex: 1, background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: extracting ? 'wait' : 'pointer', opacity: extracting ? 0.7 : 1 }}
                   >
-                    {extracting ? '⏳ Extraindo...' : '🔍 Extrair Dados'}
+                    {extracting ? 'Extraindo...' : 'Extrair dados'}
                   </button>
                 </div>
               </div>
@@ -1116,7 +1118,7 @@ export default function CatalogPage({ onNavigate }) {
                 {/* Upload de Imagem */}
                 <div>
                   <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
-                    📸 Upload da Imagem *
+                    Upload da imagem *
                   </label>
                   <input
                     type="file"
@@ -1153,7 +1155,7 @@ export default function CatalogPage({ onNavigate }) {
                     disabled={!urlImageFile}
                     style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: urlImageFile ? 'pointer' : 'not-allowed', opacity: urlImageFile ? 1 : 0.5 }}
                   >
-                    ✅ Confirmar
+                    Confirmar
                   </button>
                 </div>
               </div>
@@ -1167,7 +1169,7 @@ export default function CatalogPage({ onNavigate }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 500, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
-              🧪 Adicionar via URL (TESTE) - Foto Automática
+              Adicionar via URL (teste) — foto automática
             </h3>
 
             {!testExtractedData ? (
@@ -1193,7 +1195,7 @@ export default function CatalogPage({ onNavigate }) {
                 )}
 
                 <div style={{ background: '#FEF3C7', borderRadius: 6, padding: '10px', fontSize: 11, color: '#92400E' }}>
-                  ⚠️ <strong>TESTE:</strong> Extrai nome, preço e <strong>FOTO automaticamente</strong>. Categoria você seleciona depois.
+                  <strong>Teste:</strong> Extrai nome, preço e <strong>FOTO automaticamente</strong>. Categoria você seleciona depois.
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1215,7 +1217,7 @@ export default function CatalogPage({ onNavigate }) {
                     disabled={testExtracting}
                     style={{ flex: 1, background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: testExtracting ? 'wait' : 'pointer', opacity: testExtracting ? 0.7 : 1 }}
                   >
-                    {testExtracting ? '⏳ Extraindo...' : '🔍 Extrair + Foto'}
+                    {testExtracting ? 'Extraindo...' : 'Extrair + foto'}
                   </button>
                 </div>
               </div>
@@ -1223,7 +1225,7 @@ export default function CatalogPage({ onNavigate }) {
               // ESTADO 2: Preview + Confirmar
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '10px', fontSize: 11, color: '#059669' }}>
-                  ✅ Dados + Foto extraídos! Confirme para prosseguir.
+                  Dados + foto extraídos! Confirme para prosseguir.
                 </div>
 
                 {/* Preview dos dados extraídos */}
@@ -1244,7 +1246,7 @@ export default function CatalogPage({ onNavigate }) {
                 {testImagePreview && (
                   <div>
                     <label style={{ display: 'block', fontSize: 12, color: t.textMuted, marginBottom: 4 }}>
-                      📸 Foto Extraída
+                      Foto extraída
                     </label>
                     <img src={testImagePreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 6, objectFit: 'cover' }} />
                   </div>
@@ -1273,7 +1275,7 @@ export default function CatalogPage({ onNavigate }) {
                     onClick={handleConfirmTestData}
                     style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                   >
-                    ✅ Confirmar
+                    Confirmar
                   </button>
                 </div>
               </div>
@@ -1286,24 +1288,24 @@ export default function CatalogPage({ onNavigate }) {
       {showHistoryModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: t.bg, borderRadius: 12, padding: '24px', maxWidth: 600, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 700, color: t.text }}>
-              📊 Histórico do Catálogo
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 15, fontWeight: 600, color: t.text }}>
+              Histórico do catálogo
             </h3>
 
             {loadingHistory ? (
               <div style={{ padding: '20px', textAlign: 'center', color: t.textMuted }}>
-                ⏳ Carregando histórico...
+                Carregando histórico...
               </div>
             ) : history.length === 0 ? (
               <div style={{ padding: '20px', textAlign: 'center', color: t.textMuted }}>
-                📭 Nenhuma ação registrada ainda
+                Nenhuma ação registrada ainda
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {history.map((h, idx) => (
                   <div key={idx} style={{ padding: '10px 12px', background: t.bgSecondary, borderRadius: 6, fontSize: 11, borderLeft: `3px solid ${h.action === 'add' ? '#0EC331' : h.action === 'delete' ? '#DC2626' : '#3B82F6'}` }}>
                     <div style={{ fontWeight: 600, color: t.text, marginBottom: 4 }}>
-                      {h.action === 'add' ? '➕ Adicionado' : h.action === 'delete' ? '🗑️ Deletado' : '✏️ Editado'}: {h.produto_nome}
+                      {h.action === 'add' ? 'Adicionado' : h.action === 'delete' ? 'Deletado' : 'Editado'}: {h.produto_nome}
                     </div>
                     <div style={{ color: t.textMuted }}>
                       {h.timestamp.toLocaleString('pt-BR')}

@@ -128,7 +128,7 @@ export default function RelatoriosPage() {
                 padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                🔑 Renovar Token
+                Renovar token
               </button>
             )}
           </div>
@@ -153,8 +153,8 @@ export default function RelatoriosPage() {
             background: dark ? '#161616' : '#fff', borderRadius: 16, padding: 28, width: 540, maxWidth: '90vw',
             border: `1px solid ${dark ? '#2a2a2a' : '#e5e5e5'}`, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 800, fontSize: 18, color: dark ? '#fff' : '#111', marginBottom: 4 }}>
-              🔑 Renovar Token GPT Maker
+            <div style={{ fontWeight: 600, fontSize: 16, color: dark ? '#fff' : '#111', marginBottom: 4 }}>
+              Renovar token GPT Maker
             </div>
             <div style={{ fontSize: 12, color: dark ? '#888' : '#666', marginBottom: 20 }}>
               Token salvo no navegador — sem editar arquivo, sem reiniciar servidor.
@@ -196,7 +196,7 @@ export default function RelatoriosPage() {
                 borderRadius: 8, padding: '9px 20px', fontSize: 13, fontWeight: 700,
                 cursor: tokenInput.trim() ? 'pointer' : 'not-allowed', transition: 'background 0.15s',
               }}>
-                {tokenSaving ? 'Salvando...' : '✓ Salvar e Carregar'}
+                {tokenSaving ? 'Salvando...' : 'Salvar e carregar'}
               </button>
             </div>
           </div>
@@ -243,8 +243,8 @@ function ConversaoTab({ t, dark }) {
 
   if (!stats || stats.total === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12 }}>
-      <div style={{ fontSize: 40 }}>📊</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>Nenhum resultado registrado ainda</div>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Nenhum resultado registrado ainda</div>
       <div style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', maxWidth: 300 }}>
         Use o painel do CODEX para registrar o resultado das conversas (Fechou, Sem Resposta, Perdeu).
       </div>
@@ -270,14 +270,14 @@ function ConversaoTab({ t, dark }) {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
         <div style={{ background: t.bg, border: `2px solid #E8192C`, borderRadius: 12, padding: '16px 18px', gridColumn: 'span 1' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#E8192C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Taxa de Conversão</div>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 48, lineHeight: 1, color: '#E8192C' }}>{rate}%</div>
-          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>{won} ganhas / {won + loss + closed} finalizadas</div>
+          <div style={{ fontSize: 12, fontWeight: 500, color: '#E8192C', marginBottom: 6 }}>Taxa de conversão</div>
+          <div style={{ fontWeight: 600, fontSize: 36, lineHeight: 1, color: '#E8192C' }}>{rate}%</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{won} ganhas / {won + loss + closed} finalizadas</div>
         </div>
-        <KpiCard value={won}    label="Fechadas" sub="closed_won" icon="✅" t={t} />
-        <KpiCard value={closed} label="Sem Resposta" sub="closed" icon="😶" t={t} />
-        <KpiCard value={loss}   label="Perdidas" sub="loss" icon="❌" t={t} highlight />
-        <KpiCard value={open}   label="Em Aberto" sub="em_aberto" icon="🔄" t={t} />
+        <KpiCard value={won}    label="Fechadas" sub="closed_won" t={t} />
+        <KpiCard value={closed} label="Sem Resposta" sub="closed" t={t} />
+        <KpiCard value={loss}   label="Perdidas" sub="loss" t={t} highlight />
+        <KpiCard value={open}   label="Em Aberto" sub="em_aberto" t={t} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -385,10 +385,10 @@ function GeralTab({ data, t }) {
     <div>
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        <KpiCard value={resolved} label="Atendimentos Concluídos" sub="Finalizados no período" icon="✅" t={t} />
-        <KpiCard value={credits}  label="Créditos Gastos" sub="Consumidos em IA" icon="💳" t={t} highlight />
-        <KpiCard value={contacts} label="Novos Contatos" sub="Captados no período" icon="👤" t={t} />
-        <KpiCard value={appts}    label="Agendamentos" sub="Realizados no período" icon="📅" t={t} />
+        <KpiCard value={resolved} label="Atendimentos Concluídos" sub="Finalizados no período" t={t} />
+        <KpiCard value={credits}  label="Créditos Gastos" sub="Consumidos em IA" t={t} highlight />
+        <KpiCard value={contacts} label="Novos Contatos" sub="Captados no período" t={t} />
+        <KpiCard value={appts}    label="Agendamentos" sub="Realizados no período" t={t} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
@@ -526,7 +526,7 @@ function AtendimentoTab({ data, t }) {
             <>
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                 {pico.hourOfDay !== undefined && (
-                  <PicoCard label="🔥 Pico" hour={`${String(pico.hourOfDay).padStart(2,'0')}:00`} value={pico.totalCredits} color="#F59E0B" t={t} />
+                  <PicoCard label="Pico" hour={`${String(pico.hourOfDay).padStart(2,'0')}:00`} value={pico.totalCredits} color="#F59E0B" t={t} />
                 )}
                 {segundo && (
                   <PicoCard label="2º" hour={`${String(segundo.hourOfDay).padStart(2,'0')}:00`} value={segundo.totalCredits} color="#94A3B8" t={t} />
@@ -583,9 +583,8 @@ function KpiCard({ value, label, sub, subList, icon, highlight, t }) {
       border: `1px solid ${highlight ? '#fca5a5' : t.border}`,
       borderRadius: 12, padding: '16px 18px',
     }}>
-      {icon && <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>}
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 36, lineHeight: 1, color: highlight ? '#E8192C' : t.text }}>{value}</div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: t.textMuted, marginTop: 4 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 28, lineHeight: 1, color: highlight ? '#E8192C' : t.text }}>{value}</div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: t.textMuted, marginTop: 6 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>{sub}</div>}
       {subList && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>

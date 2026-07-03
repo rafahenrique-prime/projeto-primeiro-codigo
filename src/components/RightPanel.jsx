@@ -100,7 +100,7 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
           borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 600,
           boxShadow: '0 4px 12px rgba(0,0,0,0.12)', maxWidth: 280,
         }}>
-          {toast.type === 'error' ? '⚠️ ' : '✅ '}{toast.msg}
+          {toast.msg}
         </div>
       )}
 
@@ -109,14 +109,14 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, background: t.bgSecondary, borderRadius: 10, padding: '8px 10px', border: `1px solid ${t.border}` }}>
           <div style={{
             width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#fff',
             background: conv.mode === 'copilot' ? 'linear-gradient(135deg, #6366F1, #8B5CF6)' : 'linear-gradient(135deg, #0EC331, #10B981)',
-          }}>{conv.mode === 'copilot' ? '👤' : 'IA'}</div>
+          }}>{conv.mode === 'copilot' ? <UserIcon /> : 'IA'}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 500 }}>
               {conv.mode === 'copilot' ? 'Atendimento humano' : 'Agente responsável'}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
               {conv.mode === 'copilot' ? 'Você' : (conv.agentName || 'Gabriela')}
             </div>
           </div>
@@ -125,23 +125,23 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
             disabled={togglingMode}
             title={conv.mode === 'copilot' ? 'Voltar para o agente' : 'Assumir atendimento'}
             style={{
-              fontSize: 10, fontWeight: 700, borderRadius: 6, padding: '4px 8px', border: 'none', cursor: togglingMode ? 'wait' : 'pointer',
+              fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '4px 8px', border: 'none', cursor: togglingMode ? 'wait' : 'pointer',
               background: conv.mode === 'copilot' ? '#EEF2FF' : '#F0FDF4',
               color: conv.mode === 'copilot' ? '#6366F1' : '#00A84F',
               flexShrink: 0, transition: 'all 0.15s', lineHeight: 1.4,
             }}
           >
-            {togglingMode ? '...' : conv.mode === 'copilot' ? '↩ Agente' : '✋ Assumir'}
+            {togglingMode ? '...' : conv.mode === 'copilot' ? 'Agente' : 'Assumir'}
           </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           {conv.picture
             ? <img src={conv.picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
-            : <div style={{ width: 40, height: 40, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{conv.initials}</div>
+            : <div style={{ width: 40, height: 40, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#fff', flexShrink: 0 }}>{conv.initials}</div>
           }
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{conv.name}</div>
             <div style={{ fontSize: 11, color: t.textMid }}>{conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}</div>
           </div>
         </div>

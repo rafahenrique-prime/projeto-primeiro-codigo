@@ -105,6 +105,8 @@ export default function DealOncaPage({ conversations = [], setPage }) {
 
   const AI_MODELS = [
     { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — padrão recomendado' },
+    { id: 'groq::openai/gpt-oss-120b',                              label: 'GPT-OSS 120B (Groq)',  provider: 'groq',       badge: 'Groq',       desc: '🔄 NOVO: substituição Groq recomendada — raciocínio muito forte' },
+    { id: 'groq::qwen/qwen3.6-27b',                                 label: 'Qwen 3.6 27B (Groq)',  provider: 'groq',       badge: 'Groq',       desc: '⚡ NOVO: rápido + português excelente' },
     { id: 'groq::llama-3.1-8b-instant',                             label: 'Llama 3.1 8B Fast',    provider: 'groq',       badge: 'Groq',       desc: 'Ultra rápido, respostas simples' },
     { id: 'groq::meta-llama/llama-4-scout-17b-16e-instruct',        label: 'Llama 4 Scout 17B',    provider: 'groq',       badge: 'Groq',       desc: 'Llama 4 — multimodal e preciso' },
     { id: 'groq::qwen/qwen3-32b',                                   label: 'Qwen 3 32B',           provider: 'groq',       badge: 'Groq',       desc: 'Excelente raciocínio e instruções' },

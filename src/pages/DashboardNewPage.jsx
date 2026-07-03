@@ -54,39 +54,38 @@ export default function DashboardNewPage({ conversations = [] }) {
     <div style={{ flex: 1, overflowY: 'auto', background: t.appBg, padding: '0 28px 24px 28px' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 20, paddingTop: 20 }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 11, color: primary, letterSpacing: '1px', marginBottom: 2 }}>///</div>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: t.text, letterSpacing: '-0.5px', lineHeight: 1, textTransform: 'uppercase' }}>DASHBOARD</div>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: primary, letterSpacing: '-0.5px', lineHeight: 1, textTransform: 'uppercase' }}>/// DASHBOARD</div>
-        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>{today()} · PRIME STORE Uberlândia</div>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: t.text, letterSpacing: '-0.5px', lineHeight: 1, textTransform: 'uppercase' }}>Dashboard</div>
+        <div style={{ fontSize: 13, color: t.textMuted, marginTop: 6 }}>{today()} · PRIME STORE Uberlândia</div>
       </div>
 
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         <KpiCard
           value={conversations.length}
-          label="CONVERSAS HOJE"
-          sub="↑ dados ao vivo"
+          label="Conversas hoje"
+          sub="Dados ao vivo"
           highlight
           t={t} primary={primary}
         />
         <KpiCard
           value={`${stats.pctIA}%`}
-          label="RESOLVIDAS PELA IA"
-          sub="↑ autopilot ativo"
+          label="Resolvidas pela IA"
+          sub="Autopilot ativo"
           border
           t={t} primary={primary}
         />
         <KpiCard
           value={stats.aguardando.length}
-          label="AGUARDANDO"
+          label="Aguardando"
           sub={stats.aguardando.length > 0 ? 'Atender agora' : 'Tudo em dia'}
           subColor={stats.aguardando.length > 0 ? primary : '#00A84F'}
           t={t} primary={primary}
         />
         <KpiCard
           value={stats.wa.length + stats.ig.length}
-          label="CANAIS ATIVOS"
+          label="Canais ativos"
           sub={`${stats.wa.length} WA · ${stats.ig.length} IG`}
           t={t} primary={primary}
         />
@@ -107,7 +106,7 @@ export default function DashboardNewPage({ conversations = [] }) {
           {/* Inbox recentes */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '18px 20px', border: `1px solid ${t.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <SectionTitle t={t} primary={primary}>INBOX — RECENTES</SectionTitle>
+            <SectionTitle t={t} primary={primary} mark>Inbox — recentes</SectionTitle>
             <span style={{ fontSize: 11, color: primary, fontWeight: 700, cursor: 'pointer' }}>Ver tudo →</span>
           </div>
           {recent.length === 0
@@ -141,13 +140,13 @@ export default function DashboardNewPage({ conversations = [] }) {
 
           {/* Agentes */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
-            <SectionTitle t={t} primary={primary}>AGENTES</SectionTitle>
+            <SectionTitle t={t} primary={primary}>Agentes</SectionTitle>
             <AgentRow name="Bia" sub="WhatsApp · Instagram · Site" status="ONLINE" statusColor="#00A84F" t={t} />
             <AgentRow name="Gabriela" sub="Consultora de Vendas" status="TREINO" statusColor="#F59E0B" t={t} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${t.border}` }}>
-              <MiniStat label="MSGS HOJE" value={conversations.length} color={t.text} t={t} />
-              <MiniStat label="RESOLVIDO" value={`${stats.pctIA}%`} color="#00A84F" t={t} />
-              <MiniStat label="PENDENTE" value={stats.aguardando.length} color={primary} t={t} />
+              <MiniStat label="Msgs hoje" value={conversations.length} color={t.text} t={t} />
+              <MiniStat label="Resolvido" value={`${stats.pctIA}%`} color="#00A84F" t={t} />
+              <MiniStat label="Pendente" value={stats.aguardando.length} color={primary} t={t} />
             </div>
           </div>
 
@@ -156,7 +155,7 @@ export default function DashboardNewPage({ conversations = [] }) {
 
           {/* Canais hoje */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
-            <SectionTitle t={t} primary={primary}>CANAIS — HOJE</SectionTitle>
+            <SectionTitle t={t} primary={primary}>Canais hoje</SectionTitle>
             <ChannelBar label="WhatsApp" pct={stats.pctWA} color="#00A84F" t={t} />
             <ChannelBar label="Instagram" pct={stats.pctIG} color={primary} t={t} />
             {stats.pctOther > 0 && <ChannelBar label="Outros" pct={stats.pctOther} color={t.textMuted} t={t} />}
@@ -164,7 +163,7 @@ export default function DashboardNewPage({ conversations = [] }) {
 
           {/* Semana */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
-            <SectionTitle t={t} primary={primary}>SEMANA</SectionTitle>
+            <SectionTitle t={t} primary={primary}>Semana</SectionTitle>
             <WeekChart data={stats.weekData} primary={primary} t={t} />
           </div>
         </div>
@@ -180,8 +179,8 @@ function KpiCard({ value, label, sub, subColor, highlight, border, t, primary })
       border: border ? `2px solid ${primary}` : `1px solid ${t.border}`,
       borderRadius: 12, padding: '18px 20px',
     }}>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 42, lineHeight: 1, color: highlight ? '#fff' : (border ? primary : t.text) }}>{value}</div>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 11, color: highlight ? 'rgba(255,255,255,0.8)' : t.textMuted, letterSpacing: '0.8px', textTransform: 'uppercase', marginTop: 4 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 32, lineHeight: 1, color: highlight ? '#fff' : (border ? primary : t.text) }}>{value}</div>
+      <div style={{ fontWeight: 500, fontSize: 12, color: highlight ? 'rgba(255,255,255,0.8)' : t.textMuted, letterSpacing: '0.3px', marginTop: 6 }}>{label}</div>
       {sub && (
         <div style={{ fontSize: 11, color: subColor || (highlight ? 'rgba(255,255,255,0.7)' : t.textMuted), marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
           <div style={{ height: 4, width: 32, borderRadius: 9999, background: highlight ? 'rgba(255,255,255,0.3)' : t.bgTertiary, overflow: 'hidden' }}>
@@ -194,10 +193,11 @@ function KpiCard({ value, label, sub, subColor, highlight, border, t, primary })
   )
 }
 
-function SectionTitle({ children, t, primary }) {
+function SectionTitle({ children, t, primary, mark }) {
   return (
-    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 12, color: t.textMuted, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 12 }}>
-      <span style={{ color: primary }}>/// </span>{children}
+    <div style={{ fontWeight: 600, fontSize: 13, color: t.text, marginBottom: 14 }}>
+      {mark && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, color: primary, letterSpacing: '1px', marginRight: 6 }}>///</span>}
+      {children}
     </div>
   )
 }
@@ -205,14 +205,14 @@ function SectionTitle({ children, t, primary }) {
 function AgentRow({ name, sub, status, statusColor, t }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 8, background: t.bgTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: t.textMid, flexShrink: 0 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 8, background: t.bgTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: t.textMid, flexShrink: 0 }}>
         {name.slice(0, 3).toUpperCase()}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{name}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{name}</div>
         <div style={{ fontSize: 11, color: t.textMuted }}>{sub}</div>
       </div>
-      <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 6, padding: '3px 8px', background: `${statusColor}22`, color: statusColor }}>{status}</span>
+      <span style={{ fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '3px 8px', background: `${statusColor}22`, color: statusColor }}>{status}</span>
     </div>
   )
 }
@@ -220,8 +220,8 @@ function AgentRow({ name, sub, status, statusColor, t }) {
 function MiniStat({ label, value, color, t }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 22, color }}>{value}</div>
-      <div style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 18, color }}>{value}</div>
+      <div style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, letterSpacing: '0.2px' }}>{label}</div>
     </div>
   )
 }
@@ -231,7 +231,7 @@ function ChannelBar({ label, pct, color, t }) {
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: t.textSecondary, marginBottom: 4 }}>
         <span>{label}</span>
-        <span style={{ fontWeight: 700 }}>{pct}%</span>
+        <span style={{ fontWeight: 600 }}>{pct}%</span>
       </div>
       <div style={{ height: 6, borderRadius: 9999, background: t.bgTertiary, overflow: 'hidden' }}>
         <div style={{ height: 6, width: `${pct}%`, borderRadius: 9999, background: color, transition: 'width 0.6s ease' }} />
@@ -253,7 +253,7 @@ function WeekChart({ data, primary, t }) {
             background: i === 6 ? primary : `${primary}55`,
             transition: 'height 0.4s ease',
           }} />
-          <div style={{ fontSize: 9, color: i === 6 ? primary : t.textMuted, fontWeight: i === 6 ? 700 : 400 }}>{days[i]}</div>
+          <div style={{ fontSize: 10, color: i === 6 ? primary : t.textMuted, fontWeight: i === 6 ? 600 : 400 }}>{days[i]}</div>
         </div>
       ))}
     </div>

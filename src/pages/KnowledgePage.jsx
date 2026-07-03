@@ -511,17 +511,17 @@ export default function KnowledgePage() {
         {/* ── Tabs ── */}
         <div style={{ display: 'flex', gap: 0, marginBottom: 0 }}>
           {[
-            { key: 'knowledge', label: 'GPT Maker', icon: '📚' },
-            { key: 'local',     label: `Base Local${localCount > 0 ? ` (${localCount})` : ''}`, icon: '🧠' },
-            { key: 'extract',   label: 'Extrair da URL', icon: '🔗' },
-            { key: 'history',   label: 'Histórico', icon: '🕐' },
-            { key: 'learnings', label: `Aprendizados${learningsCount > 0 ? ` (${learningsCount})` : ''}`, icon: '💡' },
+            { key: 'knowledge', label: 'GPT Maker' },
+            { key: 'local',     label: `Base Local${localCount > 0 ? ` (${localCount})` : ''}` },
+            { key: 'extract',   label: 'Extrair da URL' },
+            { key: 'history',   label: 'Histórico' },
+            { key: 'learnings', label: `Aprendizados${learningsCount > 0 ? ` (${learningsCount})` : ''}` },
           ].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               background: 'none', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent',
-              padding: '8px 18px', fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500,
+              padding: '8px 18px', fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 500,
               color: activeTab === tab.key ? '#7C3AED' : '#6B7280', cursor: 'pointer', transition: 'all 0.15s',
-            }}>{tab.icon} {tab.label}</button>
+            }}>{tab.label}</button>
           ))}
         </div>
 
@@ -607,17 +607,16 @@ export default function KnowledgePage() {
                 {localAddMode === null && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 400, margin: '0 auto', paddingTop: 20 }}>
                     {[
-                      { mode: 'photo', icon: '📸', label: 'Identificar produto por foto', sub: 'Envie uma foto — a IA identifica o produto e salva na base automaticamente.' },
-                      { mode: 'file', icon: '⬆️', label: 'Adicionar conhecimento por arquivo', sub: 'JPG, PNG, PDF — a IA lê e extrai o texto (OCR). Máx. 20MB.' },
-                      { mode: 'link', icon: '🔗', label: 'Adicionar conhecimento por link', sub: 'Importar automaticamente o conteúdo a partir da URL.' },
-                      { mode: 'text', icon: '📝', label: 'Adicionar conhecimento por texto', sub: 'Digite ou cole o conteúdo diretamente.' },
+                      { mode: 'photo', label: 'Identificar produto por foto', sub: 'Envie uma foto — a IA identifica o produto e salva na base automaticamente.' },
+                      { mode: 'file', label: 'Adicionar conhecimento por arquivo', sub: 'JPG, PNG, PDF — a IA lê e extrai o texto (OCR). Máx. 20MB.' },
+                      { mode: 'link', label: 'Adicionar conhecimento por link', sub: 'Importar automaticamente o conteúdo a partir da URL.' },
+                      { mode: 'text', label: 'Adicionar conhecimento por texto', sub: 'Digite ou cole o conteúdo diretamente.' },
                     ].map(opt => (
                       <button key={opt.mode} onClick={() => setLocalAddMode(opt.mode)}
                         style={{ background: '#fff', border: '1.5px solid #E5E5E5', borderRadius: 14, padding: '24px 20px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#0EC331'; e.currentTarget.style.background = '#F0FDF4' }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E5E5'; e.currentTarget.style.background = '#fff' }}>
-                        <span style={{ fontSize: 30 }}>{opt.icon}</span>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{opt.label}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{opt.label}</div>
                         <div style={{ fontSize: 12, color: '#9CA3AF' }}>{opt.sub}</div>
                       </button>
                     ))}
@@ -634,8 +633,7 @@ export default function KnowledgePage() {
                       <label style={{ border: '2px dashed #D1D5DB', borderRadius: 14, padding: '40px 20px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, background: '#FAFAFA' }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.background = '#EFF6FF' }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#D1D5DB'; e.currentTarget.style.background = '#FAFAFA' }}>
-                        <span style={{ fontSize: 40 }}>📸</span>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>Clique para enviar foto do produto</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Clique para enviar foto do produto</div>
                         <div style={{ fontSize: 12, color: '#9CA3AF' }}>JPG, PNG, WEBP — a IA identifica marca, tipo, cor e características</div>
                         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFileChange} />
                       </label>
@@ -648,14 +646,14 @@ export default function KnowledgePage() {
                             <div style={{ fontSize: 12, color: '#6B7280' }}>Categoria: <strong>PRODUTO</strong> (automático)</div>
                             <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoResult(null); setPhotoLog([]); setPhotoError(''); setPhotoSaved(false) }}
                               style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 7, padding: '5px 12px', fontSize: 12, color: '#6B7280', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                              ✕ Trocar foto
+                              Trocar foto
                             </button>
                             {!photoResult && (
                               <button onClick={handleIdentifyProduct} disabled={photoRunning}
                                 style={{ background: photoRunning ? '#D1D5DB' : '#3B82F6', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: photoRunning ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}>
                                 {photoRunning
                                   ? <><span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Identificando...</>
-                                  : '🔍 Identificar produto'}
+                                  : 'Identificar produto'}
                               </button>
                             )}
                           </div>
@@ -667,16 +665,16 @@ export default function KnowledgePage() {
                           </div>
                         )}
 
-                        {photoError && <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#DC2626' }}>⚠️ {photoError}</div>}
+                        {photoError && <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#DC2626' }}>{photoError}</div>}
 
                         {photoResult && !photoSaved && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>✅ Produto identificado — revise antes de salvar:</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Produto identificado — revise antes de salvar:</div>
                             <input value={photoTitle} onChange={e => setPhotoTitle(e.target.value)} placeholder="Título do produto" style={{ border: '1px solid #D1D5DB', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#111827' }} />
                             <textarea value={photoContent} onChange={e => setPhotoContent(e.target.value)} rows={8} style={{ border: '1px solid #D1D5DB', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#374151', resize: 'vertical', fontFamily: 'monospace' }} />
                             <button onClick={handleSavePhotoProduct}
-                              style={{ background: '#0EC331', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                              💾 Salvar na base
+                              style={{ background: '#0EC331', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                              Salvar na base
                             </button>
                           </div>
                         )}
@@ -684,11 +682,11 @@ export default function KnowledgePage() {
                         {photoSaved && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#166534', fontWeight: 600 }}>
-                              ✅ Produto salvo na base com sucesso!
+                              Produto salvo na base com sucesso!
                             </div>
                             <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); setPhotoResult(null); setPhotoLog([]); setPhotoError(''); setPhotoSaved(false); setPhotoTitle(''); setPhotoContent('') }}
-                              style={{ background: '#3B82F6', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                              📸 Adicionar outra foto
+                              style={{ background: '#3B82F6', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                              Adicionar outra foto
                             </button>
                           </div>
                         )}
@@ -720,7 +718,7 @@ export default function KnowledgePage() {
                           </select>
                           <button onClick={handleOCR} disabled={ocrRunning}
                             style={{ background: ocrRunning ? '#D1D5DB' : '#0EC331', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: ocrRunning ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}>
-                            {ocrRunning ? <><span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Lendo...</> : '🔍 Extrair texto'}
+                            {ocrRunning ? <><span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Lendo...</> : 'Extrair texto'}
                           </button>
                         </div>
                       </div>
@@ -773,7 +771,7 @@ export default function KnowledgePage() {
                     <button onClick={() => { setLocalAddMode(null); setParsePreview(null) }} style={{ background: 'none', border: 'none', fontSize: 13, color: '#6B7280', cursor: 'pointer', alignSelf: 'flex-start' }}>← Voltar</button>
 
                     <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#065F46', lineHeight: 1.6 }}>
-                      🧠 <strong>Salvamento inteligente:</strong> a IA vai dividir o texto automaticamente em blocos separados por tipo (produto, preço, política, etc.) — igual ao Dealism.
+                      <strong>Salvamento inteligente:</strong> a IA vai dividir o texto automaticamente em blocos separados por tipo (produto, preço, política, etc.) — igual ao Dealism.
                     </div>
 
                     <textarea value={localText} onChange={e => setLocalText(e.target.value)} rows={10}
@@ -783,7 +781,7 @@ export default function KnowledgePage() {
                     {/* Preview dos blocos detectados */}
                     {parsePreview && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#065F46' }}>✅ {parsePreview.length} blocos detectados:</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#065F46' }}>{parsePreview.length} blocos detectados:</div>
                         {parsePreview.map((b, i) => {
                           const cat = CATEGORIES[TIPO_TO_CATEGORY[b.tipo]]
                           return (
@@ -803,7 +801,7 @@ export default function KnowledgePage() {
 
                     <button onClick={handleLocalTextSave} disabled={!localText.trim() || localTextSaving || parsing}
                       style={{ background: localText.trim() && !localTextSaving ? '#0EC331' : '#D1D5DB', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: localText.trim() && !localTextSaving ? 'pointer' : 'not-allowed', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {parsing ? <><span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Analisando...</> : localTextSaving ? 'Salvando...' : '🧠 Analisar e salvar'}
+                      {parsing ? <><span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Analisando...</> : localTextSaving ? 'Salvando...' : 'Analisar e salvar'}
                     </button>
                   </div>
                 )}
@@ -833,7 +831,7 @@ export default function KnowledgePage() {
                             <div style={{ fontSize: 13, color: '#374151', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {entry.source?.startsWith('http') ? (
                                 <a href={entry.source} target="_blank" rel="noreferrer" style={{ color: '#6B7280', textDecoration: 'none' }}>{entry.source}</a>
-                              ) : entry.source === 'ocr' ? `📷 ${entry.title}` : entry.source === 'conversa' ? `💬 ${entry.title.slice(0, 60)}` : entry.title.slice(0, 60)}
+                              ) : entry.source === 'ocr' ? entry.title : entry.source === 'conversa' ? entry.title.slice(0, 60) : entry.title.slice(0, 60)}
                             </div>
                           </td>
                           <td style={{ ...td, whiteSpace: 'nowrap', color: '#6B7280', fontSize: 13 }}>
@@ -867,7 +865,6 @@ export default function KnowledgePage() {
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                   {localEntries.length === 0 ? (
                     <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 40, marginBottom: 12 }}>🧠</div>
                       <div style={{ fontSize: 14, color: '#374151', fontWeight: 600, marginBottom: 6 }}>Base local vazia</div>
                       <div style={{ fontSize: 13, color: '#9CA3AF' }}>Clique em "+ Adicionar" para começar</div>
                     </div>
@@ -884,7 +881,7 @@ export default function KnowledgePage() {
                         {paginated.map((entry, idx) => {
                           const cat = CATEGORIES[entry.category]
                           const preview = entry.content.replace(/\n/g, ' ').slice(0, 120)
-                          const srcLabel = entry.source?.startsWith('http') ? entry.source : entry.source === 'ocr' ? '📷 imagem' : entry.source === 'conversa' ? '💬 conversa' : 'texto manual'
+                          const srcLabel = entry.source?.startsWith('http') ? entry.source : entry.source === 'ocr' ? 'imagem' : entry.source === 'conversa' ? 'conversa' : 'texto manual'
                           return (
                             <tr key={entry.id} style={{ borderBottom: '1px solid #F3F4F6' }}
                               onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
@@ -954,7 +951,7 @@ export default function KnowledgePage() {
         <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Descrição */}
           <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '14px 18px' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#5B21B6', marginBottom: 6 }}>🔗 Como funciona</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#5B21B6', marginBottom: 6 }}>Como funciona</div>
             <div style={{ fontSize: 13, color: '#6D28D9', lineHeight: 1.7 }}>
               Cole qualquer URL → nosso servidor baixa o conteúdo da página (sem bloqueio de CORS) → extrai o texto → salva automaticamente na <strong>Base Local</strong> no Supabase.
             </div>
@@ -983,7 +980,7 @@ export default function KnowledgePage() {
                 style={{ background: extracting ? '#C4B5FD' : '#7C3AED', border: 'none', borderRadius: 8, padding: '10px 22px', fontSize: 13, fontWeight: 700, color: '#fff', cursor: extracting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {extracting
                   ? <><span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Gerando...</>
-                  : '🔗 Extrair e Salvar'}
+                  : 'Extrair e salvar'}
               </button>
             </div>
             <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
@@ -1015,8 +1012,8 @@ export default function KnowledgePage() {
           {/* Resultado */}
           {extractResult && (
             <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', borderRadius: 10, padding: '16px 20px' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#065F46', marginBottom: 4 }}>
-                ✅ Salvo na Base Local!
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#065F46', marginBottom: 4 }}>
+                Salvo na Base Local!
               </div>
               <div style={{ fontSize: 13, color: '#047857', marginBottom: 8 }}>
                 <strong>{extractResult.title}</strong> — {extractResult.chunks} bloco(s), {extractResult.chars?.toLocaleString()} caracteres extraídos e salvos no Supabase.
@@ -1027,12 +1024,12 @@ export default function KnowledgePage() {
 
               {/* Instrução de upload */}
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 6 }}>📤 Como subir no Dealism:</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#166534', marginBottom: 6 }}>Como subir no Dealism:</div>
                 <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#15803D', lineHeight: 1.8 }}>
                   <li>Acesse <strong>Conhecimento → + Adicionar</strong> no Dealism</li>
                   <li>Clique em <strong>"Adicionar conhecimento por arquivo"</strong></li>
                   <li>Selecione o arquivo <strong>.md</strong> que você baixou</li>
-                  <li>Aguarde o processamento ✅</li>
+                  <li>Aguarde o processamento</li>
                 </ol>
               </div>
 
@@ -1076,7 +1073,7 @@ export default function KnowledgePage() {
                 { label: 'Estratégias', value: porCat['ESTRATEGIA'] || 0, color: '#D97706' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 8, padding: '8px 16px', minWidth: 100 }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: s.color }}>{s.value}</div>
                   <div style={{ fontSize: 11, color: '#82829B', marginTop: 2 }}>{s.label}</div>
                 </div>
               ))}
@@ -1086,7 +1083,6 @@ export default function KnowledgePage() {
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {localEntries.length === 0 ? (
                 <div style={{ padding: 60, textAlign: 'center' }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
                   <div style={{ fontSize: 14, color: '#82829B' }}>Nenhuma entrada na base</div>
                 </div>
               ) : (
@@ -1166,9 +1162,9 @@ export default function KnowledgePage() {
       {/* ── Aprendizados — log separado do que o CODEX aprendeu sozinho ── */}
       {activeTab === 'learnings' && (() => {
         const ORIGIN_INFO = {
-          auditoria: { label: 'Auditoria', icon: '📋', color: '#4338CA', bg: '#EEF2FF' },
-          venda:     { label: 'Venda',     icon: '🏆', color: '#0B5E20', bg: '#F0FDF4' },
-          perda:     { label: 'Perda',     icon: '📉', color: '#B91C1C', bg: '#FEF2F2' },
+          auditoria: { label: 'Auditoria', color: '#4338CA', bg: '#EEF2FF' },
+          venda:     { label: 'Venda',     color: '#0B5E20', bg: '#F0FDF4' },
+          perda:     { label: 'Perda',     color: '#B91C1C', bg: '#FEF2F2' },
         }
         const filteredLearnings = learningsOriginFilter === 'ALL'
           ? learnings
@@ -1188,7 +1184,7 @@ export default function KnowledgePage() {
                 {Object.entries(ORIGIN_INFO).map(([key, info]) => (
                   <button key={key} onClick={() => setLearningsOriginFilter(key)}
                     style={{ fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer', background: learningsOriginFilter === key ? info.color : '#fff', color: learningsOriginFilter === key ? '#fff' : '#4B5563', boxShadow: learningsOriginFilter === key ? 'none' : 'inset 0 0 0 1px #E5E5E5', fontWeight: 600 }}>
-                    {info.icon} {info.label}
+                    {info.label}
                   </button>
                 ))}
               </div>
@@ -1197,15 +1193,14 @@ export default function KnowledgePage() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filteredLearnings.length === 0 ? (
                 <div style={{ padding: 60, textAlign: 'center' }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
                   <div style={{ fontSize: 14, color: '#82829B' }}>Nenhum aprendizado registrado ainda</div>
                 </div>
               ) : filteredLearnings.map(l => {
-                const origin = ORIGIN_INFO[l.origin] || { label: l.origin, icon: '💡', color: '#6B7280', bg: '#F9FAFB' }
+                const origin = ORIGIN_INFO[l.origin] || { label: l.origin, color: '#6B7280', bg: '#F9FAFB' }
                 const cat = CATEGORIES[l.category] || CATEGORIES['GERAL']
                 return (
                   <div key={l.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#FAFAFA', border: '1px solid #E5E5E5', borderRadius: 10, padding: '12px 14px' }}>
-                    <div style={{ width: 30, height: 30, borderRadius: 8, background: origin.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>{origin.icon}</div>
+                    <div style={{ width: 4, borderRadius: 4, background: origin.color, flexShrink: 0, alignSelf: 'stretch' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 5 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: origin.bg, color: origin.color, textTransform: 'uppercase' }}>{origin.label}</span>
@@ -1230,7 +1225,6 @@ export default function KnowledgePage() {
           <div style={{ padding: 60, textAlign: 'center', color: '#82829B', fontSize: 14 }}>Carregando...</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 60, textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
             <div style={{ fontSize: 14, color: '#82829B' }}>Nenhum treinamento encontrado</div>
           </div>
         ) : (
@@ -1387,10 +1381,9 @@ export default function KnowledgePage() {
                   )}
                   {catSuggestion && !suggesting && (
                     <div style={{ marginTop: 8, background: '#F5F3FF', border: '1px solid #C4B5FD', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>🤖</span>
                       <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: 12, color: '#5B21B6', fontWeight: 700 }}>Categoria sugerida pela IA: </span>
-                        <span style={{ fontSize: 12, color: '#7C3AED', fontWeight: 800 }}>{CATEGORIES[catSuggestion.categoria]?.label}</span>
+                        <span style={{ fontSize: 12, color: '#5B21B6', fontWeight: 600 }}>Categoria sugerida pela IA: </span>
+                        <span style={{ fontSize: 12, color: '#7C3AED', fontWeight: 600 }}>{CATEGORIES[catSuggestion.categoria]?.label}</span>
                         {catSuggestion.motivo && <span style={{ fontSize: 11, color: '#8B5CF6', marginLeft: 4 }}>— {catSuggestion.motivo}</span>}
                       </div>
                       <button onClick={() => setCatSuggestion(null)}

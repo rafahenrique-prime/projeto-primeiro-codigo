@@ -5,17 +5,17 @@ const workItems = [
   { id: 'inbox',    label: 'Mensagem',   badge: true },
   { id: 'agents',   label: 'Agentes' },
   { id: 'channels', label: 'Canais' },
-  { id: 'catalogo', label: '📦 Catálogo', badge: false },
-  { id: 'importar', label: '🔗 Importar', badge: false },
-  { id: 'importar-backup', label: '📥 Backup', badge: false },
-  { id: 'extrator', label: '🔨 Extrator', badge: false },
-  { id: 'image-extractor', label: '🖼️ Extrair Fotos', badge: false },
+  { id: 'catalogo', label: 'Catálogo', badge: false },
+  { id: 'importar', label: 'Importar', badge: false },
+  { id: 'importar-backup', label: 'Backup', badge: false },
+  { id: 'extrator', label: 'Extrator', badge: false },
+  { id: 'image-extractor', label: 'Extrair Fotos', badge: false },
 ]
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
   { id: 'contacts',  label: 'Contatos' },
-  { id: 'photo',     label: '📸 Fotos' },
-  { id: 'lab',       label: '🧪 Lab IA' },
+  { id: 'photo',     label: 'Fotos' },
+  { id: 'lab',       label: 'Lab IA' },
   { id: 'relatorios', label: 'Relatórios' },
 ]
 
@@ -41,31 +41,7 @@ function getIcon(id, size = 15) {
 }
 
 function getCollapsedIcon(id) {
-  const emojis = {
-    'inbox':           '💬',
-    'agents':          '🤖',
-    'channels':        '🔗',
-    'catalogo':        '📦',
-    'importar':        '⬇️',
-    'importar-backup': '💾',
-    'extrator':        '🔧',
-    'image-extractor': '🖼️',
-    'knowledge':       '📚',
-    'contacts':        '👤',
-    'photo':           '📸',
-    'lab':             '🧪',
-    'relatorios':      '📊',
-  }
-  const e = emojis[id]
-  if (!e) return <Dot />
-  return (
-    <span style={{
-      fontSize: 24,
-      lineHeight: 1,
-      display: 'flex',
-      filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.25))',
-    }}>{e}</span>
-  )
+  return getIcon(id, 20)
 }
 
 export default function LeftNav({ page, setPage, unreadCount = 0 }) {
@@ -76,8 +52,8 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   return (
     <div style={{ width: w, minWidth: w, background: t.navBg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${t.border}`, padding: '0 0 12px 0', transition: 'width 0.2s, min-width 0.2s, background 0.2s', overflow: 'hidden' }}>
 
-      {/* Logo — fundo preto fixo */}
-      <div style={{ background: dark ? '#1a1a1a' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, height: 72, position: 'relative', borderBottom: `1px solid ${t.border}` }}>
+      {/* Logo */}
+      <div style={{ background: t.navBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, height: 72, position: 'relative', borderBottom: `1px solid ${t.border}` }}>
         {collapsed ? (
           /* Modo colapsado: só listras + botão expandir centralizado */
           <button onClick={() => setCollapsed(false)} title="Expandir menu" style={{
@@ -115,13 +91,13 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           width: '100%',
           background: page === 'dashboard' ? '#E8192C' : (dark ? 'rgba(232,25,44,0.1)' : '#fff5f5'),
           color: page === 'dashboard' ? '#fff' : '#E8192C',
-          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
           border: `1px solid ${page === 'dashboard' ? 'transparent' : (dark ? 'rgba(232,25,44,0.2)' : '#ffd0d5')}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
-          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
+          transition: 'background 0.15s',
         }}>
-          {collapsed ? <span style={{ fontSize: 26, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }}>🏠</span> : <DashIcon active={page === 'dashboard'} />}
+          <DashIcon active={page === 'dashboard'} size={collapsed ? 20 : 15} />
           {!collapsed && 'Dashboard'}
         </button>
 
@@ -130,13 +106,13 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           width: '100%',
           background: page === 'dealonca' ? '#7C3AED' : (dark ? 'rgba(124,58,237,0.12)' : '#F5F3FF'),
           color: page === 'dealonca' ? '#fff' : '#7C3AED',
-          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
           border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? 'rgba(124,58,237,0.25)' : '#DDD6FE')}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
-          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
+          transition: 'background 0.15s',
         }}>
-          <CodexNavIcon size={collapsed ? 28 : 20} active={page === 'dealonca'} />
+          <CodexNavIcon size={collapsed ? 20 : 15} active={page === 'dealonca'} />
           {!collapsed && 'CODEX'}
         </button>
 
@@ -145,13 +121,13 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           width: '100%',
           background: page === 'followup' ? '#059669' : (dark ? 'rgba(5,150,105,0.12)' : '#ECFDF5'),
           color: page === 'followup' ? '#fff' : '#059669',
-          borderRadius: 12, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 700,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
           border: `1px solid ${page === 'followup' ? 'transparent' : (dark ? 'rgba(5,150,105,0.25)' : '#A7F3D0')}`,
           marginBottom: 14, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
-          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.3px',
+          transition: 'background 0.15s',
         }}>
-          <span style={{ fontSize: collapsed ? 26 : 18, filter: collapsed ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' : 'none' }}>📬</span>
+          <FollowUpIcon size={collapsed ? 20 : 15} />
           {!collapsed && 'Follow-up'}
         </button>
 
@@ -183,23 +159,23 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
             <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
               background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
               width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 14, transition: 'background 0.15s', flexShrink: 0,
-            }}>📊</button>
+              cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
+            }}><Rep size={14} /></button>
             <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
               background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
               width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 14, transition: 'background 0.15s', flexShrink: 0,
-            }}>{dark ? '☀️' : '🌙'}</button>
+              cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
+            }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
           </>
         )}
         {collapsed && (
           <>
             <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
-              background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0,
-            }}>📊</button>
+              background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
+            }}><Rep size={14} /></button>
             <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
-              background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, padding: 0,
-            }}>{dark ? '☀️' : '🌙'}</button>
+              background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
+            }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
           </>
         )}
       </div>
@@ -223,7 +199,7 @@ function VersionBadge({ t }) {
       padding: '6px 8px 2px', borderTop: `1px solid ${t.border}`,
       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
-      {isVercel ? '🌐' : '💻'} {formatted} · {sha}
+      {isVercel ? 'prod' : 'local'} · {formatted} · {sha}
     </div>
   )
 }
@@ -239,7 +215,7 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
     <div onClick={onClick} title={collapsed ? item.label : ''} style={{
       height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
       margin: collapsed ? '0 auto 10px' : '0 0 2px',
-      padding: collapsed ? '0' : '0 10px', borderRadius: collapsed ? 12 : 6,
+      padding: collapsed ? '0' : '0 10px', borderRadius: 8,
       display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer',
       background: active ? primaryBg : 'transparent',
       color: active ? primary : t.textSecondary,
@@ -322,10 +298,15 @@ function Ext({ size = 15 })  { return <svg width={size} height={size} viewBox="0
 function ImgEx({ size = 15 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> }
 function Lab({ size = 15 })   { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v6.5L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L15 8.5V2"/><path d="M9 2h6"/><path d="M8.5 14h7"/></svg> }
 function Dot() { return <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg> }
-function DashIcon({ active }) {
+function DashIcon({ active, size = 15 }) {
   const c = active ? '#fff' : '#E8192C'
-  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
 }
+function FollowUpIcon({ size = 15 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+}
+function SunIcon({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> }
+function MoonIcon({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg> }
 
 function PrimeStoreLogo({ collapsed }) {
   if (collapsed) {

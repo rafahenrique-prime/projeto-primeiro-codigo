@@ -458,10 +458,10 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {conv.picture
             ? <img src={conv.picture} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />
-            : <div style={{ width: 38, height: 38, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>{conv.initials}</div>
+            : <div style={{ width: 38, height: 38, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#fff' }}>{conv.initials}</div>
           }
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{conv.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{conv.name}</div>
             <div style={{ fontSize: 12, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {conv.channelLabel}{conv.channelSub ? ` · ${conv.channelSub}` : ''}
               <span style={{
@@ -469,20 +469,20 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
                 background: mode === 'copilot' ? '#FEE2E2' : '#F0FDF4',
                 color: mode === 'copilot' ? '#DC2626' : '#16A34A',
               }}>
-                {mode === 'copilot' ? '✋ Você está atendendo' : '🤖 Agente respondendo'}
+                {mode === 'copilot' ? 'Você está atendendo' : 'Agente respondendo'}
               </span>
               {clientProfile?.buy_score > 0 && (
                 <span style={{
-                  fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px',
+                  fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px',
                   background: clientProfile.buy_score >= 70 ? '#FEF9C3' : '#F3F4F6',
                   color: clientProfile.buy_score >= 70 ? '#92400E' : '#6B7280',
                 }}>
-                  {clientProfile.buy_score >= 70 ? '🔥' : '⚡'} Score {clientProfile.buy_score}
+                  Score {clientProfile.buy_score}
                 </span>
               )}
               {clientProfile?.size && (
-                <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px', background: '#EDE9FE', color: '#5B21B6' }}>
-                  👟 {clientProfile.size}
+                <span style={{ fontSize: 10, fontWeight: 600, borderRadius: 6, padding: '1px 6px', background: '#EDE9FE', color: '#5B21B6' }}>
+                  Tam. {clientProfile.size}
                 </span>
               )}
               {clientProfile?.tags?.slice(0, 2).map((tag, i) => (
@@ -512,7 +512,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
               setMode(newMode)
               onConvUpdate({ ...conv, mode: newMode })
             } catch (e) {
-              setModeHint('⚠️ Erro ao mudar modo: ' + (e.message || 'Token pode ter expirado'))
+              setModeHint('Erro ao mudar modo: ' + (e.message || 'Token pode ter expirado'))
               setTimeout(() => setModeHint(null), 6000)
             }
           }} />
@@ -524,13 +524,13 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
             </button>
             {showMenu && (
               <div style={{ position: 'absolute', right: 0, top: 36, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', minWidth: 200, zIndex: 200, overflow: 'hidden' }}>
-                <MenuItem t={t} icon="🔍" label="Buscar no histórico" onClick={() => { setShowSearch(s => !s); setShowMenu(false) }} />
-                <MenuItem t={t} icon="🧠" label={kbEnabled ? 'Base ativa' : 'Base inativa'} sublabel={kbEnabled ? 'clique para desativar' : 'clique para ativar'} onClick={() => { const n = !kbEnabled; setKbEnabled(n); localStorage.setItem('kb_enabled', String(n)); setShowMenu(false) }} active={kbEnabled} />
-                <MenuItem t={t} icon="💬" label={memEnabled ? 'Memória ativa' : 'Memória inativa'} sublabel={memEnabled ? 'Gerar usa histórico completo' : 'Gerar usa msgs visíveis'} onClick={() => { const n = !memEnabled; setMemEnabled(n); localStorage.setItem('mem_enabled', String(n)); setShowMenu(false) }} active={memEnabled} />
-                <MenuItem t={t} icon="💾" label="Salvar na base" onClick={() => { setSelectMode(true); setShowMenu(false) }} />
+                <MenuItem t={t} icon={<IcoSearch />} label="Buscar no histórico" onClick={() => { setShowSearch(s => !s); setShowMenu(false) }} />
+                <MenuItem t={t} icon={<IcoBook />} label={kbEnabled ? 'Base ativa' : 'Base inativa'} sublabel={kbEnabled ? 'clique para desativar' : 'clique para ativar'} onClick={() => { const n = !kbEnabled; setKbEnabled(n); localStorage.setItem('kb_enabled', String(n)); setShowMenu(false) }} active={kbEnabled} />
+                <MenuItem t={t} icon={<IcoChat />} label={memEnabled ? 'Memória ativa' : 'Memória inativa'} sublabel={memEnabled ? 'Gerar usa histórico completo' : 'Gerar usa msgs visíveis'} onClick={() => { const n = !memEnabled; setMemEnabled(n); localStorage.setItem('mem_enabled', String(n)); setShowMenu(false) }} active={memEnabled} />
+                <MenuItem t={t} icon={<IcoSave />} label="Salvar na base" onClick={() => { setSelectMode(true); setShowMenu(false) }} />
                 <div style={{ height: 1, background: t.border, margin: '2px 0' }} />
-                <MenuItem t={t} icon="🧹" label="Limpar conversa" onClick={() => { setShowClearModal(true); setShowMenu(false) }} />
-                <MenuItem t={t} icon="✅" label="Resolver conversa" onClick={() => { handleFinish(); setShowMenu(false) }} />
+                <MenuItem t={t} icon={<IcoClear />} label="Limpar conversa" onClick={() => { setShowClearModal(true); setShowMenu(false) }} />
+                <MenuItem t={t} icon={<IcoCheck />} label="Resolver conversa" onClick={() => { handleFinish(); setShowMenu(false) }} />
               </div>
             )}
           </div>
@@ -544,7 +544,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
       {/* Hint de modo */}
       {modeHint && (
         <div style={{ background: dark ? '#2a2010' : '#FEF3C7', borderBottom: `1px solid ${dark ? '#4a3a10' : '#FDE68A'}`, padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: dark ? '#FCD34D' : '#92400E', flexShrink: 0 }}>
-          <span>⚡ {modeHint}</span>
+          <span>{modeHint}</span>
           <a href={GPTMAKER_URL} target="_blank" rel="noreferrer" style={{ color: dark ? '#FBBF24' : '#D97706', fontWeight: 700, textDecoration: 'none', marginLeft: 8 }}>Abrir GPT Maker →</a>
         </div>
       )}
@@ -552,7 +552,7 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
       {/* Barra de busca */}
       {showSearch && (
         <div style={{ padding: '8px 12px', borderBottom: `1px solid ${t.border}`, background: t.bg, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 13 }}>🔍</span>
+          <IcoSearch size={14} color={t.textMuted} />
           <input
             ref={searchInputRef}
             type="text"
@@ -580,8 +580,8 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
 
       {/* Toast */}
       {saveToast && (
-        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#fff', padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, zIndex: 999, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
-          🧠 {saveToast}
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: '#10B981', color: '#fff', padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 999, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
+          {saveToast}
         </div>
       )}
 
@@ -638,9 +638,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
               <button
                 onClick={() => setShowPhotoModal(!showPhotoModal)}
                 title="Enviar Foto"
-                style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center', fontSize: 16 }}
+                style={{ background: 'transparent', border: 'none', padding: '4px 6px', borderRadius: 6, cursor: 'pointer', color: t.textMuted, display: 'flex', alignItems: 'center' }}
               >
-                📸
+                <IcoCamera size={16} />
               </button>
 
               {/* Modal Enviar Foto */}
@@ -694,8 +694,8 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
           onClick={() => !clearingAction && setShowClearModal(false)}>
           <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: '28px 28px 24px', width: 360, maxWidth: '90vw', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 22, marginBottom: 6, textAlign: 'center' }}>🧹</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, textAlign: 'center', marginBottom: 4 }}>Limpar Conversa</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IcoClear size={22} color={t.textMid} /></div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: t.text, textAlign: 'center', marginBottom: 4 }}>Limpar Conversa</div>
             <div style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', marginBottom: 20 }}>
               {conv.name || conv.id} — o que fazer com essa conversa?
             </div>
@@ -712,9 +712,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>📦</span>
+                <IcoArchive size={20} color={t.textMid} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
                     {clearingAction === 'archiving' ? 'Arquivando...' : 'Arquivo Morto (90 dias)'}
                   </div>
                   <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
@@ -736,9 +736,9 @@ const ChatArea = forwardRef(function ChatArea({ conv, onConvUpdate }, ref) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>🗑️</span>
+                <IcoTrash size={20} color="#DC2626" />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#DC2626' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#DC2626' }}>
                     {clearingAction === 'deleting' ? 'Apagando...' : 'Apagar Tudo'}
                   </div>
                   <div style={{ fontSize: 11, color: '#EF4444', marginTop: 2 }}>
@@ -793,7 +793,7 @@ function MsgWrapper({ msg, selectMode, selectedMsgs, toggleSelectMsg, onHide, ch
       style={{ position: 'relative', cursor: selectMode ? 'pointer' : 'default', borderRadius: 10, outline: selectMode && selectedMsgs.has(msg.id) ? '2px solid #10B981' : 'none', background: selectMode && selectedMsgs.has(msg.id) ? 'rgba(16,185,129,0.07)' : 'transparent', transition: 'all 0.1s' }}>
       {selectMode && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px 2px', fontSize: 11, color: selectedMsgs.has(msg.id) ? '#10B981' : '#D1D5DB', fontWeight: 600 }}>
-          {selectedMsgs.has(msg.id) ? '✓ Selecionada' : '○ Clique para selecionar'}
+          {selectedMsgs.has(msg.id) ? 'Selecionada' : 'Clique para selecionar'}
         </div>
       )}
       {children}
@@ -801,15 +801,26 @@ function MsgWrapper({ msg, selectMode, selectedMsgs, toggleSelectMsg, onHide, ch
         <button
           onClick={e => { e.stopPropagation(); onHide() }}
           title="Ocultar mensagem"
-          style={{ position: 'absolute', top: 4, left: 36, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0, opacity: 0.55, transition: 'opacity 0.15s' }}
+          style={{ position: 'absolute', top: 4, left: 36, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 0, opacity: 0.55, transition: 'opacity 0.15s', color: 'currentColor' }}
           onMouseEnter={e => e.currentTarget.style.opacity = '1'}
           onMouseLeave={e => e.currentTarget.style.opacity = '0.55'}>
-          🗑️
+          <IcoTrash size={13} />
         </button>
       )}
     </div>
   )
 }
+
+function IcoSearch({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> }
+function IcoBook({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> }
+function IcoChat({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> }
+function IcoSave({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> }
+function IcoClear({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> }
+function IcoCheck({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> }
+function IcoCamera({ size = 16, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }
+function IcoArchive({ size = 20, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> }
+function IcoTrash({ size = 20, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg> }
+function IcoMic({ size = 15, color = 'currentColor' }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> }
 
 function IconBtn({ children, title, color }) {
   return (
@@ -822,12 +833,12 @@ function IconBtn({ children, title, color }) {
 function ModeToggle({ mode, setMode, t }) {
   return (
     <div style={{ background: t.bgTertiary, borderRadius: 9999, padding: 3, display: 'flex', gap: 0 }}>
-      {[['autopilot','🤖 Agente'],['copilot','✋ Assumir']].map(([val, label]) => (
+      {[['autopilot','Agente'],['copilot','Assumir']].map(([val, label]) => (
         <button key={val} onClick={() => setMode(val)} style={{
           background: mode === val ? t.bg : 'transparent',
           color: mode === val ? (val === 'copilot' ? '#DC2626' : '#0EC331') : t.textMuted,
           border: 'none', borderRadius: 9999,
-          padding: '4px 12px', fontSize: 12, fontWeight: mode === val ? 700 : 500,
+          padding: '4px 12px', fontSize: 12, fontWeight: mode === val ? 600 : 500,
           boxShadow: mode === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
           transition: 'all 0.15s', cursor: 'pointer',
         }}>{label}</button>
@@ -845,7 +856,7 @@ function AudioBubble({ msg, isUser, t }) {
   return (
     <div style={{ background: bgColor, border, borderRadius: radius, padding: '9px 13px', boxShadow: isUser ? '0 1px 2px rgba(0,0,0,0.05)' : 'none', maxWidth: 280 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: transcription ? 6 : 0 }}>
-        <span style={{ fontSize: 16 }}>🎤</span>
+        <IcoMic size={15} color={t.textMuted} />
         <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>Áudio</span>
       </div>
       {transcription && (
