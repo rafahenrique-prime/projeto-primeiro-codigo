@@ -36,3 +36,54 @@ export async function getTodayAuditSummary() {
   const best = [...audits].sort((a, b) => b.score - a.score)[0]
   return { avgScore, total: audits.length, lowScore, best }
 }
+
+// Normaliza texto de falha pra agrupar variações do mesmo problema
+// (o cron já gera frases um pouco diferentes pro mesmo tipo de erro).
+function normalizeIssue(issue) {
+  if (!issue) return null
+  return issue
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^nao respondeu.*$/, 'não respondeu à pergunta do cliente')
+}
+
+// Painel Inteligência Operacional → Gabriela IA: lê o que o cron de auditoria
+// (api/cron-diagnosis.js) já gera todo dia — sem rodar IA nova, só agrega.
+export async function getQualitySummary(days = 7) {
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    const res = await fetch(`${base()}?created_at=gte.${since}&order=created_at.desc&limit=2000`, { headers })
+    if (!res.ok) return null
+    const audits = await res.json()
+    if (!audits.length) return { total: 0, avgScore: null, successRate: null, failureRate: null, topIssues: [], days }
+
+    const total = audits.length
+    const avgScore = audits.reduce((s, a) => s + a.score, 0) / total
+    const successCount = audits.filter(a => a.score >= 7).length
+    const failureCount = audits.filter(a => a.score <= 4).length
+    const failures = audits.filter(a => a.score <= 4 && a.issue)
+
+    const issueCounts = new Map()
+    for (const a of failures) {
+      const key = normalizeIssue(a.issue)
+      if (!key) continue
+      issueCounts.set(key, (issueCounts.get(key) || 0) + 1)
+    }
+    const topIssues = [...issueCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([issue, count]) => ({ issue, count }))
+
+    return {
+      total, days,
+      avgScore: Math.round(avgScore * 10) / 10,
+      successRate: Math.round((successCount / total) * 1000) / 10,
+      failureRate: Math.round((failureCount / total) * 1000) / 10,
+      topIssues,
+      worstCases: [...audits].sort((a, b) => a.score - b.score).slice(0, 8),
+    }
+  } catch (e) {
+    console.error('[AgentAudit] Erro ao gerar resumo de qualidade:', e.message)
+    return null
+  }
+}

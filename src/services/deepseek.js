@@ -23,7 +23,9 @@ export async function deepseekRequest(body) {
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  // deepseek-reasoner "pensa" antes de responder e estourava o timeout de 30s com frequência
+  // nas auditorias — 60s reduz timeouts silenciosos sem travar a UI por tempo demais.
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   try {
     const res = await fetch(DEEPSEEK_URL, {
