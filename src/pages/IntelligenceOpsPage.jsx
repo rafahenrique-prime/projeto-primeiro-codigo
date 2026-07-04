@@ -7,6 +7,7 @@ import LearningsAuditTab from './LearningsAuditTab'
 import WhatsappAuditTab from './WhatsappAuditTab'
 import InstagramAuditTab from './InstagramAuditTab'
 import GabrielaAuditTab from './GabrielaAuditTab'
+import CodexAuditTab from './CodexAuditTab'
 import { getOverallHealth } from '../services/opsHealthService'
 
 const TABS = [
@@ -62,18 +63,9 @@ const TABS = [
     id: 'codex',
     label: 'CODEX',
     icon: '🧩',
-    status: 'dev',
-    description: 'Auditoria do código do projeto: arquivos órfãos, funções sem uso, componentes duplicados, APIs não utilizadas, rotas mortas e tabelas sem uso.',
-    roadmap: [
-      'Arquivos órfãos',
-      'Funções sem uso',
-      'Componentes duplicados',
-      'APIs não utilizadas',
-      'Rotas mortas',
-      'Tabelas sem uso',
-      'Score técnico do projeto',
-    ],
-    engine: 'IA (DeepSeek R1) para análise de código — ainda não ativada',
+    status: 'live',
+    description: 'Auditoria do código do projeto: arquivos órfãos, funções sem uso, componentes duplicados, rotas mortas e tabelas sem uso.',
+    engine: 'Análise feita pelo Claude Code (fora do navegador) — sem automação em tempo real',
   },
   {
     id: 'bagy',
@@ -123,6 +115,7 @@ export default function IntelligenceOpsPage({ initialTab = 'bagy' }) {
         {tab.id === 'whatsapp' && <WhatsappAuditTab t={t} />}
         {tab.id === 'instagram' && <InstagramAuditTab t={t} />}
         {tab.id === 'gabriela' && <GabrielaAuditTab t={t} />}
+        {tab.id === 'codex' && <CodexAuditTab t={t} />}
         {tab.status === 'dev' && <DevelopmentTab tab={tab} t={t} />}
       </div>
     </div>
