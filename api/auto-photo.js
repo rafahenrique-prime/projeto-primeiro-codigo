@@ -35,6 +35,10 @@ async function logPhotoHistory({ produto, cliente, canal, sucesso, erro }) {
 const PALAVRAS_GENERICAS = new Set([
   'tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto',
   'perfume', 'oculos', 'bone', 'blusa', 'moletom', 'masculino', 'feminino',
+  // categorias que faltavam (mesmo gap encontrado e corrigido em vision-inbound.js
+  // em 2026-07-04 — "chinelo" sem isso pode empatar/ganhar de "tenis" por engano)
+  'chinelo', 'papete', 'sandalia', 'plataforma', 'cropped', 'short', 'shorts',
+  'cinto', 'jaqueta', 'carteira',
   'foto', 'imagem', 'produto', 'esse', 'essa', 'este', 'esta', 'dele', 'dela'
 ])
 
@@ -211,6 +215,11 @@ function extractProductName(msg) {
 function normalize(str) {
   // eslint-disable-next-line no-misleading-character-class
   return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    // Remove pontuação/markdown (ex: "*tênis" da Gabriela usando **negrito** não batia
+    // com "tenis" na lista de categorias — achado em 2026-07-04 debugando foto errada)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function findProductInText(text, catalog) {
@@ -490,7 +499,9 @@ export default async function handler(req, res) {
 
         await sendMessage(chatId, p.nome, p.imagem)
         await new Promise(resolve => setTimeout(resolve, 1000))
-        await sendMessage(chatId, `${p.preco}\n\n${p.link}`)
+        // Guard: alguns produtos têm link nulo no catálogo (achado em 2026-07-04);
+        // sem isso, o template literal manda a string literal "null" pro cliente.
+        await sendMessage(chatId, p.link ? `${p.preco}\n\n${p.link}` : p.preco)
 
         if (i < produtos.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000))
@@ -565,6 +576,32 @@ export default async function handler(req, res) {
         console.log('[auto-photo] Produto encontrado no contexto cliente:', found.nome)
       }
     }
+
+    // 3. Se ainda não achou, busca nas mensagens recentes DA GABRIELA (não do cliente).
+    // Cenário comum: cliente pergunta "você tem?", ela responde citando o produto,
+    // cliente só confirma "me manda foto" sem repetir o nome — o cliente nunca disse
+    // o produto, só ela. Mesmo padrão já usado no painel (ChatArea.jsx's
+    // lastProductContextRef), agora replicado aqui pro webhook 24/7.
+    if (!produto) {
+      const agentMsgsReverse = [...messages].reverse().filter(m =>
+        m.role === 'assistant' || m.role === 'agent' || m.role === 'bot'
+      )
+      // Janela de 6 (não 3): a Gabriela costuma dividir a resposta em várias mensagens
+      // curtas (nome, preço, link, CTA) — 3 cortava a mensagem que tinha o nome do produto
+      const agentContext = agentMsgsReverse.slice(0, 6)
+        .map(m => m.text || m.content || m.message || '')
+        .join(' ')
+        .toLowerCase()
+
+      if (agentContext) {
+        console.log('[auto-photo] Tentando contexto da Gabriela (últimas respostas dela)...')
+        const found = findProductInText(agentContext, catalog)
+        if (found) {
+          produto = found
+          console.log('[auto-photo] ✅ Produto encontrado no contexto da Gabriela:', found.nome)
+        }
+      }
+    }
   }
 
   if (!produto) {
@@ -582,7 +619,9 @@ export default async function handler(req, res) {
   try {
     await sendMessage(chatId, produto.nome, produto.imagem)
     await new Promise(r => setTimeout(r, 1000))
-    await sendMessage(chatId, `${produto.preco}\n\n${produto.link}`)
+    // Guard: alguns produtos têm link nulo no catálogo (achado em 2026-07-04);
+    // sem isso, o template literal manda a string literal "null" pro cliente.
+    await sendMessage(chatId, produto.link ? `${produto.preco}\n\n${produto.link}` : produto.preco)
 
     console.log('[auto-photo] ✅ Foto enviada com sucesso:', produto.nome, '| chatId:', chatId)
     await logPhotoHistory({ produto: produto.nome, canal: chatId })

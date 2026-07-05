@@ -1,0 +1,15 @@
+{
+  "prefferModel": "DEEPSEEK_V4_FLASH",
+  "timezone": "America/Sao_Paulo",
+  "enabledHumanTransfer": true,
+  "enabledReminder": true,
+  "splitMessages": true,
+  "enabledEmoji": true,
+  "limitSubjects": false,
+  "messageGroupingTime": "TEN_SEC",
+  "signMessages": false,
+  "maxDailyMessages": null,
+  "maxDailyMessagesLimitAction": null,
+  "knowledgeByFunction": false,
+  "resumeTransferHumanAI": true
+}

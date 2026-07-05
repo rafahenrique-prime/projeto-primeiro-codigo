@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
+import Avatar from './Avatar'
 
 function timeSince(rawTime) {
   if (!rawTime) return null
@@ -54,10 +55,15 @@ export default function InboxList({ conversations, allConversations, active, onS
             return (
               <div key={conv.id} onClick={() => onSelect(conv)} title={conv.name}
                 style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
-                {conv.picture
-                  ? <img src={conv.picture} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: isActive ? `2px solid ${t.primary || '#E8192C'}` : '2px solid transparent' }} onError={e => e.target.style.display = 'none'} />
-                  : <div style={{ width: 40, height: 40, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#fff', border: isActive ? `2px solid ${t.primary || '#E8192C'}` : '2px solid transparent' }}>{conv.initials}</div>
-                }
+                <Avatar
+                  picture={conv.picture}
+                  initials={conv.initials}
+                  color={conv.color}
+                  size={40}
+                  innerSize={36}
+                  isActive={isActive}
+                  activeColor={t.primary || '#E8192C'}
+                />
                 {conv.unread > 0 && (
                   <span style={{ position: 'absolute', top: -2, right: -2, background: t.primary || '#E8192C', color: '#fff', fontSize: 9, fontWeight: 700, borderRadius: 9999, minWidth: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: `2px solid ${t.bg}` }}>{conv.unread > 9 ? '9+' : conv.unread}</span>
                 )}
@@ -205,30 +211,21 @@ function ConvItem({ conv, isActive, onClick, t, igColors = {}, buyScore }) {
     >
       {/* Avatar */}
       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ position: 'relative' }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: `conic-gradient(${ringColor} ${progress * 3.6}deg, ${t.borderLight} ${progress * 3.6}deg)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background 0.5s ease',
-          }}>
-            {conv.picture
-              ? <img src={conv.picture} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />
-              : <div style={{ width: 38, height: 38, borderRadius: '50%', background: conv.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#fff' }}>{conv.initials}</div>
-            }
-          </div>
-          <div style={{
-            position: 'absolute', bottom: -1, right: -1,
-            width: 16, height: 16, borderRadius: '50%',
+        <Avatar
+          picture={conv.picture}
+          initials={conv.initials}
+          color={conv.color}
+          size={44}
+          innerSize={38}
+          ringColor={progress > 0 ? ringColor : null}
+          ringProgress={progress}
+          badge={{
             background: isWa ? '#25D366' : igBadgeColor,
-            border: `2px solid ${t.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {isWa
+            icon: isWa
               ? <svg width="8" height="8" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
               : <svg width="8" height="8" viewBox="0 0 24 24" fill="#fff"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" fill="#E1306C"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="#fff" strokeWidth="2"/></svg>
-            }
-          </div>
-        </div>
+          }}
+        />
         {hasScore && (
           <span style={{
             marginTop: 3, fontSize: 9, fontWeight: 700, color: '#fff', background: ringColor,

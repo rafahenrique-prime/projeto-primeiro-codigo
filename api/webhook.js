@@ -88,6 +88,9 @@ async function warmupSupabase() {
 }
 
 // Busca produtos no Supabase com retry automático (até 5 tentativas)
+// Retorna { produtos: top5, total: quantidade REAL de matches } — o total é usado
+// pra Gabriela informar "temos X cores, aqui estão 5, mais Y disponíveis" em vez de
+// só ver 5 e não saber que existem mais (achado em 2026-07-04 debugando lista de cores).
 async function buscarProdutos(pergunta, tentativa = 1) {
   try {
     const res = await fetch(
@@ -95,7 +98,7 @@ async function buscarProdutos(pergunta, tentativa = 1) {
       { headers: sbHeaders }
     )
 
-    if (!res.ok) return []
+    if (!res.ok) return { produtos: [], total: 0 }
 
     const produtos = await res.json()
 
@@ -103,14 +106,36 @@ async function buscarProdutos(pergunta, tentativa = 1) {
     const keywords = extrairKeywords(pergunta)
     console.log(`[Webhook] 🔑 Keywords extraídas: "${keywords}" (de: "${pergunta}")`)
 
-    const produtosComScore = produtos
+    const todosComScore = produtos
       .map(p => ({
         ...p,
         score: calcularSimilaridade(keywords, p.nome)
       }))
       .filter(p => p.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+
+    const produtosComScore = todosComScore.slice(0, 5)
+
+    // Total de variações precisa ser do MESMO MODELO, não só da mesma marca.
+    // calcularSimilaridade() pontua com só 1 palavra em comum ("new balance 530"
+    // e "new balance 9060" compartilham "new"+"balance"), o que inflava o total
+    // somando cores de modelos diferentes (achado em 2026-07-04, conversa real:
+    // "164 variações" quando o real do 9060 é 38). Duas tentativas descartadas:
+    // exigir TODAS as keywords quebra com palavras soltas fora da STOP_WORDS
+    // (ex: "ver" batendo à toa em produtos com "Verde" no nome); usar o score
+    // relativo penaliza nomes de produto mais longos e undercounta. A solução:
+    // ancorar no(s) token(s) NUMÉRICO(S) da pergunta (9060, 530, 997...), que
+    // são os identificadores reais de modelo — exige-se só esses no nome do
+    // produto. Sem número na pergunta (ex: "tem tênis vans?"), não dá pra
+    // isolar modelo, então mantém o total antigo (soma todos os matches).
+    const keywordsArr = normalizarBusca(keywords).split(' ').filter(Boolean)
+    const numericos = keywordsArr.filter(k => /\d/.test(k))
+    const total = numericos.length > 0
+      ? produtos.filter(p => {
+          const nome = normalizarBusca(p.nome)
+          return numericos.every(k => nome.includes(k))
+        }).length
+      : todosComScore.length
 
     // Retry automático: até 5 tentativas com delay de 2s cada (total 10s)
     if (produtosComScore.length === 0 && tentativa < 5) {
@@ -123,10 +148,10 @@ async function buscarProdutos(pergunta, tentativa = 1) {
       console.log(`[Webhook] 🔄 Tentativa ${tentativa}/5 - SUCESSO! Encontrados ${produtosComScore.length} produtos`)
     }
 
-    return produtosComScore
+    return { produtos: produtosComScore, total }
   } catch (err) {
     console.error('[Webhook] Erro ao buscar produtos:', err.message)
-    return []
+    return { produtos: [], total: 0 }
   }
 }
 
@@ -163,12 +188,13 @@ async function searchKnowledge(pergunta) {
 
     console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
 
-    const [produtos, knowledgeBase] = await Promise.all([
+    const [produtosResult, knowledgeBase] = await Promise.all([
       buscarProdutos(pergunta),
       buscarKnowledge(pergunta)
     ])
+    const { produtos, total: totalReal } = produtosResult
 
-    console.log(`[Webhook] ✅ Encontrados ${produtos.length} produtos`)
+    console.log(`[Webhook] ✅ Encontrados ${produtos.length} produtos (total real de variações: ${totalReal})`)
 
     const resposta = {
       ok: true,
@@ -190,7 +216,9 @@ async function searchKnowledge(pergunta) {
           categoria: knowledgeBase.category,
           conteudo: knowledgeBase.content
         } : null,
-        totalResultados: produtos.length
+        totalResultados: produtos.length,
+        totalVariacoes: totalReal,
+        variacoesRestantes: Math.max(0, totalReal - produtos.length)
       }
     }
 
@@ -215,7 +243,7 @@ function validarRequest(body) {
 
 // Formatar resposta para GPT Maker
 function formatarRespostaGPT(dadosBusca) {
-  const { produtos, knowledge } = dadosBusca.dados || {}
+  const { produtos, knowledge, totalVariacoes, variacoesRestantes } = dadosBusca.dados || {}
 
   let resposta = {
     sucesso: true,
@@ -224,11 +252,18 @@ function formatarRespostaGPT(dadosBusca) {
       pergunta: dadosBusca.pergunta,
       produtos_encontrados: produtos?.length || 0,
       tem_produtos: (produtos?.length || 0) > 0,
-      tem_base_conhecimento: !!knowledge
+      tem_base_conhecimento: !!knowledge,
+      // Total real de variações encontradas (antes de cortar em 5) e quantas ficaram
+      // de fora — pra Gabriela informar "temos X cores, mais Y disponíveis" com
+      // números reais, em vez de ver só 5 e não saber quantas existem no total.
+      total_variacoes: totalVariacoes || 0,
+      variacoes_restantes: variacoesRestantes || 0
     },
     dados: {
       produtos: [],
-      informacao_adicional: ''
+      informacao_adicional: '',
+      totalVariacoes: totalVariacoes || 0,
+      variacoesRestantes: variacoesRestantes || 0
     }
   }
 
@@ -245,13 +280,25 @@ function formatarRespostaGPT(dadosBusca) {
     }))
   }
 
+  // Embute o total real de variações direto no campo que o treinamento
+  // "${webhook_response.dados.informacao_adicional}" já lê de verdade — os campos
+  // totalVariacoes/variacoesRestantes soltos não chegavam até a Gabriela porque o
+  // template dela só referencia .produtos e .informacao_adicional (achado em 2026-07-04
+  // testando no WhatsApp real: ela disse "várias cores"/"mais cores" sem número).
+  // Fica no TOPO do campo (não no fim) pra não ficar enterrado atrás do dump genérico
+  // da base de conhecimento, que é sempre o mesmo texto de produtos independente da pergunta.
+  if ((produtos?.length || 0) > 0 && variacoesRestantes > 0) {
+    resposta.dados.informacao_adicional += `Total de variações deste produto: ${totalVariacoes} (mostrando ${produtos.length}, restam ${variacoesRestantes} cores não listadas aqui).\n\n`
+  }
+
   // Adicionar informação da knowledge base
   if (knowledge && knowledge.conteudo) {
-    resposta.dados.informacao_adicional = `
+    resposta.dados.informacao_adicional += `
 Informação da Base de Conhecimento:
 ${knowledge.conteudo.substring(0, 500)}...
     `.trim()
   }
+  resposta.dados.informacao_adicional = resposta.dados.informacao_adicional.trim()
 
   return resposta
 }
