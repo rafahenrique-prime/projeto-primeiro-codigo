@@ -15,7 +15,7 @@ const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
   { id: 'contacts',  label: 'Contatos' },
   { id: 'contacts-new', label: 'Contatos (Beta)' },
-  { id: 'bagy-audit', label: 'Auditoria Bagy (Beta)' },
+  { id: 'bagy-audit', label: 'Inteligência Operacional' },
   { id: 'photo',     label: 'Fotos' },
   { id: 'lab',       label: 'Lab IA' },
   { id: 'relatorios', label: 'Relatórios' },

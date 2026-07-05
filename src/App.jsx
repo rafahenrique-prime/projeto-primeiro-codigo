@@ -23,6 +23,7 @@ import AgentLabPage from './pages/AgentLabPage'
 import FollowUpPage from './pages/FollowUpPage'
 import ImageExtractorPage from './pages/ImageExtractorPage'
 import BagyAuditPage from './pages/BagyAuditPage'
+import IntelligenceOpsPage from './pages/IntelligenceOpsPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
@@ -313,7 +314,8 @@ export default function App() {
           {page === 'dealonca' && <DealOncaPage conversations={conversations} setPage={setPage} />}
           {page === 'contacts' && <ContactsPage conversations={conversations} setPage={setPage} activeConv={activeConv} setActiveConv={setActiveConv} />}
           {page === 'contacts-new' && <ContactsNewPage conversations={conversations} />}
-          {page === 'bagy-audit' && <BagyAuditPage />}
+          {page === 'bagy-audit' && <IntelligenceOpsPage initialTab="bagy" />}
+          {page === 'intelligence-ops' && <IntelligenceOpsPage />}
           {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
           {page === 'reports'    && <DashboardPage conversations={conversations} />}
           {page === 'relatorios' && <RelatoriosPage />}
