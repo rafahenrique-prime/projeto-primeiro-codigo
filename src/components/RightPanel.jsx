@@ -4,6 +4,17 @@ import { getRespostaRecomendada } from '../services/groq'
 import { searchProduct, isValidImageUrl } from '../services/catalog'
 import { addPhotoToHistory } from '../services/photoHistory'
 import { useTheme } from '../theme.jsx'
+import Tooltip from './Tooltip.jsx'
+
+function HelpIcon({ text, position = 'top' }) {
+  return (
+    <Tooltip text={text} position={position}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.55, cursor: 'help', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </Tooltip>
+  )
+}
 
 function calcProgress(msgs = [], lastMsg = '') {
   const text = (msgs.map(m => m.text || m.content || '').join(' ') + ' ' + lastMsg).toLowerCase()
@@ -221,7 +232,10 @@ export default function RightPanel({ conv, onConvUpdate, onFillInput }) {
           </div>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#F97316', minWidth: 36 }}>{progress}%</span>
         </div>
-        <div style={{ fontSize: 10, color: t.textMuted }}>Progresso do objetivo</div>
+        <div style={{ fontSize: 10, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
+          Progresso do objetivo
+          <HelpIcon text="O progresso será atualizado automaticamente sempre que o agente gerar uma resposta — mede o quão perto o cliente está de fechar a compra, com base nas palavras usadas na conversa." />
+        </div>
         </>)}
       </div>
 

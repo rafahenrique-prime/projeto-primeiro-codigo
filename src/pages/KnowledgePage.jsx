@@ -47,6 +47,14 @@ function previewText(item) {
   return (item.text || '').replace(/^\[[^\]]+\]\n/, '').replace(/\n/g, ' ').slice(0, 120)
 }
 
+// Formato padrão de data/hora usado em todas as abas (Base Local, Histórico, GPT Maker, Fotos)
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '')
+}
+
 export default function KnowledgePage() {
   const [agents, setAgents]               = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
@@ -837,7 +845,7 @@ export default function KnowledgePage() {
                             </div>
                           </td>
                           <td style={{ ...td, whiteSpace: 'nowrap', color: '#6B7280', fontSize: 13 }}>
-                            {new Date(entry.createdAt).toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '')}
+                            {formatDateTime(entry.created_at)}
                           </td>
                           <td style={td}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#059669', fontSize: 13 }}>
@@ -1240,6 +1248,7 @@ export default function KnowledgePage() {
                 <th style={{ ...th, width: 130 }}>Categoria</th>
                 <th style={{ ...th, width: 80  }}>Tipo</th>
                 <th style={{ ...th, width: 220 }}>Fonte</th>
+                <th style={{ ...th, width: 130 }}>Data</th>
                 <th style={{ ...th, width: 110 }}>Ação</th>
               </tr>
             </thead>
@@ -1248,6 +1257,7 @@ export default function KnowledgePage() {
                 const catKey  = getCat(item, cats)
                 const catInfo = catKey ? CATEGORIES[catKey] : null
                 const preview = previewText(item)
+                const createdAt = getCreatedAt(item)
                 return (
                   <tr key={item.id} style={{ borderBottom: '1px solid #F3F4F6', background: idx % 2 === 0 ? '#fff' : '#FAFAFA' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#F5F3FF'}
@@ -1300,6 +1310,11 @@ export default function KnowledgePage() {
                       ) : (
                         <span style={{ color: '#D1D5DB', fontSize: 12 }}>—</span>
                       )}
+                    </td>
+
+                    {/* Data */}
+                    <td style={{ ...td, whiteSpace: 'nowrap', color: '#6B7280', fontSize: 12 }}>
+                      {createdAt ? formatDateTime(createdAt) : '—'}
                     </td>
 
                     {/* Ações */}

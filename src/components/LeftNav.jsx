@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
+import Tooltip from './Tooltip.jsx'
 
 const workItems = [
   { id: 'inbox',    label: 'Mensagem',   badge: true },
   { id: 'agents',   label: 'Agentes' },
   { id: 'channels', label: 'Canais' },
   { id: 'catalogo', label: 'Catálogo', badge: false },
+]
+const toolsItems = [
   { id: 'importar', label: 'Importar', badge: false },
   { id: 'importar-backup', label: 'Backup', badge: false },
   { id: 'extrator', label: 'Extrator', badge: false },
   { id: 'image-extractor', label: 'Extrair Fotos', badge: false },
 ]
+const toolsPageIds = toolsItems.map(i => i.id)
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
   { id: 'contacts',  label: 'Contatos' },
@@ -48,9 +52,12 @@ function getCollapsedIcon(id) {
   return getIcon(id, 20)
 }
 
+function Wrench({ size = 15 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
+
 export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   const { theme: t, dark, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(() => toolsPageIds.includes(page))
   const w = collapsed ? 72 : 240
 
   return (
@@ -91,11 +98,12 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: collapsed ? '12px 8px 0' : '10px 10px 0', overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Dashboard */}
-        <button onClick={() => setPage('dashboard')} title={collapsed ? 'Dashboard' : ''} style={{
+        <Tooltip text={collapsed ? 'Dashboard' : ''} block>
+        <button onClick={() => setPage('dashboard')} style={{
           width: '100%',
           background: page === 'dashboard' ? '#E8192C' : (dark ? 'rgba(232,25,44,0.1)' : '#fff5f5'),
           color: page === 'dashboard' ? '#fff' : '#E8192C',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
           border: `1px solid ${page === 'dashboard' ? 'transparent' : (dark ? 'rgba(232,25,44,0.2)' : '#ffd0d5')}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
@@ -104,13 +112,15 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           <DashIcon active={page === 'dashboard'} size={collapsed ? 20 : 15} />
           {!collapsed && 'Dashboard'}
         </button>
+        </Tooltip>
 
         {/* CODEX */}
-        <button onClick={() => setPage('dealonca')} title={collapsed ? 'CODEX' : ''} style={{
+        <Tooltip text={collapsed ? 'CODEX' : ''} block>
+        <button onClick={() => setPage('dealonca')} style={{
           width: '100%',
           background: page === 'dealonca' ? '#7C3AED' : (dark ? 'rgba(124,58,237,0.12)' : '#F5F3FF'),
           color: page === 'dealonca' ? '#fff' : '#7C3AED',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
           border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? 'rgba(124,58,237,0.25)' : '#DDD6FE')}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
@@ -119,13 +129,15 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           <CodexNavIcon size={collapsed ? 20 : 15} active={page === 'dealonca'} />
           {!collapsed && 'CODEX'}
         </button>
+        </Tooltip>
 
         {/* Follow-up */}
-        <button onClick={() => setPage('followup')} title={collapsed ? 'Follow-up' : ''} style={{
+        <Tooltip text={collapsed ? 'Follow-up' : ''} block>
+        <button onClick={() => setPage('followup')} style={{
           width: '100%',
           background: page === 'followup' ? '#059669' : (dark ? 'rgba(5,150,105,0.12)' : '#ECFDF5'),
           color: page === 'followup' ? '#fff' : '#059669',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 13, fontWeight: 500,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
           border: `1px solid ${page === 'followup' ? 'transparent' : (dark ? 'rgba(5,150,105,0.25)' : '#A7F3D0')}`,
           marginBottom: 14, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
@@ -134,6 +146,7 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           <FollowUpIcon size={collapsed ? 20 : 15} />
           {!collapsed && 'Follow-up'}
         </button>
+        </Tooltip>
 
         {!collapsed && <Label color={t.textMuted}>Espaço de Trabalho</Label>}
         {collapsed && <div style={{ height: 4 }} />}
@@ -141,6 +154,46 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
           <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)}
             badge={item.badge ? unreadCount : 0} t={t} collapsed={collapsed} />
         ))}
+
+        {/* Ferramentas — submenu recolhível com Importar/Backup/Extrator/Extrair Fotos */}
+        <Tooltip text={collapsed ? 'Ferramentas' : ''} block={collapsed}>
+          <div
+            onClick={() => collapsed ? setPage('importar') : setToolsOpen(o => !o)}
+            style={{
+              height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
+              margin: collapsed ? '0 auto 10px' : '0 0 2px',
+              padding: collapsed ? '0' : '0 10px', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10, cursor: 'pointer',
+              background: toolsPageIds.includes(page) ? t.primaryBg : 'transparent',
+              color: toolsPageIds.includes(page) ? (t.primary || '#E8192C') : t.textSecondary,
+              fontSize: 14, fontWeight: toolsPageIds.includes(page) ? 600 : 400,
+              borderLeft: !collapsed ? `2px solid ${toolsPageIds.includes(page) ? (t.primary || '#E8192C') : 'transparent'}` : 'none',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { if (!toolsPageIds.includes(page)) e.currentTarget.style.background = t.bgTertiary }}
+            onMouseLeave={e => { if (!toolsPageIds.includes(page)) e.currentTarget.style.background = 'transparent' }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: collapsed ? 22 : 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: toolsPageIds.includes(page) ? (t.primary || '#E8192C') : t.textMid, flexShrink: 0 }}>
+                <Wrench size={collapsed ? 20 : 15} />
+              </span>
+              {!collapsed && 'Ferramentas'}
+            </span>
+            {!collapsed && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: toolsOpen ? 'none' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            )}
+          </div>
+        </Tooltip>
+        {!collapsed && toolsOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 14, marginBottom: 2 }}>
+            {toolsItems.map(item => (
+              <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)}
+                badge={0} t={t} collapsed={false} />
+            ))}
+          </div>
+        )}
 
         {!collapsed && <Label color={t.textMuted} style={{ marginTop: 16 }}>Inteligência</Label>}
         {collapsed && <div style={{ height: 2, background: t.border, margin: '6px 4px 8px' }} />}
@@ -153,33 +206,43 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
 
       {/* User */}
       <div style={{ margin: '8px 6px 0', padding: collapsed ? '10px 0' : '10px 8px', borderTop: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8 }}>
-        <div title={collapsed ? 'Rafael · PRIME STORE' : ''} style={{ width: 32, height: 32, borderRadius: '50%', background: '#0EC331', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>R</div>
+        <Tooltip text={collapsed ? 'Rafael · PRIME STORE' : ''}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0EC331', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>R</div>
+        </Tooltip>
         {!collapsed && (
           <>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Rafael</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Rafael</div>
               <div style={{ fontSize: 11, color: t.textMuted }}>PRIME STORE</div>
             </div>
-            <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
-              background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
-              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
-            }}><Rep size={14} /></button>
-            <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
-              background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
-              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
-            }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
+            <Tooltip text="Relatórios — Conversões" position="top">
+              <button onClick={() => setPage('relatorios')} style={{
+                background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
+                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
+              }}><Rep size={14} /></button>
+            </Tooltip>
+            <Tooltip text={dark ? 'Tema claro' : 'Tema escuro'} position="top">
+              <button onClick={toggle} style={{
+                background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
+                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
+              }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
+            </Tooltip>
           </>
         )}
         {collapsed && (
           <>
-            <button onClick={() => setPage('relatorios')} title="Relatórios — Conversões" style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
-            }}><Rep size={14} /></button>
-            <button onClick={toggle} title={dark ? 'Tema claro' : 'Tema escuro'} style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
-            }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
+            <Tooltip text="Relatórios — Conversões" position="top">
+              <button onClick={() => setPage('relatorios')} style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
+              }}><Rep size={14} /></button>
+            </Tooltip>
+            <Tooltip text={dark ? 'Tema claro' : 'Tema escuro'} position="top">
+              <button onClick={toggle} style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: t.textMid, padding: 0,
+              }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
+            </Tooltip>
           </>
         )}
       </div>
@@ -216,14 +279,15 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
   const primary = t.primary || '#E8192C'
   const primaryBg = t.primaryBg || '#fff5f5'
   return (
-    <div onClick={onClick} title={collapsed ? item.label : ''} style={{
+    <Tooltip text={collapsed ? item.label : ''} block={collapsed}>
+    <div onClick={onClick} style={{
       height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
       margin: collapsed ? '0 auto 10px' : '0 0 2px',
       padding: collapsed ? '0' : '0 10px', borderRadius: 8,
       display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer',
       background: active ? primaryBg : 'transparent',
       color: active ? primary : t.textSecondary,
-      fontSize: 13, fontWeight: active ? 600 : 400,
+      fontSize: 14, fontWeight: active ? 600 : 400,
       borderLeft: !collapsed ? `2px solid ${active ? primary : 'transparent'}` : 'none',
       transition: 'background 0.1s', position: 'relative',
     }}
@@ -257,6 +321,7 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
         }}>{badge > 99 ? '99+' : badge}</span>
       )}
     </div>
+    </Tooltip>
   )
 }
 

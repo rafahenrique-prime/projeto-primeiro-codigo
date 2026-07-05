@@ -6,6 +6,17 @@ import { listContacts, getChatMessages } from '../services/gptmaker'
 import { getAllProfiles, getProfile } from '../services/customerProfileService'
 import { getAnalysis, analyzeConversation } from '../services/contactAnalysisService'
 import { saveEntry } from '../services/knowledgeDB'
+import Tooltip from '../components/Tooltip.jsx'
+
+function HelpIcon({ text, position = 'bottom' }) {
+  return (
+    <Tooltip text={text} position={position}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.55, cursor: 'help', flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </Tooltip>
+  )
+}
 
 const AVATAR_COLORS = ['#6366f1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#14B8A6']
 function colorFor(str) { let h = 0; for (const c of (str || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffff; return AVATAR_COLORS[h % AVATAR_COLORS.length] }
@@ -94,14 +105,22 @@ function ContactsList({ t, conversations, onSelect }) {
         <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>Central de inteligência de conversas — módulo isolado, não afeta a tela de Contatos atual.</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, margin: '16px 0 12px', flexWrap: 'wrap' }}>
-        {[['todos', 'Todos'], ['quentes', 'Quentes'], ['frios', 'Frios'], ['acompanhamento', 'Acompanhamento']].map(([k, label]) => (
-          <button key={k} onClick={() => setPerspective(k)} style={{
-            fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer',
-            background: perspective === k ? (t.primary || '#E8192C') : t.bgTertiary,
-            color: perspective === k ? '#fff' : t.textMid,
-            fontWeight: perspective === k ? 600 : 500,
-          }}>{label} ({counts[k]})</button>
+      <div style={{ display: 'flex', gap: 6, margin: '16px 0 12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {[
+          ['todos', 'Todos', null],
+          ['quentes', 'Quentes', 'Score de conversão ≥ 70% — clientes com alta chance de comprar em breve.'],
+          ['frios', 'Frios', 'Score de conversão < 30% — clientes com baixa chance de comprar no momento.'],
+          ['acompanhamento', 'Acompanhamento', 'Contatos marcados manualmente (📌) para você voltar a falar depois.'],
+        ].map(([k, label, help]) => (
+          <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <button onClick={() => setPerspective(k)} style={{
+              fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+              background: perspective === k ? (t.primary || '#E8192C') : t.bgTertiary,
+              color: perspective === k ? '#fff' : t.textMid,
+              fontWeight: perspective === k ? 600 : 500,
+            }}>{label} ({counts[k]})</button>
+            {help && <HelpIcon text={help} />}
+          </div>
         ))}
       </div>
 
@@ -124,7 +143,12 @@ function ContactsList({ t, conversations, onSelect }) {
                 <th style={{ textAlign: 'left', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>Nome</th>
                 <th style={{ textAlign: 'left', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>Canal</th>
                 <th style={{ textAlign: 'left', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>Telefone</th>
-                <th style={{ textAlign: 'left', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>Score</th>
+                <th style={{ textAlign: 'left', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    Score
+                    <HelpIcon text="Chance estimada de o contato comprar, calculada pela IA a partir da conversa (0-100%)." />
+                  </span>
+                </th>
                 <th style={{ textAlign: 'right', padding: '8px', color: t.textMuted, fontWeight: 500, fontSize: 12 }}>Ação</th>
               </tr>
             </thead>
@@ -336,7 +360,10 @@ function ContactDetail({ contact, t, onBack }) {
                 <AnalysisBlock t={t} label="Dúvidas frequentes" content={(analysis.duvidas_frequentes || []).join(' · ') || '—'} />
                 <AnalysisBlock t={t} label="Próxima ação recomendada" content={analysis.proxima_acao} />
                 <div>
-                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Score de conversão</div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Score de conversão
+                    <HelpIcon text="Chance estimada de o contato comprar, calculada pela IA a partir da conversa (0-100%)." />
+                  </div>
                   <div style={{ fontSize: 24, fontWeight: 600, color: (analysis.score_conversao || 0) >= 70 ? '#0EC331' : (analysis.score_conversao || 0) >= 40 ? '#D97706' : t.textMuted }}>{analysis.score_conversao}%</div>
                 </div>
                 {analysis._persisted === false && (

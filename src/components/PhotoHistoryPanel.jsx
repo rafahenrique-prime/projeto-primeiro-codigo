@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getPhotoHistory, getPhotoStats, clearPhotoHistory } from '../services/photoHistory'
 
+// Formato padrão de data/hora — igual ao usado em KnowledgePage.jsx
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '')
+}
+
 export default function PhotoHistoryPanel() {
   const { theme: t } = useTheme()
   const [history, setHistory] = useState([])
@@ -75,7 +83,7 @@ export default function PhotoHistoryPanel() {
             <div key={item.id} style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 12 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                 <div style={{ fontWeight: 600, color: t.text }}>{item.produto}</div>
-                <div style={{ fontSize: 10, color: t.textMuted }}>{item.timestamp}</div>
+                <div style={{ fontSize: 10, color: t.textMuted }}>{formatDateTime(item.created_at)}</div>
               </div>
               <div style={{ display: 'flex', gap: 8, fontSize: 11, color: t.textMuted, marginBottom: 6 }}>
                 <span>{item.cliente}</span>
