@@ -60,7 +60,8 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(() => toolsPageIds.includes(page))
   const [analysisOpen, setAnalysisOpen] = useState(() => analysisPageIds.includes(page))
-  const w = collapsed ? 72 : 240
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const w = collapsed ? 72 : 210
 
   return (
     <div style={{ width: w, minWidth: w, background: t.navBg, display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: `1px solid ${t.border}`, padding: '0 0 12px 0', transition: 'width 0.2s, min-width 0.2s, background 0.2s', overflow: 'hidden' }}>
@@ -180,8 +181,9 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         <div style={{ flex: 1 }} />
       </div>
 
-      {/* User */}
-      <div style={{ margin: '8px 6px 0', padding: collapsed ? '10px 0' : '10px 8px', borderTop: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8 }}>
+      {/* User — clique no nome abre o menu com Tema/Relatórios (estilo Dealism) */}
+      <div style={{ position: 'relative', margin: '8px 6px 0', padding: collapsed ? '10px 0' : '10px 8px', borderTop: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, cursor: collapsed ? 'default' : 'pointer' }}
+        onClick={() => !collapsed && setUserMenuOpen(o => !o)}>
         <Tooltip text={collapsed ? 'Rafael · PRIME STORE' : ''}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0EC331', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>R</div>
         </Tooltip>
@@ -191,20 +193,9 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
               <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Rafael</div>
               <div style={{ fontSize: 11, color: t.textMuted }}>PRIME STORE</div>
             </div>
-            <Tooltip text="Relatórios — Conversões" position="top">
-              <button onClick={() => setPage('relatorios')} style={{
-                background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
-                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
-              }}><Rep size={14} /></button>
-            </Tooltip>
-            <Tooltip text={dark ? 'Tema claro' : 'Tema escuro'} position="top">
-              <button onClick={toggle} style={{
-                background: t.bgTertiary, border: `1px solid ${t.border}`, borderRadius: 8,
-                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: t.textMid, transition: 'background 0.15s', flexShrink: 0,
-              }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
-            </Tooltip>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </>
         )}
         {collapsed && (
@@ -220,6 +211,28 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
               }}>{dark ? <SunIcon /> : <MoonIcon />}</button>
             </Tooltip>
           </>
+        )}
+        {!collapsed && userMenuOpen && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 8, right: 8, marginBottom: 6,
+            background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: 6,
+            display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20,
+          }}>
+            <div onClick={e => { e.stopPropagation(); toggle() }} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7,
+              fontSize: 13, color: t.text, cursor: 'pointer',
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >{dark ? <SunIcon size={15} /> : <MoonIcon size={15} />} {dark ? 'Tema claro' : 'Tema escuro'}</div>
+            <div onClick={e => { e.stopPropagation(); setPage('relatorios'); setUserMenuOpen(false) }} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7,
+              fontSize: 13, color: t.text, cursor: 'pointer',
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            ><Rep size={15} /> Relatórios</div>
+          </div>
         )}
       </div>
 
@@ -264,7 +277,7 @@ function SubMenu({ label, icon: Icon, items, pageIds, page, setPage, collapsed, 
             height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
             margin: collapsed ? '0 auto 10px' : '0 0 2px',
             padding: collapsed ? '0' : '0 10px', borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8, cursor: 'pointer',
             background: active ? t.primaryBg : 'transparent',
             color: active ? primary : t.textSecondary,
             fontSize: 14, fontWeight: active ? 600 : 400,
@@ -274,7 +287,7 @@ function SubMenu({ label, icon: Icon, items, pageIds, page, setPage, collapsed, 
           onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.bgTertiary }}
           onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: collapsed ? 22 : 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? primary : t.textMid, flexShrink: 0 }}>
               <Icon size={collapsed ? 20 : 15} />
             </span>
@@ -308,7 +321,7 @@ function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
       height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
       margin: collapsed ? '0 auto 10px' : '0 0 2px',
       padding: collapsed ? '0' : '0 10px', borderRadius: 8,
-      display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, cursor: 'pointer',
       background: active ? primaryBg : 'transparent',
       color: active ? primary : t.textSecondary,
       fontSize: 14, fontWeight: active ? 600 : 400,
