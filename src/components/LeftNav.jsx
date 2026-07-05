@@ -5,7 +5,6 @@ import Tooltip from './Tooltip.jsx'
 const workItems = [
   { id: 'inbox',    label: 'Mensagem',   badge: true },
   { id: 'agents',   label: 'Agentes' },
-  { id: 'channels', label: 'Canais' },
   { id: 'catalogo', label: 'Catálogo', badge: false },
 ]
 const toolsItems = [
@@ -17,13 +16,15 @@ const toolsItems = [
 const toolsPageIds = toolsItems.map(i => i.id)
 const intelItems = [
   { id: 'knowledge', label: 'Conhecimento' },
-  { id: 'contacts',  label: 'Contatos' },
-  { id: 'contacts-new', label: 'Contatos (Beta)' },
+  { id: 'contacts-new', label: 'Contatos' },
+]
+const analysisItems = [
   { id: 'bagy-audit', label: 'Inteligência Operacional' },
   { id: 'photo',     label: 'Fotos' },
   { id: 'lab',       label: 'Lab IA' },
-  { id: 'relatorios', label: 'Relatórios' },
+  { id: 'channels',  label: 'Canais' },
 ]
+const analysisPageIds = analysisItems.map(i => i.id)
 
 function getIcon(id, size = 15) {
   switch(id) {
@@ -58,6 +59,7 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   const { theme: t, dark, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(() => toolsPageIds.includes(page))
+  const [analysisOpen, setAnalysisOpen] = useState(() => analysisPageIds.includes(page))
   const w = collapsed ? 72 : 240
 
   return (
@@ -101,15 +103,15 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         <Tooltip text={collapsed ? 'Dashboard' : ''} block>
         <button onClick={() => setPage('dashboard')} style={{
           width: '100%',
-          background: page === 'dashboard' ? '#E8192C' : (dark ? 'rgba(232,25,44,0.1)' : '#fff5f5'),
-          color: page === 'dashboard' ? '#fff' : '#E8192C',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
-          border: `1px solid ${page === 'dashboard' ? 'transparent' : (dark ? 'rgba(232,25,44,0.2)' : '#ffd0d5')}`,
+          background: page === 'dashboard' ? (t.primaryBg || '#fff5f5') : 'transparent',
+          color: page === 'dashboard' ? (t.primary || '#E8192C') : t.textSecondary,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: page === 'dashboard' ? 600 : 400,
+          border: `1px solid ${page === 'dashboard' ? 'transparent' : t.border}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           transition: 'background 0.15s',
         }}>
-          <DashIcon active={page === 'dashboard'} size={collapsed ? 20 : 15} />
+          <DashIcon active={page === 'dashboard'} inactiveColor={t.textMid} activeColor={t.primary || '#E8192C'} size={collapsed ? 20 : 15} />
           {!collapsed && 'Dashboard'}
         </button>
         </Tooltip>
@@ -118,15 +120,15 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         <Tooltip text={collapsed ? 'CODEX' : ''} block>
         <button onClick={() => setPage('dealonca')} style={{
           width: '100%',
-          background: page === 'dealonca' ? '#7C3AED' : (dark ? 'rgba(124,58,237,0.12)' : '#F5F3FF'),
-          color: page === 'dealonca' ? '#fff' : '#7C3AED',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
-          border: `1px solid ${page === 'dealonca' ? 'transparent' : (dark ? 'rgba(124,58,237,0.25)' : '#DDD6FE')}`,
+          background: page === 'dealonca' ? (t.primaryBg || '#fff5f5') : 'transparent',
+          color: page === 'dealonca' ? (t.primary || '#E8192C') : t.textSecondary,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: page === 'dealonca' ? 600 : 400,
+          border: `1px solid ${page === 'dealonca' ? 'transparent' : t.border}`,
           marginBottom: 8, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           transition: 'background 0.15s',
         }}>
-          <CodexNavIcon size={collapsed ? 20 : 15} active={page === 'dealonca'} />
+          <CodexNavIcon size={collapsed ? 20 : 15} active={page === 'dealonca'} inactiveColor={t.textMid} activeColor={t.primary || '#E8192C'} />
           {!collapsed && 'CODEX'}
         </button>
         </Tooltip>
@@ -135,15 +137,15 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         <Tooltip text={collapsed ? 'Follow-up' : ''} block>
         <button onClick={() => setPage('followup')} style={{
           width: '100%',
-          background: page === 'followup' ? '#059669' : (dark ? 'rgba(5,150,105,0.12)' : '#ECFDF5'),
-          color: page === 'followup' ? '#fff' : '#059669',
-          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: 500,
-          border: `1px solid ${page === 'followup' ? 'transparent' : (dark ? 'rgba(5,150,105,0.25)' : '#A7F3D0')}`,
+          background: page === 'followup' ? (t.primaryBg || '#fff5f5') : 'transparent',
+          color: page === 'followup' ? (t.primary || '#E8192C') : t.textSecondary,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: page === 'followup' ? 600 : 400,
+          border: `1px solid ${page === 'followup' ? 'transparent' : t.border}`,
           marginBottom: 14, textAlign: 'left', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
           transition: 'background 0.15s',
         }}>
-          <FollowUpIcon size={collapsed ? 20 : 15} />
+          <FollowUpIcon active={page === 'followup'} inactiveColor={t.textMid} activeColor={t.primary || '#E8192C'} size={collapsed ? 20 : 15} />
           {!collapsed && 'Follow-up'}
         </button>
         </Tooltip>
@@ -156,50 +158,24 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         ))}
 
         {/* Ferramentas — submenu recolhível com Importar/Backup/Extrator/Extrair Fotos */}
-        <Tooltip text={collapsed ? 'Ferramentas' : ''} block={collapsed}>
-          <div
-            onClick={() => collapsed ? setPage('importar') : setToolsOpen(o => !o)}
-            style={{
-              height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
-              margin: collapsed ? '0 auto 10px' : '0 0 2px',
-              padding: collapsed ? '0' : '0 10px', borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10, cursor: 'pointer',
-              background: toolsPageIds.includes(page) ? t.primaryBg : 'transparent',
-              color: toolsPageIds.includes(page) ? (t.primary || '#E8192C') : t.textSecondary,
-              fontSize: 14, fontWeight: toolsPageIds.includes(page) ? 600 : 400,
-              borderLeft: !collapsed ? `2px solid ${toolsPageIds.includes(page) ? (t.primary || '#E8192C') : 'transparent'}` : 'none',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={e => { if (!toolsPageIds.includes(page)) e.currentTarget.style.background = t.bgTertiary }}
-            onMouseLeave={e => { if (!toolsPageIds.includes(page)) e.currentTarget.style.background = 'transparent' }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: collapsed ? 22 : 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: toolsPageIds.includes(page) ? (t.primary || '#E8192C') : t.textMid, flexShrink: 0 }}>
-                <Wrench size={collapsed ? 20 : 15} />
-              </span>
-              {!collapsed && 'Ferramentas'}
-            </span>
-            {!collapsed && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: toolsOpen ? 'none' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            )}
-          </div>
-        </Tooltip>
-        {!collapsed && toolsOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 14, marginBottom: 2 }}>
-            {toolsItems.map(item => (
-              <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)}
-                badge={0} t={t} collapsed={false} />
-            ))}
-          </div>
-        )}
+        <SubMenu
+          label="Ferramentas" icon={Wrench} items={toolsItems} pageIds={toolsPageIds}
+          page={page} setPage={setPage} collapsed={collapsed}
+          open={toolsOpen} setOpen={setToolsOpen} t={t}
+        />
 
         {!collapsed && <Label color={t.textMuted} style={{ marginTop: 16 }}>Inteligência</Label>}
         {collapsed && <div style={{ height: 2, background: t.border, margin: '6px 4px 8px' }} />}
         {intelItems.map(item => (
           <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)} badge={0} t={t} collapsed={collapsed} />
         ))}
+
+        {/* Análises de IA — submenu recolhível com Inteligência Operacional/Fotos/Lab IA/Canais */}
+        <SubMenu
+          label="Análises de IA" icon={Sim} items={analysisItems} pageIds={analysisPageIds}
+          page={page} setPage={setPage} collapsed={collapsed}
+          open={analysisOpen} setOpen={setAnalysisOpen} t={t}
+        />
 
         <div style={{ flex: 1 }} />
       </div>
@@ -275,6 +251,54 @@ function Label({ children, color, style }) {
   return <div style={{ fontSize: 10, color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px', padding: '4px 8px 6px', ...style }}>{children}</div>
 }
 
+// Submenu recolhível — agrupa itens usados com menos frequência atrás de um toggle (ex: Ferramentas, Análises de IA)
+function SubMenu({ label, icon: Icon, items, pageIds, page, setPage, collapsed, open, setOpen, t }) {
+  const active = pageIds.includes(page)
+  const primary = t.primary || '#E8192C'
+  return (
+    <>
+      <Tooltip text={collapsed ? label : ''} block={collapsed}>
+        <div
+          onClick={() => collapsed ? setPage(items[0].id) : setOpen(o => !o)}
+          style={{
+            height: collapsed ? 44 : 40, width: collapsed ? 44 : '100%',
+            margin: collapsed ? '0 auto 10px' : '0 0 2px',
+            padding: collapsed ? '0' : '0 10px', borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 10, cursor: 'pointer',
+            background: active ? t.primaryBg : 'transparent',
+            color: active ? primary : t.textSecondary,
+            fontSize: 14, fontWeight: active ? 600 : 400,
+            borderLeft: !collapsed ? `2px solid ${active ? primary : 'transparent'}` : 'none',
+            transition: 'background 0.1s',
+          }}
+          onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.bgTertiary }}
+          onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: collapsed ? 22 : 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? primary : t.textMid, flexShrink: 0 }}>
+              <Icon size={collapsed ? 20 : 15} />
+            </span>
+            {!collapsed && label}
+          </span>
+          {!collapsed && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          )}
+        </div>
+      </Tooltip>
+      {!collapsed && open && (
+        <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 14, marginBottom: 2 }}>
+          {items.map(item => (
+            <Item key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)}
+              badge={0} t={t} collapsed={false} />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 function Item({ item, active, onClick, badge = 0, t, collapsed = false }) {
   const primary = t.primary || '#E8192C'
   const primaryBg = t.primaryBg || '#fff5f5'
@@ -332,8 +356,8 @@ function Ch()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="no
 function Kn({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> }
 function Co({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
 function Da({ size = 15 })  { return <CodexNavIcon size={size} /> }
-function CodexNavIcon({ size = 20, active = false }) {
-  const c = active ? '#fff' : '#7C3AED'
+function CodexNavIcon({ size = 20, active = false, inactiveColor = '#7C3AED', activeColor = '#7C3AED' }) {
+  const c = active ? activeColor : inactiveColor
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
@@ -367,12 +391,13 @@ function Ext({ size = 15 })  { return <svg width={size} height={size} viewBox="0
 function ImgEx({ size = 15 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> }
 function Lab({ size = 15 })   { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v6.5L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L15 8.5V2"/><path d="M9 2h6"/><path d="M8.5 14h7"/></svg> }
 function Dot() { return <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg> }
-function DashIcon({ active, size = 15 }) {
-  const c = active ? '#fff' : '#E8192C'
+function DashIcon({ active, size = 15, inactiveColor = '#E8192C', activeColor = '#E8192C' }) {
+  const c = active ? activeColor : inactiveColor
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
 }
-function FollowUpIcon({ size = 15 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+function FollowUpIcon({ size = 15, active = false, inactiveColor = '#059669', activeColor = '#059669' }) {
+  const c = active ? activeColor : inactiveColor
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
 }
 function SunIcon({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> }
 function MoonIcon({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg> }
