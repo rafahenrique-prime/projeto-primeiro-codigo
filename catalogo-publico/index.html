@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo PRIME STORE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #CC0000; --red-h: #E11212; --bg: #0D0D0D; --s1: #161616; --s2: #1E1E1E; --s3: #272727;
+      --line: #2A2A2A; --line-s: #3A3A3A; --fg: #FFFFFF; --fg-m: #A6A6A6; --fg-s: #6E6E6E;
+      --fd: 'Chakra Petch', sans-serif; --fb: 'Archivo', sans-serif;
+      --ease: cubic-bezier(0.22, 0.61, 0.36, 1); --dur: 220ms;
+    }
+    html, body { min-height: 100vh; background: var(--bg); color: var(--fg); font-family: var(--fb); -webkit-font-smoothing: antialiased; }
+
+    header { background: var(--s1); border-bottom: 1px solid var(--line); padding: 14px 32px;
+      display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; }
+    .logo-img { height: 34px; width: auto; display: block; flex-shrink: 0; }
+    .menu-btn { background: none; border: none; color: var(--fg); cursor: pointer; padding: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; }
+
+    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 300; display: none; }
+    .drawer-overlay.open { display: block; }
+    .side-drawer { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; max-width: 82vw; background: var(--s1);
+      border-right: 1px solid var(--line); z-index: 301; transform: translateX(-100%); transition: transform var(--dur) var(--ease);
+      overflow-y: auto; }
+    .side-drawer.open { transform: translateX(0); }
+    .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px;
+      border-bottom: 1px solid var(--line); }
+    .drawer-title { font-family: var(--fd); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .drawer-close { background: none; border: none; color: var(--fg-m); font-size: 20px; cursor: pointer; }
+    .drawer-item { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px;
+      border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--fg-m); transition: all var(--dur) var(--ease); }
+    .drawer-item:hover, .drawer-item.active { color: var(--fg); background: var(--s2); }
+    .drawer-item.active { color: var(--red); }
+    .drawer-item-count { font-size: 11px; color: var(--fg-s); font-weight: 500; }
+    .search-wrap { flex: 1; max-width: 540px; position: relative; }
+    .search-input { width: 100%; background: var(--s3); border: 1px solid var(--line); color: var(--fg);
+      font-family: var(--fb); font-size: 14px; padding: 11px 16px 11px 42px; border-radius: 6px; outline: none;
+      transition: border-color var(--dur) var(--ease); }
+    .search-input:focus { border-color: var(--red); }
+    .search-input::placeholder { color: var(--fg-s); }
+    .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--fg-s); pointer-events: none; }
+
+    .brand-chips { display: flex; gap: 8px; flex-wrap: nowrap; width: 100%; order: 3; overflow-x: auto;
+      padding: 12px 32px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .brand-chips::-webkit-scrollbar { display: none; }
+    .brand-chip { background: var(--s3); border: 1px solid var(--line); color: var(--fg-m); font-size: 13px;
+      padding: 8px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all var(--dur) var(--ease); }
+    .brand-chip:hover { border-color: var(--red); color: var(--fg); }
+    .brand-chip.active { background: var(--red); border-color: var(--red); color: var(--fg); }
+
+    .stats-bar { padding: 10px 32px; font-size: 13px; color: var(--fg-s); border-bottom: 1px solid var(--line); }
+    .stats-bar strong { color: var(--fg-m); }
+
+    .grid-wrap { padding: 28px 32px 64px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      header { padding: 12px 16px; gap: 12px; }
+      .logo-img { height: 26px; }
+      .search-wrap { max-width: 100%; }
+      .brand-chips { padding: 10px 16px 0; }
+      .stats-bar { padding: 8px 16px; }
+      .grid-wrap { padding: 16px 16px 48px; }
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .card-body { padding: 8px 10px 10px; }
+      .card-name { font-size: 12px; }
+      .lb-actions { flex-wrap: wrap; }
+      .lb-btn { padding: 12px 16px; font-size: 13px; flex: 1; min-width: 90px; justify-content: center; display: flex; align-items: center; gap: 6px; }
+      .lb-nav { width: 38px; height: 38px; font-size: 18px; }
+      .lb-prev { left: 8px; } .lb-next { right: 8px; }
+      .lb-close { top: 12px; right: 12px; width: 38px; height: 38px; }
+    }
+
+    .card { background: var(--s1); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; cursor: pointer;
+      transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+    .card:hover { transform: translateY(-5px); border-color: var(--line-s); box-shadow: 0 20px 52px rgba(0,0,0,.65); }
+    .card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--s2); }
+    .card-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.7); color: #fff; font-size: 11px;
+      font-weight: 700; padding: 3px 7px; border-radius: 4px; }
+    .card-body { padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+    .card-cat { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--red); margin-bottom: 4px; }
+    .card-name { font-family: var(--fd); font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--fg);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .skeleton { background: var(--s1); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .sk-img { width: 100%; aspect-ratio: 1; background: linear-gradient(90deg, var(--s1) 25%, var(--s2) 50%, var(--s1) 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+    .sk-body { padding: 12px 14px 14px; }
+    .sk-line { height: 9px; border-radius: 4px; margin-bottom: 8px; background: linear-gradient(90deg, var(--s1) 25%, var(--s2) 50%, var(--s1) 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+    .sk-line.s { width: 55%; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    .empty { grid-column: 1/-1; text-align: center; padding: 96px 24px; }
+    .empty-title { font-family: var(--fd); font-size: 20px; font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
+    .empty-sub { font-size: 14px; color: var(--fg-s); line-height: 1.7; }
+
+    .lb-bg { position: fixed; inset: 0; background: rgba(0,0,0,.96); z-index: 400; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 24px; }
+    .lb-bg.hidden { display: none; }
+    .lb-img { max-width: 88vw; max-height: 68vh; object-fit: contain; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.8); }
+    .lb-close { position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,.1); border: none; color: #fff;
+      font-size: 22px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; }
+    .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.1); border: none;
+      color: #fff; font-size: 22px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; }
+    .lb-prev { left: 20px; } .lb-next { right: 20px; }
+    .lb-info { text-align: center; margin-top: 14px; }
+    .lb-name { font-family: var(--fd); font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--fg-m); }
+    .lb-cat { font-size: 11px; color: var(--red); text-transform: uppercase; margin-top: 4px; }
+    .lb-counter { font-size: 11px; color: var(--fg-s); margin-top: 6px; }
+    .lb-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: center; }
+    .lb-btn { padding: 8px 14px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); color: #fff;
+      font-size: 12px; border-radius: 6px; cursor: pointer; font-family: var(--fb); }
+    .lb-btn:hover { background: rgba(255,255,255,.25); }
+
+    .whatsapp-float { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%;
+      background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      z-index: 200; text-decoration: none; transition: transform var(--dur) var(--ease); }
+    .whatsapp-float:hover { transform: scale(1.08); }
+    @media (max-width: 600px) { .whatsapp-float { bottom: 16px; right: 16px; width: 50px; height: 50px; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <img class="logo-img" src="/logo-prime-dark.png" alt="PRIME STORE">
+  <div class="search-wrap">
+    <svg class="search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input id="searchInput" type="text" class="search-input" placeholder="Buscar produto ou marca...">
+  </div>
+</header>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="side-drawer" id="sideDrawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Categorias</div>
+    <button class="drawer-close" id="drawerClose">✕</button>
+  </div>
+  <div id="drawerItems"></div>
+</div>
+
+<div class="brand-chips" id="brandChips"></div>
+
+<div class="stats-bar"><strong id="countDisplay">—</strong> produtos</div>
+
+<a class="whatsapp-float" href="https://wa.me/5534997257499?text=Ol%C3%A1!%20Vi%20o%20cat%C3%A1logo%20e%20queria%20saber%20mais" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2zm0 18.14h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.37c0-4.54 3.7-8.24 8.25-8.24a8.2 8.2 0 0 1 5.83 2.42 8.19 8.19 0 0 1 2.41 5.82c0 4.55-3.7 8.24-8.25 8.24zm4.52-6.17c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43-.14-.01-.31-.01-.48-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.41 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+</a>
+
+<div class="grid-wrap">
+  <div class="grid" id="grid">
+    <div class="skeleton"><div class="sk-img"></div><div class="sk-body"><div class="sk-line s"></div><div class="sk-line"></div></div></div>
+    <div class="skeleton"><div class="sk-img"></div><div class="sk-body"><div class="sk-line s"></div><div class="sk-line"></div></div></div>
+    <div class="skeleton"><div class="sk-img"></div><div class="sk-body"><div class="sk-line s"></div><div class="sk-line"></div></div></div>
+    <div class="skeleton"><div class="sk-img"></div><div class="sk-body"><div class="sk-line s"></div><div class="sk-line"></div></div></div>
+  </div>
+</div>
+
+<div class="lb-bg hidden" id="lbBg">
+  <button class="lb-close" id="lbClose">✕</button>
+  <button class="lb-nav lb-prev" id="lbPrev">‹</button>
+  <button class="lb-nav lb-next" id="lbNext">›</button>
+  <img class="lb-img" id="lbImg" src="" alt="">
+  <div class="lb-info">
+    <div class="lb-name" id="lbName"></div>
+    <div class="lb-cat" id="lbCat"></div>
+    <div class="lb-counter" id="lbCounter"></div>
+    <div class="lb-actions">
+      <button class="lb-btn" id="lbCopyLink">🔗 Link</button>
+      <button class="lb-btn" id="lbWhatsapp">💬 WhatsApp</button>
+      <button class="lb-btn" id="lbDownload">⬇️ Baixar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Só leitura — a fonte da verdade é sempre o Google Drive (organize por pastas de marca lá).
+  const API_KEY = 'AIzaSyAXEj_5WgwNEBXLKY_DH9KSDyVyFS5fLuI';
+  const ROOT_FOLDER = '19bilSQNqbgymzaofJIbKg8t9Smp1wi3n';
+  // Fase de teste: só mostra as pastas listadas aqui (nome exato da pasta no Drive).
+  // Deixe a lista vazia ([]) pra voltar a mostrar todas as pastas de novo.
+  const VISIBLE_FOLDERS = ['New balance', '01 - Perfumes', '02 - Bones', '04 - Roupas', '05 - Cuecas', '06 - Acessorios', '07 - CALCA JEANS'];
+  const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
+
+  let allProducts = [];
+  let activeBrand = 'todos';
+  let searchTerm = '';
+  let lbImages = [], lbIndex = 0, lbNome = '', lbCat = '';
+
+  function imgUrl(id) { return `https://drive.google.com/thumbnail?id=${id}&sz=w400`; }
+  function imgUrlFull(id) { return `https://drive.google.com/thumbnail?id=${id}&sz=w1600`; }
+  function cleanName(name) { return name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim(); }
+  function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // Tira o número de organização interna (ex: "01 - Perfumes" -> "Perfumes") só na exibição pro cliente.
+  function displayLabel(name) { return name.replace(/^\d+\s*-\s*/, ''); }
+
+  async function listChildren(folderId) {
+    const files = [];
+    let pageToken = '';
+    while (true) {
+      const q = `'${folderId}' in parents and trashed=false`;
+      const url = `${DRIVE_API}?q=${encodeURIComponent(q)}&fields=${encodeURIComponent('files(id,name,mimeType),nextPageToken')}&pageSize=1000&key=${API_KEY}${pageToken ? `&pageToken=${pageToken}` : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      files.push(...(data.files || []));
+      if (!data.nextPageToken) break;
+      pageToken = data.nextPageToken;
+    }
+    return files;
+  }
+
+  async function load() {
+    try {
+      let brandFolders = (await listChildren(ROOT_FOLDER)).filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+      if (VISIBLE_FOLDERS.length > 0) {
+        brandFolders = brandFolders.filter(f => VISIBLE_FOLDERS.includes(f.name.trim()));
+      }
+      const products = [];
+      for (const brand of brandFolders) {
+        const items = await listChildren(brand.id);
+        const subfolders = items.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+        const directImgs = items.filter(f => f.mimeType.startsWith('image/'));
+        if (directImgs.length > 0 && subfolders.length === 0) {
+          // Sem subpasta por modelo: cada foto solta é um produto separado (1 foto = 1 item).
+          for (const img of directImgs) {
+            products.push({ id: img.id, brand: brand.name, model: cleanName(img.name), images: [img.id] });
+          }
+        } else if (directImgs.length > 0) {
+          products.push({ id: brand.id, brand: brand.name, model: brand.name, images: directImgs.map(f => f.id) });
+        }
+        for (const sf of subfolders) {
+          const imgs = (await listChildren(sf.id)).filter(f => f.mimeType.startsWith('image/'));
+          if (imgs.length === 0) continue;
+          products.push({ id: sf.id, brand: brand.name, model: cleanName(sf.name), images: imgs.map(f => f.id) });
+        }
+      }
+      allProducts = products;
+      render();
+    } catch (e) {
+      document.getElementById('grid').innerHTML = `<div class="empty"><div class="empty-title">Erro ao carregar</div><div class="empty-sub">${esc(e.message)}</div></div>`;
+    }
+  }
+
+  function render() {
+    const brands = [...new Set(allProducts.map(p => p.brand))];
+    const counts = {};
+    allProducts.forEach(p => counts[p.brand] = (counts[p.brand] || 0) + 1);
+    brands.sort((a, b) => counts[b] - counts[a]);
+
+    document.getElementById('brandChips').innerHTML =
+      `<div class="brand-chip ${activeBrand === 'todos' ? 'active' : ''}" data-brand="todos">Todos</div>` +
+      brands.map(b => `<div class="brand-chip ${activeBrand === b ? 'active' : ''}" data-brand="${esc(b)}">${esc(displayLabel(b))} (${counts[b]})</div>`).join('');
+
+    document.getElementById('drawerItems').innerHTML =
+      `<div class="drawer-item ${activeBrand === 'todos' ? 'active' : ''}" data-brand="todos">Todos <span class="drawer-item-count">${allProducts.length}</span></div>` +
+      brands.map(b => `<div class="drawer-item ${activeBrand === b ? 'active' : ''}" data-brand="${esc(b)}">${esc(displayLabel(b))} <span class="drawer-item-count">${counts[b]}</span></div>`).join('');
+
+    let prods = allProducts;
+    if (activeBrand !== 'todos') prods = prods.filter(p => p.brand === activeBrand);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      prods = prods.filter(p => (p.brand + ' ' + p.model).toLowerCase().includes(q));
+    }
+
+    document.getElementById('countDisplay').textContent = prods.length;
+
+    const grid = document.getElementById('grid');
+    if (prods.length === 0) {
+      grid.innerHTML = `<div class="empty"><div class="empty-title">Nenhum produto encontrado</div></div>`;
+      return;
+    }
+
+    grid.innerHTML = prods.map((p, i) => `
+      <div class="card" data-i="${i}" style="position:relative">
+        <img class="card-img" src="${imgUrl(p.images[0])}" alt="${esc(p.model)}" onerror="this.src='https://placehold.co/400x400/161616/3A3A3A?text=%E2%80%A2'">
+        ${p.images.length > 1 ? `<div class="card-badge">${p.images.length} fotos</div>` : ''}
+        <div class="card-body">
+          <div class="card-cat">${esc(displayLabel(p.brand))}</div>
+          <div class="card-name">${esc(p.model)}</div>
+        </div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => {
+        const p = prods[parseInt(card.dataset.i)];
+        lbImages = p.images; lbIndex = 0; lbNome = displayLabel(p.model); lbCat = displayLabel(p.brand);
+        document.getElementById('lbBg').classList.remove('hidden');
+        renderLightbox();
+      });
+    });
+  }
+
+  function renderLightbox() {
+    document.getElementById('lbImg').src = imgUrlFull(lbImages[lbIndex]);
+    document.getElementById('lbName').textContent = lbNome;
+    document.getElementById('lbCat').textContent = lbCat;
+    document.getElementById('lbCounter').textContent = lbImages.length > 1 ? `${lbIndex + 1}/${lbImages.length}` : '';
+    document.getElementById('lbPrev').style.display = lbImages.length > 1 ? 'flex' : 'none';
+    document.getElementById('lbNext').style.display = lbImages.length > 1 ? 'flex' : 'none';
+  }
+
+  document.getElementById('brandChips').addEventListener('click', e => {
+    const chip = e.target.closest('.brand-chip');
+    if (!chip) return;
+    activeBrand = chip.dataset.brand;
+    searchTerm = '';
+    document.getElementById('searchInput').value = '';
+    render();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => { searchTerm = e.target.value; render(); });
+
+  function openDrawer() {
+    document.getElementById('sideDrawer').classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('open');
+  }
+  function closeDrawer() {
+    document.getElementById('sideDrawer').classList.remove('open');
+    document.getElementById('drawerOverlay').classList.remove('open');
+  }
+  document.getElementById('menuBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  document.getElementById('drawerItems').addEventListener('click', e => {
+    const item = e.target.closest('.drawer-item');
+    if (!item) return;
+    activeBrand = item.dataset.brand;
+    searchTerm = '';
+    document.getElementById('searchInput').value = '';
+    render();
+    closeDrawer();
+  });
+
+  document.getElementById('lbPrev').addEventListener('click', () => { lbIndex = (lbIndex - 1 + lbImages.length) % lbImages.length; renderLightbox(); });
+  document.getElementById('lbNext').addEventListener('click', () => { lbIndex = (lbIndex + 1) % lbImages.length; renderLightbox(); });
+  document.getElementById('lbClose').addEventListener('click', () => document.getElementById('lbBg').classList.add('hidden'));
+  document.getElementById('lbBg').addEventListener('click', e => { if (e.target.id === 'lbBg') document.getElementById('lbBg').classList.add('hidden'); });
+
+  document.getElementById('lbCopyLink').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(imgUrlFull(lbImages[lbIndex]));
+    const btn = document.getElementById('lbCopyLink');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+
+  document.getElementById('lbWhatsapp').addEventListener('click', () => {
+    const text = encodeURIComponent(`*${lbNome}*\n${lbCat}\n${imgUrlFull(lbImages[lbIndex])}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  });
+
+  document.getElementById('lbDownload').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = `https://drive.google.com/uc?export=download&id=${lbImages[lbIndex]}`;
+    a.download = `${lbNome.slice(0, 30).replace(/[^a-z0-9]/gi, '-')}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  load();
+</script>
+
+</body>
+</html>

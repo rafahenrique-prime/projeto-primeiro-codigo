@@ -1,6 +1,6 @@
 # CLAUDE.md — PROJETO DO CLAUDECODE
 
-**Última atualização:** 2026-07-01  
+**Última atualização:** 2026-07-05  
 **Mantido por:** Rafael Henrique  
 **Objetivo:** Garantir segurança, estabilidade e qualidade em todas as alterações
 
@@ -122,6 +122,41 @@ cp "/Users/macbook/Downloads/PROJETO DO CLAUDECODE/.env.local" "<raiz-da-worktre
 **Por quê:** `.env.local` guarda tokens secretos (GPT Maker, Supabase, Groq) e é propositalmente ignorado pelo Git (`.gitignore`), então nunca vem junto quando uma worktree nova é criada. Sem ele, o app sobe normalmente mas falha silenciosamente ao autenticar nas APIs — parece "bug" (0 conversas abertas, painel de Análise Rápida sumido, sirene de alertas zerada) mas na verdade é só a pasta estar sem credenciais. Descoberto em 2026-07-01 comparando `localhost:5175` (pasta principal, com `.env.local`) vs `localhost:5199` (worktree nova, sem `.env.local`) — mesmo código, dados diferentes.
 
 **Sintoma para reconhecer isso rápido:** o app carrega, mas fica com "0 conversas", sem erros no console — só dados vazios/zerados.
+
+### 8. **Catálogo Público (`catalogo-publico/`) é um site separado — HTML puro, sem Node**
+
+**Caminho:** `/Users/macbook/Downloads/PROJETO DO CLAUDECODE/catalogo-publico/index.html`
+
+Isso **não faz parte do app React** — é um arquivo HTML+CSS+JS único, sem build, sem framework, que lê fotos direto do Google Drive (marca/categoria = pasta, modelo = subpasta, fotos dentro). Serve pra mandar um link público pro cliente navegar o catálogo sem expor o painel interno.
+
+**Publicado em:** https://catalogo-publico.vercel.app (projeto Vercel próprio, separado do app principal e do `ignite-webhook`)
+
+**Pra publicar qualquer mudança nele:**
+```bash
+cd "/Users/macbook/Downloads/PROJETO DO CLAUDECODE/catalogo-publico"
+vercel --prod --yes
+```
+
+**Configuração:**
+- `API_KEY` e `ROOT_FOLDER` (ID da pasta do Drive) ficam hardcoded no topo do `<script>` do próprio arquivo — não usa `.env` (é site estático, sem variável de ambiente de verdade)
+- `VISIBLE_FOLDERS` (dentro do script): lista de pastas que aparecem publicamente. Deixe `[]` pra mostrar todas; preencha com nomes exatos de pasta pra mostrar só algumas (usado pra testar categoria nova sem o cliente ver antes da hora)
+- Botão de WhatsApp flutuante fixo aponta pro número `5534997257499` — mudar direto no `href` do `.whatsapp-float` se o número mudar
+
+**Estrutura esperada no Drive:** cada foto solta direto numa pasta = 1 produto individual (nome do arquivo vira nome do produto). Se a pasta tiver subpastas, cada subpasta = 1 produto com todas as fotos dela na galeria (usado pro caso de "várias fotos do mesmo modelo/cor").
+
+### 9. **Toda foto nova no Drive precisa de permissão "Qualquer pessoa com o link"**
+
+Fotos que não tiverem essa permissão **não aparecem** no catálogo (nem no rascunho interno, nem no público) — dão erro silencioso tipo `ERR_BLOCKED_BY_ORB` no navegador. Isso já foi corrigido uma vez em massa (538 arquivos + 73 pastas, em 2026-07-05) rodando o script:
+
+```bash
+node scripts/fix-drive-permissions.mjs
+```
+
+Esse script pede login OAuth (abre navegador, você autoriza uma vez) e corrige a permissão recursivamente em toda a pasta raiz. As credenciais OAuth ficam em `.env.local` como `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` (sem prefixo `VITE_` de propósito — não pode vazar pro navegador). Rode de novo se adicionar fotos novas e elas não aparecerem no catálogo.
+
+### 10. **Catálogo Rascunho dentro do app** (`src/pages/DraftCatalogPage.jsx`)
+
+Versão do mesmo conceito (fotos do Drive), só que **dentro do painel logado**, no menu "Catálogo Rascunho" — serve pra você (Rafael) conferir antes de decidir o que formalizar no catálogo oficial (Supabase). Usa `src/services/googleDriveCatalog.js`, com cache em `localStorage` (só recarrega ao clicar "Atualizar", não gasta cota da API do Drive à toa). As credenciais aqui (`VITE_GOOGLE_DRIVE_API_KEY`, `VITE_GOOGLE_DRIVE_FOLDER_ID`) ficam no `.env.local`, ao contrário do catálogo público que tem elas hardcoded no HTML.
 
 ---
 
@@ -473,5 +508,13 @@ if (nome === 'tenis adidas') { ... }  // nunca acha
 
 ---
 
-**Última alteração:** 2026-06-28 por Claude Haiku 4.5  
+**Última alteração:** 2026-07-05 por Claude Sonnet 5  
+**O que mudou nessa sessão:**
+- Menu lateral: submenu "Ferramentas" + "Análises de IA", tooltips no hover, sidebar mais estreita (210px) com dropdown no avatar, cores unificadas dos botões do topo
+- Correção de datas "Invalid Date" no Histórico de Uploads, Histórico de Fotos e aba GPT Maker (`created_at` vs `createdAt`/`timestamp`)
+- Correção de CORS + token expirado no endpoint `/api/gptmaker-credits` do `ignite-webhook`
+- Novo: Catálogo Rascunho (interno) + Catálogo Público (`catalogo-publico/`, site separado) — ver seções 8, 9, 10 acima
+- Script `scripts/fix-drive-permissions.mjs` — corrige permissão pública de fotos do Google Drive em massa
+- `token-receiver.js` — servidor local que distribui token GPT Maker novo pra todas as worktrees de uma vez
+
 **Próxima revisão:** Após novo fluxo / novo erro crítico / novo projeto

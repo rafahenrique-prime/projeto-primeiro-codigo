@@ -15,6 +15,7 @@ import ContactsPage from './pages/ContactsPage'
 import ContactsNewPage from './pages/ContactsNewPage'
 import SimuladorClientePage from './pages/SimuladorClientePage'
 import CatalogPage from './pages/CatalogPage'
+import DraftCatalogPage from './pages/DraftCatalogPage'
 import ImportCatalogPage from './pages/ImportCatalogPage'
 import ExtractorPage from './pages/ExtractorPage'
 import ImportReviewPage from './pages/ImportReviewPage'
@@ -323,6 +324,7 @@ export default function App() {
           {page === 'knowledge'&& <KnowledgePage />}
           {page === 'simulador' && <SimuladorClientePage />}
           {page === 'catalogo' && <CatalogPage onNavigate={setPage} />}
+          {page === 'catalogo-rascunho' && <DraftCatalogPage />}
           {page === 'importar' && <ImportCatalogPage />}
           {page === 'importar-backup' && <ImportReviewPage />}
           {page === 'photo' && <PhotoRecognitionPage />}

@@ -6,6 +6,7 @@ const workItems = [
   { id: 'inbox',    label: 'Mensagem',   badge: true },
   { id: 'agents',   label: 'Agentes' },
   { id: 'catalogo', label: 'Catálogo', badge: false },
+  { id: 'catalogo-rascunho', label: 'Catálogo Rascunho', badge: false },
 ]
 const toolsItems = [
   { id: 'importar', label: 'Importar', badge: false },
@@ -39,6 +40,7 @@ function getIcon(id, size = 15) {
     case 'relatorios': return <Rep size={size} />
     case 'simulador':  return <Sim size={size} />
     case 'catalogo':   return <Cat size={size} />
+    case 'catalogo-rascunho': return <Cat size={size} />
     case 'importar':   return <Imp size={size} />
     case 'importar-backup': return <Bak size={size} />
     case 'photo':      return <Pho size={size} />
