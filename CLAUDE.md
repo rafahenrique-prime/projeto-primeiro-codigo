@@ -123,7 +123,62 @@ cp "/Users/macbook/Downloads/PROJETO DO CLAUDECODE/.env.local" "<raiz-da-worktre
 
 **Sintoma para reconhecer isso rápido:** o app carrega, mas fica com "0 conversas", sem erros no console — só dados vazios/zerados.
 
-### 8. **Catálogo Público (`catalogo-publico/`) é um site separado — HTML puro, sem Node**
+### 8. **ANTES DE FAZER `git push origin main`: SEMPRE sincronizar `.env` com Vercel**
+
+**VARIÁVEIS CRÍTICAS que DEVEM estar em Vercel Production:**
+
+```bash
+# GPT Maker
+VITE_GPTMAKER_USER_TOKEN
+VITE_GPTMAKER_WORKSPACE
+VITE_GPTMAKER_EMAIL
+VITE_GPTMAKER_PASSWORD
+VITE_GPTMAKER_TOKEN
+
+# Supabase
+VITE_SUPABASE_URL
+VITE_SUPABASE_KEY
+
+# Groq (fallback LLM)
+VITE_GROQ_API_KEY
+
+# Google Drive (Catálogo Rascunho)
+VITE_GOOGLE_DRIVE_API_KEY
+VITE_GOOGLE_DRIVE_FOLDER_ID
+
+# Base44 (Cobranças)
+VITE_BASE44_APP_ID
+VITE_BASE44_API_KEY
+
+# Outras
+VITE_DEEPSEEK_API_KEY
+COHERE_API_KEY
+```
+
+**Como verificar o que falta:**
+```bash
+vercel env ls  # Lista todas as variáveis em Vercel
+```
+
+**Como adicionar em produção:**
+```bash
+vercel env add NOME_DA_VAR production
+# Digita o valor e Enter
+```
+
+**Por quê é crítico:**
+- ❌ Se faltar variável: código local funciona, produção quebra silenciosamente
+- ❌ Erros silenciosos são difíceis de debugar (DraftCatalogPage sumiu em 2026-07-07)
+- ✅ Sincronizar agora = zero surpresas depois
+
+**Checklist antes de `git push`:**
+1. Adicionar nova variável em `.env.local`? → Também adiciona em Vercel com `vercel env add`
+2. Mudou valor de variável existente? → Atualiza em Vercel com `vercel env rm ... && vercel env add ...`
+3. Dúvida se tudo está lá? → Rode `vercel env ls` e confira
+
+---
+
+### 9. **Catálogo Público (`catalogo-publico/`) é um site separado — HTML puro, sem Node**
 
 **Caminho:** `/Users/macbook/Downloads/PROJETO DO CLAUDECODE/catalogo-publico/index.html`
 
@@ -144,7 +199,7 @@ vercel --prod --yes
 
 **Estrutura esperada no Drive:** cada foto solta direto numa pasta = 1 produto individual (nome do arquivo vira nome do produto). Se a pasta tiver subpastas, cada subpasta = 1 produto com todas as fotos dela na galeria (usado pro caso de "várias fotos do mesmo modelo/cor").
 
-### 9. **Toda foto nova no Drive precisa de permissão "Qualquer pessoa com o link"**
+### 10. **Toda foto nova no Drive precisa de permissão "Qualquer pessoa com o link"**
 
 Fotos que não tiverem essa permissão **não aparecem** no catálogo (nem no rascunho interno, nem no público) — dão erro silencioso tipo `ERR_BLOCKED_BY_ORB` no navegador. Isso já foi corrigido uma vez em massa (538 arquivos + 73 pastas, em 2026-07-05) rodando o script:
 
@@ -154,7 +209,7 @@ node scripts/fix-drive-permissions.mjs
 
 Esse script pede login OAuth (abre navegador, você autoriza uma vez) e corrige a permissão recursivamente em toda a pasta raiz. As credenciais OAuth ficam em `.env.local` como `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` (sem prefixo `VITE_` de propósito — não pode vazar pro navegador). Rode de novo se adicionar fotos novas e elas não aparecerem no catálogo.
 
-### 10. **Catálogo Rascunho dentro do app** (`src/pages/DraftCatalogPage.jsx`)
+### 11. **Catálogo Rascunho dentro do app** (`src/pages/DraftCatalogPage.jsx`)
 
 Versão do mesmo conceito (fotos do Drive), só que **dentro do painel logado**, no menu "Catálogo Rascunho" — serve pra você (Rafael) conferir antes de decidir o que formalizar no catálogo oficial (Supabase). Usa `src/services/googleDriveCatalog.js`, com cache em `localStorage` (só recarrega ao clicar "Atualizar", não gasta cota da API do Drive à toa). As credenciais aqui (`VITE_GOOGLE_DRIVE_API_KEY`, `VITE_GOOGLE_DRIVE_FOLDER_ID`) ficam no `.env.local`, ao contrário do catálogo público que tem elas hardcoded no HTML.
 
