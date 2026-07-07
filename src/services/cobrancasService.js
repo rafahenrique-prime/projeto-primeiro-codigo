@@ -4,12 +4,10 @@ let base44Client = null;
 
 function getClient() {
   if (!base44Client) {
-    base44Client = createClient({
-      appId: import.meta.env.VITE_BASE44_APP_ID,
-      headers: {
-        "api_key": import.meta.env.VITE_BASE44_API_KEY
-      }
-    });
+    const appId = import.meta.env.VITE_BASE44_APP_ID;
+    if (!appId) throw new Error('VITE_BASE44_APP_ID não configurado');
+
+    base44Client = createClient({ appId });
   }
   return base44Client;
 }
