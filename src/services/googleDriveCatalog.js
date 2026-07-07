@@ -18,11 +18,15 @@ export function isDriveConfigured() {
 }
 
 export function imgUrl(fileId) {
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+  return `https://lh3.googleusercontent.com/d/${fileId}=w400`
 }
 
 export function imgUrlFull(fileId) {
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`
+  return `https://lh3.googleusercontent.com/d/${fileId}=w1600`
+}
+
+export function clearCachedCatalog() {
+  try { localStorage.removeItem(CACHE_KEY) } catch {}
 }
 
 async function listFolderChildren(folderId, apiKey) {

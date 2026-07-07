@@ -6,7 +6,8 @@ const workItems = [
   { id: 'inbox',    label: 'Mensagem',   badge: true },
   { id: 'agents',   label: 'Agentes' },
   { id: 'catalogo', label: 'Catálogo', badge: false },
-  { id: 'catalogo-rascunho', label: 'Catálogo Rascunho', badge: false },
+  { id: 'catalogo-rascunho', label: 'Catálogo Drive', badge: false },
+  { id: 'cobrancas', label: 'Cobranças', badge: false },
 ]
 const toolsItems = [
   { id: 'importar', label: 'Importar', badge: false },
@@ -41,6 +42,7 @@ function getIcon(id, size = 15) {
     case 'simulador':  return <Sim size={size} />
     case 'catalogo':   return <Cat size={size} />
     case 'catalogo-rascunho': return <Cat size={size} />
+    case 'cobrancas':  return <Cbr size={size} />
     case 'importar':   return <Imp size={size} />
     case 'importar-backup': return <Bak size={size} />
     case 'photo':      return <Pho size={size} />
@@ -399,6 +401,7 @@ function ClawdIcon({ size = 20, active = false }) {
 function Rep({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> }
 function Sim({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg> }
 function Cat({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6-6 6 6M3 9h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><rect x="5" y="12" width="4" height="4"/><rect x="15" y="12" width="4" height="4"/></svg> }
+function Cbr({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 6v12M9 9h6a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H9"/></svg> }
 function Imp({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 19h18a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2z"/></svg> }
 function Bak({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><path d="M19.07 4.93l-2.58 2.58A8 8 0 1 0 12 2c2.12 0 4.07.78 5.55 2.05"/><polyline points="13 2 19.07 2 19.07 8.07"/></svg> }
 function Pho({ size = 15 })  { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> }

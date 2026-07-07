@@ -357,7 +357,8 @@
 
   document.getElementById('lbWhatsapp').addEventListener('click', () => {
     const text = encodeURIComponent(`*${lbNome}*\n${lbCat}\n${imgUrlFull(lbImages[lbIndex])}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    // Padrão: número da empresa + texto encoded
+    window.open(`https://wa.me/5534997257499?text=${text}`, '_blank');
   });
 
   document.getElementById('lbDownload').addEventListener('click', () => {

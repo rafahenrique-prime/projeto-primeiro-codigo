@@ -16,6 +16,7 @@ import ContactsNewPage from './pages/ContactsNewPage'
 import SimuladorClientePage from './pages/SimuladorClientePage'
 import CatalogPage from './pages/CatalogPage'
 import DraftCatalogPage from './pages/DraftCatalogPage'
+import CobrancasPage from './pages/CobrancasPage'
 import ImportCatalogPage from './pages/ImportCatalogPage'
 import ExtractorPage from './pages/ExtractorPage'
 import ImportReviewPage from './pages/ImportReviewPage'
@@ -263,7 +264,11 @@ export default function App() {
     if (diff !== 0) return diff
     const scoreA = profilesMap[a.id]?.buy_score ?? 0
     const scoreB = profilesMap[b.id]?.buy_score ?? 0
-    return scoreB - scoreA
+    if (scoreA !== scoreB) return scoreB - scoreA
+    // Tiebreaker: mensagem mais recente sobe pro topo (comportamento WhatsApp/GPT Maker)
+    const timeA = a.rawTime ? new Date(a.rawTime).getTime() : 0
+    const timeB = b.rawTime ? new Date(b.rawTime).getTime() : 0
+    return timeB - timeA
   })
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
@@ -325,6 +330,7 @@ export default function App() {
           {page === 'simulador' && <SimuladorClientePage />}
           {page === 'catalogo' && <CatalogPage onNavigate={setPage} />}
           {page === 'catalogo-rascunho' && <DraftCatalogPage />}
+          {page === 'cobrancas' && <CobrancasPage />}
           {page === 'importar' && <ImportCatalogPage />}
           {page === 'importar-backup' && <ImportReviewPage />}
           {page === 'photo' && <PhotoRecognitionPage />}

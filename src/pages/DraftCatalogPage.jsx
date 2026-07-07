@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import {
-  buildProductTree, getCachedCatalog, setCachedCatalog, isDriveConfigured,
+  buildProductTree, getCachedCatalog, setCachedCatalog, clearCachedCatalog, isDriveConfigured,
   imgUrl, imgUrlFull,
 } from '../services/googleDriveCatalog'
 
@@ -74,6 +74,7 @@ export default function DraftCatalogPage() {
   function sendWhatsApp() {
     if (!lightbox) return
     const { product, index } = lightbox
+    // Padrão: encodeURIComponent() no conteúdo da mensagem
     const msg = encodeURIComponent(`*${product.model}*\n${product.brand}\n${imgUrlFull(product.images[index].id)}`)
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
@@ -117,19 +118,26 @@ export default function DraftCatalogPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: t.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-              Catálogo Rascunho
-              <span style={{ fontSize: 11, fontWeight: 600, color: t.primary || '#E8192C', background: t.primaryBg, padding: '2px 8px', borderRadius: 6 }}>rascunho</span>
+              Catálogo Drive
+              <span style={{ fontSize: 11, fontWeight: 600, color: t.primary || '#E8192C', background: t.primaryBg, padding: '2px 8px', borderRadius: 6 }}>drive</span>
             </div>
             <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
               Fotos direto do Google Drive — teste procura no WhatsApp antes de cadastrar no catálogo oficial.
               {lastFetchedAt && <> · atualizado {new Date(lastFetchedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</>}
             </div>
           </div>
-          <button onClick={refresh} disabled={loading} style={{
-            background: loading ? t.bgTertiary : (t.primary || '#E8192C'), color: loading ? t.textMuted : '#fff',
-            border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600,
-            cursor: loading ? 'default' : 'pointer',
-          }}>{loading ? 'Atualizando...' : '↻ Atualizar'}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { clearCachedCatalog(); refresh() }} disabled={loading} title="Limpa o cache e busca tudo de novo do Drive" style={{
+              background: t.bgTertiary, color: t.textMuted,
+              border: `1px solid ${t.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600,
+              cursor: loading ? 'default' : 'pointer',
+            }}>Limpar Cache</button>
+            <button onClick={refresh} disabled={loading} style={{
+              background: loading ? t.bgTertiary : (t.primary || '#E8192C'), color: loading ? t.textMuted : '#fff',
+              border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600,
+              cursor: loading ? 'default' : 'pointer',
+            }}>{loading ? 'Atualizando...' : '↻ Atualizar'}</button>
+          </div>
         </div>
 
         {products.length > 0 && (

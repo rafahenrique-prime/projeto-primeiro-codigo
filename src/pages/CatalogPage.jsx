@@ -582,6 +582,7 @@ export default function CatalogPage({ onNavigate }) {
 
   // Enviar via WhatsApp
   const sendWhatsApp = (product) => {
+    // Padrão: encodeURIComponent() no conteúdo da mensagem
     const msg = encodeURIComponent(`*${product.nome}*\n💰 ${product.preco}\n🔗 ${product.link}`)
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
