@@ -1,6 +1,6 @@
 # docs/PRE-FASE3-CHECKLIST.md — Auditoria de Prontidão Pré-Fase-3
 
-> **Snapshot:** 2026-07-09 · branch `main` · checkpoint de referência: `e21bae2`
+> **Snapshot:** 2026-07-09 · branch `main` · checkpoint pré-Fase-3: `a104e20` (histórico: iniciado a partir de `e21bae2`, ver §1.3)
 > **Fonte:** `PROJECT_CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOY.md`, `docs/WEBHOOKS.md`, `docs/SUPABASE.md`, `docs/VARIABLES-REPORT.md`, `docs/relacionamentos/*`
 > **Objetivo:** listar o que precisa ser resolvido/confirmado antes de mover qualquer arquivo de `src/services/`. Documento de análise — nenhuma mudança de código foi feita para gerá-lo.
 
@@ -61,6 +61,27 @@
 
 ---
 
+### 1.3 Blocos ESCOPO e CHECKPOINT — encerramento (2026-07-09)
+
+> Estes 5 itens são **declarações de escopo e de processo**, não achados de auditoria de código — não há "evidência" a coletar, só a decisão formal registrada por escrito, que é o que este documento existe para fixar antes de qualquer movimentação em `src/services/`.
+
+**Escopo — o que a Fase 3 NÃO faz:**
+
+| Item | Declaração |
+|---|---|
+| `api/*.js` | A Fase 3 **não altera nenhum arquivo em `api/`**. A separação já existente entre `api/` (serverless) e `src/services/` (frontend) — zero imports cruzados, confirmada em `ARCHITECTURE.md §1` — é mantida integralmente. Mover ou reorganizar arquivos dentro de `src/services/` não requer, e não deve, tocar em `api/`. |
+| Unificação de regras duplicadas | A Fase 3 **não unifica** as regras de negócio hoje duplicadas entre `api/` e `src/services/` (scoring `calcBuyScore`, `detectFunnelStage`, motor de objeções, busca de conhecimento, catálogo fallback — listadas em `ARCHITECTURE.md §5`). Unificar essas regras é um projeto à parte, de risco mais alto (mexe em lógica de negócio, não só em organização de arquivos), e deve ser tratado com seu próprio planejamento e checklist quando for decidido. |
+| Credenciais AWS / segurança | A Fase 3 **não mexe em credenciais AWS** (`VITE_AWS_*` expostas com prefixo `VITE_` no bundle do frontend, registrado como risco preexistente em `VARIABLES-REPORT.md §7`) nem em qualquer outro item de segurança (RLS `allow all` do Supabase, rotação de chaves, etc.). Mesmo que a movimentação toque em `awsRekognitionService.js` (um dos 5 órfãos confirmados em §1.1), o objetivo é só mudar sua localização no repositório — não sua lógica interna nem as credenciais que ele referencia. |
+
+**Checkpoint — pontos de rollback:**
+
+| Item | Declaração |
+|---|---|
+| Checkpoint pré-Fase-3 | O commit **`a104e20`** ("docs: encerra itens de ambiente da checklist pré-fase-3") é o checkpoint oficial de referência antes de iniciar a Fase 3A — substitui `e21bae2` como ponto de rollback, já que inclui todas as correções documentais e a auditoria de órfãos concluídas até aqui. Qualquer reversão de uma sub-fase malsucedida volta, no mínimo, até este commit. |
+| Checkpoint por sub-fase | Cada sub-fase (3A, 3B, 3C) terá **seu próprio commit de checkpoint** ao ser concluída e validada, permitindo rollback granular (reverter só 3C sem perder 3A/3B, por exemplo) em vez de um rollback único para toda a Fase 3. |
+
+---
+
 ## 2. Classificação das correções
 
 **Seguras (só alinhamento de doc/config, zero risco de comportamento) — exigem confirmação explícita do Rafael antes de aplicar, por regra do `CLAUDE.md`:**
@@ -96,13 +117,13 @@ CLASSIFICAÇÃO DE SERVICES
 [ ] Definir plano de teste manual específico para DealOncaPage e opsHealthService (maior superfície de risco)
 
 ESCOPO
-[ ] Confirmar por escrito: Fase 3 NÃO toca em api/*.js (mantém a separação já existente entre api/ e src/services/)
-[ ] Confirmar por escrito: Fase 3 NÃO tenta unificar regras duplicadas (scoring/funil/objeções/fallback) — projeto separado
-[ ] Confirmar por escrito: Fase 3 NÃO mexe em credenciais AWS/segurança — risco preexistente, fora de escopo
+[x] Confirmar por escrito: Fase 3 NÃO toca em api/*.js (mantém a separação já existente entre api/ e src/services/) — confirmado em 2026-07-09, ver §1.3
+[x] Confirmar por escrito: Fase 3 NÃO tenta unificar regras duplicadas (scoring/funil/objeções/fallback) — projeto separado — confirmado em 2026-07-09, ver §1.3
+[x] Confirmar por escrito: Fase 3 NÃO mexe em credenciais AWS/segurança — risco preexistente, fora de escopo — confirmado em 2026-07-09, ver §1.3
 
 CHECKPOINT
-[ ] Confirmar que e21bae2 (ou commit mais recente) é o ponto de rollback antes de iniciar 3A
-[ ] Definir que cada sub-fase (3A/3B/3C) terá seu próprio commit de checkpoint, para rollback granular
+[x] Confirmar que e21bae2 (ou commit mais recente) é o ponto de rollback antes de iniciar 3A — atualizado em 2026-07-09: checkpoint oficial é a104e20, ver §1.3
+[x] Definir que cada sub-fase (3A/3B/3C) terá seu próprio commit de checkpoint, para rollback granular — confirmado em 2026-07-09, ver §1.3
 ```
 
 ---
