@@ -1,6 +1,6 @@
 # docs/FASE3-PLANO-EXECUCAO.md — Plano de Execução da Fase 3 (reorganização de `src/services/`)
 
-> **Snapshot:** 2026-07-09 · branch `main` · checkpoint pré-Fase-3: `6258744`
+> **Snapshot:** 2026-07-09 · branch `main` · checkpoint pré-Fase-3: `ec60b8f` (histórico: documento criado sobre `6258744`, publicado em `ec60b8f`, que passa a ser o checkpoint de referência antes de iniciar a 3A)
 > **Pré-requisito:** `docs/PRE-FASE3-CHECKLIST.md` — todos os blocos concluídos (AMBIENTE, CLASSIFICAÇÃO DE SERVICES, ESCOPO, CHECKPOINT)
 > **Fonte:** `docs/ARCHITECTURE.md §4` (matriz de dependências) + contagem de fan-in real feita em 2026-07-09 (grep de imports em `src/`, ver §1)
 > **Objetivo:** definir oficialmente a ordem 3A → 3B → 3C, quais services entram em cada fase, e o plano de validação manual de cada uma. Documento de planejamento — **nenhum arquivo foi movido, nenhum import foi alterado** para gerá-lo.
@@ -37,15 +37,29 @@ Para os outros ~24 sem contagem documentada, rodei uma contagem de fan-in real e
 
 Os 5 órfãos confirmados na auditoria de 2026-07-09 (`PRE-FASE3-CHECKLIST.md §1.1`). Zero consumidores em `src/` ou `api/`, verificado por duas rodadas independentes de grep (incluindo nomes de função exportada, não só nome de arquivo).
 
-| Service | Domínio (ARCHITECTURE.md §7) |
-|---|---|
-| `awsRekognitionService` | Foto |
-| `importBackupService` | Catálogo |
-| `photoMatchingService` | Foto |
-| `photoRecognitionService` | Foto |
-| `searchKnowledge` | Conhecimento |
+| Service | Domínio (ARCHITECTURE.md §7) | Caminho atual | Caminho destino |
+|---|---|---|---|
+| `awsRekognitionService` | Foto | `src/services/awsRekognitionService.js` | `src/services/foto/awsRekognitionService.js` |
+| `importBackupService` | Catálogo | `src/services/importBackupService.js` | `src/services/catalogo/importBackupService.js` |
+| `photoMatchingService` | Foto | `src/services/photoMatchingService.js` | `src/services/foto/photoMatchingService.js` |
+| `photoRecognitionService` | Foto | `src/services/photoRecognitionService.js` | `src/services/foto/photoRecognitionService.js` |
+| `searchKnowledge` | Conhecimento | `src/services/searchKnowledge.js` | `src/services/conhecimento/searchKnowledge.js` |
 
-**Por que primeiro:** nenhuma página ou componente quebra se esses arquivos mudarem de lugar — o único risco é erro de sintaxe na movimentação em si, detectável pelo build.
+**Convenção de pastas (aprovada por Rafael em 2026-07-09):** subpastas dentro de `src/services/`, minúsculas, sem acento, nomeadas pelo domínio lógico já documentado em `ARCHITECTURE.md §7` — `foto/`, `catalogo/`, `conhecimento/`. Essa convenção vale para toda a Fase 3 (3A/3B/3C), não só para 3A; os domínios de 3B (Chat, Cliente/CRM, Auditoria, IA, Plataforma/Util) seguem o mesmo padrão quando essa fase for planejada em detalhe.
+
+**Imports internos que exigem atualização (fan-out dos próprios arquivos movidos, auditado em 2026-07-09):**
+
+| Arquivo | Import interno | De | Para |
+|---|---|---|---|
+| `importBackupService.js` | linha 6 | `from './catalog'` | `from '../catalog'` |
+| `photoMatchingService.js` | linha 8 | `from './catalog'` | `from '../catalog'` |
+| `awsRekognitionService.js` | — | Nenhum import real (as linhas com `import AWS`/`import express` estão dentro da template string `awsBackendExample`, um exemplo de código documentado como texto — não são imports executados) | — |
+| `photoRecognitionService.js` | — | Nenhum import | — |
+| `searchKnowledge.js` | — | Nenhum import | — |
+
+**Imports externos a atualizar:** nenhum — 0 consumidores confirmados em `src/`, `api/`, `scripts/` (reconfirmado por grep em 2026-07-09, inclusive contra `vite.config.js`, `package.json`, `vercel.json`).
+
+**Por que primeiro:** nenhuma página ou componente quebra se esses arquivos mudarem de lugar — o único risco é erro de sintaxe na movimentação em si (incluindo os 2 imports internos acima), detectável pelo build.
 
 ---
 
@@ -89,10 +103,14 @@ Todo o restante que não está em 3A nem 3C. Organizados por domínio para facil
 
 ## 3. Plano de validação manual por fase
 
+> ⚠️ **Limitação de teste conhecida (registrada em 2026-07-09, incidente Fase 3A):** páginas/fluxos que dependem de `api/*.js` (Importação por URL/scraper, Auto-Foto, Webhook) **não podem ser validados via `npm run dev` puro**. O `vite.config.js` não tem proxy para `/api/*`, então o Vite serve o arquivo `.js` como texto-fonte estático em vez de executá-lo como Serverless Function — qualquer chamada a `/api/*` retorna 200 com o código-fonte no corpo, que quebra no `.json()` do lado do cliente com `"Unexpected token '/'... is not valid JSON"`. Isso é uma limitação pré-existente do ambiente de teste, não um bug de código, e reproduz identicamente independente de qualquer service ter sido movido. Confirmado na investigação do falso-positivo do scraper durante a validação da Fase 3A: nenhum dos 5 arquivos movidos participava da cadeia de chamada (`CatalogPage.jsx` → `scraperService.js` → `api/scraper.js`), e o mesmo erro reproduziria antes da Fase 3A no mesmo ambiente. **Para validar essas páginas de verdade, use `vercel dev` local ou um deploy de preview da Vercel — não o `npm run dev` puro.**
+
 ### 3A — Smoke test geral
 - [ ] `npm run build` sem erros
 - [ ] `npm run dev` sobe sem erro no console
+- [ ] Confirmar que `importBackupService.js` e `photoMatchingService.js` resolvem `../catalog` corretamente (import interno atualizado)
 - [ ] Abrir `PhotoRecognitionPage`, `ExtractorPage`, `ImageExtractorPage`, `ImportCatalogPage` uma vez cada (domínios adjacentes aos órfãos) — confirmar que carregam normalmente
+- [ ] `grep` por caminho antigo (`services/awsRekognitionService`, `services/importBackupService`, `services/photoMatchingService`, `services/photoRecognitionService`, `services/searchKnowledge`) em `src/` e `api/` — confirmar zero resultados
 
 ### 3B — Validação por domínio (a cada subgrupo movido)
 - [ ] `npm run build` sem erros
