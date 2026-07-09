@@ -10,10 +10,10 @@
 
 | # | Inconsistência | Fonte | Por que importa pra mover `src/services/` |
 |---|---|---|---|
-| 1 | `VITE_GPTMAKER_WORKSPACE` diverge entre `.env` (`...5D0E...`) e `.env.local` (`...6105...`, correto) | `VARIABLES-REPORT.md §2.1` | Se algum teste de regressão da Fase 3 rodar num contexto que lê só `.env`, valida a migração contra o workspace errado — falso positivo/negativo |
-| 2 | `.env` desatualizado — faltam 7+ variáveis que só existem em `.env.local` (Groq, DeepSeek, Drive, Cohere, Base44, GPTMaker URL) | `VARIABLES-REPORT.md §2.4` | Mesma raiz do #1: qualquer verificação que dependa só do `.env` pode "quebrar" funcionalidades que na verdade estão OK |
-| 3 | Nome do bucket Storage ambíguo — `produtos` (docs) vs `productos` (CLAUDE.md) | `SUPABASE.md §5` | Não bloqueia a Fase 3 diretamente, mas pode gerar falso alarme durante testes manuais pós-movimentação |
-| 4 | `VITE_SUPABASE_ANON_KEY` (citada no CLAUDE.md) vs `VITE_SUPABASE_KEY` (usada de fato no código) | `VARIABLES-REPORT.md §4` | Mesmo risco de falso alarme durante validação |
+| 1 | `VITE_GPTMAKER_WORKSPACE` diverge entre `.env` e `.env.local` — **RESOLVIDO em 2026-07-09, ver §1.2**: reauditado, valores já idênticos; doc corrigida | `VARIABLES-REPORT.md §2.1` | Se algum teste de regressão da Fase 3 rodar num contexto que lê só `.env`, valida a migração contra o workspace errado — falso positivo/negativo |
+| 2 | `.env` desatualizado — faltam 10 variáveis que só existem em `.env.local` (Groq, DeepSeek, Drive, Cohere, Base44, GPTMaker URL) — **documentação confirmada correta em 2026-07-09, ver §1.2; propagação real ao arquivo `.env` ainda pendente** | `VARIABLES-REPORT.md §2.4` | Mesma raiz do #1: qualquer verificação que dependa só do `.env` pode "quebrar" funcionalidades que na verdade estão OK |
+| 3 | Nome do bucket Storage ambíguo — `produtos` (docs) vs `productos` (CLAUDE.md) — **RESOLVIDO em 2026-07-09, ver §1.2**: código usa só `produtos`, CLAUDE.md corrigido | `SUPABASE.md §5` | Não bloqueia a Fase 3 diretamente, mas pode gerar falso alarme durante testes manuais pós-movimentação |
+| 4 | `VITE_SUPABASE_ANON_KEY` (citada no CLAUDE.md) vs `VITE_SUPABASE_KEY` (usada de fato no código) — **RESOLVIDO em 2026-07-09, ver §1.2**: CLAUDE.md corrigido para `VITE_SUPABASE_KEY` | `VARIABLES-REPORT.md §4` | Mesmo risco de falso alarme durante validação |
 | 5 | 6 services "órfãos" (`awsRekognitionService`, `deepseek`, `importBackupService`, `photoMatchingService`, `photoRecognitionService`, `searchKnowledge`) sem confirmação de que são realmente mortos — **RESOLVIDO em 2026-07-09, ver §1.1** | `ARCHITECTURE.md §4.4` | Classificá-los como "baixo risco" sem confirmar pode fazer mover algo consumido indiretamente (import dinâmico, string, etc.) |
 | 6 | Regras de negócio duplicadas entre `api/` e `src/services/` (scoring, funil, objeções, fallback de catálogo, busca de conhecimento) | `ARCHITECTURE.md §5` | Risco de escopo: a Fase 3 é sobre organizar `src/services/`, não sobre unificar com `api/`. Precisa estar explícito que não mexe em `api/*.js` |
 | 7 | `DealOncaPage.jsx` importa 14 services; `opsHealthService` é hub de 10 | `ARCHITECTURE.md §4.2, §8` | Maior superfície de teste manual — precisa de checklist próprio antes de tocar nesses dois pontos |
@@ -46,6 +46,21 @@
 
 ---
 
+### 1.2 Auditoria dos itens de ambiente — resultado (2026-07-09)
+
+> **Metodologia:** leitura direta de `.env` e `.env.local` (comparação de valores completos, não só nomes), grep de `VITE_SUPABASE_ANON_KEY`/`VITE_SUPABASE_KEY` e do literal `produtos`/`productos` em todo `src/` e `api/`. Correções aplicadas somente em `CLAUDE.md` e `docs/VARIABLES-REPORT.md` — nenhum arquivo em `src/`, `api/`, Supabase ou Vercel foi tocado; `.env`/`.env.local` não foram editados.
+
+| Item | Situação encontrada | Ação tomada |
+|---|---|---|
+| Divergência `VITE_GPTMAKER_WORKSPACE` | `.env` e `.env.local` têm o **mesmo valor** hoje (`3F300E7C6105E0123A946E0E9A5EC274`), batendo com o CLAUDE.md. A divergência registrada no snapshot de 2026-07-08 não existe mais na árvore atual — foi corrigida em algum momento entre os dois snapshots, sem atualização do doc. | `VARIABLES-REPORT.md §2.1` reescrita para refletir o estado atual; alerta crítico removido. |
+| Variáveis só no `.env.local` | Confirmado por diff direto dos dois arquivos: 10 variáveis só em `.env.local` (`COHERE_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `VITE_BASE44_API_KEY`, `VITE_BASE44_APP_ID`, `VITE_DEEPSEEK_API_KEY`, `VITE_GOOGLE_DRIVE_API_KEY`, `VITE_GOOGLE_DRIVE_FOLDER_ID`, `VITE_GPTMAKER_URL`, `VITE_GROQ_API_KEY`) e 4 só em `.env` (`VITE_AWS_ACCESS_KEY`, `VITE_AWS_SECRET_KEY`, `VITE_AWS_REGION`, `VITE_OPENROUTER_KEY`). As tabelas §2.3/§2.4 do `VARIABLES-REPORT.md` já estavam corretas — só faltava a confirmação formal. | Adicionada nota de reauditoria em `VARIABLES-REPORT.md §2` confirmando os números. **A propagação real das variáveis entre os arquivos não foi feita** — está fora do escopo documental, seguirá como ação pendente. |
+| `VITE_SUPABASE_KEY` vs `VITE_SUPABASE_ANON_KEY` | `VITE_SUPABASE_KEY` é usada em 43 arquivos reais (`src/`, `api/`, `scripts/`). `VITE_SUPABASE_ANON_KEY` não existe em nenhum código — só numa linha de exemplo no `CLAUDE.md`. | `CLAUDE.md` linha do exemplo de `.env.local` corrigida para `VITE_SUPABASE_KEY`. |
+| Bucket `produtos` vs `productos` | Código usa exclusivamente `produtos` (12 ocorrências reais em `ChatArea.jsx`, `CatalogPage.jsx`, `imageReviewService.js`, `supabaseStorage.js`, `catalogSyncService.js`, incluindo URLs reais do Supabase Storage em produção). Zero ocorrências de `productos` em qualquer código. | `CLAUDE.md` (2 ocorrências) corrigido de `productos` para `produtos`. |
+
+**Conclusão:** dos 4 itens, 1 já estava resolvido na prática (workspace) e só precisava de atualização documental; 2 eram inconsistências reais de nomenclatura em documentação (`ANON_KEY`, `productos`) agora corrigidas; 1 (propagação de variáveis entre `.env`/`.env.local`) segue como ação pendente porque exige editar arquivos de ambiente, fora do escopo desta rodada (só documentação).
+
+---
+
 ## 2. Classificação das correções
 
 **Seguras (só alinhamento de doc/config, zero risco de comportamento) — exigem confirmação explícita do Rafael antes de aplicar, por regra do `CLAUDE.md`:**
@@ -69,11 +84,11 @@
 
 ```
 AMBIENTE
-[ ] Corrigir VITE_GPTMAKER_WORKSPACE no .env (bater com .env.local) — pedir confirmação antes
-[ ] Propagar para o .env as variáveis que só existem no .env.local (Groq, DeepSeek, Drive, Cohere, Base44, GPTMaker URL)
-[ ] Confirmar no painel Supabase o nome real do bucket (produtos vs productos) e anotar em SUPABASE.md
-[ ] Decidir nome oficial: VITE_SUPABASE_KEY (usar esse) — corrigir menção a VITE_SUPABASE_ANON_KEY no CLAUDE.md
-[ ] Remover ou confirmar NEXT_PUBLIC_VERCEL_URL no CLAUDE.md (não encontrada em nenhum grep)
+[x] Corrigir VITE_GPTMAKER_WORKSPACE no .env — reauditado 2026-07-09: já estava consistente, doc corrigida (VARIABLES-REPORT.md §2.1)
+[ ] Propagar para o .env as variáveis que só existem no .env.local (Groq, DeepSeek, Drive, Cohere, Base44, GPTMaker URL) — ainda pendente, ação real no arquivo (fora do escopo documental de 2026-07-09)
+[x] Confirmar nome real do bucket (produtos vs productos) — confirmado por evidência de código (12 usos reais de "produtos", zero de "productos"), CLAUDE.md corrigido em 2026-07-09
+[x] Decidir nome oficial: VITE_SUPABASE_KEY (usar esse) — corrigido em CLAUDE.md em 2026-07-09
+[ ] Remover ou confirmar NEXT_PUBLIC_VERCEL_URL no CLAUDE.md (não encontrada em nenhum grep) — fora do escopo desta rodada, ainda pendente
 
 CLASSIFICAÇÃO DE SERVICES
 [x] Confirmar se os 6 services "órfãos" são realmente sem uso (grep incluindo imports dinâmicos) — concluído 2026-07-09, ver §1.1
@@ -94,7 +109,7 @@ CHECKPOINT
 
 ## 4. Recomendação de abordagem
 
-1. Resolver os 4 itens de ambiente/nomenclatura primeiro (baratos, eliminam ruído de falso-positivo durante os testes da Fase 3).
+1. ~~Resolver os 4 itens de ambiente/nomenclatura primeiro~~ — concluído em 2026-07-09 (ver §1.2): 3 resolvidos por completo (workspace, ANON_KEY, bucket), 1 com documentação confirmada mas propagação real do `.env` ainda pendente.
 2. ~~Confirmar os 6 órfãos de verdade antes de classificá-los como "baixo risco"~~ — concluído em 2026-07-09 (ver §1.1): 5 confirmados, `deepseek` reclassificado como uso indireto.
 3. Começar a Fase 3 pelos 5 órfãos confirmados (`awsRekognitionService`, `importBackupService`, `photoMatchingService`, `photoRecognitionService`, `searchKnowledge`) — validação rápida, baixo custo de erro.
 4. Deixar `gptmaker`, `catalog`, `groq` e `opsHealthService` por último — são os hubs; qualquer engano ali afeta várias páginas ao mesmo tempo (Inbox, DealOnça, Catálogo).

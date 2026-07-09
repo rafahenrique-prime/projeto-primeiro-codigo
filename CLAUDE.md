@@ -309,7 +309,7 @@ Cliente vê tudo no WhatsApp/Instagram
 **Sequência:**
 1. Validação local: 538 produtos, imagens OK
 2. UPSERT por produto (não batch) em `products` table
-3. Imagens → `productos` bucket (PUBLIC)
+3. Imagens → `produtos` bucket (PUBLIC)
 4. `catalog_history` registra: add/edit/delete com timestamp
 5. **[CRÍTICO]** Só depois disso você autoriza `git push origin main`
 
@@ -323,7 +323,7 @@ Cliente vê tudo no WhatsApp/Instagram
 - [ ] Token GPTMaker em `.env.local` (verificar expiração)
 - [ ] IDs GPTMaker válidos e imutáveis (`3F300E7C6105...`)
 - [ ] Supabase conectado (consegue query `products`?)
-- [ ] Storage bucket `productos` acessível
+- [ ] Storage bucket `produtos` acessível
 
 ### Código
 - [ ] Nenhum `.catch(() => {})` silencioso (erros devem ser logados)
@@ -454,7 +454,7 @@ VITE_GPTMAKER_WORKSPACE=3F300E7C6105E0123A946E0E9A5EC274
 
 # Supabase
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=seu_anon_key_aqui
+VITE_SUPABASE_KEY=seu_anon_key_aqui
 
 # Groq (fallback LLM)
 VITE_GROQ_API_KEY=seu_groq_key_aqui

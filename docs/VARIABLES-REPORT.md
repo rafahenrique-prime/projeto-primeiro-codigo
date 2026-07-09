@@ -55,17 +55,13 @@
 
 ## 2. Divergências entre `.env` e `.env.local`
 
-### 2.1 🔴 CRÍTICA: Workspace ID divergente
+### 2.1 Workspace ID — verificado consistente (corrigido, 2026-07-09)
 
-| Variável | `.env` | `.env.local` | CLAUDE.md (correto) |
+| Variável | `.env` | `.env.local` | CLAUDE.md |
 |---|---|---|---|
-| `VITE_GPTMAKER_WORKSPACE` | `3F300E7C**5D0E**4105BE046E0E9A5EC274` | `3F300E7C**6105**E0123A946E0E9A5EC274` | `3F300E7C**6105**E0123A946E0E9A5EC274` |
+| `VITE_GPTMAKER_WORKSPACE` | `3F300E7C6105E0123A946E0E9A5EC274` | `3F300E7C6105E0123A946E0E9A5EC274` | `3F300E7C6105E0123A946E0E9A5EC274` |
 
-**O `.env` tem um workspace diferente** — `5D0E` vs `6105`. O `.env.local` e o CLAUDE.md concordam no valor `...C6105E0123A946E...`. O `.env` provavelmente tem um **ID antigo ou com typo**.
-
-**Risco:** Se o `.env` tiver prioridade em algum contexto (ex.: script que não carrega `.env.local`), o sistema se conecta ao workspace errado.
-
-**Recomendação:** Corrigir o `.env` para bater com o `.env.local`.
+**Histórico:** esta seção registrava, no snapshot de 2026-07-08, uma divergência crítica entre `.env` (`...5D0E...`) e `.env.local`/CLAUDE.md (`...6105...`). Reauditado em 2026-07-09 (ver `docs/PRE-FASE3-CHECKLIST.md`): os três valores estão **idênticos hoje**. A divergência foi corrigida em algum momento entre os dois snapshots — não há mais ação pendente aqui.
 
 ### 2.2 Valores divergentes legítimos (tokens que expiram)
 
@@ -75,6 +71,8 @@
 | `VITE_GPTMAKER_USER_TOKEN` | JWT diferente | JWT diferente | Mesmo caso — tokens diferentes por período. |
 
 **Não é bug** — é esperado que os tokens divergam entre os arquivos (expirem e sejam renovados).
+
+> **Reauditado em 2026-07-09** (comparação direta dos dois arquivos, ver `docs/PRE-FASE3-CHECKLIST.md`): as listas das seções 2.3 e 2.4 abaixo foram conferidas e batem com o estado atual dos arquivos — 4 variáveis só no `.env`, 10 só no `.env.local`.
 
 ### 2.3 Variáveis só no `.env` (não no `.env.local`)
 
@@ -126,7 +124,7 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 
 | Variável | CLAUDE.md §8 menciona | `.env` | `.env.local` | Status |
 |---|---|---|---|---|
-| `VITE_SUPABASE_ANON_KEY` | ✅ listada como exemplo | — | — | **Provavelmente é a mesma que `VITE_SUPABASE_KEY`** — nome alternativo no CLAUDE.md |
+| `VITE_SUPABASE_ANON_KEY` | ~~listada como exemplo~~ | — | — | **Corrigido em 2026-07-09** — era nome alternativo indevido no CLAUDE.md para `VITE_SUPABASE_KEY` (a variável real, usada em 43 arquivos). CLAUDE.md atualizado para usar o nome correto. |
 | `NEXT_PUBLIC_VERCEL_URL` | ✅ listada | — | — | **Órfã** — não encontrada em nenhum grep |
 
 ---
@@ -141,7 +139,7 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 | **Órfãs parciais** | 3 | `VITE_GPTMAKER_EMAIL`, `VITE_GPTMAKER_PASSWORD`, `VITE_BASE44_API_KEY` |
 | **Faltantes nos env locais** | 5 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `BAGY_STORE_URL`, `VITE_GOOGLE_VISION_KEY`, `VITE_OPENAI_API_KEY` |
 | **Build-time** | 2 | `VERCEL`, `VERCEL_GIT_COMMIT_SHA` |
-| **Divergência crítica** | 1 | `VITE_GPTMAKER_WORKSPACE` (ID diferente no `.env`) |
+| **Divergência crítica** | 0 | `VITE_GPTMAKER_WORKSPACE` — reauditado em 2026-07-09, valores idênticos hoje (ver §2.1) |
 | **Total** | **28** | (incluindo build-time) |
 
 ---
@@ -150,9 +148,9 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 
 | # | Ação | Prioridade | Risco se não fizer |
 |---|---|---|---|
-| 1 | **Corrigir `VITE_GPTMAKER_WORKSPACE` no `.env`** para bater com `.env.local` (`...C6105E0123A946E...`) | 🔴 Alta | Workspace errado em contextos sem `.env.local` |
+| 1 | ~~Corrigir `VITE_GPTMAKER_WORKSPACE` no `.env`~~ | — | **Resolvido** — reauditado em 2026-07-09, `.env` e `.env.local` já batem (ver §2.1) |
 | 2 | **Propagar variáveis do `.env.local` para o `.env`** (Groq, DeepSeek, Drive, Cohere, Base44, GPTMaker URL) | 🟡 Média | `.env` desatualizado — referencia incompleta |
-| 3 | **Adicionar `VITE_SUPABASE_ANON_KEY` como alias** ou remover do CLAUDE.md (provavelmente é `VITE_SUPABASE_KEY`) | 🟡 Média | Confusão de nomenclatura |
+| 3 | ~~Corrigir `VITE_SUPABASE_ANON_KEY` no CLAUDE.md~~ | — | **Resolvido em 2026-07-09** — CLAUDE.md agora usa `VITE_SUPABASE_KEY` |
 | 4 | **Remover `NEXT_PUBLIC_VERCEL_URL` do CLAUDE.md** se não é usada | 🟢 Baixa | Documentação enganosa |
 | 5 | **Documentar variáveis Vercel-only** (`TELEGRAM_*`, `BAGY_STORE_URL`, `VITE_GOOGLE_VISION_KEY`, `VITE_OPENAI_API_KEY`) no `.env.example` com comentário "Vercel only" | 🟡 Média | Já feito neste relatório e no `.env.example` |
 | 6 | **Verificar se `VITE_BASE44_API_KEY` é usada em runtime** (SDK Base44 pode fazer acesso dinâmico) | 🟢 Baixa | Pode ser órfã de verdade |
@@ -163,8 +161,8 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 
 | Risco | Severidade | Detalhe |
 |---|---|---|
-| Workspace ID errado no `.env` | 🔴 Alto | Conexão ao workspace GPT Maker errado |
-| `.env` desatualizado (7 vars faltando) | 🟡 Médio | Referência incompleta para novos desenvolvedores |
+| ~~Workspace ID errado no `.env`~~ | — | **Resolvido** — reauditado em 2026-07-09, valores idênticos (ver §2.1) |
+| `.env` desatualizado (10 vars faltando) | 🟡 Médio | Referência incompleta para novos desenvolvedores — ver §2.4 |
 | 5 variáveis só na Vercel | 🟡 Médio | Funcionalidades quebram localmente |
 | Token User expira silenciosamente | 🟡 Médio | 0 conversas sem erro no console |
 | Prefixo `VITE_` em secrets server-side | 🟡 Médio | `VITE_AWS_*` vazam pro navegador — AWS keys expostas |
@@ -173,4 +171,5 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 ---
 
 **Gerado em:** 2026-07-08 · Fase 2 da reorganização.
+**Reauditado em:** 2026-07-09 · itens de ambiente pré-Fase-3 (§2.1, §2.3, §2.4, §4) — ver `docs/PRE-FASE3-CHECKLIST.md`.
 **Metodologia:** grep direcionado em `src/`, `api/`, `scripts/`, `vite.config.js`. Sem alteração de código.
