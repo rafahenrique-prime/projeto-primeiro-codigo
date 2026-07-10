@@ -59,13 +59,35 @@ Verificado em todo o repositório (`src/`, `api/`, `scripts/`, `docs/`, configs,
 - Verificação pós-remoção: zero imports quebrados, zero referências residuais, `npm run build` limpo (detalhes na seção 6 abaixo).
 - `photoMatchingService`, `photoRecognitionService`, `importBackupService` **permanecem intactos** — Etapa A (arquivar) não foi autorizada nesta rodada.
 
-## 6. Verificação pós-remoção
+## 6. Verificação pós-remoção (Etapa B)
 
 - **Imports quebrados:** verificação programática de todos os 186 imports relativos em `src/` — **0 quebrados** (mesma contagem de antes da remoção, confirma que nenhum import apontava para os 2 arquivos removidos).
 - **Referências residuais:** `grep` por `awsRekognitionService` em `src/`, `api/`, `scripts/` — **0 ocorrências**. `grep` por `from ... searchKnowledge` — **0 ocorrências** (a função homônima em `api/webhook.js` é local, não um import do arquivo removido).
 - **`npm run build`:** passou limpo — 789 módulos transformados (mesma contagem de antes da remoção, confirma que os 2 arquivos já não entravam no grafo do bundle).
 - **Total de `src/services/`:** 49 → 47 arquivos.
 
+## 7. Execução — Etapa A (2026-07-10)
+
+**Aprovado por Rafael Henrique**, escopo explícito: mover `photoMatchingService.js`, `photoRecognitionService.js` e `importBackupService.js` para `src/services/_archive/`, com auditoria de pré-checagem antes de executar.
+
+**Pré-checagem imediatamente antes da execução:**
+- Fan-in recalculado (interno + externo, estático) para os 3 — **0 em todos**, confirma que nada mudou desde a auditoria original.
+- Verificação de documentação operacional ativa (fora dos relatórios de auditoria) revelou que os 3 **são mencionados** em `docs/VARIABLES-REPORT.md` (`photoRecognitionService.js`, linhas 116-117), `docs/relacionamentos/supabase-vs-catalogo.md` (`photoRecognitionService.js`, 5 menções) e `docs/SUPABASE.md` (`importBackupService.js`, linha 159) — descrevendo-os como se fossem consumidores ativos do fluxo de dados. Essas 3 menções já estavam desatualizadas antes desta auditoria (fan-in é 0 desde a criação dos arquivos) e **não foram corrigidas nesta rodada** — fora do escopo aprovado (`ARCHITECTURE.md` + este documento). **Pendência registrada para correção futura.**
+
+**Execução:**
+- `git mv src/services/foto/photoMatchingService.js src/services/_archive/photoMatchingService.js`
+- `git mv src/services/foto/photoRecognitionService.js src/services/_archive/photoRecognitionService.js`
+- `git mv src/services/catalogo/importBackupService.js src/services/_archive/importBackupService.js`
+- Cada arquivo recebeu um comentário de cabeçalho registrando data, motivo do arquivamento e substituto atual.
+- `importBackupService.js` teve seu import interno corrigido: `from './catalog'` → `from '../catalogo/catalog'` (mudou de pasta, `catalog.js` não é mais vizinho de pasta).
+- Novo `src/services/_archive/README.md` — índice dos 3 arquivos arquivados, motivo e substituto de cada um.
+- `docs/ARCHITECTURE.md` atualizado: §2 (adiciona `_archive/` à árvore), §4.4 (órfãos: fica vazio, os 3 estão arquivados), §7 (tabela de domínios, `_archive/` como nova linha).
+
+**Verificação pós-arquivamento:**
+- Imports quebrados: **0** de 186 verificados (mesma contagem — confirma que o import corrigido de `importBackupService.js` resolve corretamente).
+- `npm run build`: limpo, 789 módulos (mesma contagem de antes — os 3 arquivos já não entravam no grafo do bundle).
+- **`photoMatchingService`, `photoRecognitionService`, `importBackupService` permanecem sem consumidores** — arquivar não muda esse fato, só a localização e a rastreabilidade da decisão.
+
 ---
 
-**Total de `src/services/`:** 49 → 47 arquivos (8 domínios, zero arquivos soltos na raiz).
+**Total de `src/services/`:** 47 arquivos (8 domínios + `_archive/`, zero arquivos soltos na raiz). Nenhum arquivo foi perdido — todos os 5 órfãos originais foram tratados: 2 removidos, 3 arquivados.

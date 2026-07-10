@@ -64,9 +64,9 @@ PROJETO DO CLAUDECODE/
 │   │   ├── catalog.json        ← catálogo bundled (fallback)
 │   │   └── mockData.js
 │   └── services/    (47)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
-│       ├── auditoria/    (9)   ├── catalogo/     (6)   ├── chat/  (4)
-│       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (7)
-│       ├── ia/           (3)   ├── plataforma/   (8)
+│       ├── auditoria/    (9)   ├── catalogo/     (5)   ├── chat/  (4)
+│       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
+│       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
 ├── api/            (15)        ← serverless Vercel (rotas /api/*)
 │   ├── webhook.js              ← busca conhecimento p/ Gabriela
@@ -162,7 +162,7 @@ plataforma/opsHealthService  → (10 services — ver 4.2)
 O grafo continua **DAG** (sem ciclos), confirmado ao final da Fase 3C. Todas as arestas agora apontam para caminhos de domínio finais — nenhuma referência à raiz de `src/services/` restante.
 
 ### 4.4 Services órfãos (0 consumers externos)
-`importBackupService`, `photoMatchingService`, `photoRecognitionService` — não referenciados por nenhum consumidor, estático ou dinâmico. Auditoria de descomissionamento em 2026-07-10 (ver `docs/AUDITORIA-ORFAOS-SERVICES.md`) confirmou os 5 órfãos originalmente identificados e classificou risco de remoção; `awsRekognitionService` e `searchKnowledge` (risco 0-1, sem valor de referência arquitetural) já foram **removidos**. Os 3 restantes (`importBackupService`, `photoMatchingService`, `photoRecognitionService`) tiveram refino de engenharia real ou representam decisões de arquitetura documentáveis — recomendados para arquivamento, não remoção direta.
+Nenhum órfão permanece em pasta de domínio ativa. Dos 5 originalmente identificados (`docs/AUDITORIA-ORFAOS-SERVICES.md`): `awsRekognitionService` e `searchKnowledge` (risco 0-1, sem valor de referência arquitetural) foram **removidos** em 2026-07-10; `importBackupService`, `photoMatchingService`, `photoRecognitionService` foram **arquivados** em `src/services/_archive/` no mesmo dia — tiveram refino de engenharia real ou representam decisões de arquitetura documentáveis, mas seguem sem nenhum consumidor. Ver `src/services/_archive/README.md`.
 
 ---
 
@@ -241,22 +241,25 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 
 ---
 
-## 7. Agrupamento funcional dos serviços (49 arquivos) — estrutura física real, 100% organizada
+## 7. Agrupamento funcional dos serviços (47 arquivos) — estrutura física real, 100% organizada
 
 | Domínio (pasta) | Services | Arquivos |
 |---|---|---|
 | **`chat/`** | messageHistoryService, interactionsService, photoHistory, gptmaker | 4 |
-| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, importBackupService, catalog | 6 |
+| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, catalog | 5 |
 | **`crm/`** | contactAnalysisService, cobrancasService, stageHistory, followUpService, customerProfileService | 5 |
 | **`conhecimento/`** | knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 5 |
-| **`foto/`** | photoFlowService, photoMatchingService, photoCacheService, photoRecognitionService, ocrService, imageExtractor, imageReviewService | 7 |
+| **`foto/`** | photoFlowService, photoCacheService, ocrService, imageExtractor, imageReviewService | 5 |
 | **`auditoria/`** | agentAuditService, codexAuditService, codexAlertsService, agentLearningsService, learningsAuditService, knowledgeAuditService, whatsappAuditService, instagramAuditService, bagyAuditService | 9 |
 | **`ia/`** | deepseek, deepseekBalanceService, groq | 3 |
 | **`plataforma/`** | supabaseStorage, systemHealthService, diagnosticService, avatarCacheService, tokenLoggingService, gptmakerCreditsService, weeklyInsightService, opsHealthService | 8 |
+| **`_archive/`** | photoMatchingService, photoRecognitionService, importBackupService | 3 |
 
 > **Atualizado 2026-07-10 (pós-Fase-3C):** esta tabela reflete a **estrutura física real e final** — Fases 3A, 3B e 3C concluídas, zero arquivos soltos na raiz de `src/services/`. `photoHistory` foi resolvido para `chat/` (decisão data-driven documentada em `docs/POS-FASE3B-AUDITORIA.md §6`, aprovada e executada no Lote 2/8 da Fase 3C).
 >
-> **Atualizado 2026-07-10 (descomissionamento de órfãos):** `awsRekognitionService` (`foto/`) e `searchKnowledge` (`conhecimento/`) foram **removidos** — auditoria de segurança confirmou zero consumidores em qualquer forma (import estático, dinâmico, `eval`, string, teste, config, CI). Ver `docs/AUDITORIA-ORFAOS-SERVICES.md` para o relatório completo. Total de `src/services/` passa de 49 para 47 arquivos.
+> **Atualizado 2026-07-10 (descomissionamento de órfãos, Etapa B — remover):** `awsRekognitionService` (`foto/`) e `searchKnowledge` (`conhecimento/`) foram **removidos** — auditoria de segurança confirmou zero consumidores em qualquer forma (import estático, dinâmico, `eval`, string, teste, config, CI). Ver `docs/AUDITORIA-ORFAOS-SERVICES.md`.
+>
+> **Atualizado 2026-07-10 (descomissionamento de órfãos, Etapa A — arquivar):** `photoMatchingService`, `photoRecognitionService` (`foto/`) e `importBackupService` (`catalogo/`) foram movidos para `src/services/_archive/` — mesma auditoria confirmou zero consumidores, mas os 3 têm valor de referência arquitetural ou dependem de uma decisão externa ainda em aberto (`dealism-backup/`), por isso preservados em vez de removidos. Total de `src/services/` permanece em 47 arquivos (só mudou de pasta).
 
 ---
 
