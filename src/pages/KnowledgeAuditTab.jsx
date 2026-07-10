@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { runKnowledgeAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/knowledgeAuditService'
+import { runKnowledgeAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/auditoria/knowledgeAuditService'
 
 const TYPE_META = {
   duplicado: { label: 'Duplicado', color: '#E8192C', icon: '🧬' },

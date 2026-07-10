@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { runWhatsappAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/whatsappAuditService'
+import { runWhatsappAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/auditoria/whatsappAuditService'
 
 const TYPE_META = {
   sem_resposta: { label: 'Sem resposta', color: '#E8192C', icon: '⏰' },

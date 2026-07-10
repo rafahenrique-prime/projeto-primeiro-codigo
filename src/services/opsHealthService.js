@@ -2,15 +2,15 @@
 // Só lê o último resultado já salvo de cada uma (nenhuma chamada de IA nova aqui) —
 // exceto WhatsApp/Instagram, que recontam os chats atuais via GPT Maker (mesma chamada
 // que a Inbox já faz; sem custo de IA).
-import * as bagyAuditService from './bagyAuditService'
+import * as bagyAuditService from './auditoria/bagyAuditService'
 import * as systemHealthService from './plataforma/systemHealthService'
-import * as knowledgeAuditService from './knowledgeAuditService'
-import * as learningsAuditService from './learningsAuditService'
-import * as whatsappAuditService from './whatsappAuditService'
-import * as instagramAuditService from './instagramAuditService'
-import { getQualitySummary } from './agentAuditService'
+import * as knowledgeAuditService from './auditoria/knowledgeAuditService'
+import * as learningsAuditService from './auditoria/learningsAuditService'
+import * as whatsappAuditService from './auditoria/whatsappAuditService'
+import * as instagramAuditService from './auditoria/instagramAuditService'
+import { getQualitySummary } from './auditoria/agentAuditService'
 import { getAllEntries } from './knowledgeDB'
-import { getAllLearnings } from './agentLearningsService'
+import { getAllLearnings } from './auditoria/agentLearningsService'
 import { listChats } from './gptmaker'
 
 function pct(value) {

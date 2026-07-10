@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { runInstagramAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/instagramAuditService'
+import { runInstagramAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/auditoria/instagramAuditService'
 
 const TYPE_META = {
   sem_resposta: { label: 'Sem resposta', color: '#E8192C', icon: '⏰' },

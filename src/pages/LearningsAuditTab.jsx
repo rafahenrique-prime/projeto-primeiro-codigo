@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { runLearningsAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/learningsAuditService'
+import { runLearningsAudit, getAuditRuns, getAuditResults, setFindingIgnored } from '../services/auditoria/learningsAuditService'
 
 const TYPE_META = {
   duplicada: { label: 'Duplicada', color: '#E8192C', icon: '🧬' },

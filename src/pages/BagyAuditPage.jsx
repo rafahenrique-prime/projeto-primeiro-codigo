@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { runBagyAudit, getAuditRuns, getAuditResults, setDivergenceIgnored } from '../services/bagyAuditService'
+import { runBagyAudit, getAuditRuns, getAuditResults, setDivergenceIgnored } from '../services/auditoria/bagyAuditService'
 
 const STATUS_LABEL = {
   missing_in_catalog: { label: 'Somente na Bagy', color: '#E8192C' },

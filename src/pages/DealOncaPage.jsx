@@ -10,9 +10,9 @@ import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } 
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/foto/imageReviewService'
 import { getAllEntries } from '../services/knowledgeDB'
 import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
-import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
+import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/auditoria/codexAlertsService'
 import { saveInteraction, autoCloseInactiveConversations } from '../services/chat/interactionsService'
-import { getTodayAuditSummary } from '../services/agentAuditService'
+import { getTodayAuditSummary } from '../services/auditoria/agentAuditService'
 import { getLatestWeeklyInsight } from '../services/plataforma/weeklyInsightService'
 
 const CATEGORIES = {

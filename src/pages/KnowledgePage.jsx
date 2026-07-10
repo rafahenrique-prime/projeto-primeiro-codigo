@@ -6,7 +6,7 @@ import { saveCreated, getCreatedAt, isNew } from '../services/conhecimento/knowl
 import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from '../services/knowledgeDB'
 import { extractTextFromImage, detectContentCategory, identifyProductFromPhoto } from '../services/foto/ocrService'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/conhecimento/knowledgeParser'
-import { getAllLearnings, deleteLearning } from '../services/agentLearningsService'
+import { getAllLearnings, deleteLearning } from '../services/auditoria/agentLearningsService'
 import PhotoHistoryPanel from '../components/PhotoHistoryPanel'
 
 const CATEGORIES = {

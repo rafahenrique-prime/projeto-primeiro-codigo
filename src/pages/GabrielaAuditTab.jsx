@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getQualitySummary } from '../services/agentAuditService'
+import { getQualitySummary } from '../services/auditoria/agentAuditService'
 
 const PERIODS = [
   { days: 1, label: 'Hoje' },

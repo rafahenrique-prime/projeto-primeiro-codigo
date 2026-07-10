@@ -3,7 +3,7 @@
 // "Comentários sem resposta" e "perguntas recorrentes" do plano original não têm fonte de
 // dado ainda (GPT Maker só expõe DMs, não comentários de post) — ficam de fora até existir
 // uma integração real, em vez de fingir uma métrica sem dado por trás.
-import { listChats } from './gptmaker'
+import { listChats } from '../gptmaker'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

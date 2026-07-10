@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getAuditRuns, getAuditResults, setFindingIgnored } from '../services/codexAuditService'
+import { getAuditRuns, getAuditResults, setFindingIgnored } from '../services/auditoria/codexAuditService'
 
 const TYPE_META = {
   arquivo_orfao: { label: 'Arquivo órfão', color: '#E8192C', icon: '📄' },
