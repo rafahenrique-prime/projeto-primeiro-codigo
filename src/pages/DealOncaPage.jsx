@@ -11,7 +11,7 @@ import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductIma
 import { getAllEntries } from '../services/knowledgeDB'
 import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
 import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
-import { saveInteraction, autoCloseInactiveConversations } from '../services/interactionsService'
+import { saveInteraction, autoCloseInactiveConversations } from '../services/chat/interactionsService'
 import { getTodayAuditSummary } from '../services/agentAuditService'
 import { getLatestWeeklyInsight } from '../services/plataforma/weeklyInsightService'
 

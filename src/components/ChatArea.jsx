@@ -7,7 +7,7 @@ import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/conhecimento/knowledgeParser'
 import { upsertProfile, getProfile } from '../services/customerProfileService'
-import { syncMessages, getConvHistory, deleteConvHistory, archiveConvHistory } from '../services/messageHistoryService'
+import { syncMessages, getConvHistory, deleteConvHistory, archiveConvHistory } from '../services/chat/messageHistoryService'
 
 const GPTMAKER_URL = 'https://app.gptmaker.ai/browse/chat'
 

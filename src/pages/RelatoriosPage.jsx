@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getDashboardData, checkUserTokenStatus, updateUserToken } from '../services/gptmaker'
-import { getConversionStats } from '../services/interactionsService'
+import { getConversionStats } from '../services/chat/interactionsService'
 
 const GREEN = '#0EC331'
 const PURPLE = '#8B5CF6'
