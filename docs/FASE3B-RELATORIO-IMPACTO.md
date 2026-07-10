@@ -169,7 +169,16 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 **Achado (limitação pré-existente, não bug):** console mostra `[Base44 SDK Error] 401: Authentication required to view users` em Cobranças e Contatos. Confirmado zero alteração de conteúdo em `cobrancasService.js` (puro rename) e a string de erro nem existe no nosso código — vem de dentro do próprio `@base44/sdk`. Dados de negócio (cobranças, contatos) carregaram normalmente apesar do erro no console.
 
-### Lotes 6-8 — pendentes
+### Lote 6/8 — Catálogo ✅ concluído
+- 4 arquivos movidos para `src/services/catalogo/`; 4 páginas atualizadas (`CatalogPage.jsx` com 2 imports, `DraftCatalogPage.jsx`, `ImportCatalogPage.jsx`, `ExtractorPage.jsx`) — exatamente como previsto, sem consumidor extra desta vez.
+- `src/services/__tests__/syncCatalog.test.js` também atualizado (só o import — o arquivo continua em `__tests__/`, não foi movido para `catalogo/`, por convenção de projeto).
+- Ajuste de import interno: `catalogSyncService.js` (`./conhecimento/knowledgeGenerator` → `../conhecimento/knowledgeGenerator`, agora que vira pasta irmã em vez de filha direta).
+- `npm run build` passou de primeira.
+- Testado ao vivo: CatalogPage (544 produtos), DraftCatalogPage (carregando fotos do Drive), ImportCatalogPage, ExtractorPage — todas sem erro de console.
+
+**⚠️ Divergência de metodologia registrada (não é bug de código — é achado sobre segurança da validação):** `npm test -- syncCatalog.test.js` **não foi executado**. Apesar do nome sugerir um teste seguro/isolado ("🔐 TEST FILE SEGURO"), a leitura do arquivo revelou que o terceiro bloco `it()` chama `upsertProducts(PRODUTOS_50_BAGY)` — uma escrita **real** de 50 produtos hardcoded na tabela `products` do Supabase de **produção** (mesmo banco com 538+ produtos reais documentado como crítico no `CLAUDE.md`). Não é um teste unitário isolado, é um script de sincronização disfarçado de teste, com efeito colateral em dados reais. Validação usada em seu lugar: verificação estática do caminho de import (arquivo existe em `src/services/catalogo/catalogSyncService.js`, mesmo padrão comprovado nos 5 lotes anteriores) + validação via build + validação manual das 4 páginas no navegador. **Rodar o teste de verdade requer autorização explícita do Rafael**, por escrever dados reais em produção — está fora do escopo de "só mover arquivos" da Fase 3B.
+
+### Lotes 7-8 — pendentes
 
 ---
 
