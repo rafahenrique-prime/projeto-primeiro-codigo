@@ -1,5 +1,5 @@
 import { getProfile } from './customerProfileService'
-import { getTimeInStage } from './stageHistory'
+import { getTimeInStage } from './crm/stageHistory'
 import { askDeepSeek } from './deepseek'
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY

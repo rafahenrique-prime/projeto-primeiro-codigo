@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados } from '../services/cobrancasService'
+import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados } from '../services/crm/cobrancasService'
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 
 // Dados fake pra fallback se API falhar

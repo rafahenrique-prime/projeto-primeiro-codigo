@@ -1,6 +1,6 @@
 // Análise de IA por contato — módulo experimental /contatos-new
 // Tabela nova: contact_ai_analysis (ver SQL no final do arquivo)
-import { askDeepSeek } from './deepseek'
+import { askDeepSeek } from '../deepseek'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

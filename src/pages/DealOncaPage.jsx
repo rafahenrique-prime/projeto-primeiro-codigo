@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss, suggestKnowledgeFromWin } from '../services/groq'
-import { recordStage, cleanupOldEntries, getTimeInStage } from '../services/stageHistory'
+import { recordStage, cleanupOldEntries, getTimeInStage } from '../services/crm/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary } from '../services/followUpService'
 import { listChannels, getChatMessages, listAgents, listTrainings, createTraining, sendMessage as gptSendMessage } from '../services/gptmaker'
