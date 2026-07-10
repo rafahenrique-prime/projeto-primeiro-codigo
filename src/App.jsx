@@ -233,17 +233,10 @@ export default function App() {
     chatRef.current?.fill(text)
   }, [])
 
-  // Fila priorizada: pedido de humano > score alto > esfriando com intenção > resto
+  // Fila priorizada: só pedido de humano fica fixo no topo; o resto ordena por recência
   function conversationPriority(c) {
-    const profile = profilesMap[c.id]
-    const score = profile?.buy_score ?? 0
     const needsHuman = c.mode === 'copilot' && c.unread > 0
-    if (needsHuman) return 0
-    if (score >= 70) return 1
-    const inactiveMin = c.rawTime ? Math.floor((Date.now() - new Date(c.rawTime).getTime()) / 60000) : 0
-    if (score >= 30 && inactiveMin > 30) return 2
-    if (score >= 30) return 3
-    return 4
+    return needsHuman ? 0 : 1
   }
 
   const filtered = conversations.filter(c => {
@@ -262,13 +255,14 @@ export default function App() {
   }).sort((a, b) => {
     const diff = conversationPriority(a) - conversationPriority(b)
     if (diff !== 0) return diff
-    const scoreA = profilesMap[a.id]?.buy_score ?? 0
-    const scoreB = profilesMap[b.id]?.buy_score ?? 0
-    if (scoreA !== scoreB) return scoreB - scoreA
-    // Tiebreaker: mensagem mais recente sobe pro topo (comportamento WhatsApp/GPT Maker)
+    // Ordena por mensagem mais recente (comportamento WhatsApp/GPT Maker)
     const timeA = a.rawTime ? new Date(a.rawTime).getTime() : 0
     const timeB = b.rawTime ? new Date(b.rawTime).getTime() : 0
-    return timeB - timeA
+    if (timeB !== timeA) return timeB - timeA
+    // Desempate: score de compra mais alto primeiro
+    const scoreA = profilesMap[a.id]?.buy_score ?? 0
+    const scoreB = profilesMap[b.id]?.buy_score ?? 0
+    return scoreB - scoreA
   })
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
