@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import { listContacts, getChatMessages } from '../services/gptmaker'
-import { getAllProfiles, getProfile } from '../services/customerProfileService'
+import { getAllProfiles, getProfile } from '../services/crm/customerProfileService'
 import { getAnalysis, analyzeConversation } from '../services/crm/contactAnalysisService'
 import { saveEntry } from '../services/knowledgeDB'
 import Tooltip from '../components/Tooltip.jsx'

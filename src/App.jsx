@@ -29,7 +29,7 @@ import IntelligenceOpsPage from './pages/IntelligenceOpsPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/crm/followUpService'
 import { syncCatalogFromSupabase } from './services/catalog'
-import { getAllProfiles } from './services/customerProfileService'
+import { getAllProfiles } from './services/crm/customerProfileService'
 import { ensureCachedAvatar } from './services/plataforma/avatarCacheService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']

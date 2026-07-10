@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { listContacts } from '../services/gptmaker'
 import { useTheme } from '../theme.jsx'
-import { getAllProfiles } from '../services/customerProfileService'
+import { getAllProfiles } from '../services/crm/customerProfileService'
 
 const AVATAR_COLORS = ['#6366f1','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#14B8A6']
 function colorFor(str) { let h=0; for(const c of (str||'')) h=(h*31+c.charCodeAt(0))&0xffff; return AVATAR_COLORS[h%AVATAR_COLORS.length] }

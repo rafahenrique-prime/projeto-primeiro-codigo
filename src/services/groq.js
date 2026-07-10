@@ -1,4 +1,4 @@
-import { getProfile } from './customerProfileService'
+import { getProfile } from './crm/customerProfileService'
 import { getTimeInStage } from './crm/stageHistory'
 import { askDeepSeek } from './ia/deepseek'
 
