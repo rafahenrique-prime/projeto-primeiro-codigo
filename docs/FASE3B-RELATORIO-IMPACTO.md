@@ -75,9 +75,10 @@ Nenhuma integração é afetada funcionalmente — é só mudança de caminho de
 | 1 | `DealOncaPage.jsx` acumula imports de 5 dos 8 domínios — erro num path quebra a página inteira | 🔴 Alto | Mover em lotes por domínio, testar `DealOncaPage` após cada lote que a toque |
 | 2 | `opsHealthService.js` importa 8 serviços de Auditoria — quebra `IntelligenceOpsPage` se dessincronizado | 🔴 Alto | Mover os 8 serviços de Auditoria e `opsHealthService.js` no mesmo commit |
 | 3 | `deepseek.js` tem 4 consumidores internos — maior fan-in do lote | 🟡 Médio | Mover por último dentro do domínio `ia/` |
-| 4 | Teste `__tests__/syncCatalog.test.js` quebra se `catalogSyncService` mover sem atualizar o teste | 🟡 Médio | Incluir no domínio Catálogo |
-| 5 | `npm run dev` não valida páginas dependentes de `api/*.js` | 🟢 Baixo | Não se aplica à 3B — nenhum dos 36 depende de `api/` |
+| 4 | Teste `__tests__/syncCatalog.test.js` quebra se `catalogSyncService` mover sem atualizar o teste | 🟡 Médio | ✅ Resolvido no lote 6 — import atualizado |
+| 5 | `npm run dev` não valida páginas dependentes de `api/*.js` | 🟢 Baixo | Confirmado nos lotes 6 e 7 (scraper, bagy-audit) — não bloqueia a 3B, mas gera alarme falso em telas que chamam `api/*` |
 | 6 | 36 arquivos é o maior lote das 3 fases | 🟡 Médio | Executar em 8 sub-lotes por domínio, cada um com commit próprio |
+| 7 | **`__tests__/syncCatalog.test.js` não é um teste seguro — grava dados reais em produção** (risco operacional, não só de import) | 🔴 Alto | Descoberto no lote 6 (2026-07-10): o arquivo executa `upsertProducts()` real contra a tabela `products` do Supabase de produção (50 produtos hardcoded) quando rodado via `npm test`. Não é isolado/idempotente como um teste unitário deveria ser. **Não executado nesta Fase 3B.** Recomendação: renomear/mover para fora da suíte de testes automatizados (ex.: `scripts/`) ou reescrever com mock, antes que alguém rode `npm test` sem saber do efeito colateral — risco de duplicar/sobrescrever produtos reais |
 
 ---
 
@@ -178,7 +179,18 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 **⚠️ Divergência de metodologia registrada (não é bug de código — é achado sobre segurança da validação):** `npm test -- syncCatalog.test.js` **não foi executado**. Apesar do nome sugerir um teste seguro/isolado ("🔐 TEST FILE SEGURO"), a leitura do arquivo revelou que o terceiro bloco `it()` chama `upsertProducts(PRODUTOS_50_BAGY)` — uma escrita **real** de 50 produtos hardcoded na tabela `products` do Supabase de **produção** (mesmo banco com 538+ produtos reais documentado como crítico no `CLAUDE.md`). Não é um teste unitário isolado, é um script de sincronização disfarçado de teste, com efeito colateral em dados reais. Validação usada em seu lugar: verificação estática do caminho de import (arquivo existe em `src/services/catalogo/catalogSyncService.js`, mesmo padrão comprovado nos 5 lotes anteriores) + validação via build + validação manual das 4 páginas no navegador. **Rodar o teste de verdade requer autorização explícita do Rafael**, por escrever dados reais em produção — está fora do escopo de "só mover arquivos" da Fase 3B.
 
-### Lotes 7-8 — pendentes
+### Lote 7/8 — Auditoria ✅ concluído
+- 9 arquivos movidos para `src/services/auditoria/`; 10 consumidores atualizados (`DealOncaPage.jsx` com 2 imports, `BagyAuditPage.jsx`, `InstagramAuditTab.jsx`, `KnowledgePage.jsx`, `LearningsAuditTab.jsx`, `CodexAuditTab.jsx`, `KnowledgeAuditTab.jsx`, `WhatsappAuditTab.jsx`, `GabrielaAuditTab.jsx`, `opsHealthService.js`) — todos previstos, sem surpresa.
+- 5 ajustes de import interno: `learningsAuditService.js` e `knowledgeAuditService.js` (`./deepseek` → `../deepseek`); `knowledgeAuditService.js` (`./knowledgeDB` → `../knowledgeDB`); `whatsappAuditService.js` e `instagramAuditService.js` (`./gptmaker` → `../gptmaker`). `learningsAuditService.js` manteve `./agentLearningsService` sem alteração (mesma pasta).
+- `npm run build` passou de primeira — o lote mais complexo até agora (9 arquivos + hub de 7 imports) sem incidente de build.
+- **Auditoria real executada com sucesso:** aba Conhecimento de `IntelligenceOpsPage`, botão "Rodar auditoria agora" → `knowledgeAuditService.js` + `askDeepSeek` julgaram 15 pares de contradição ao vivo, gravaram novo resultado no Supabase (20 → 21 achados, novo "Contraditório: 1", timestamp `10/07/2026 01:34:40`). Confirma toda a cadeia funcionando: Supabase (leitura + gravação) + DeepSeek (IA) + import corrigido.
+- `opsHealthService.js` (hub) calculou "Saúde Geral" agregando os 7 domínios normalmente (66.8%, com breakdown por área).
+- Testado ao vivo, sem erro de console: `GabrielaAuditTab`, `CodexAuditTab`, `WhatsappAuditTab`, `InstagramAuditTab`, `LearningsAuditTab` — todas carregam.
+- Commit: `fa8f124`.
+
+**Achado (limitação de ambiente já documentada, não bug):** "Rodar auditoria agora" na aba Bagy retornou `"Unexpected token '/', "// Auditor"... is n[ot valid JSON]"` — o mesmo padrão de erro já registrado no `FASE3-PLANO-EXECUCAO.md` (chamada a `api/bagy-audit.js`, servido como texto pelo Vite em dev local em vez de executado como function). Confirma mais uma vez que é limitação de ambiente, não relacionada à movimentação — `bagyAuditService.js` só chama esse endpoint, sem lógica própria alterada.
+
+### Lote 8 — pendente
 
 ---
 
