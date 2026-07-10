@@ -241,6 +241,21 @@ Esta regra não substitui a Regra 1. Quando a regra falar em "atualizar document
 
 **Por quê:** esta auditoria (2026-07-10) encontrou a tabela `catalog_public_config` e o arquivo `catalogPublicConfig.js` criados sem atualizar `docs/SUPABASE.md`/`docs/ARCHITECTURE.md` — o gap só foi pego numa auditoria manual posterior. Regra formal evita depender de lembrar disso.
 
+### 13. **Análise prévia obrigatória antes de implementar mudança estrutural**
+
+Antes de implementar qualquer funcionalidade nova ou alteração com impacto estrutural, incluindo refatoração, novos arquivos, novos services, novas tabelas Supabase, novos endpoints ou mudança de fluxo entre módulos, fazer obrigatoriamente uma análise prévia respondendo:
+
+1. Onde essa mudança deve ficar dentro da arquitetura atual?
+2. Quais arquivos existentes serão afetados?
+3. Quais novos arquivos serão criados e em qual domínio?
+4. Quais documentos precisam ser atualizados (`CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/SUPABASE.md`, etc.)?
+5. Existe risco de duplicar uma funcionalidade já existente?
+6. Existe alguma fonte de verdade que precisa ser preservada?
+
+Só começar a implementação depois dessa análise **e** da aprovação explícita do Rafael.
+
+**Por quê:** complementa a Regra 12 — evita que o projeto volte a crescer de forma desorganizada, tomando a decisão de onde/como encaixar algo novo só depois de já ter sido escrito.
+
 ---
 
 ## 🏗️ ARQUITETURA DO SISTEMA
