@@ -115,4 +115,37 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 ---
 
-**Gerado em:** 2026-07-10 · Relatório de impacto pré-Fase-3B, sem alteração de código.
+## 7. Registro de execução (atualizado a cada lote)
+
+> Política adotada: bugs pré-existentes descobertos durante a validação de cada lote são **documentados, não corrigidos** — a menos que bloqueiem o build, impeçam o teste do próprio lote, ou estejam diretamente relacionados à movimentação de arquivos realizada. Escopo da Fase 3B permanece exclusivamente reorganização de services e atualização de imports.
+
+### Lote 1/8 — Conhecimento ✅ concluído
+- 4 arquivos movidos para `src/services/conhecimento/`; 5 consumidores atualizados (incluindo `CatalogPage.jsx`, achado na verificação, não previsto no plano original).
+- `npm run build` sem erros. Testado ao vivo: Inbox/ChatArea, KnowledgePage (aba Extrair da URL), CatalogPage — sem erro de console.
+- Commits: `f69a025` (renames) + `6a75c87` (correção de imports que ficou de fora por falha parcial do `git add`).
+- Nenhum bug pré-existente encontrado.
+
+### Lote 2/8 — Foto ✅ concluído
+- 5 arquivos movidos para `src/services/foto/`; 4 consumidores atualizados. Nenhum ajuste de import interno necessário (`photoFlowService.js` → `photoCacheService.js` seguem na mesma pasta).
+- `npm run build` sem erros. Testado ao vivo: `ImageExtractorPage` (544 produtos), `PhotoRecognitionPage` abas Teste/Performance — sem erro.
+- Commit: `11df967`.
+
+**⚠️ Bug pré-existente encontrado (não corrigido, registrado):**
+
+| Campo | Detalhe |
+|---|---|
+| **Local** | `src/pages/PhotoRecognitionPage.jsx`, linha 306 |
+| **Aba** | Cache |
+| **Sintoma** | Aba quebra com tela em branco ao clicar; React reporta "An error occurred in the `<PhotoRecognitionPage>` component" |
+| **Causa raiz** | `getCacheStats()` (em `src/services/foto/photoCacheService.js`) é uma função `async`, mas é chamada **sem `await`** em `PhotoRecognitionPage.jsx:306` (`const stats = getCacheStats()`). O código em seguida acessa `stats.estimatedSavings.toFixed(2)` — como `stats` é uma `Promise` (não o objeto resolvido), `stats.estimatedSavings` é `undefined`, e `.toFixed(2)` lança `TypeError`. |
+| **Commit de origem** | `e0f8eaf` — "Add AWS Rekognition photo recognition system with intelligent caching", **2026-06-19**, confirmado via `git blame` na linha 306. A linha nunca foi alterada desde a criação do arquivo. |
+| **Relação com a Fase 3B** | **Nenhuma.** O diff desta sessão nesse arquivo toca só as 2 linhas de import (`photoFlowService`/`photoCacheService` apontando para `foto/`). A lógica de chamada (incluindo o `await` faltante) é idêntica à versão pré-3B. |
+| **Ação tomada** | Nenhuma correção aplicada — registrado como pendência a ser tratada separadamente, fora do escopo da Fase 3B. |
+
+### Lote 3/8 — Plataforma 🔄 em andamento
+
+### Lotes 4-8 — pendentes
+
+---
+
+**Gerado em:** 2026-07-10 · Relatório de impacto pré-Fase-3B, atualizado a cada lote durante a execução.
