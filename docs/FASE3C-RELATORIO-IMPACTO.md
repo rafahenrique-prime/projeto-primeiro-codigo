@@ -255,7 +255,14 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 - Nenhum bug pré-existente encontrado.
 - Commit: `dd1280a`.
 
-### Lotes 7-8 — pendentes
+### Lote 7/8 — gptmaker ✅ concluído
+- 1 arquivo movido para `src/services/chat/` — **maior fan-in do sistema inteiro (18)**. 18 consumidores atualizados (12 externos + 6 internos) — exatamente como previsto, sem surpresa desta vez.
+- `npm run build` passou de primeira, sem incidente.
+- **Regressão mais ampla até agora testada ao vivo:** Inbox/ChatArea (46 conversas), AgentsPage, ChannelsPage (3/5 canais), ContactsNewPage (52 contatos), RelatoriosPage (token expirado tratado graciosamente, sem crash JS) — sem erro de console em nenhuma das 5 telas.
+- Nenhum bug pré-existente encontrado.
+- Commit: `e220769`.
+
+### Lote 8 — pendente
 
 ---
 
