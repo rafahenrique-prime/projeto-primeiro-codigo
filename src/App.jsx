@@ -28,7 +28,7 @@ import BagyAuditPage from './pages/BagyAuditPage'
 import IntelligenceOpsPage from './pages/IntelligenceOpsPage'
 import { listChats, assumeChat, releaseChat } from './services/gptmaker'
 import { runFollowUpCheck } from './services/crm/followUpService'
-import { syncCatalogFromSupabase } from './services/catalog'
+import { syncCatalogFromSupabase } from './services/catalogo/catalog'
 import { getAllProfiles } from './services/crm/customerProfileService'
 import { ensureCachedAvatar } from './services/plataforma/avatarCacheService'
 

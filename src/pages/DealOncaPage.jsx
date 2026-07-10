@@ -4,7 +4,7 @@ import { recordStage, cleanupOldEntries, getTimeInStage } from '../services/crm/
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary } from '../services/crm/followUpService'
 import { listChannels, getChatMessages, listAgents, listTrainings, createTraining, sendMessage as gptSendMessage } from '../services/gptmaker'
-import { searchProduct } from '../services/catalog'
+import { searchProduct } from '../services/catalogo/catalog'
 import { identifyProductFromPhoto } from '../services/foto/ocrService'
 import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/plataforma/diagnosticService'
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/foto/imageReviewService'

@@ -3,7 +3,7 @@
  * Importa produtos e gera relatório de conflitos ANTES de apagar
  */
 
-import { getAllProducts, saveCatalogToSupabase } from '../catalog'
+import { getAllProducts, saveCatalogToSupabase } from './catalog'
 
 // Normaliza nome para comparação
 function normalizeName(name) {

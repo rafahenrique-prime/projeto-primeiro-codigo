@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
 import { scrapeProductsFromURL } from '../services/catalogo/scrapingService'
-import { getAllProducts, saveCatalogToSupabase } from '../services/catalog'
+import { getAllProducts, saveCatalogToSupabase } from '../services/catalogo/catalog'
 
 export default function ExtractorPage() {
   const { theme: t } = useTheme()

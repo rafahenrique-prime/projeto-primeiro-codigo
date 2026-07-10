@@ -5,7 +5,7 @@
  * o melhor match no catálogo local
  */
 
-import { getAllProducts } from '../catalog'
+import { getAllProducts } from '../catalogo/catalog'
 
 // ==================== ANÁLISE DE SIMILARIDADE ====================
 

@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { ThemeProvider } from './theme.jsx'
-import { syncCatalogFromSupabase } from './services/catalog'
+import { syncCatalogFromSupabase } from './services/catalogo/catalog'
 import './index.css'
 
 syncCatalogFromSupabase()
