@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getChatMessages, sendMessage, assumeChat, releaseChat } from '../services/gptmaker'
 import { getRespostaRecomendada } from '../services/groq'
 import { searchProduct, isValidImageUrl } from '../services/catalog'
-import { addPhotoToHistory } from '../services/photoHistory'
+import { addPhotoToHistory } from '../services/chat/photoHistory'
 import { useTheme } from '../theme.jsx'
 import Tooltip from './Tooltip.jsx'
 

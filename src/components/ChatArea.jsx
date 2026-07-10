@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
 import { detectProductRequest, groqRequest } from '../services/groq'
 import { findBestMatch, findProductInText, isValidImageUrl } from '../services/catalog'
-import { addPhotoToHistory } from '../services/photoHistory'
+import { addPhotoToHistory } from '../services/chat/photoHistory'
 import { useTheme } from '../theme.jsx'
 import { searchEntries, saveEntry } from '../services/knowledgeDB'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/conhecimento/knowledgeParser'

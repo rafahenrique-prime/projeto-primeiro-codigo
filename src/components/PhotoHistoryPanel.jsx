@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getPhotoHistory, getPhotoStats, clearPhotoHistory } from '../services/photoHistory'
+import { getPhotoHistory, getPhotoStats, clearPhotoHistory } from '../services/chat/photoHistory'
 
 // Formato padrão de data/hora — igual ao usado em KnowledgePage.jsx
 function formatDateTime(value) {

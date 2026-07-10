@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { detectProductRequest } from '../services/groq'
 import { findBestMatch, searchProduct } from '../services/catalog'
-import { addPhotoToHistory, getPhotoStats } from '../services/photoHistory'
+import { addPhotoToHistory, getPhotoStats } from '../services/chat/photoHistory'
 import { useTheme } from '../theme.jsx'
 
 export default function SimuladorClientePage() {
