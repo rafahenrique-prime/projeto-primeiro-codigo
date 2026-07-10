@@ -8,7 +8,7 @@ import WhatsappAuditTab from './WhatsappAuditTab'
 import InstagramAuditTab from './InstagramAuditTab'
 import GabrielaAuditTab from './GabrielaAuditTab'
 import CodexAuditTab from './CodexAuditTab'
-import { getOverallHealth } from '../services/opsHealthService'
+import { getOverallHealth } from '../services/plataforma/opsHealthService'
 
 const TABS = [
   {
