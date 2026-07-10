@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { runSystemHealthCheck, getHealthRuns, getHealthResults } from '../services/systemHealthService'
+import { runSystemHealthCheck, getHealthRuns, getHealthResults } from '../services/plataforma/systemHealthService'
 
 const STATUS_META = {
   ok: { label: 'OK', color: '#0EC331', icon: '✅' },

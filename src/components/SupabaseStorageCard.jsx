@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getSupabaseStorageInfo } from '../services/supabaseStorage'
+import { getSupabaseStorageInfo } from '../services/plataforma/supabaseStorage'
 
 export default function SupabaseStorageCard({ boxed = false }) {
   const [storage, setStorage] = useState(null)

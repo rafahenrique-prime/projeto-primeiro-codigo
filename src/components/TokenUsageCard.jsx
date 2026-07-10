@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getMonthlyTokenUsage } from '../services/tokenLoggingService'
+import { getMonthlyTokenUsage } from '../services/plataforma/tokenLoggingService'
 
 export default function TokenUsageCard() {
   const [tokenUsage, setTokenUsage] = useState(null)

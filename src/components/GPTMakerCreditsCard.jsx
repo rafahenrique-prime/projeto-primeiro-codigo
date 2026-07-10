@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getGPTMakerCredits } from '../services/gptmakerCreditsService'
+import { getGPTMakerCredits } from '../services/plataforma/gptmakerCreditsService'
 
 export default function GPTMakerCreditsCard() {
   const [credits, setCredits] = useState(null)

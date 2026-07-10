@@ -6,14 +6,14 @@ import { runFollowUpCheck, getFollowUpSummary } from '../services/followUpServic
 import { listChannels, getChatMessages, listAgents, listTrainings, createTraining, sendMessage as gptSendMessage } from '../services/gptmaker'
 import { searchProduct } from '../services/catalog'
 import { identifyProductFromPhoto } from '../services/foto/ocrService'
-import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/diagnosticService'
+import { saveDiagnostic, getLastDiagnostic, hasRunToday, getRecentDiagnostics } from '../services/plataforma/diagnosticService'
 import { loadProductsWithoutImages, countProductsWithoutImages, uploadProductImage, updateProductDescription, validateImageUrl, updateProductComplete, getUniqueFieldValues } from '../services/foto/imageReviewService'
 import { getAllEntries } from '../services/knowledgeDB'
 import { getAllProfiles, upsertProfile } from '../services/customerProfileService'
 import { getUnresolvedAlerts, resolveAlert, resolveAllAlerts } from '../services/codexAlertsService'
 import { saveInteraction, autoCloseInactiveConversations } from '../services/interactionsService'
 import { getTodayAuditSummary } from '../services/agentAuditService'
-import { getLatestWeeklyInsight } from '../services/weeklyInsightService'
+import { getLatestWeeklyInsight } from '../services/plataforma/weeklyInsightService'
 
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },

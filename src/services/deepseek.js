@@ -1,4 +1,4 @@
-import { logTokenUsage } from './tokenLoggingService'
+import { logTokenUsage } from './plataforma/tokenLoggingService'
 
 const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'

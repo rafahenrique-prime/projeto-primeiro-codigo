@@ -3,7 +3,7 @@
 // exceto WhatsApp/Instagram, que recontam os chats atuais via GPT Maker (mesma chamada
 // que a Inbox já faz; sem custo de IA).
 import * as bagyAuditService from './bagyAuditService'
-import * as systemHealthService from './systemHealthService'
+import * as systemHealthService from './plataforma/systemHealthService'
 import * as knowledgeAuditService from './knowledgeAuditService'
 import * as learningsAuditService from './learningsAuditService'
 import * as whatsappAuditService from './whatsappAuditService'
