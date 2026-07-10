@@ -239,7 +239,15 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 - Nenhum bug pré-existente encontrado.
 - Commit: `4889a31`.
 
-### Lotes 5-8 — pendentes
+### Lote 5/8 — groq ✅ concluído
+- 1 arquivo movido para `src/services/ia/`; 7 consumidores atualizados (`RightPanel.jsx`, `ChatArea.jsx`, `DealOncaPage.jsx`, `KnowledgePage.jsx`, `SimuladorClientePage.jsx`, `AgentLabPage.jsx` externos; `crm/followUpService.js` interno) — exatamente como previsto.
+- 3 ajustes de import interno próprio: `../crm/customerProfileService`, `../crm/stageHistory` (pastas irmãs agora), `./deepseek` (mesma pasta `ia/`, simplificado).
+- `npm run build` passou de primeira.
+- Testado ao vivo: `DealOncaPage`/CODEX com dados reais (32 na base, diagnóstico do dia) — confirma `askCODEX`/`runProactiveDiagnosis` funcionando com as 3 dependências internas corrigidas.
+- Nenhum bug pré-existente encontrado.
+- Commit: `26c44f2`.
+
+### Lotes 6-8 — pendentes
 
 ---
 
