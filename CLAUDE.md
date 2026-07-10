@@ -1,6 +1,6 @@
 # CLAUDE.md — PROJETO DO CLAUDECODE
 
-**Última atualização:** 2026-07-05  
+**Última atualização:** 2026-07-10  
 **Mantido por:** Rafael Henrique  
 **Objetivo:** Garantir segurança, estabilidade e qualidade em todas as alterações
 
@@ -219,12 +219,34 @@ Versão do mesmo conceito (fotos do Drive), só que **dentro do painel logado**,
 
 **Nesta página também fica o controle do catálogo público** (seção 9 acima): dropdown de marcas em ordem alfabética, botão "🔗 Copiar link do cliente", botão "⚙️ Configurar catálogo" (abre modal com checkbox por marca — "Selecionar todas"/"Desmarcar todas" — que ao abrir já dispara um refresh do Drive pra pastas novas aparecerem na lista) e barra de progresso real (`X% (feitas/total)`) durante o carregamento, em vez de um "Carregando..." genérico. A leitura/gravação da config usa `src/services/catalogo/catalogPublicConfig.js`.
 
+### 12. **Todo service novo nasce dentro de um domínio — nunca solto na raiz de `src/services/`**
+
+Desde as Fases 3A/3B/3C (2026-07-10), `src/services/` está organizado em 8 domínios (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`), mais `_archive/` (código sem consumidores) e `__tests__/` (testes — não é service de negócio, exceção reconhecida, não conta como "solto na raiz").
+
+Esta regra existe para evitar regressão da organização conquistada nas Fases 3A/3B/3C.
+
+Esta regra não substitui a Regra 1. Quando a regra falar em "atualizar documentação no mesmo commit", isso descreve apenas o conteúdo do commit após aprovação. Continua proibido criar commits ou fazer push sem sua autorização explícita.
+
+**Ao criar um arquivo novo em `src/services/`:**
+1. Escolher o domínio correto (nunca criar na raiz).
+2. Em caso de dúvida entre dois domínios possíveis (ex.: saldo/créditos de provedor poderia ser `ia/` ou `plataforma/`), perguntar antes de criar ou mover.
+3. Atualizar a contagem e a documentação relevante em `docs/ARCHITECTURE.md` no mesmo commit.
+4. Se o arquivo não pertencer claramente a nenhum domínio de negócio (ex.: cliente Supabase compartilhado, cache compartilhado, infraestrutura técnica, helpers globais, etc.), não decidir sozinho. Perguntar antes de criar nova pasta ou escolher um domínio existente.
+
+**Ao criar uma tabela nova no Supabase:**
+1. Adicionar em `docs/SUPABASE.md §3.1` (linha na tabela + seção de detalhe) no mesmo commit.
+2. Se a migration alterar a semântica de uma tabela existente (ex.: renomear coluna, mudar significado de campo, alterar comportamento), documentar o antes/depois na mesma seção.
+
+**Objetivo da regra:** evitar que a arquitetura volte a ficar desorganizada e garantir que código, banco de dados e documentação permaneçam sincronizados.
+
+**Por quê:** esta auditoria (2026-07-10) encontrou a tabela `catalog_public_config` e o arquivo `catalogPublicConfig.js` criados sem atualizar `docs/SUPABASE.md`/`docs/ARCHITECTURE.md` — o gap só foi pego numa auditoria manual posterior. Regra formal evita depender de lembrar disso.
+
 ---
 
 ## 🏗️ ARQUITETURA DO SISTEMA
 
 ### Stack Principal
-- **Frontend:** React + Vite (http://localhost:5173)
+- **Frontend:** React + Vite (http://localhost:5176 — porta fixa em `vite.config.js`)
 - **Backend:** Supabase (PostgreSQL + Storage)
 - **CRM:** IGNITE PRIME (Groq LLM + GPT Maker)
 - **Automação:** Vercel serverless (webhooks)
@@ -251,10 +273,10 @@ src/
 │   ├── AgentLabPage.jsx       (Lab IA — stress test de agentes)
 │   ├── KnowledgePage.jsx      (Base de conhecimento)
 │   └── InboxList.jsx          (Filtros: Todos/Meus/Auto-IA/Não lidas)
-├── services/
-│   ├── gptmaker.js            (API GPT Maker — listAgents, createTraining, etc)
-│   ├── groq.js                (Groq LLM — fallback llama-3.3 → llama-3.1 → llama3)
-│   └── catalog.js             (Supabase + scraper de produtos)
+├── services/                  (48 arquivos em 8 domínios — ver docs/ARCHITECTURE.md §7)
+│   ├── chat/gptmaker.js       (API GPT Maker — listAgents, createTraining, etc)
+│   ├── ia/groq.js             (Groq LLM — fallback llama-3.3 → llama-3.1 → llama3)
+│   └── catalogo/catalog.js    (Supabase + scraper de produtos)
 └── theme.jsx                  (PRIME LIGHT V1: #E8192C primary)
 ```
 
@@ -264,7 +286,7 @@ Cliente WhatsApp/Instagram
     ↓
 GPT Maker (recebe mensagem)
     ↓
-[Webhook] → /api/knowledge (consulta base)
+[Webhook] → /api/webhook (busca produtos + knowledge, ver Fluxo 2)
     ↓
 GPT Maker responde (com contexto)
     ↓
@@ -283,7 +305,7 @@ Cliente vê tudo no WhatsApp/Instagram
 
 ### Fluxo 1: Enviar Foto de Produto (Auto-Photo)
 **Gatilho:** Cliente pede "manda foto" / "me manda imagem"  
-**Arquivo:** `src/api/auto-photo.js` (webhook no Vercel)
+**Arquivo:** `api/auto-photo.js` (webhook no Vercel — raiz do repo, não dentro de `src/`)
 
 **Sequência:**
 1. GPT Maker dispara webhook `/api/auto-photo` com `chat_id`
@@ -301,12 +323,12 @@ Cliente vê tudo no WhatsApp/Instagram
 
 ### Fluxo 2: Consultar Base de Conhecimento
 **Gatilho:** Toda mensagem do cliente (Step 2 automático no GPT Maker)  
-**Arquivo:** `src/api/knowledge.js`
+**Arquivo:** `api/webhook.js` (função `formatarRespostaGPT`, linha 245)
 
 **Sequência:**
-1. Retorna: `output` (texto), `context`, `knowledge_count`, `products_count`
-2. **[CRÍTICO]** NÃO retorna: `imageUrl`, `productName`, `productPrice` (causam "Imagem: null")
-3. GPT Maker incorpora na resposta (sem imagens, apenas texto)
+1. Retorna `{ sucesso, timestamp, contexto: {...}, dados: { produtos, informacao_adicional, totalVariacoes, variacoesRestantes } }`
+2. **[CRÍTICO]** O treinamento da Gabriela no GPT Maker lê literalmente `${webhook_response.dados.produtos}` e `${webhook_response.dados.informacao_adicional}` (confirmado em `docs/backup-gptmaker-2026-07-04/trainings.json`) — mudar esses nomes de campo sem atualizar o treinamento quebra a resposta da Gabriela silenciosamente
+3. GPT Maker incorpora `dados.produtos`/`dados.informacao_adicional` na resposta
 
 ### Fluxo 3: Sincronizar Produtos (Supabase → Web)
 **Gatilho:** Você clica "Sincronizar" na UI do catálogo  
@@ -338,9 +360,9 @@ Cliente vê tudo no WhatsApp/Instagram
 - [ ] Filtro de categoria em `findProductInText()` (evita boné → cueca)
 
 ### Testes
-- [ ] Testado localmente em http://localhost:5173
+- [ ] Testado localmente em http://localhost:5176
 - [ ] Webhook `/api/auto-photo` retorna imagem + preço correto
-- [ ] Webhook `/api/knowledge` retorna APENAS texto (sem `imageUrl`)
+- [ ] Webhook `/api/webhook` retorna `dados.produtos`/`dados.informacao_adicional` corretos (contrato lido pelo treinamento da Gabriela — ver Fluxo 2)
 - [ ] Sincronização com Supabase não perdeu nenhum produto
 
 ### Logs & Observabilidade
@@ -569,12 +591,21 @@ if (nome === 'tenis adidas') { ... }  // nunca acha
 
 ---
 
+**Última alteração:** 2026-07-10 por Claude Sonnet 5  
+**O que mudou nessa sessão:**
+- Catálogo Público: config de visibilidade de marcas migrou de `VISIBLE_FOLDERS` hardcoded pra tabela `catalog_public_config`/`hidden_brands` no Supabase, configurável pelo painel interno (seção 9)
+- Novo domínio de alias: `prime-catalogo.vercel.app` (o antigo `catalogo-publico.vercel.app` continua ativo)
+- Catálogo Drive (painel interno): ordenação alfabética de marcas, botão "Configurar catálogo", botão "Copiar link do cliente", barra de progresso real, refresh automático ao abrir a config (seção 11)
+- Catálogo Público: performance (busca em paralelo + cache local 15min), clique na logo recarrega, layout mobile com botão único de filtro
+- Nova Regra 12: todo service novo nasce dentro de um domínio (`src/services/`), toda tabela nova do Supabase exige atualização de `docs/SUPABASE.md`/`docs/ARCHITECTURE.md` no mesmo commit
+- Auditoria de conformidade arquitetural pós-Fases 3A/3B/3C: corrigidos paths desatualizados (`src/api/` → `api/`, `src/services/*.js` sem subpasta de domínio), porta do Vite (5173 → 5176), contrato de resposta do Fluxo 2 (`/api/knowledge` inexistente → `api/webhook.js`)
+
 **Última alteração:** 2026-07-05 por Claude Sonnet 5  
 **O que mudou nessa sessão:**
 - Menu lateral: submenu "Ferramentas" + "Análises de IA", tooltips no hover, sidebar mais estreita (210px) com dropdown no avatar, cores unificadas dos botões do topo
 - Correção de datas "Invalid Date" no Histórico de Uploads, Histórico de Fotos e aba GPT Maker (`created_at` vs `createdAt`/`timestamp`)
 - Correção de CORS + token expirado no endpoint `/api/gptmaker-credits` do `ignite-webhook`
-- Novo: Catálogo Rascunho (interno) + Catálogo Público (`catalogo-publico/`, site separado) — ver seções 8, 9, 10 acima
+- Novo: Catálogo Rascunho (interno) + Catálogo Público (`catalogo-publico/`, site separado) — ver seções 9, 10, 11 acima
 - Script `scripts/fix-drive-permissions.mjs` — corrige permissão pública de fotos do Google Drive em massa
 - `token-receiver.js` — servidor local que distribui token GPT Maker novo pra todas as worktrees de uma vez
 
