@@ -247,7 +247,15 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 - Nenhum bug pré-existente encontrado.
 - Commit: `26c44f2`.
 
-### Lotes 6-8 — pendentes
+### Lote 6/8 — catalog ✅ concluído
+- 1 arquivo movido para `src/services/catalogo/`; 11 consumidores atualizados (`App.jsx`, `main.jsx`, `ChatArea.jsx`, `RightPanel.jsx`, `DealOncaPage.jsx`, `ExtractorPage.jsx`, `ImageExtractorPage.jsx`, `SimuladorClientePage.jsx` externos; `catalogo/importBackupService.js`, `conhecimento/knowledgeExtractor.js`, `foto/photoMatchingService.js` internos) — exatamente como previsto.
+- Ajuste de import interno próprio: `./gptmaker` → `../gptmaker`. `importBackupService.js` simplificado de `../catalog` para `./catalog` (mesma pasta agora).
+- `npm run build` passou de primeira.
+- **Regressão ampla testada ao vivo** (conforme estratégia definida): `CatalogPage` (544 produtos), `ExtractorPage`, Inbox/`ChatArea`/`RightPanel` (46 conversas) — sem erro de console em nenhuma das 4 telas.
+- Nenhum bug pré-existente encontrado.
+- Commit: `dd1280a`.
+
+### Lotes 7-8 — pendentes
 
 ---
 
