@@ -1,6 +1,6 @@
 # docs/ARCHITECTURE.md — Arquitetura do IGNITE PRIME CRM
 
-> **Snapshot:** 2026-07-08 · branch `main`
+> **Snapshot:** 2026-07-08 · branch `main` · **atualizado 2026-07-10 pós-Fase-3C**
 > **Fonte:** apenas código do repositório (`src/`, `api/`, `supabase/`, configs).
 
 ---
@@ -63,12 +63,10 @@ PROJETO DO CLAUDECODE/
 │   ├── data/
 │   │   ├── catalog.json        ← catálogo bundled (fallback)
 │   │   └── mockData.js
-│   └── services/    (49)       ← 41 organizados em 8 domínios (Fases 3A+3B) + 8 na raiz (candidatos Fase 3C)
-│       ├── auditoria/    (9)   ├── catalogo/     (5)   ├── chat/  (2)
-│       ├── conhecimento/ (5)   ├── crm/          (3)   ├── foto/  (8)
-│       ├── ia/           (2)   ├── plataforma/   (7)
-│       └── (raiz, 8): catalog, customerProfileService, followUpService,
-│           gptmaker, groq, knowledgeDB, opsHealthService, photoHistory
+│   └── services/    (49)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
+│       ├── auditoria/    (9)   ├── catalogo/     (6)   ├── chat/  (4)
+│       ├── conhecimento/ (6)   ├── crm/          (5)   ├── foto/  (8)
+│       ├── ia/           (3)   ├── plataforma/   (8)
 │
 ├── api/            (15)        ← serverless Vercel (rotas /api/*)
 │   ├── webhook.js              ← busca conhecimento p/ Gabriela
@@ -120,48 +118,48 @@ PROJETO DO CLAUDECODE/
 
 ## 4. Matriz de dependências dos serviços (`src/services/`)
 
-> **Status da reorganização (2026-07-10):** Fases 3A e 3B concluídas — 41 dos 49 arquivos já vivem em subpastas por domínio (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`). Os 8 arquivos que restam na raiz são exatamente os de maior fan-in — candidatos à Fase 3C. Ver `docs/POS-FASE3B-AUDITORIA.md` para o levantamento completo.
+> **Status da reorganização (2026-07-10):** Fases 3A, 3B e 3C **concluídas** — 100% dos 49 arquivos vivem em subpastas por domínio (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`). `src/services/` não tem mais nenhum arquivo `.js` solto na raiz. Ver `docs/FASE3C-RELATORIO-IMPACTO.md` para o registro lote a lote.
 
 ### 4.1 Services mais consumidos (incoming — fan-in, contagem por arquivo consumidor distinto)
 
 | Rank | Service | # consumers | Localização |
 |---|---|---|---|
-| 1 | `gptmaker` | 18 | raiz (candidato 3C) |
-| 2 | `catalog` | 11 | raiz (candidato 3C) |
-| 3 | `groq` | 7 | raiz (candidato 3C) |
-| 4 | `knowledgeDB` | 6 | raiz (candidato 3C) |
-| 5 | `customerProfileService` | 6 | raiz (candidato 3C) |
-| 6 | `photoHistory` | 4 | raiz (candidato 3C) |
+| 1 | `gptmaker` | 18 | `chat/` |
+| 2 | `catalog` | 11 | `catalogo/` |
+| 3 | `groq` | 7 | `ia/` |
+| 4 | `knowledgeDB` | 6 | `conhecimento/` |
+| 5 | `customerProfileService` | 6 | `crm/` |
+| 6 | `photoHistory` | 4 | `chat/` |
 | 7 | `deepseek` | 4 | `ia/` |
-| 8 | `followUpService` | 3 | raiz (candidato 3C) |
+| 8 | `followUpService` | 3 | `crm/` |
 | 9 | `agentLearningsService` | 3 | `auditoria/` |
 | 10 | `agentAuditService` | 3 | `auditoria/` |
 
-Os 7 primeiros lugares batem quase exatamente com os 8 candidatos à Fase 3C — confirma que são estruturalmente os serviços mais centrais do sistema.
+Os 7 primeiros lugares eram exatamente os 8 candidatos movidos na Fase 3C — confirma que eram estruturalmente os serviços mais centrais do sistema, por isso os últimos a mover.
 
 ### 4.2 Hub interno (services que importam muitos services)
-- **`opsHealthService`** (raiz) importa **10** services — é o agregador de inteligência operacional: `auditoria/bagyAuditService, plataforma/systemHealthService, auditoria/knowledgeAuditService, auditoria/learningsAuditService, auditoria/whatsappAuditService, auditoria/instagramAuditService, auditoria/agentAuditService, knowledgeDB, auditoria/agentLearningsService, gptmaker`.
+- **`plataforma/opsHealthService`** importa **10** services — é o agregador de inteligência operacional: `auditoria/bagyAuditService, plataforma/systemHealthService, auditoria/knowledgeAuditService, auditoria/learningsAuditService, auditoria/whatsappAuditService, auditoria/instagramAuditService, auditoria/agentAuditService, conhecimento/knowledgeDB, auditoria/agentLearningsService, chat/gptmaker`.
 
 ### 4.3 Dependências service→service (grafo interno, 30 arestas)
 ```
-catalog                 → gptmaker
-catalogo/catalogSyncService → conhecimento/knowledgeGenerator
-catalogo/importBackupService → catalog
-conhecimento/knowledgeExtractor → catalog
-crm/contactAnalysisService → ia/deepseek
-followUpService         → gptmaker, groq
-foto/photoFlowService   → foto/photoCacheService (mesma pasta)
-foto/photoMatchingService → catalog
-groq                    → customerProfileService, crm/stageHistory, ia/deepseek
-ia/deepseek             → plataforma/tokenLoggingService
-auditoria/instagramAuditService → gptmaker
-auditoria/knowledgeAuditService → knowledgeDB, ia/deepseek
+catalogo/catalog             → chat/gptmaker
+catalogo/catalogSyncService  → conhecimento/knowledgeGenerator
+catalogo/importBackupService → catalogo/catalog (mesma pasta)
+conhecimento/knowledgeExtractor → catalogo/catalog
+crm/contactAnalysisService   → ia/deepseek
+crm/followUpService          → chat/gptmaker, ia/groq
+foto/photoFlowService        → foto/photoCacheService (mesma pasta)
+foto/photoMatchingService    → catalogo/catalog
+ia/groq                      → crm/customerProfileService, crm/stageHistory, ia/deepseek (mesma pasta)
+ia/deepseek                  → plataforma/tokenLoggingService
+auditoria/instagramAuditService → chat/gptmaker
+auditoria/knowledgeAuditService → conhecimento/knowledgeDB, ia/deepseek
 auditoria/learningsAuditService → auditoria/agentLearningsService (mesma pasta), ia/deepseek
-auditoria/whatsappAuditService → gptmaker
-plataforma/systemHealthService → gptmaker
-opsHealthService        → (10 services — ver 4.2)
+auditoria/whatsappAuditService → chat/gptmaker
+plataforma/systemHealthService → chat/gptmaker
+plataforma/opsHealthService  → (10 services — ver 4.2)
 ```
-O grafo continua **DAG** (sem ciclos), confirmado na auditoria pós-3B. Os 8 arquivos da raiz concentram 19 das 30 arestas como destino — reforça que devem ser os últimos a mover.
+O grafo continua **DAG** (sem ciclos), confirmado ao final da Fase 3C. Todas as arestas agora apontam para caminhos de domínio finais — nenhuma referência à raiz de `src/services/` restante.
 
 ### 4.4 Services órfãos (0 consumers externos)
 `awsRekognitionService`, `deepseek`, `importBackupService`, `photoMatchingService`, `photoRecognitionService`, `searchKnowledge` — importados apenas por outros services ou não referenciados. Não são necessariamente mortos (podem ser usados só indiretamente ou ser código preparado).
@@ -243,29 +241,28 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 
 ---
 
-## 7. Agrupamento funcional dos serviços (49 arquivos) — estrutura física real
+## 7. Agrupamento funcional dos serviços (49 arquivos) — estrutura física real, 100% organizada
 
 | Domínio (pasta) | Services | Arquivos |
 |---|---|---|
-| **`chat/`** | messageHistoryService, interactionsService | 2 |
-| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, importBackupService | 5 |
-| **`crm/`** | contactAnalysisService, cobrancasService, stageHistory | 3 |
-| **`conhecimento/`** | searchKnowledge, knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps | 5 |
+| **`chat/`** | messageHistoryService, interactionsService, photoHistory, gptmaker | 4 |
+| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, importBackupService, catalog | 6 |
+| **`crm/`** | contactAnalysisService, cobrancasService, stageHistory, followUpService, customerProfileService | 5 |
+| **`conhecimento/`** | searchKnowledge, knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 6 |
 | **`foto/`** | photoFlowService, photoMatchingService, photoCacheService, photoRecognitionService, ocrService, awsRekognitionService, imageExtractor, imageReviewService | 8 |
 | **`auditoria/`** | agentAuditService, codexAuditService, codexAlertsService, agentLearningsService, learningsAuditService, knowledgeAuditService, whatsappAuditService, instagramAuditService, bagyAuditService | 9 |
-| **`ia/`** | deepseek, deepseekBalanceService | 2 |
-| **`plataforma/`** | supabaseStorage, systemHealthService, diagnosticService, avatarCacheService, tokenLoggingService, gptmakerCreditsService, weeklyInsightService | 7 |
-| **raiz (candidatos Fase 3C)** | catalog, customerProfileService, followUpService, gptmaker, groq, knowledgeDB, opsHealthService, photoHistory | 8 |
+| **`ia/`** | deepseek, deepseekBalanceService, groq | 3 |
+| **`plataforma/`** | supabaseStorage, systemHealthService, diagnosticService, avatarCacheService, tokenLoggingService, gptmakerCreditsService, weeklyInsightService, opsHealthService | 8 |
 
-> **Atualizado 2026-07-10:** esta tabela agora reflete a **estrutura física real** (Fases 3A + 3B concluídas), não mais um agrupamento lógico teórico. Único ponto em aberto: `photoHistory` semanticamente pertenceria a `foto/`, mas ainda não foi movido — decisão de pasta pendente para a Fase 3C (ver `docs/POS-FASE3B-AUDITORIA.md §6`).
+> **Atualizado 2026-07-10 (pós-Fase-3C):** esta tabela reflete a **estrutura física real e final** — Fases 3A, 3B e 3C concluídas, zero arquivos soltos na raiz de `src/services/`. `photoHistory` foi resolvido para `chat/` (decisão data-driven documentada em `docs/POS-FASE3B-AUDITORIA.md §6`, aprovada e executada no Lote 2/8 da Fase 3C).
 
 ---
 
 ## 8. Pontos de atenção arquitetural
 
 1. **Sem camada compartilhada** entre frontend e serverless → regras duplicadas (seção 5). Continua verdadeiro após a Fase 3B — a reorganização não mexeu nisso por design.
-2. ~~`src/services/` plano~~ → **Resolvido em 83,7%** (Fases 3A+3B): 41 dos 49 arquivos já organizados em 8 domínios. Restam 8 na raiz, candidatos à Fase 3C (ver `docs/POS-FASE3B-AUDITORIA.md`).
-3. **DealOnça é o módulo mais acoplado** (importa serviços de 5 dos 8 domínios já organizados, mais vários da raiz) → qualquer refator de services exige cuidado extra em `DealOncaPage.jsx`. Confirmado repetidamente durante a Fase 3B.
+2. ~~`src/services/` plano~~ → **Resolvido 100%** (Fases 3A+3B+3C, concluídas em 2026-07-10): todos os 49 arquivos organizados em 8 domínios, zero arquivos soltos na raiz (ver `docs/FASE3C-RELATORIO-IMPACTO.md`).
+3. **DealOnça é o módulo mais acoplado** (importa serviços de praticamente todos os 8 domínios) → qualquer refator de services exige cuidado extra em `DealOncaPage.jsx`. Confirmado repetidamente durante as Fases 3B e 3C.
 4. **Dois sistemas de agendamento paralelos** (cron Vercel + cron GitHub) sem documentação do porquê.
 5. **ServerlessFunctions monolíticas** — `auto-photo.js` (635 linhas) e `cron-diagnosis.js` (797 linhas) concentram muita lógica.
 6. **`src/services/__tests__/syncCatalog.test.js` não é um teste seguro** — grava dados reais na tabela `products` de produção quando executado via `npm test`. Descoberto durante a Fase 3B (2026-07-10), não corrigido — ver `docs/FASE3B-RELATORIO-IMPACTO.md §4` (risco #7).
@@ -273,4 +270,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 ---
 
 **Gerado em:** 2026-07-08 · apenas com dados do repositório.
-**Atualizado em:** 2026-07-10 · pós-Fase-3B, reflete a estrutura física real de `src/services/`.
+**Atualizado em:** 2026-07-10 · pós-Fase-3C, reflete a estrutura física final de `src/services/` — 100% organizado em 8 domínios, zero arquivos soltos na raiz.

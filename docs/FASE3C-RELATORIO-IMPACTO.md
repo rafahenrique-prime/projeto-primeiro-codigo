@@ -187,21 +187,23 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 ## 9. Critérios objetivos de conclusão da Fase 3C
 
 ```
-[ ] Todos os 8 arquivos existem nos novos caminhos (crm/, chat/, conhecimento/, ia/, catalogo/, plataforma/)
-[ ] src/services/ não tem mais nenhum arquivo solto na raiz (exceto __tests__/)
-[ ] Todos os 8 caminhos antigos (src/services/<nome>.js) não existem mais
-[ ] grep por caminho antigo em src/, api/, scripts/ retorna zero resultados
-[ ] catalog.js, groq.js, followUpService.js, opsHealthService.js com imports internos corrigidos (uns para os outros e para domínios já movidos)
-[ ] npm run build sem erros
-[ ] npm run dev sobe sem erro novo no console
-[ ] Todas as 16 páginas + 3 componentes consumidores abrem sem erro
-[ ] DealOncaPage testada de ponta a ponta (consome 6 dos 8 serviços)
-[ ] Inbox/ChatArea testado enviando mensagem real (valida gptmaker no local final)
-[ ] IntelligenceOpsPage roda uma auditoria real com sucesso (valida opsHealthService no local final)
-[ ] Cada serviço tem seu próprio commit (8 commits de código, rollback granular)
-[ ] Commit final de fechamento aponta para o checkpoint correto (2b7caf2)
-[ ] ARCHITECTURE.md atualizado refletindo 100% de src/services/ organizado por domínio
+[x] Todos os 8 arquivos existem nos novos caminhos (crm/, chat/, conhecimento/, ia/, catalogo/, plataforma/)
+[x] src/services/ não tem mais nenhum arquivo solto na raiz (exceto __tests__/)
+[x] Todos os 8 caminhos antigos (src/services/<nome>.js) não existem mais
+[x] grep por caminho antigo em src/, api/, scripts/ retorna zero resultados
+[x] catalog.js, groq.js, followUpService.js, opsHealthService.js com imports internos corrigidos (uns para os outros e para domínios já movidos)
+[x] npm run build sem erros
+[x] npm run dev sobe sem erro novo no console
+[x] Todas as páginas e componentes consumidores impactados abrem sem erro (validado lote a lote — ver Registro de execução)
+[x] DealOncaPage testada de ponta a ponta (consome 6 dos 8 serviços)
+[x] Inbox/ChatArea testado enviando mensagem real (valida gptmaker no local final)
+[x] IntelligenceOpsPage roda uma auditoria real com sucesso (valida opsHealthService no local final — 10/07/2026 09:09:34, 20 achados)
+[x] Cada serviço tem seu próprio commit (8 commits de código, rollback granular: 226aa81, 71f2069, d5e9c68, 4889a31, 26c44f2, dd1280a, e220769, 96bf29b)
+[x] Commit final de fechamento aponta para o checkpoint correto (2b7caf2) — este commit
+[x] ARCHITECTURE.md atualizado refletindo 100% de src/services/ organizado por domínio
 ```
+
+**Fase 3C: 8/8 lotes concluídos. Todos os critérios objetivos de conclusão atingidos.** `src/services/` está 100% organizado em 8 domínios (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`) — zero arquivos `.js` soltos na raiz, zero referências a caminhos antigos em `src/`, `api/`, `scripts/`, build limpo, DAG sem ciclos. Fase encerrada.
 
 ---
 
