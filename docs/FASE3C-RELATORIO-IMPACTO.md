@@ -262,7 +262,15 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 - Nenhum bug pré-existente encontrado.
 - Commit: `e220769`.
 
-### Lote 8 — pendente
+### Lote 8/8 — opsHealthService ✅ concluído (último arquivo)
+- 1 arquivo movido para `src/services/plataforma/` — **hub de maior fan-in interno (10 imports)**. 1 consumidor externo atualizado (`IntelligenceOpsPage.jsx`).
+- 10 ajustes de import interno: `auditoria/bagyAuditService`, `auditoria/knowledgeAuditService`, `auditoria/learningsAuditService`, `auditoria/whatsappAuditService`, `auditoria/instagramAuditService`, `auditoria/agentAuditService`, `auditoria/agentLearningsService`, `conhecimento/knowledgeDB`, `chat/gptmaker` (todos `./` → `../`) e `plataforma/systemHealthService` (`./plataforma/systemHealthService` → `./systemHealthService`, mesma pasta agora).
+- `npm run build` passou de primeira.
+- Grep confirmou zero referências residuais ao caminho antigo em `src/`, `api/`, `scripts/`.
+- **Marco:** `find src/services -maxdepth 1 -name "*.js"` retorna vazio — raiz de `src/services/` agora tem **zero arquivos `.js` soltos**, 100% organizado em 8 pastas de domínio.
+- Testado ao vivo: `IntelligenceOpsPage` renderiza "Saúde Geral 66.6%" corretamente (7 domínios agregando sem erro). Rodada uma auditoria real ("Rodar auditoria agora" na aba Conhecimento) como validação simbólica de fechamento — primeira tentativa interrompida pelo bug recorrente de reset de proxy do preview (não salvou); segunda tentativa concluída com sucesso: `"Última auditoria: 10/07/2026, 09:09:34"` com nova entrada "10/07, 09:09 → 20 achados" no topo do histórico, confirmando a cadeia completa `opsHealthService → auditoria/* → conhecimento/knowledgeDB → chat/gptmaker` funcionando com todos os 10 caminhos corrigidos.
+- Nenhum bug pré-existente encontrado.
+- Commit: `96bf29b`.
 
 ---
 
