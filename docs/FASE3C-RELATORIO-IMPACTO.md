@@ -225,7 +225,14 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 **Achado (não relacionado à movimentação):** `SimuladorClientePage` não tem nenhum gatilho de navegação alcançável na UI atual — nenhum `setPage('simulador')` encontrado em lugar nenhum do código. A página parece órfã de navegação (existe e é roteada em `App.jsx`, mas nada no menu leva até ela). Não testada ao vivo por esse motivo — import validado por build + padrão idêntico aos outros 3 consumidores já confirmados.
 - Commit: `71f2069`.
 
-### Lotes 3-8 — pendentes
+### Lote 3/8 — customerProfileService ✅ concluído
+- 1 arquivo movido para `src/services/crm/`; 6 consumidores atualizados (`App.jsx`, `ChatArea.jsx`, `ContactsNewPage.jsx`, `ContactsPage.jsx`, `DealOncaPage.jsx`, `groq.js`) — exatamente como previsto, sem surpresa. Nenhum import interno próprio a ajustar.
+- `npm run build` passou de primeira.
+- Testado ao vivo: `ContactsNewPage` (52 contatos com scores reais) e `DealOncaPage`/CODEX (exercitando `groq.js` → `crm/customerProfileService`) — sem erro de console.
+- Nenhum bug pré-existente encontrado.
+- Commit: `d5e9c68`.
+
+### Lotes 4-8 — pendentes
 
 ---
 
