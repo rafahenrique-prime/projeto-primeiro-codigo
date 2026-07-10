@@ -205,6 +205,22 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 
 ---
 
+## Registro de execução (atualizado a cada lote)
+
+> Mesma política da Fase 3B: bugs pré-existentes descobertos durante a validação são documentados, não corrigidos, salvo se bloquearem build, validação ou conclusão do lote.
+
+### Lote 1/8 — followUpService ✅ concluído
+- 1 arquivo movido para `src/services/crm/`; 3 consumidores atualizados (`App.jsx`, `DealOncaPage.jsx`, `FollowUpPage.jsx`) — exatamente como previsto.
+- 2 ajustes de import interno: `./gptmaker` → `../gptmaker`, `./groq` → `../groq` (ambos ficam na raiz até suas próprias vezes).
+- `npm run build` passou de primeira. Zero referência a caminho antigo.
+- Testado ao vivo: `FollowUpPage` (Dashboard Follow-Up, 46 conversas monitoradas, dados reais) e `DealOncaPage`/CODEX — ambos sem erro de console.
+- Nenhum bug pré-existente encontrado.
+- Commit: `226aa81`.
+
+### Lotes 2-8 — pendentes
+
+---
+
 ## Confirmação de bloqueadores
 
 **Nenhum bloqueador técnico identificado.**
