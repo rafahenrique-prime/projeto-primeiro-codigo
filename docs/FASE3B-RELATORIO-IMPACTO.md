@@ -79,6 +79,7 @@ Nenhuma integração é afetada funcionalmente — é só mudança de caminho de
 | 5 | `npm run dev` não valida páginas dependentes de `api/*.js` | 🟢 Baixo | Confirmado nos lotes 6 e 7 (scraper, bagy-audit) — não bloqueia a 3B, mas gera alarme falso em telas que chamam `api/*` |
 | 6 | 36 arquivos é o maior lote das 3 fases | 🟡 Médio | Executar em 8 sub-lotes por domínio, cada um com commit próprio |
 | 7 | **`__tests__/syncCatalog.test.js` não é um teste seguro — grava dados reais em produção** (risco operacional, não só de import) | 🔴 Alto | Descoberto no lote 6 (2026-07-10): o arquivo executa `upsertProducts()` real contra a tabela `products` do Supabase de produção (50 produtos hardcoded) quando rodado via `npm test`. Não é isolado/idempotente como um teste unitário deveria ser. **Não executado nesta Fase 3B.** Recomendação: renomear/mover para fora da suíte de testes automatizados (ex.: `scripts/`) ou reescrever com mock, antes que alguém rode `npm test` sem saber do efeito colateral — risco de duplicar/sobrescrever produtos reais |
+| 8 | `deepseek.js` usa `'deepseek-lite'` como model default, mas a API real do DeepSeek só aceita `deepseek-v4-pro`/`deepseek-v4-flash` (bug pré-existente, não de import) | 🟡 Médio | Descoberto no lote 8 (2026-07-10) ao testar o seletor de modelo manualmente. `git log -S "'deepseek-lite'"` confirma que existe desde o commit `4608b4c`, muito antes da Fase 3. Não bloqueia a 3B — as chamadas reais usadas pelas auditorias (`askDeepSeek` com `deepseek-reasoner` explícito) não são afetadas. Não corrigido, fora de escopo — registrado para tratamento futuro |
 
 ---
 
@@ -190,7 +191,16 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 **Achado (limitação de ambiente já documentada, não bug):** "Rodar auditoria agora" na aba Bagy retornou `"Unexpected token '/', "// Auditor"... is n[ot valid JSON]"` — o mesmo padrão de erro já registrado no `FASE3-PLANO-EXECUCAO.md` (chamada a `api/bagy-audit.js`, servido como texto pelo Vite em dev local em vez de executado como function). Confirma mais uma vez que é limitação de ambiente, não relacionada à movimentação — `bagyAuditService.js` só chama esse endpoint, sem lógica própria alterada.
 
-### Lote 8 — pendente
+### Lote 8/8 — IA ✅ concluído (último lote da Fase 3B)
+- 2 arquivos movidos para `src/services/ia/` (`deepseekBalanceService` primeiro, `deepseek` por último, conforme regra definida). 5 consumidores atualizados: `DeepSeekBalanceCard.jsx`, `contactAnalysisService.js`, `groq.js`, `learningsAuditService.js`, `knowledgeAuditService.js`.
+- Ajuste de import interno: `deepseek.js` (`./plataforma/tokenLoggingService` → `../plataforma/tokenLoggingService`).
+- `npm run build` passou de primeira. Zero referência a caminho antigo em todo `src/`.
+- Testado ao vivo: `DeepSeekBalanceCard` no Dashboard (saldo real $1.91), seletor de modelo DeepSeek em `DealOncaPage`/CODEX (troca Llama 3.3 → DeepSeek Lite funcionando), e **nova rodada completa da auditoria de Conhecimento** (`knowledgeAuditService` + `askDeepSeek` via `ia/deepseek`) — 15 julgamentos concluídos, novo timestamp gravado no Supabase (`10/07/2026 07:56:03`), confirmando a cadeia inteira funcionando no caminho final.
+- Commit: `b0c829f`.
+
+**Achado (bug pré-existente, não corrigido):** console mostrou `[DeepSeek] Erro: The supported API model names are deepseek-v4-pro or deepseek-v4-flash, but you passed deepseek-lite` ao testar o seletor manualmente. `git log -S "'deepseek-lite'"` confirma que esse default existe desde o commit `4608b4c`, muito antes desta sessão — a API real do DeepSeek parece ter renomeado os modelos e o código nunca foi atualizado. Não bloqueou a auditoria real (que usa `deepseek-reasoner` explicitamente, não o default).
+
+**🎉 Todos os 36 arquivos da Fase 3B foram movidos.** Próximo: checklist de encerramento completa.
 
 ---
 
