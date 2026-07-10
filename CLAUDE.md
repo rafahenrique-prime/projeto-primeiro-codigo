@@ -194,8 +194,12 @@ vercel --prod --yes
 
 **Configuração:**
 - `API_KEY` e `ROOT_FOLDER` (ID da pasta do Drive) ficam hardcoded no topo do `<script>` do próprio arquivo — não usa `.env` (é site estático, sem variável de ambiente de verdade)
-- `VISIBLE_FOLDERS` (dentro do script): lista de pastas que aparecem publicamente. Deixe `[]` pra mostrar todas; preencha com nomes exatos de pasta pra mostrar só algumas (usado pra testar categoria nova sem o cliente ver antes da hora)
+- **Visibilidade das marcas (desde 2026-07-10):** não é mais hardcoded no HTML. É configurada pelo painel interno (Catálogo Drive → botão "⚙️ Configurar catálogo" em `DraftCatalogPage.jsx`) e salva na tabela `catalog_public_config` do Supabase (coluna `hidden_brands`, ver `docs/SUPABASE.md §3.1`). `hidden_brands: []` = nada escondido = mostra todas as marcas, inclusive pastas novas criadas no Drive depois (aparecem automaticamente, sem precisar mexer em nada). Marcar uma marca no painel adiciona ela à lista de escondidas — é uma lista de bloqueio, não de permissão. O `catalogo-publico/index.html` lê essa config direto do Supabase a cada carregamento (`getHiddenFolders()`), com fallback pra "mostrar tudo" se a leitura falhar.
 - Botão de WhatsApp flutuante fixo aponta pro número `5534997257499` — mudar direto no `href` do `.whatsapp-float` se o número mudar
+- **Botão "Copiar link do cliente"** (no painel interno, ao lado de "Configurar catálogo"): copia `https://prime-catalogo.vercel.app` pra área de transferência.
+- **Clicar na logo** do catálogo público força recarregar o catálogo do zero (ignora o cache local de 15min).
+- **Performance:** o site busca todas as marcas em paralelo (`Promise.all`, não mais sequencial) e guarda o resultado em `localStorage` por 15 minutos — só refaz a varredura completa do Drive se o cache expirar ou se o cliente clicar na logo.
+- **Mobile:** abaixo de 600px a fileira de chips de marca vira um botão único "Filtrar por marca ▾" que abre o mesmo menu lateral (☰) do desktop — evita uma fileira horizontal com 27+ chips.
 
 **Estrutura esperada no Drive:** cada foto solta direto numa pasta = 1 produto individual (nome do arquivo vira nome do produto). Se a pasta tiver subpastas, cada subpasta = 1 produto com todas as fotos dela na galeria (usado pro caso de "várias fotos do mesmo modelo/cor").
 
@@ -211,7 +215,9 @@ Esse script pede login OAuth (abre navegador, você autoriza uma vez) e corrige 
 
 ### 11. **Catálogo Rascunho dentro do app** (`src/pages/DraftCatalogPage.jsx`)
 
-Versão do mesmo conceito (fotos do Drive), só que **dentro do painel logado**, no menu "Catálogo Rascunho" — serve pra você (Rafael) conferir antes de decidir o que formalizar no catálogo oficial (Supabase). Usa `src/services/googleDriveCatalog.js`, com cache em `localStorage` (só recarrega ao clicar "Atualizar", não gasta cota da API do Drive à toa). As credenciais aqui (`VITE_GOOGLE_DRIVE_API_KEY`, `VITE_GOOGLE_DRIVE_FOLDER_ID`) ficam no `.env.local`, ao contrário do catálogo público que tem elas hardcoded no HTML.
+Versão do mesmo conceito (fotos do Drive), só que **dentro do painel logado**, no menu "Catálogo Rascunho" — serve pra você (Rafael) conferir antes de decidir o que formalizar no catálogo oficial (Supabase). Usa `src/services/catalogo/googleDriveCatalog.js`, com cache em `localStorage` (só recarrega ao clicar "Atualizar", não gasta cota da API do Drive à toa). As credenciais aqui (`VITE_GOOGLE_DRIVE_API_KEY`, `VITE_GOOGLE_DRIVE_FOLDER_ID`) ficam no `.env.local`, ao contrário do catálogo público que tem elas hardcoded no HTML.
+
+**Nesta página também fica o controle do catálogo público** (seção 9 acima): dropdown de marcas em ordem alfabética, botão "🔗 Copiar link do cliente", botão "⚙️ Configurar catálogo" (abre modal com checkbox por marca — "Selecionar todas"/"Desmarcar todas" — que ao abrir já dispara um refresh do Drive pra pastas novas aparecerem na lista) e barra de progresso real (`X% (feitas/total)`) durante o carregamento, em vez de um "Carregando..." genérico. A leitura/gravação da config usa `src/services/catalogo/catalogPublicConfig.js`.
 
 ---
 
@@ -304,7 +310,7 @@ Cliente vê tudo no WhatsApp/Instagram
 
 ### Fluxo 3: Sincronizar Produtos (Supabase → Web)
 **Gatilho:** Você clica "Sincronizar" na UI do catálogo  
-**Arquivo:** `src/services/catalog.js`
+**Arquivo:** `src/services/catalogo/catalog.js`
 
 **Sequência:**
 1. Validação local: 538 produtos, imagens OK
@@ -399,7 +405,7 @@ Cliente vê tudo no WhatsApp/Instagram
 
 **Razão:** Claude Sonnet 4.6 foi explicitamente adiado (testar tudo antes de trocar)
 
-**Implementação:** `src/services/groq.js`
+**Implementação:** `src/services/ia/groq.js`
 ```javascript
 groqRequest(prompt) {
   // Tenta llama-3.3-70b

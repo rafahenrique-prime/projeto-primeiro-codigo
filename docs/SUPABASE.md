@@ -1,7 +1,7 @@
 # docs/SUPABASE.md — Banco de Dados e Storage
 
 > **Snapshot:** 2026-07-08 · branch `main`
-> **Fonte:** `supabase/migrations/*.sql` (8 arquivos) + uso observado em `api/` e `src/services/`.
+> **Fonte:** `supabase/migrations/*.sql` (10 arquivos) + uso observado em `api/` e `src/services/`.
 
 ---
 
@@ -39,7 +39,7 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 
 ---
 
-## 3. Tabelas — Migrations versionadas (8 arquivos)
+## 3. Tabelas — Migrations versionadas (10 arquivos)
 
 ### 3.1 Tabelas definidas em `supabase/migrations/`
 
@@ -53,6 +53,8 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | 006 | `006_whatsapp_audit.sql` | `whatsapp_audit_findings` | Auditoria de conversas WhatsApp |
 | 007 | `007_instagram_audit.sql` | `instagram_audit_findings` | Auditoria de conversas Instagram |
 | 008 | `008_codex_audit.sql` | `codex_audit_findings` | Auditoria de código do projeto |
+| 009 | `009_catalog_public_config.sql` | `catalog_public_config` | Config de visibilidade do catálogo público (`catalogo-publico/`) |
+| 010 | `010_catalog_public_config_hidden_brands.sql` | (renomeia coluna `visible_brands` → `hidden_brands` na tabela acima) | idem |
 
 ### Detalhe de cada tabela
 
@@ -109,6 +111,16 @@ created_at  timestamptz default now()
 - **whatsapp_audit_findings** (006): `type` = `sem_resposta|contato_duplicado|sem_nome|abandonada|sem_interacao_recente`; tem `chat_id`, `contact_name`, `phone`.
 - **instagram_audit_findings** (007): idem mas com `username` em vez de `phone`.
 - **codex_audit_findings** (008): `type` = `arquivo_orfao|funcao_sem_uso|componente_duplicado|rota_morta|tabela_sem_uso`; tem `path`. **Diferencial:** os achados são gerados pelo Claude Code analisando o repo (não rodam no app) e gravados manualmente.
+
+#### `catalog_public_config` (009-010)
+```sql
+id             int pk default 1   -- linha única (config global, não por cliente)
+hidden_brands  jsonb default '[]' -- lista de marcas escondidas do catálogo público
+updated_at     timestamptz default now()
+```
+- Migration 009 criou a coluna como `visible_brands` (lista de permitidos); migration 010 **renomeou** para `hidden_brands`, invertendo a semântica: lista de permitidos faz pasta nova do Drive nascer invisível por padrão (exige ida manual à config toda vez que uma marca é criada); lista de escondidos faz o oposto — `[]` = nada escondido = tudo visível, inclusive pastas novas, e só se marca explicitamente o que **não** deve aparecer ainda.
+- Lida/gravada por `src/services/catalogo/catalogPublicConfig.js` (painel interno, `DraftCatalogPage.jsx` → botão "Configurar catálogo") e por `catalogo-publico/index.html` (site estático, leitura direta via REST com a mesma anon/publishable key, sem passar pelo app React).
+- RLS: mesma policy `allow all via service/anon key` usada nas demais tabelas (ver seção 4).
 
 ### 3.2 Tabelas referenciadas em código mas SEM migration versionada
 

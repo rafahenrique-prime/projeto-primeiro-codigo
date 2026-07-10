@@ -63,8 +63,8 @@ PROJETO DO CLAUDECODE/
 │   ├── data/
 │   │   ├── catalog.json        ← catálogo bundled (fallback)
 │   │   └── mockData.js
-│   └── services/    (47)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
-│       ├── auditoria/    (9)   ├── catalogo/     (5)   ├── chat/  (4)
+│   └── services/    (48)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
+│       ├── auditoria/    (9)   ├── catalogo/     (6)   ├── chat/  (4)
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
@@ -241,12 +241,12 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 
 ---
 
-## 7. Agrupamento funcional dos serviços (47 arquivos) — estrutura física real, 100% organizada
+## 7. Agrupamento funcional dos serviços (48 arquivos) — estrutura física real, 100% organizada
 
 | Domínio (pasta) | Services | Arquivos |
 |---|---|---|
 | **`chat/`** | messageHistoryService, interactionsService, photoHistory, gptmaker | 4 |
-| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, catalog | 5 |
+| **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, catalog, catalogPublicConfig | 6 |
 | **`crm/`** | contactAnalysisService, cobrancasService, stageHistory, followUpService, customerProfileService | 5 |
 | **`conhecimento/`** | knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 5 |
 | **`foto/`** | photoFlowService, photoCacheService, ocrService, imageExtractor, imageReviewService | 5 |
