@@ -3,7 +3,7 @@ import { listAgents, listTrainings, createTraining, updateTraining, deleteTraini
 import { suggestCategory } from '../services/groq'
 import { extractAndSaveKnowledge } from '../services/conhecimento/knowledgeExtractor'
 import { saveCreated, getCreatedAt, isNew } from '../services/conhecimento/knowledgeTimestamps'
-import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from '../services/knowledgeDB'
+import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from '../services/conhecimento/knowledgeDB'
 import { extractTextFromImage, detectContentCategory, identifyProductFromPhoto } from '../services/foto/ocrService'
 import { parseToBlocks, TIPO_TO_CATEGORY } from '../services/conhecimento/knowledgeParser'
 import { getAllLearnings, deleteLearning } from '../services/auditoria/agentLearningsService'

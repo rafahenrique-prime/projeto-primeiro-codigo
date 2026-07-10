@@ -5,7 +5,7 @@ import { useTheme } from '../theme.jsx'
 import { listContacts, getChatMessages } from '../services/gptmaker'
 import { getAllProfiles, getProfile } from '../services/crm/customerProfileService'
 import { getAnalysis, analyzeConversation } from '../services/crm/contactAnalysisService'
-import { saveEntry } from '../services/knowledgeDB'
+import { saveEntry } from '../services/conhecimento/knowledgeDB'
 import Tooltip from '../components/Tooltip.jsx'
 
 function HelpIcon({ text, position = 'bottom' }) {

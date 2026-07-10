@@ -3,7 +3,7 @@
 // IA (DeepSeek R1) só entra pra julgar contradição semântica — os pares
 // candidatos já vêm filtrados por similaridade de embedding, então o volume de
 // chamadas de IA é pequeno e limitado por run.
-import { getAllEntries } from '../knowledgeDB'
+import { getAllEntries } from '../conhecimento/knowledgeDB'
 import { askDeepSeek } from '../ia/deepseek'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
