@@ -160,7 +160,16 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 **Achado (limitação de ambiente, não bug):** `RelatoriosPage` mostra "Erro ao carregar relatórios — Token inválido... Renovar token". Isso é o comportamento **documentado e esperado** do `CLAUDE.md` (token GPT Maker expira ~24h) — a página tratou o erro graciosamente (sem crash JS, sem erro de console), o que na verdade confirma que a cadeia de import do `interactionsService` está funcionando corretamente até o ponto da chamada de dados. Não relacionado à Fase 3B.
 
-### Lotes 5-8 — pendentes
+### Lote 5/8 — CRM ✅ concluído
+- 3 arquivos movidos para `src/services/crm/`; 4 consumidores atualizados (`CobrancasPage.jsx`, `ContactsNewPage.jsx`, `DealOncaPage.jsx`, `groq.js`) — todos previstos no plano original, nenhuma surpresa.
+- Ajuste de import interno: `contactAnalysisService.js` (`./deepseek` → `../deepseek`, `deepseek.js` fica na raiz até o lote 8).
+- `npm run build` passou de primeira.
+- Testado ao vivo: CobrancasPage (71 registros, R$15.718,79 em atraso — dados reais), ContactsNewPage (52 contatos), DealOncaPage/CODEX (Plano do Dia, Diagnóstico do Dia) — sem erro de render.
+- Commit: `6412b68`.
+
+**Achado (limitação pré-existente, não bug):** console mostra `[Base44 SDK Error] 401: Authentication required to view users` em Cobranças e Contatos. Confirmado zero alteração de conteúdo em `cobrancasService.js` (puro rename) e a string de erro nem existe no nosso código — vem de dentro do próprio `@base44/sdk`. Dados de negócio (cobranças, contatos) carregaram normalmente apesar do erro no console.
+
+### Lotes 6-8 — pendentes
 
 ---
 
