@@ -156,7 +156,7 @@ Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer requ
 
 | Bucket | Acesso | Uso | Quem escreve |
 |---|---|---|---|
-| `produtos` | **PUBLIC** | Imagens de catálogo (scrapeadas `og:image`) | `catalog.js`, `importBackupService.js` |
+| `produtos` | **PUBLIC** | Imagens de catálogo (scrapeadas `og:image`) | `catalog.js` (`importBackupService.js` arquivado em 2026-07-10, sem consumidor ativo — ver `docs/AUDITORIA-ORFAOS-SERVICES.md`) |
 | `avatars` | (usado por `cache-avatar.js`) | Foto de perfil WhatsApp/Instagram (bypass CORS do CDN IG) | `cache-avatar.js`, `avatarCacheService.js` |
 
 > Observação do `CLAUDE.md`: o bucket é citado em alguns lugares como `productos` (sem acento, ES) — vale confirmar o nome exato no painel antes de operar.

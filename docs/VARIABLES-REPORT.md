@@ -33,8 +33,8 @@
 | 19 | `TELEGRAM_BOT_TOKEN` | — | — | — | ✅ 3 refs | api/ (3) |
 | 20 | `TELEGRAM_CHAT_ID` | — | — | — | ✅ 3 refs | api/ (3) |
 | 21 | `BAGY_STORE_URL` | — | — | — | ✅ 1 ref | api/ (1) |
-| 22 | `VITE_GOOGLE_VISION_KEY` | — | — | — | ✅ 1 ref | src/ (1) |
-| 23 | `VITE_OPENAI_API_KEY` | — | — | — | ✅ 1 ref | src/ (1) |
+| 22 | `VITE_GOOGLE_VISION_KEY` | — | — | — | ⚠️ 1 ref (histórica) | `_archive/photoRecognitionService.js` — código arquivado, sem consumidor |
+| 23 | `VITE_OPENAI_API_KEY` | — | — | — | ⚠️ 1 ref (histórica) | `_archive/photoRecognitionService.js` — código arquivado, sem consumidor |
 
 ### ⚠️ ÓRFÃS PARCIAIS (nos env mas sem grep direto — usadas indiretamente): 3
 
@@ -113,10 +113,10 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 | 1 | `TELEGRAM_BOT_TOKEN` | telegram-alert.js, cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
 | 2 | `TELEGRAM_CHAT_ID` | telegram-alert.js, cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
 | 3 | `BAGY_STORE_URL` | bagy-audit.js | Sem VITE_ | **Vercel only** |
-| 4 | `VITE_GOOGLE_VISION_KEY` | photoRecognitionService.js | Com VITE_ | **Vercel only** (?) |
-| 5 | `VITE_OPENAI_API_KEY` | photoRecognitionService.js | Com VITE_ | **Vercel only** (?) |
+| 4 | `VITE_GOOGLE_VISION_KEY` | `_archive/photoRecognitionService.js` (histórica/arquivada, sem consumidor) | Com VITE_ | N/A — código morto, não precisa existir em nenhum ambiente |
+| 5 | `VITE_OPENAI_API_KEY` | `_archive/photoRecognitionService.js` (histórica/arquivada, sem consumidor) | Com VITE_ | N/A — código morto, não precisa existir em nenhum ambiente |
 
-**Risco:** Se alguém clonar o repo e criar um `.env` a partir do `.env.example`, as funcionalidades que dependem dessas variáveis quebrarão localmente (Telegram alerts, Bagy audit, Google Vision, OpenAI).
+**Risco:** Se alguém clonar o repo e criar um `.env` a partir do `.env.example`, as funcionalidades que dependem das 3 primeiras (Telegram alerts, Bagy audit) quebrarão localmente. `VITE_GOOGLE_VISION_KEY`/`VITE_OPENAI_API_KEY` (#4, #5) **não representam risco** — protegem apenas código arquivado sem consumidor (`_archive/photoRecognitionService.js`), confirmado em 2026-07-10.
 
 ---
 
@@ -172,4 +172,5 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 
 **Gerado em:** 2026-07-08 · Fase 2 da reorganização.
 **Reauditado em:** 2026-07-09 · itens de ambiente pré-Fase-3 (§2.1, §2.3, §2.4, §4) — ver `docs/PRE-FASE3-CHECKLIST.md`.
+**Reauditado em:** 2026-07-10 · `VITE_GOOGLE_VISION_KEY`/`VITE_OPENAI_API_KEY` (#22-23, §1 e §3) marcadas como históricas/arquivadas — único arquivo que as referenciava (`photoRecognitionService.js`) foi arquivado sem nunca ter tido consumidor, ver `docs/AUDITORIA-ORFAOS-SERVICES.md`.
 **Metodologia:** grep direcionado em `src/`, `api/`, `scripts/`, `vite.config.js`. Sem alteração de código.

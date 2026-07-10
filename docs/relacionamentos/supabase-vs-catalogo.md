@@ -12,7 +12,7 @@ O sistema de catálogo tem **três fontes independentes** que podem divergir:
 | # | Fonte | Tipo | Usado por |
 |---|---|---|---|
 | 1 | **Supabase `products`** | Banco de dados (538 itens) | App React (CatalogPage), api/webhook, api/auto-photo |
-| 2 | **`src/data/catalog.json`** | JSON bundled no build | photoRecognitionService.js |
+| 2 | **`src/data/catalog.json`** | JSON bundled no build | nenhum (órfão confirmado — ver §3) |
 | 3 | **`CATALOG_FALLBACK`** | Array hardcoded em api/auto-photo.js | api/auto-photo.js (quando Supabase cai) |
 
 Além disso, existe um **catálogo visual** separado:
@@ -25,7 +25,7 @@ Além disso, existe um **catálogo visual** separado:
 - **538 produtos** registrados
 - Acesso: `VITE_SUPABASE_URL` + `VITE_SUPABASE_KEY`
 - Consumido por:
-  - `src/services/catalog.js` — CRUD do catálogo no painel
+  - `src/services/catalogo/catalog.js` — CRUD do catálogo no painel
   - `api/webhook.js` — busca de produtos para contexto da Gabriela
   - `api/auto-photo.js` — busca de produto para enviar foto ao cliente
 - Imagens: bucket Storage `produtos` (PUBLIC) — og:image scrapeadas
@@ -38,11 +38,11 @@ Além disso, existe um **catálogo visual** separado:
 ## 3. Fonte #2: `src/data/catalog.json` (fallback bundled)
 
 - Arquivo JSON estático dentro do repo, **bundled no build** pelo Vite
-- Consumido por: `src/services/photoRecognitionService.js`
+- Consumido por: nenhum arquivo ativo hoje
 - **Não é atualizado automaticamente** — precisa de atualização manual no arquivo
 - **Risco:** Pode estar desatualizado em relação ao Supabase
 
-**Status atual:** Possivelmente órfão ou usado apenas como fallback último recurso no frontend.
+**Status atual:** Confirmado órfão em 2026-07-10 — nenhum código ativo consome `catalog.json`. O único candidato histórico (`photoRecognitionService.js`) nunca teve consumidor desde sua criação (2026-06-19) e está arquivado em `src/services/_archive/` (ver `docs/AUDITORIA-ORFAOS-SERVICES.md`).
 
 ---
 
@@ -75,7 +75,7 @@ Além disso, existe um **catálogo visual** separado:
 | Fonte | Atualização | Risco se desatualizada | Impacto |
 |---|---|---|---|
 | Supabase | Manual (sincronizar UI) | Baixo (é a fonte de verdade) | Principal — tudo depende disso |
-| catalog.json | Manual (editar arquivo) | Alto (bundled, sem alerta) | photoRecognitionService pode achar produto errado |
+| catalog.json | Manual (editar arquivo) | Baixo (sem consumidor ativo hoje) | Nenhum — arquivo bundled no build mas não lido por nenhum código em produção |
 | CATALOG_FALLBACK | Manual (editar código) | Alto (só é usado em emergência) | Auto-photo envia produto errado se Supabase cair |
 | Google Drive | Manual (upload + permissões) | Médio (foto sem permissão = invisível) | Catálogo público e rascunho incompletos |
 
@@ -95,7 +95,7 @@ Além disso, existe um **catálogo visual** separado:
          │
          ├──[3a]── api/webhook.js (contexto Gabriela)
          ├──[3b]── api/auto-photo.js (envio de fotos)
-         └──[3c]── src/services/catalog.js (painel de gestão)
+         └──[3c]── src/services/catalogo/catalog.js (painel de gestão)
 
 [4] catalog.json (bundled) ← atualização SEPARADA, não automática
 [5] CATALOG_FALLBACK (hardcoded) ← atualização SEPARADA, não automática
@@ -109,8 +109,8 @@ Da análise de arquitetura (Fase 1):
 
 | Regra | `src/services/` | `api/` | Risco |
 |---|---|---|---|
-| **Busca de conhecimento** | `searchKnowledge.js` | `webhook.js` | Algoritmo de similaridade divergente |
-| **Catálogo fallback** | `catalog.json`, `photoRecognitionService.js` | `CATALOG_FALLBACK` | **3 fontes de verdade** |
+| **Busca de conhecimento** | ~~`searchKnowledge.js`~~ (removido em 2026-07-10) | `webhook.js::searchKnowledge()` — **implementação canônica** | Resolvido: duplicação eliminada, não mitigada |
+| **Catálogo fallback** | `catalog.json` (sem consumidor ativo) | `CATALOG_FALLBACK` | **2 fontes de verdade ativas** (`catalog.json` existe no bundle mas não é lido por nada hoje) |
 
 **Recomendação registrada (não executada):** Unificar as fontes de fallback ou ao menos documentar o processo de atualização de cada uma.
 
@@ -121,7 +121,7 @@ Da análise de arquitetura (Fase 1):
 | Risco | Sintoma | Mitigação |
 |---|---|---|
 | 3 fontes de verdade divergentes | Produto aparece no auto-photo mas não no painel | Sync manual + documentação |
-| catalog.json desatualizado | photoRecognitionService erra o produto | Remover ou sincronizar com Supabase |
+| catalog.json sem consumidor | Nenhum sintoma hoje — arquivo bundled mas não lido | Avaliar remoção do arquivo se confirmado que não será reativado |
 | CATALOG_FALLBACK desatualizado | Auto-photo envia produto errado em emergência | Alerta CODEX já existe |
 | Fotos sem permissão no Drive | ERR_BLOCKED_BY_ORB | `fix-drive-permissions.mjs` |
 | Storage bucket cheio | Upload de imagens falha | Monitorar uso no Supabase |
@@ -129,3 +129,4 @@ Da análise de arquitetura (Fase 1):
 ---
 
 **Gerado em:** 2026-07-08 · Fase 2 da reorganização.
+**Atualizado em:** 2026-07-10 · pós descomissionamento de órfãos: `searchKnowledge.js` removido, `photoRecognitionService.js` arquivado (sem consumidor confirmado). Caminhos de `catalog.js` corrigidos para refletir a estrutura pós-Fase-3C (`src/services/catalogo/`). Ver `docs/AUDITORIA-ORFAOS-SERVICES.md`.

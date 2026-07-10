@@ -118,7 +118,7 @@ PROJETO DO CLAUDECODE/
 
 ## 4. Matriz de dependências dos serviços (`src/services/`)
 
-> **Status da reorganização (2026-07-10):** Fases 3A, 3B e 3C **concluídas** — 100% dos 49 arquivos vivem em subpastas por domínio (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`). `src/services/` não tem mais nenhum arquivo `.js` solto na raiz. Ver `docs/FASE3C-RELATORIO-IMPACTO.md` para o registro lote a lote.
+> **Status da reorganização (2026-07-10):** Fases 3A, 3B e 3C **concluídas** — 100% dos 47 arquivos vivem em subpastas por domínio (`auditoria/`, `catalogo/`, `chat/`, `conhecimento/`, `crm/`, `foto/`, `ia/`, `plataforma/`, mais `_archive/` para código sem consumidores). `src/services/` não tem mais nenhum arquivo `.js` solto na raiz. Ver `docs/FASE3C-RELATORIO-IMPACTO.md` (reorganização) e `docs/AUDITORIA-ORFAOS-SERVICES.md` (2 removidos, 3 arquivados — de onde vieram os 49→47).
 
 ### 4.1 Services mais consumidos (incoming — fan-in, contagem por arquivo consumidor distinto)
 
@@ -144,12 +144,12 @@ Os 7 primeiros lugares eram exatamente os 8 candidatos movidos na Fase 3C — co
 ```
 catalogo/catalog             → chat/gptmaker
 catalogo/catalogSyncService  → conhecimento/knowledgeGenerator
-catalogo/importBackupService → catalogo/catalog (mesma pasta)
+_archive/importBackupService → catalogo/catalog
 conhecimento/knowledgeExtractor → catalogo/catalog
 crm/contactAnalysisService   → ia/deepseek
 crm/followUpService          → chat/gptmaker, ia/groq
 foto/photoFlowService        → foto/photoCacheService (mesma pasta)
-foto/photoMatchingService    → catalogo/catalog
+_archive/photoMatchingService → catalogo/catalog
 ia/groq                      → crm/customerProfileService, crm/stageHistory, ia/deepseek (mesma pasta)
 ia/deepseek                  → plataforma/tokenLoggingService
 auditoria/instagramAuditService → chat/gptmaker
@@ -176,7 +176,7 @@ Estas regras existem **como cópia** nos dois lados, não como import compartilh
 | **Estágios de funil** (`detectFunnelStage`) | `groq.js:106` | `cron-diagnosis.js:34` (comentário confirma "cópia fiel") | Classificação do diagnóstico ≠ classificação do painel |
 | **Motor de objeções** (`OBJECTION_PATTERNS`) | `groq.js` | `cron-diagnosis.js` | Padrão novo no frontend não entra no relatório diário |
 | **Busca de conhecimento** | ~~`searchKnowledge.js`~~ (removido em 2026-07-10 — nunca teve consumidor no frontend) | `webhook.js` (`buscarKnowledge`+`buscarProdutos`) — **implementação canônica** | Resolvido: só existe uma implementação agora, em `api/webhook.js::searchKnowledge()`. Duplicação eliminada, não mitigada. |
-| **Catálogo fallback** | `src/data/catalog.json`, `photoRecognitionService.js` | `auto-photo.js` (`CATALOG_FALLBACK`) | 3 fontes de verdade do catálogo |
+| **Catálogo fallback** | `src/data/catalog.json` (sem consumidor ativo; único candidato, `_archive/photoRecognitionService.js`, nunca teve consumidor) | `auto-photo.js` (`CATALOG_FALLBACK`) | 2 fontes de verdade ativas do catálogo |
 | **Boilerplate Supabase** | (em cada service) | replicado em **11 das 12** funções `api/` | Mudança de auth toca 11 arquivos |
 
 > **Recomendação registrada (não executada):** unificar scoring/funil/objections num módulo compartilhado e extrair `api/lib/supabaseClient.js`. Exige análise de impacto prévia.
@@ -266,7 +266,7 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 ## 8. Pontos de atenção arquitetural
 
 1. **Sem camada compartilhada** entre frontend e serverless → regras duplicadas (seção 5). Continua verdadeiro após a Fase 3B — a reorganização não mexeu nisso por design.
-2. ~~`src/services/` plano~~ → **Resolvido 100%** (Fases 3A+3B+3C, concluídas em 2026-07-10): todos os 49 arquivos organizados em 8 domínios, zero arquivos soltos na raiz (ver `docs/FASE3C-RELATORIO-IMPACTO.md`).
+2. ~~`src/services/` plano~~ → **Resolvido 100%** (Fases 3A+3B+3C, concluídas em 2026-07-10): 47 arquivos — 44 organizados em 8 domínios ativos + 3 arquivados sem consumidores em `_archive/` (2 outros órfãos foram removidos) — zero arquivos soltos na raiz (ver `docs/FASE3C-RELATORIO-IMPACTO.md` e `docs/AUDITORIA-ORFAOS-SERVICES.md`).
 3. **DealOnça é o módulo mais acoplado** (importa serviços de praticamente todos os 8 domínios) → qualquer refator de services exige cuidado extra em `DealOncaPage.jsx`. Confirmado repetidamente durante as Fases 3B e 3C.
 4. **Dois sistemas de agendamento paralelos** (cron Vercel + cron GitHub) sem documentação do porquê.
 5. **ServerlessFunctions monolíticas** — `auto-photo.js` (635 linhas) e `cron-diagnosis.js` (797 linhas) concentram muita lógica.
@@ -275,4 +275,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 ---
 
 **Gerado em:** 2026-07-08 · apenas com dados do repositório.
-**Atualizado em:** 2026-07-10 · pós-Fase-3C, reflete a estrutura física final de `src/services/` — 100% organizado em 8 domínios, zero arquivos soltos na raiz.
+**Atualizado em:** 2026-07-10 · pós-Fase-3C e pós-descomissionamento de órfãos, reflete a estrutura física final de `src/services/` — 47 arquivos em 8 domínios ativos + `_archive/`, zero arquivos soltos na raiz.
