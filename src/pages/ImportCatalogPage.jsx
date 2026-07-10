@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../theme.jsx'
-import { scrapeProductsFromURL } from '../services/scrapingService'
+import { scrapeProductsFromURL } from '../services/catalogo/scrapingService'
 
 export default function ImportCatalogPage() {
   const { theme: t } = useTheme()

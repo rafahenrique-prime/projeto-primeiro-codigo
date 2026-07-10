@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { upsertProducts, getProductCount } from '../catalogSyncService'
+import { upsertProducts, getProductCount } from '../catalogo/catalogSyncService'
 
 // 50 PRODUTOS DO PAINEL BAGY (Páginas 1-2)
 const PRODUTOS_50_BAGY = [

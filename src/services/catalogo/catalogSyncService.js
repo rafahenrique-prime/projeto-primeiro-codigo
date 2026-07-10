@@ -1,7 +1,7 @@
 // Sincronização de catálogo Bagy → Supabase
 // UPSERT pattern: insere ou atualiza produtos por nome
 
-import { validarProdutoUnico } from './conhecimento/knowledgeGenerator'
+import { validarProdutoUnico } from '../conhecimento/knowledgeGenerator'
 
 // Autocorreção de nomes: padroniza acentos e grafia ao salvar
 export function normalizarNomeProduto(nome) {

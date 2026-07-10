@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogSyncService'
-import { extractProductData, normalizeExtractedData } from '../services/scraperService'
+import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogo/catalogSyncService'
+import { extractProductData, normalizeExtractedData } from '../services/catalogo/scraperService'
 import { regenerateKnowledgeUnico } from '../services/conhecimento/knowledgeGenerator'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
 

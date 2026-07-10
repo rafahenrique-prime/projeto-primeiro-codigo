@@ -3,7 +3,7 @@ import { useTheme } from '../theme.jsx'
 import {
   buildProductTree, getCachedCatalog, setCachedCatalog, clearCachedCatalog, isDriveConfigured,
   imgUrl, imgUrlFull,
-} from '../services/googleDriveCatalog'
+} from '../services/catalogo/googleDriveCatalog'
 
 export default function DraftCatalogPage() {
   const { theme: t } = useTheme()
