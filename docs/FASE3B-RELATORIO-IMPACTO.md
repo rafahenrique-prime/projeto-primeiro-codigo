@@ -101,18 +101,20 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 ## 6. Critérios objetivos de conclusão
 
 ```
-[ ] Todos os 36 arquivos existem nos novos caminhos (subpastas por domínio)
-[ ] Todos os 36 caminhos antigos não existem mais
-[ ] grep por caminho antigo em src/, api/, scripts/ retorna zero resultados
-[ ] opsHealthService.js atualizado com os 8 imports de Auditoria corrigidos
-[ ] src/services/__tests__/syncCatalog.test.js atualizado e npm test passa
-[ ] npm run build sem erros
-[ ] npm run dev sobe sem erro novo no console
-[ ] Todas as 14 páginas + 6 tabs afetadas abrem sem erro
-[ ] DealOncaPage testada de ponta a ponta
-[ ] IntelligenceOpsPage roda uma auditoria real com sucesso
-[ ] Cada domínio tem seu próprio commit
-[ ] Commit final de fechamento aponta para o checkpoint correto
+[x] Todos os 36 arquivos existem nos novos caminhos (subpastas por domínio) — confirmado: 41 arquivos = 5 (Fase 3A) + 36 (Fase 3B), batendo exato por pasta
+[x] Todos os 36 caminhos antigos não existem mais — confirmado, zero arquivos remanescentes na raiz de src/services/
+[x] grep por caminho antigo em src/, api/, scripts/ retorna zero resultados — confirmado para os 41 caminhos (3A+3B)
+[x] opsHealthService.js atualizado com os 8 imports de Auditoria corrigidos — confirmado (7 de auditoria/ + 1 de plataforma/, já corrigido no lote 3)
+[~] src/services/__tests__/syncCatalog.test.js atualizado e npm test passa — import corrigido e confirmado; "npm test passa" NÃO verificado — teste real grava dados em produção (ver risco #7), execução requer autorização explícita fora do escopo desta fase
+[x] npm run build sem erros — confirmado, build final limpo
+[x] npm run dev sobe sem erro novo no console — confirmado
+[x] Todas as 14 páginas + 6 tabs afetadas abrem sem erro — confirmado individualmente ao longo dos 8 lotes
+[x] DealOncaPage testada de ponta a ponta — confirmado na checklist final (Plano do Dia, Diagnóstico do Dia, modelo DeepSeek preservado, sem erro)
+[x] IntelligenceOpsPage roda uma auditoria real com sucesso — confirmado 2x (lotes 7 e 8), auditoria de Conhecimento completa com gravação real no Supabase
+[x] Cada domínio tem seu próprio commit — confirmado: 8 commits de código (f69a025, 11df967, 6029117, 66c9a36, 6412b68, 3351055, fa8f124, b0c829f), um por domínio
+[x] Commit final de fechamento aponta para o checkpoint correto — confirmado: ae468b3 (fim da Fase 3A) é ancestral direto de f69a025 (início da 3B)
+
+**Resultado: 11/12 critérios totalmente atendidos, 1 parcialmente atendido (item do teste automatizado, por decisão de segurança).**
 ```
 
 ---
