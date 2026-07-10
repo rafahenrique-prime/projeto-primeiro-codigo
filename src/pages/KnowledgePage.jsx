@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listAgents, listTrainings, createTraining, updateTraining, deleteTraining } from '../services/gptmaker'
-import { suggestCategory } from '../services/groq'
+import { suggestCategory } from '../services/ia/groq'
 import { extractAndSaveKnowledge } from '../services/conhecimento/knowledgeExtractor'
 import { saveCreated, getCreatedAt, isNew } from '../services/conhecimento/knowledgeTimestamps'
 import { saveEntry, getAllEntries, deleteEntry, updateEntry, countEntries } from '../services/conhecimento/knowledgeDB'

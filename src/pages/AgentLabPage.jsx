@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../theme.jsx'
 import { listAgents, listTrainings, getAgent } from '../services/gptmaker'
-import { askAgentSim, generateStressQuestion, auditConversation } from '../services/groq'
+import { askAgentSim, generateStressQuestion, auditConversation } from '../services/ia/groq'
 
 const STRESS_SCENARIOS = [
   { label: '💰 Pediu desconto', text: 'Tem algum desconto? Vi que na concorrência tá mais barato.' },

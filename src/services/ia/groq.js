@@ -1,6 +1,6 @@
-import { getProfile } from './crm/customerProfileService'
-import { getTimeInStage } from './crm/stageHistory'
-import { askDeepSeek } from './ia/deepseek'
+import { getProfile } from '../crm/customerProfileService'
+import { getTimeInStage } from '../crm/stageHistory'
+import { askDeepSeek } from './deepseek'
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'

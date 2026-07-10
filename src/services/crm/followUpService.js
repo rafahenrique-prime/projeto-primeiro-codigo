@@ -7,7 +7,7 @@
  */
 
 import { sendMessage } from '../gptmaker'
-import { groqRequest } from '../groq'
+import { groqRequest } from '../ia/groq'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

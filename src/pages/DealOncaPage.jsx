@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss, suggestKnowledgeFromWin } from '../services/groq'
+import { askCODEX, detectSaveIntent, runProactiveDiagnosis, runFunnelLossReport, askCODEXOnboarding, detectFunnelStage, suggestKnowledgeFromLoss, suggestKnowledgeFromWin } from '../services/ia/groq'
 import { recordStage, cleanupOldEntries, getTimeInStage } from '../services/crm/stageHistory'
 import { createAgent, updateAgent } from '../services/gptmaker'
 import { runFollowUpCheck, getFollowUpSummary } from '../services/crm/followUpService'

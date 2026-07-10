@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { getChatMessages, sendMessage, finishChat, assumeChat, releaseChat, deleteChat } from '../services/gptmaker'
-import { detectProductRequest, groqRequest } from '../services/groq'
+import { detectProductRequest, groqRequest } from '../services/ia/groq'
 import { findBestMatch, findProductInText, isValidImageUrl } from '../services/catalog'
 import { addPhotoToHistory } from '../services/chat/photoHistory'
 import { useTheme } from '../theme.jsx'

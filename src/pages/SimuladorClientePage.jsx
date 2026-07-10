@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { detectProductRequest } from '../services/groq'
+import { detectProductRequest } from '../services/ia/groq'
 import { findBestMatch, searchProduct } from '../services/catalog'
 import { addPhotoToHistory, getPhotoStats } from '../services/chat/photoHistory'
 import { useTheme } from '../theme.jsx'
