@@ -1,4 +1,9 @@
 /**
+ * ARQUIVADO em 2026-07-10 — sem consumidores desde a criação (fan-in 0).
+ * Substituído por foto/photoFlowService.js (GPT Maker Vision).
+ * Ver docs/AUDITORIA-ORFAOS-SERVICES.md.
+ */
+/**
  * Serviço de Matching: Foto → Produto do Catálogo
  *
  * Toma os dados da análise de foto e encontra

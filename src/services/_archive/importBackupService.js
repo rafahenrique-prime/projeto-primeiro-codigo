@@ -1,9 +1,14 @@
 /**
+ * ARQUIVADO em 2026-07-10 — sem consumidores desde a criação (fan-in 0).
+ * Ligado ao ciclo de vida de dealism-backup/ (decisão ainda em aberto).
+ * Ver docs/AUDITORIA-ORFAOS-SERVICES.md.
+ */
+/**
  * Serviço de importação do backup Dealism
  * Importa produtos e gera relatório de conflitos ANTES de apagar
  */
 
-import { getAllProducts, saveCatalogToSupabase } from './catalog'
+import { getAllProducts, saveCatalogToSupabase } from '../catalogo/catalog'
 
 // Normaliza nome para comparação
 function normalizeName(name) {

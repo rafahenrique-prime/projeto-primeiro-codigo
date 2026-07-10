@@ -1,4 +1,9 @@
 /**
+ * ARQUIVADO em 2026-07-10 — sem consumidores desde a criação (fan-in 0).
+ * Arquitetura multi-provider desenhada, nunca implementada. Substituído por foto/photoFlowService.js.
+ * Ver docs/AUDITORIA-ORFAOS-SERVICES.md.
+ */
+/**
  * Serviço de Reconhecimento de Fotos
  *
  * ARQUITETURA ESTRATÉGICA:
