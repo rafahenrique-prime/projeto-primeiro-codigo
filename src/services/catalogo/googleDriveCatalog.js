@@ -53,7 +53,8 @@ function cleanName(filename) {
 }
 
 // Monta a árvore: pasta raiz -> subpastas de marca -> subpastas de modelo (ou imagens direto na marca)
-export async function buildProductTree() {
+// onProgress(feitas, total) — chamado a cada pasta de marca processada, pra mostrar % no painel.
+export async function buildProductTree(onProgress) {
   const apiKey = getApiKey()
   const folderId = getFolderId()
   if (!apiKey || !folderId) throw new Error('Google Drive não configurado — veja .env.local')
@@ -62,6 +63,7 @@ export async function buildProductTree() {
     .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
 
   const products = []
+  let done = 0
 
   for (const brand of brandFolders) {
     const items = await listFolderChildren(brand.id, apiKey)
@@ -88,6 +90,9 @@ export async function buildProductTree() {
         images: images.map(f => ({ id: f.id, name: f.name })),
       })
     }
+
+    done++
+    onProgress?.(done, brandFolders.length)
   }
 
   return products

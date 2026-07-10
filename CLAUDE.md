@@ -184,7 +184,7 @@ vercel env add NOME_DA_VAR production
 
 Isso **não faz parte do app React** — é um arquivo HTML+CSS+JS único, sem build, sem framework, que lê fotos direto do Google Drive (marca/categoria = pasta, modelo = subpasta, fotos dentro). Serve pra mandar um link público pro cliente navegar o catálogo sem expor o painel interno.
 
-**Publicado em:** https://catalogo-publico.vercel.app (projeto Vercel próprio, separado do app principal e do `ignite-webhook`)
+**Publicado em:** https://prime-catalogo.vercel.app (projeto Vercel próprio, separado do app principal e do `ignite-webhook`; nome do projeto na Vercel continua `catalogo-publico`, `prime-catalogo.vercel.app` é um alias criado em cima dele — o domínio antigo `catalogo-publico.vercel.app` também continua ativo)
 
 **Pra publicar qualquer mudança nele:**
 ```bash

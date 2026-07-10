@@ -4,6 +4,14 @@ import {
   buildProductTree, getCachedCatalog, setCachedCatalog, clearCachedCatalog, isDriveConfigured,
   imgUrl, imgUrlFull,
 } from '../services/catalogo/googleDriveCatalog'
+import { getHiddenBrands, saveHiddenBrands } from '../services/catalogo/catalogPublicConfig'
+
+const PUBLIC_CATALOG_URL = 'https://prime-catalogo.vercel.app'
+
+function progressLabel(progress, fallback = 'Carregando...') {
+  if (!progress?.total) return fallback
+  return `${Math.round(progress.done / progress.total * 100)}% (${progress.done}/${progress.total})`
+}
 
 export default function DraftCatalogPage() {
   const { theme: t } = useTheme()
@@ -15,6 +23,15 @@ export default function DraftCatalogPage() {
   const [search, setSearch] = useState('')
   const [lightbox, setLightbox] = useState(null) // { product, index }
   const [copyFeedback, setCopyFeedback] = useState(null)
+  const [progress, setProgress] = useState(null) // { done, total } — só durante o refresh
+
+  // Configuração do catálogo público (quais marcas o cliente vê no link)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [configLoading, setConfigLoading] = useState(false)
+  const [configError, setConfigError] = useState('')
+  const [configSaving, setConfigSaving] = useState(false)
+  const [hiddenBrands, setHiddenBrands] = useState(null) // null = ainda não carregou; [] = nada escondido (mostra tudo)
+  const [linkCopyFeedback, setLinkCopyFeedback] = useState(false)
 
   useEffect(() => {
     const cached = getCachedCatalog()
@@ -29,8 +46,9 @@ export default function DraftCatalogPage() {
   async function refresh() {
     setLoading(true)
     setError('')
+    setProgress({ done: 0, total: 0 })
     try {
-      const fresh = await buildProductTree()
+      const fresh = await buildProductTree((done, total) => setProgress({ done, total }))
       setProducts(fresh)
       setCachedCatalog(fresh)
       setLastFetchedAt(Date.now())
@@ -38,13 +56,12 @@ export default function DraftCatalogPage() {
       setError(e.message)
     } finally {
       setLoading(false)
+      setProgress(null)
     }
   }
 
   const brands = useMemo(() => {
-    const counts = {}
-    products.forEach(p => { counts[p.brand] = (counts[p.brand] || 0) + 1 })
-    return [...new Set(products.map(p => p.brand))].sort((a, b) => counts[b] - counts[a])
+    return [...new Set(products.map(p => p.brand))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
   }, [products])
 
   const filtered = useMemo(() => {
@@ -56,6 +73,53 @@ export default function DraftCatalogPage() {
     }
     return list
   }, [products, activeBrand, search])
+
+  async function openConfig() {
+    setConfigOpen(true)
+    setConfigLoading(true)
+    setConfigError('')
+    try {
+      // Atualiza a lista de marcas do Drive antes de mostrar a configuração,
+      // pra pastas novas já aparecerem na hora de escolher o que esconder.
+      const [hidden] = await Promise.all([getHiddenBrands(), refresh()])
+      setHiddenBrands(hidden)
+    } catch (e) {
+      setConfigError(e.message)
+    } finally {
+      setConfigLoading(false)
+    }
+  }
+
+  function toggleBrandVisible(brand) {
+    setHiddenBrands(prev =>
+      prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]
+    )
+  }
+
+  async function saveConfig() {
+    setConfigSaving(true)
+    try {
+      // Limpa marcas escondidas que não existem mais (pasta removida/renomeada no Drive)
+      const toSave = hiddenBrands.filter(b => brands.includes(b))
+      await saveHiddenBrands(toSave)
+      setHiddenBrands(toSave)
+      setConfigOpen(false)
+    } catch (e) {
+      setConfigError(e.message)
+    } finally {
+      setConfigSaving(false)
+    }
+  }
+
+  async function copyPublicLink() {
+    try {
+      await navigator.clipboard.writeText(PUBLIC_CATALOG_URL)
+      setLinkCopyFeedback(true)
+      setTimeout(() => setLinkCopyFeedback(false), 2000)
+    } catch {
+      alert('Erro ao copiar link')
+    }
+  }
 
   function openLightbox(product) {
     setLightbox({ product, index: 0 })
@@ -103,13 +167,6 @@ export default function DraftCatalogPage() {
     document.body.removeChild(a)
   }
 
-  const chipStyle = (active) => ({
-    background: active ? (t.primary || '#E8192C') : t.bgTertiary,
-    color: active ? '#fff' : t.textMid,
-    border: 'none', borderRadius: 9999, padding: '6px 14px', fontSize: 12, fontWeight: active ? 600 : 500,
-    cursor: 'pointer', whiteSpace: 'nowrap',
-  })
-
   return (
     <div style={{ flex: 1, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -127,6 +184,16 @@ export default function DraftCatalogPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={copyPublicLink} title="Copia o link do catálogo público pra enviar ao cliente" style={{
+              background: linkCopyFeedback ? '#DCFCE7' : t.bgTertiary, color: linkCopyFeedback ? '#16A34A' : t.textMuted,
+              border: `1px solid ${linkCopyFeedback ? '#86EFAC' : t.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer',
+            }}>{linkCopyFeedback ? '✓ Link copiado' : '🔗 Copiar link do cliente'}</button>
+            <button onClick={openConfig} title="Escolher quais marcas o cliente vê no catálogo público" style={{
+              background: t.bgTertiary, color: t.textMuted,
+              border: `1px solid ${t.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer',
+            }}>⚙️ Configurar catálogo</button>
             <button onClick={() => { clearCachedCatalog(); refresh() }} disabled={loading} title="Limpa o cache e busca tudo de novo do Drive" style={{
               background: t.bgTertiary, color: t.textMuted,
               border: `1px solid ${t.border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600,
@@ -136,7 +203,7 @@ export default function DraftCatalogPage() {
               background: loading ? t.bgTertiary : (t.primary || '#E8192C'), color: loading ? t.textMuted : '#fff',
               border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600,
               cursor: loading ? 'default' : 'pointer',
-            }}>{loading ? 'Atualizando...' : '↻ Atualizar'}</button>
+            }}>{loading ? progressLabel(progress) : '↻ Atualizar'}</button>
           </div>
         </div>
 
@@ -148,14 +215,16 @@ export default function DraftCatalogPage() {
               placeholder="Buscar produto ou marca..."
               style={{ flex: 1, minWidth: 200, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, background: t.inputBg, color: t.text, outline: 'none' }}
             />
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'auto' }}>
-              <button onClick={() => setActiveBrand('todos')} style={chipStyle(activeBrand === 'todos')}>Todos</button>
+            <select
+              value={activeBrand}
+              onChange={e => setActiveBrand(e.target.value)}
+              style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 13, background: t.inputBg, color: t.text, outline: 'none', cursor: 'pointer' }}
+            >
+              <option value="todos">Todas as marcas ({products.length})</option>
               {brands.map(b => (
-                <button key={b} onClick={() => setActiveBrand(b)} style={chipStyle(activeBrand === b)}>
-                  {b} ({products.filter(p => p.brand === b).length})
-                </button>
+                <option key={b} value={b}>{b} ({products.filter(p => p.brand === b).length})</option>
               ))}
-            </div>
+            </select>
           </div>
         )}
       </div>
@@ -173,7 +242,7 @@ export default function DraftCatalogPage() {
             <div style={{ fontSize: 13, color: t.textMuted }}>{error}</div>
           </div>
         ) : loading && products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>Carregando fotos do Drive...</div>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>{progressLabel(progress, 'Carregando fotos do Drive...')}</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: t.text, marginBottom: 6 }}>
@@ -235,6 +304,76 @@ export default function DraftCatalogPage() {
               </button>
               <button onClick={sendWhatsApp} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, borderRadius: 6, cursor: 'pointer' }}>💬 WhatsApp</button>
               <button onClick={downloadImage} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, borderRadius: 6, cursor: 'pointer' }}>⬇️ Baixar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: configuração do catálogo público */}
+      {configOpen && (
+        <div onClick={() => !configSaving && setConfigOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: t.bg, borderRadius: 12, width: 480, maxWidth: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>⚙️ Configurar catálogo público</div>
+              <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+                Escolha o que o cliente vê no link público. Fica salvo como padrão — não precisa mexer em código.
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+              {configLoading ? (
+                <div style={{ padding: '24px 0' }}>
+                  <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, marginBottom: 10 }}>
+                    {progress?.total ? `Buscando marcas no Drive... ${Math.round(progress.done / progress.total * 100)}% (${progress.done}/${progress.total})` : 'Buscando marcas no Drive...'}
+                  </div>
+                  <div style={{ width: '100%', height: 6, background: t.bgTertiary, borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 4, background: t.primary || '#E8192C', transition: 'width 0.2s',
+                      width: progress?.total ? `${Math.round(progress.done / progress.total * 100)}%` : '8%',
+                    }} />
+                  </div>
+                </div>
+              ) : configError ? (
+                <div style={{ textAlign: 'center', color: '#DC2626', fontSize: 13, padding: '20px 0' }}>{configError}</div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', borderBottom: `1px solid ${t.border}`, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+                      {brands.length - hiddenBrands.length} de {brands.length} marcas visíveis
+                    </span>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button onClick={() => setHiddenBrands([])} style={{
+                        background: 'none', border: 'none', color: t.primary || '#E8192C', fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', textDecoration: 'underline',
+                      }}>Selecionar todas</button>
+                      <button onClick={() => setHiddenBrands([...brands])} style={{
+                        background: 'none', border: 'none', color: t.textMuted, fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', textDecoration: 'underline',
+                      }}>Desmarcar todas</button>
+                    </div>
+                  </div>
+                  {brands.map(b => {
+                    const checked = !hiddenBrands.includes(b)
+                    return (
+                      <label key={b} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: t.text, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleBrandVisible(b)} />
+                        {b}
+                      </label>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 20px', borderTop: `1px solid ${t.border}`, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setConfigOpen(false)} disabled={configSaving} style={{
+                background: t.bgTertiary, color: t.textMuted, border: `1px solid ${t.border}`, borderRadius: 8,
+                padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: configSaving ? 'default' : 'pointer',
+              }}>Cancelar</button>
+              <button onClick={saveConfig} disabled={configLoading || configSaving} style={{
+                background: t.primary || '#E8192C', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: (configLoading || configSaving) ? 'default' : 'pointer',
+              }}>{configSaving ? 'Salvando...' : 'Salvar padrão'}</button>
             </div>
           </div>
         </div>

@@ -356,31 +356,45 @@ export default function CobrancasPage() {
               </select>
             </div>
 
-            {/* Filtros inteligentes em 3 grupos */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {/* Grupo 1: STATUS */}
-              <div style={{ fontSize: 9, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>STATUS</div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {(() => {
-                  const hoje = new Date()
-                  hoje.setHours(0, 0, 0, 0)
-                  const fimSemana = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
-                  return [
-                    { id: 'todos', label: 'Todos', getCount: () => cobrancas.length, group: 'status' },
-                    { id: 'pago', label: 'Pago', getCount: () => cobrancas.filter(c => c.valorAberto === 0 && c.valorPago > 0).length, group: 'status' },
-                    { id: 'pendente', label: 'Pendente', getCount: () => cobrancas.filter(c => c.valorPago === 0).length, group: 'status' },
-                    { id: 'parcial', label: 'Parcialmente Pago', getCount: () => cobrancas.filter(c => c.valorAberto > 0 && c.valorPago > 0).length, group: 'status' },
-                  ]
-                })().map(f => (
+            {/* Filtros inteligentes — 3 grupos numa única linha, separados por divisor fino */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {(() => {
+                const hoje = new Date()
+                hoje.setHours(0, 0, 0, 0)
+                const fimSemana = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
+                const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
+                return [
+                  { id: 'todos', label: 'Todos', getCount: () => cobrancas.length },
+                  { id: 'pago', label: 'Pago', getCount: () => cobrancas.filter(c => c.valorAberto === 0 && c.valorPago > 0).length },
+                  { id: 'pendente', label: 'Pendente', getCount: () => cobrancas.filter(c => c.valorPago === 0).length },
+                  { id: 'parcial', label: 'Parc. Pago', getCount: () => cobrancas.filter(c => c.valorAberto > 0 && c.valorPago > 0).length },
+                  { divider: true },
+                  { id: 'critico', label: '🔴 Crítico (15+)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso > 15).length },
+                  { id: '6-15', label: '🟠 Urgente (6-15)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 6 && c.diasAtraso <= 15).length },
+                  { id: '1-5', label: '🟡 Atenção (1-5)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 1 && c.diasAtraso <= 5).length },
+                  { id: 'avencer', label: '🔵 A Vencer', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso === 0 && c.vencimento && new Date(c.vencimento) <= fimSemana).length },
+                  { divider: true },
+                  { id: 'risco', label: '💥 Risco Alto', getCount: () => cobrancas.filter(c => !pagoFilter(c) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0))).length },
+                  { id: 'hoje', label: 'Hoje', getCount: () => cobrancas.filter(c => {
+                    if (!c.vencimento) return false
+                    const vencDate = new Date(c.vencimento)
+                    vencDate.setHours(0, 0, 0, 0)
+                    return vencDate.getTime() === hoje.getTime()
+                  }).length },
+                ]
+              })().map((f, i) => f.divider
+                ? <div key={`div-${i}`} style={{ width: 1, height: 14, background: t.border, flexShrink: 0 }} />
+                : (
                   <button
                     key={f.id}
                     onClick={() => setFilter(f.id)}
                     style={{
-                      fontSize: 10,
-                      padding: '4px 10px',
-                      borderRadius: 6,
+                      fontSize: 9,
+                      padding: '3px 8px',
+                      borderRadius: 5,
                       border: 'none',
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
                       background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
                       color: filter === f.id ? '#fff' : t.textMid,
                       fontWeight: filter === f.id ? 600 : 500,
@@ -390,79 +404,6 @@ export default function CobrancasPage() {
                     {f.label} ({f.getCount()})
                   </button>
                 ))}
-              </div>
-
-              {/* Grupo 2: URGÊNCIA (exclui pagos) */}
-              <div style={{ fontSize: 9, color: t.textMuted, fontWeight: 600, marginTop: 2, marginBottom: 2 }}>URGÊNCIA</div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {(() => {
-                  const hoje = new Date()
-                  hoje.setHours(0, 0, 0, 0)
-                  const fimSemana = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
-                  const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
-                  return [
-                    { id: 'critico', label: '🔴 Crítico (15+)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso > 15).length, group: 'urgencia' },
-                    { id: '6-15', label: '🟠 Urgente (6-15)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 6 && c.diasAtraso <= 15).length, group: 'urgencia' },
-                    { id: '1-5', label: '🟡 Atenção (1-5)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 1 && c.diasAtraso <= 5).length, group: 'urgencia' },
-                    { id: 'avencer', label: '🔵 A Vencer', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso === 0 && c.vencimento && new Date(c.vencimento) <= fimSemana).length, group: 'urgencia' },
-                  ]
-                })().map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFilter(f.id)}
-                    style={{
-                      fontSize: 10,
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
-                      color: filter === f.id ? '#fff' : t.textMid,
-                      fontWeight: filter === f.id ? 600 : 500,
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    {f.label} ({f.getCount()})
-                  </button>
-                ))}
-              </div>
-
-              {/* Grupo 3: ESPECIAIS */}
-              <div style={{ fontSize: 9, color: t.textMuted, fontWeight: 600, marginTop: 2, marginBottom: 2 }}>ESPECIAIS</div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {(() => {
-                  const hoje = new Date()
-                  hoje.setHours(0, 0, 0, 0)
-                  const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
-                  return [
-                    { id: 'risco', label: '💥 Risco Alto', getCount: () => cobrancas.filter(c => !pagoFilter(c) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0))).length, group: 'especial' },
-                    { id: 'hoje', label: 'Hoje', getCount: () => cobrancas.filter(c => {
-                      if (!c.vencimento) return false
-                      const vencDate = new Date(c.vencimento)
-                      vencDate.setHours(0, 0, 0, 0)
-                      return vencDate.getTime() === hoje.getTime()
-                    }).length, group: 'especial' },
-                  ]
-                })().map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFilter(f.id)}
-                    style={{
-                      fontSize: 10,
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
-                      color: filter === f.id ? '#fff' : t.textMid,
-                      fontWeight: filter === f.id ? 600 : 500,
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    {f.label} ({f.getCount()})
-                  </button>
-                ))}
-              </div>
             </div>
           </>
         )}
@@ -518,43 +459,44 @@ export default function CobrancasPage() {
                   <div style={{
                     background: colors.bg,
                     color: colors.text,
-                    padding: '6px 10px',
+                    padding: '5px 8px',
                     borderRadius: 6,
                     fontSize: 10,
                     fontWeight: 600,
-                    minWidth: 80,
+                    minWidth: 64,
                     textAlign: 'center',
                     whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}>
                     {colors.icon} {colors.label}
                   </div>
 
                   {/* Info cliente */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text, marginBottom: 3 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cobranca.nome}
                     </div>
-                    <div style={{ fontSize: 11, color: t.textMuted }}>
+                    <div style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {cobranca.telefone} • Venc: {cobranca.vencimento}
                     </div>
                   </div>
 
                   {/* Tentativas */}
-                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 50 }}>
+                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 40, flexShrink: 0 }}>
                     <div style={{ fontWeight: 700, color: t.text }}>{cobranca.quantidadeCobrancas}</div>
                     <div style={{ fontSize: 9, color: t.textMuted }}>tentativas</div>
                   </div>
 
                   {/* Dias em atraso */}
                   {cobranca.diasAtraso > 0 && (
-                    <div style={{ textAlign: 'center', fontSize: 11 }}>
+                    <div style={{ textAlign: 'center', fontSize: 11, minWidth: 34, flexShrink: 0 }}>
                       <div style={{ fontWeight: 700, color: '#DC2626' }}>{cobranca.diasAtraso}d</div>
                       <div style={{ fontSize: 9, color: t.textMuted }}>atraso</div>
                     </div>
                   )}
 
                   {/* Valores */}
-                  <div style={{ textAlign: 'right', fontSize: 11, minWidth: 100 }}>
+                  <div style={{ textAlign: 'right', fontSize: 11, minWidth: 84, flexShrink: 0 }}>
                     <div style={{ fontWeight: 600, color: t.text }}>
                       {formatCurrency(cobranca.valorAberto)}
                     </div>
@@ -563,21 +505,14 @@ export default function CobrancasPage() {
                     </div>
                   </div>
 
-                  {/* Barra de progresso com % */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 140 }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                      <div style={{ width: '100%', height: 8, background: t.bgTertiary, borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${percentualPago}%`,
-                          background: percentualPago >= 70 ? '#10B981' : percentualPago >= 30 ? '#F59E0B' : '#DC2626',
-                          transition: 'width 0.3s, background 0.3s',
-                        }} />
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: percentualPago >= 70 ? '#10B981' : percentualPago >= 30 ? '#F59E0B' : '#DC2626', minWidth: 28, textAlign: 'right' }}>
-                      {percentualPago}%
-                    </div>
+                  {/* % pago — chip, sem barra visual (economiza espaço horizontal pro nome) */}
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, minWidth: 40, textAlign: 'center', flexShrink: 0,
+                    color: percentualPago >= 70 ? '#10B981' : percentualPago >= 30 ? '#F59E0B' : '#DC2626',
+                    background: percentualPago >= 70 ? '#ECFDF5' : percentualPago >= 30 ? '#FFFBEB' : '#FEF2F2',
+                    borderRadius: 6, padding: '3px 6px',
+                  }}>
+                    {percentualPago}%
                   </div>
 
                   {/* Ações */}
