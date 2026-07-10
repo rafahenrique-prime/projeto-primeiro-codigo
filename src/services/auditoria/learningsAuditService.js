@@ -3,7 +3,7 @@
 // regra pra achar candidatos, e IA (DeepSeek R1) só pra julgar conflito real,
 // limitado por rodada e sempre exigindo citação literal como evidência.
 import { getAllLearnings } from './agentLearningsService'
-import { askDeepSeek } from '../deepseek'
+import { askDeepSeek } from '../ia/deepseek'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

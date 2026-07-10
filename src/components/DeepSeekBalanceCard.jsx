@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getDeepSeekBalance } from '../services/deepseekBalanceService'
+import { getDeepSeekBalance } from '../services/ia/deepseekBalanceService'
 
 export default function DeepSeekBalanceCard({ boxed = false }) {
   const [data, setData] = useState(null)
