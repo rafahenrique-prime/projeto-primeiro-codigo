@@ -232,7 +232,14 @@ Todas seguem o padrão já validado nos 8 lotes da 3B: `npm run build` → grep 
 - Nenhum bug pré-existente encontrado.
 - Commit: `d5e9c68`.
 
-### Lotes 4-8 — pendentes
+### Lote 4/8 — knowledgeDB ✅ concluído
+- 1 arquivo movido para `src/services/conhecimento/`; 6 consumidores atualizados (`ChatArea.jsx`, `DealOncaPage.jsx`, `KnowledgePage.jsx`, `ContactsNewPage.jsx` externos; `opsHealthService.js`, `auditoria/knowledgeAuditService.js` internos) — exatamente como previsto.
+- `npm run build` passou de primeira.
+- Testado ao vivo: `KnowledgePage` (32 treinamentos) e nova rodada de "Saúde Geral" via `IntelligenceOpsPage` (66.6%, `opsHealthService` agregando tudo corretamente) — sem erro de console.
+- Nenhum bug pré-existente encontrado.
+- Commit: `4889a31`.
+
+### Lotes 5-8 — pendentes
 
 ---
 
