@@ -63,9 +63,9 @@ PROJETO DO CLAUDECODE/
 │   ├── data/
 │   │   ├── catalog.json        ← catálogo bundled (fallback)
 │   │   └── mockData.js
-│   └── services/    (49)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
+│   └── services/    (47)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
 │       ├── auditoria/    (9)   ├── catalogo/     (6)   ├── chat/  (4)
-│       ├── conhecimento/ (6)   ├── crm/          (5)   ├── foto/  (8)
+│       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (7)
 │       ├── ia/           (3)   ├── plataforma/   (8)
 │
 ├── api/            (15)        ← serverless Vercel (rotas /api/*)
@@ -162,7 +162,7 @@ plataforma/opsHealthService  → (10 services — ver 4.2)
 O grafo continua **DAG** (sem ciclos), confirmado ao final da Fase 3C. Todas as arestas agora apontam para caminhos de domínio finais — nenhuma referência à raiz de `src/services/` restante.
 
 ### 4.4 Services órfãos (0 consumers externos)
-`awsRekognitionService`, `deepseek`, `importBackupService`, `photoMatchingService`, `photoRecognitionService`, `searchKnowledge` — importados apenas por outros services ou não referenciados. Não são necessariamente mortos (podem ser usados só indiretamente ou ser código preparado).
+`importBackupService`, `photoMatchingService`, `photoRecognitionService` — não referenciados por nenhum consumidor, estático ou dinâmico. Auditoria de descomissionamento em 2026-07-10 (ver `docs/AUDITORIA-ORFAOS-SERVICES.md`) confirmou os 5 órfãos originalmente identificados e classificou risco de remoção; `awsRekognitionService` e `searchKnowledge` (risco 0-1, sem valor de referência arquitetural) já foram **removidos**. Os 3 restantes (`importBackupService`, `photoMatchingService`, `photoRecognitionService`) tiveram refino de engenharia real ou representam decisões de arquitetura documentáveis — recomendados para arquivamento, não remoção direta.
 
 ---
 
@@ -175,7 +175,7 @@ Estas regras existem **como cópia** nos dois lados, não como import compartilh
 | **Scoring de cliente** (`calcBuyScore`) | `customerProfileService.js:179` | `_scoring.js:54` | Score do painel pode divergir do que dispara alerta `lead_quente` |
 | **Estágios de funil** (`detectFunnelStage`) | `groq.js:106` | `cron-diagnosis.js:34` (comentário confirma "cópia fiel") | Classificação do diagnóstico ≠ classificação do painel |
 | **Motor de objeções** (`OBJECTION_PATTERNS`) | `groq.js` | `cron-diagnosis.js` | Padrão novo no frontend não entra no relatório diário |
-| **Busca de conhecimento** | `searchKnowledge.js` | `webhook.js` (`buscarKnowledge`+`buscarProdutos`) | Algoritmo de similaridade divergente |
+| **Busca de conhecimento** | ~~`searchKnowledge.js`~~ (removido em 2026-07-10 — nunca teve consumidor no frontend) | `webhook.js` (`buscarKnowledge`+`buscarProdutos`) — **implementação canônica** | Resolvido: só existe uma implementação agora, em `api/webhook.js::searchKnowledge()`. Duplicação eliminada, não mitigada. |
 | **Catálogo fallback** | `src/data/catalog.json`, `photoRecognitionService.js` | `auto-photo.js` (`CATALOG_FALLBACK`) | 3 fontes de verdade do catálogo |
 | **Boilerplate Supabase** | (em cada service) | replicado em **11 das 12** funções `api/` | Mudança de auth toca 11 arquivos |
 
@@ -248,13 +248,15 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 | **`chat/`** | messageHistoryService, interactionsService, photoHistory, gptmaker | 4 |
 | **`catalogo/`** | catalogSyncService, googleDriveCatalog, scraperService, scrapingService, importBackupService, catalog | 6 |
 | **`crm/`** | contactAnalysisService, cobrancasService, stageHistory, followUpService, customerProfileService | 5 |
-| **`conhecimento/`** | searchKnowledge, knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 6 |
-| **`foto/`** | photoFlowService, photoMatchingService, photoCacheService, photoRecognitionService, ocrService, awsRekognitionService, imageExtractor, imageReviewService | 8 |
+| **`conhecimento/`** | knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 5 |
+| **`foto/`** | photoFlowService, photoMatchingService, photoCacheService, photoRecognitionService, ocrService, imageExtractor, imageReviewService | 7 |
 | **`auditoria/`** | agentAuditService, codexAuditService, codexAlertsService, agentLearningsService, learningsAuditService, knowledgeAuditService, whatsappAuditService, instagramAuditService, bagyAuditService | 9 |
 | **`ia/`** | deepseek, deepseekBalanceService, groq | 3 |
 | **`plataforma/`** | supabaseStorage, systemHealthService, diagnosticService, avatarCacheService, tokenLoggingService, gptmakerCreditsService, weeklyInsightService, opsHealthService | 8 |
 
 > **Atualizado 2026-07-10 (pós-Fase-3C):** esta tabela reflete a **estrutura física real e final** — Fases 3A, 3B e 3C concluídas, zero arquivos soltos na raiz de `src/services/`. `photoHistory` foi resolvido para `chat/` (decisão data-driven documentada em `docs/POS-FASE3B-AUDITORIA.md §6`, aprovada e executada no Lote 2/8 da Fase 3C).
+>
+> **Atualizado 2026-07-10 (descomissionamento de órfãos):** `awsRekognitionService` (`foto/`) e `searchKnowledge` (`conhecimento/`) foram **removidos** — auditoria de segurança confirmou zero consumidores em qualquer forma (import estático, dinâmico, `eval`, string, teste, config, CI). Ver `docs/AUDITORIA-ORFAOS-SERVICES.md` para o relatório completo. Total de `src/services/` passa de 49 para 47 arquivos.
 
 ---
 
