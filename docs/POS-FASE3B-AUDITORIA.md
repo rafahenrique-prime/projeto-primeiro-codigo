@@ -188,19 +188,28 @@ Os **8 arquivos que restam na raiz** de `src/services/` são, por eliminação, 
 | `groq` | 7 | Consome `customerProfileService`, `crm/stageHistory`, `ia/deepseek` | Já aponta para 2 domínios organizados — sinal de que está "pronto" para mover |
 | `knowledgeDB` | 6 | Consumido por `auditoria/`, `opsHealthService` | — |
 | `customerProfileService` | 6 | Consumido só por `groq.js` internamente + páginas | — |
-| `photoHistory` | 4 | Consumido por páginas de foto/chat | Nome sugere pertencer a `foto/`, mas não foi incluído no domínio Foto original — precisa decisão |
+| `photoHistory` | 4 | Consumido por `ChatArea.jsx`, `RightPanel.jsx`, `SimuladorClientePage.jsx`, `PhotoHistoryPanel.jsx` | ✅ **Decisão registrada (2026-07-10): domínio `chat/`** — ver detalhe abaixo |
 | `followUpService` | 3 | Consome `gptmaker`, `groq` | — |
 | `opsHealthService` | 1 (externo) / 10 (interno) | Hub — importa 7 de `auditoria/` + `gptmaker` + `knowledgeDB` | Deve ser o **último** a mover — depende de quase tudo já estar estável |
 
 **Ordem sugerida dentro da 3C** (do menor pro maior fan-in/acoplamento, mesmo princípio usado na 3A→3B):
-1. `photoHistory` (4) — mais isolado, mas precisa de decisão de nome de pasta (`foto/` ou pasta nova)
+1. `photoHistory` (4) → **domínio `chat/`** (decisão registrada, ver abaixo) — mais isolado, pronto pra mover
 2. `customerProfileService` (6) e `followUpService` (3) — médio acoplamento
 3. `knowledgeDB` (6) — consumido por `auditoria/`, já testável com a infra existente
 4. `groq` (7) e `catalog` (11) — alto acoplamento, exigem regressão ampla
 5. `gptmaker` (18) — maior fan-in do sistema, mover com o máximo de cautela
 6. `opsHealthService` — só depois de todos os outros 7 estarem estáveis, por ser o hub que os importa todos
 
-**Pendência de nomenclatura:** `photoHistory.js` não tem domínio óbvio já aprovado — pertence semanticamente a `foto/`, mas seu nome e uso (histórico de fotos enviadas ao cliente, não reconhecimento) também tem características de `chat/`/`crm/`. Precisa de decisão explícita antes da execução da 3C.
+### Pendência de nomenclatura — RESOLVIDA (2026-07-10)
+
+Auditoria dedicada de `photoHistory.js` (mapeamento completo de consumidores, entidades manipuladas e serviços chamados) concluiu:
+
+- **Consumidores (4):** `src/components/ChatArea.jsx`, `src/components/RightPanel.jsx`, `src/pages/SimuladorClientePage.jsx`, `src/components/PhotoHistoryPanel.jsx` (este último embutido em `KnowledgePage.jsx`, aba "Histórico de Fotos"). Nenhum consumidor em `src/services/`, nenhum acoplamento com qualquer arquivo do domínio `foto/`.
+- **Entidade manipulada:** só a tabela Supabase `photo_history` (produto, cliente, canal, tipo, sucesso, erro) — não toca `products` nem nada de reconhecimento de imagem.
+- **Serviços chamados:** nenhum — fala direto com a REST API do Supabase.
+- **Conclusão:** o serviço registra **eventos de atendimento relacionados ao envio de fotos durante conversa** (mesma categoria funcional de `chat/interactionsService.js`), não processamento/análise de imagem. O nome é enganoso — sugere domínio Foto, mas o comportamento real é de log de interação de chat.
+
+**Decisão aprovada por Rafael em 2026-07-10:** `photoHistory.js` pertence ao domínio **`chat/`**, não `foto/`. Para a Fase 3C, `photoHistory` deve mover para `src/services/chat/photoHistory.js`, salvo se uma nova auditoria no momento da execução identificar consumidores ou dependências não mapeados aqui.
 
 ---
 
