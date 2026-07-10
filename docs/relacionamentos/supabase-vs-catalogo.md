@@ -42,7 +42,7 @@ Além disso, existe um **catálogo visual** separado:
 - **Não é atualizado automaticamente** — precisa de atualização manual no arquivo
 - **Risco:** Pode estar desatualizado em relação ao Supabase
 
-**Status atual:** Confirmado órfão em 2026-07-10 — nenhum código ativo consome `catalog.json`. O único candidato histórico (`photoRecognitionService.js`) nunca teve consumidor desde sua criação (2026-06-19) e está arquivado em `src/services/_archive/` (ver `docs/AUDITORIA-ORFAOS-SERVICES.md`).
+**Status atual:** Confirmado órfão em 2026-07-10 — nenhum código ativo consome `catalog.json`, e nenhum consumidor real foi identificado desde a criação do arquivo. `photoRecognitionService.js` era apontado nesta documentação como seu consumidor, mas verificação direta do código-fonte (auditoria de 2026-07-10, ver `docs/AUDITORIA-ORFAOS-SERVICES.md`) confirmou que ele **nunca importou ou leu `catalog.json` em nenhum momento** — a associação era uma hipótese registrada em documentação desatualizada, não um fluxo que existiu de fato. `photoRecognitionService.js` está arquivado em `src/services/_archive/` por outros motivos (arquitetura multi-provider nunca implementada), sem relação real com este arquivo.
 
 ---
 
