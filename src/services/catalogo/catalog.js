@@ -1,4 +1,4 @@
-import * as gptmaker from '../gptmaker'
+import * as gptmaker from '../chat/gptmaker'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

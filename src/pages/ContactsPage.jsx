@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { listContacts } from '../services/gptmaker'
+import { listContacts } from '../services/chat/gptmaker'
 import { useTheme } from '../theme.jsx'
 import { getAllProfiles } from '../services/crm/customerProfileService'
 

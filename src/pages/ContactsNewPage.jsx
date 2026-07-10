@@ -2,7 +2,7 @@
 // Isolado do módulo Contatos atual (ContactsPage.jsx) — não altera rotas, tabelas ou dados existentes.
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
-import { listContacts, getChatMessages } from '../services/gptmaker'
+import { listContacts, getChatMessages } from '../services/chat/gptmaker'
 import { getAllProfiles, getProfile } from '../services/crm/customerProfileService'
 import { getAnalysis, analyzeConversation } from '../services/crm/contactAnalysisService'
 import { saveEntry } from '../services/conhecimento/knowledgeDB'

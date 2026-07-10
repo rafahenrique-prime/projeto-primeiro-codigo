@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../theme.jsx'
-import { listAgents, listChannels, updateAgent, activateAgent, deactivateAgent, testAgentConversation, testChatId, deleteChat } from '../services/gptmaker'
+import { listAgents, listChannels, updateAgent, activateAgent, deactivateAgent, testAgentConversation, testChatId, deleteChat } from '../services/chat/gptmaker'
 import { clearAvatarCache } from '../services/plataforma/avatarCacheService'
 
 const ROTEIRO_TEMPLATE = `## ROTEIRO DE VENDA (siga as etapas em ordem, sem pular)

@@ -6,7 +6,7 @@
  * gravar a reserva, a outra recebe conflito e desiste — sem janela de corrida.
  */
 
-import { sendMessage } from '../gptmaker'
+import { sendMessage } from '../chat/gptmaker'
 import { groqRequest } from '../ia/groq'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listChannels } from '../services/gptmaker'
+import { listChannels } from '../services/chat/gptmaker'
 
 const typeConfig = {
   whatsapp:  { icon: '💬', label: 'WhatsApp', color: '#0EC331', bg: '#EFFDF4', border: '#B9F8CF' },

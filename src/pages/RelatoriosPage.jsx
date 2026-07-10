@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getDashboardData, checkUserTokenStatus, updateUserToken } from '../services/gptmaker'
+import { getDashboardData, checkUserTokenStatus, updateUserToken } from '../services/chat/gptmaker'
 import { getConversionStats } from '../services/chat/interactionsService'
 
 const GREEN = '#0EC331'

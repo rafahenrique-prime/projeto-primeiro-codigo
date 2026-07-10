@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getChatMessages, sendMessage, assumeChat, releaseChat } from '../services/gptmaker'
+import { getChatMessages, sendMessage, assumeChat, releaseChat } from '../services/chat/gptmaker'
 import { getRespostaRecomendada } from '../services/ia/groq'
 import { searchProduct, isValidImageUrl } from '../services/catalogo/catalog'
 import { addPhotoToHistory } from '../services/chat/photoHistory'

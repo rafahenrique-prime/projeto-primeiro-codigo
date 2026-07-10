@@ -1,5 +1,5 @@
 // Inteligência Operacional → Sistema: checagens técnicas reais (sem IA).
-import { checkUserTokenStatus } from '../gptmaker'
+import { checkUserTokenStatus } from '../chat/gptmaker'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY

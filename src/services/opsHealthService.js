@@ -11,7 +11,7 @@ import * as instagramAuditService from './auditoria/instagramAuditService'
 import { getQualitySummary } from './auditoria/agentAuditService'
 import { getAllEntries } from './conhecimento/knowledgeDB'
 import { getAllLearnings } from './auditoria/agentLearningsService'
-import { listChats } from './gptmaker'
+import { listChats } from './chat/gptmaker'
 
 function pct(value) {
   if (value == null || Number.isNaN(value)) return null

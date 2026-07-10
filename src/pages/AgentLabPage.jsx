@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../theme.jsx'
-import { listAgents, listTrainings, getAgent } from '../services/gptmaker'
+import { listAgents, listTrainings, getAgent } from '../services/chat/gptmaker'
 import { askAgentSim, generateStressQuestion, auditConversation } from '../services/ia/groq'
 
 const STRESS_SCENARIOS = [

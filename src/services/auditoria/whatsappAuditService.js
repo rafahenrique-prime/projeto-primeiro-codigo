@@ -2,7 +2,7 @@
 // 100% regra — são checagens estruturais (tempo, duplicidade, nome vazio), não precisam
 // de interpretação semântica. IA (DeepSeek R1) fica reservada pra quando surgir uma
 // necessidade real de julgamento (ex: "esse cliente parece insatisfeito?").
-import { listChats } from '../gptmaker'
+import { listChats } from '../chat/gptmaker'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
