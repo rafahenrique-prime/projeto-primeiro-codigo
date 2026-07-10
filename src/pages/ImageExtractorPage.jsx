@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../theme'
-import { extractAndUpdateAllImages } from '../services/imageExtractor'
+import { extractAndUpdateAllImages } from '../services/foto/imageExtractor'
 import { syncCatalogFromSupabase } from '../services/catalog'
 
 export default function ImageExtractorPage() {

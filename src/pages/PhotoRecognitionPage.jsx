@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useTheme } from '../theme.jsx'
-import { processPhotoFlow, getMetrics, resetMetrics } from '../services/photoFlowService'
-import { getCacheStats } from '../services/photoCacheService'
+import { processPhotoFlow, getMetrics, resetMetrics } from '../services/foto/photoFlowService'
+import { getCacheStats } from '../services/foto/photoCacheService'
 
 export default function PhotoRecognitionPage() {
   const { theme: t } = useTheme()
