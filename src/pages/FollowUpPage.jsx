@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog, clearFollowUpState, getScheduleAsync, saveScheduleAsync, isWithinSchedule, getResponseRate, getStagesAsync, saveStagesAsync, DEFAULT_FIXED_TEXT, DEFAULT_SCHEDULE, DEFAULT_STAGES } from '../services/followUpService'
+import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog, clearFollowUpState, getScheduleAsync, saveScheduleAsync, isWithinSchedule, getResponseRate, getStagesAsync, saveStagesAsync, DEFAULT_FIXED_TEXT, DEFAULT_SCHEDULE, DEFAULT_STAGES } from '../services/crm/followUpService'
 import { sendMessage } from '../services/gptmaker'
 
 export default function FollowUpPage({ conversations = [] }) {
