@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/scraperService'
-import { regenerateKnowledgeUnico } from '../services/knowledgeGenerator'
+import { regenerateKnowledgeUnico } from '../services/conhecimento/knowledgeGenerator'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
 
 export default function CatalogPage({ onNavigate }) {

@@ -1,4 +1,4 @@
-import { getAllProducts } from './catalog'
+import { getAllProducts } from '../catalog'
 
 // ─── Catálogo local ───
 
