@@ -152,7 +152,15 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 
 **Achado (não é bug, é limitação de ambiente — registrado para contexto):** o card de créditos GPT Maker no Dashboard mostra "Failed to fetch" ao chamar `https://ignite-webhook.vercel.app/api/gptmaker-credits`. Confirmado que `gptmakerCreditsService.js` teve **zero alteração de conteúdo** nesta movimentação (puro rename). A causa é o sandbox de teste não ter egress de rede real para domínios externos — mesma categoria da limitação já documentada na seção 3 do `FASE3-PLANO-EXECUCAO.md`, agora estendida: não é só `/api/*` local que falha em `npm run dev`, chamadas a domínios externos a partir do navegador de teste também podem falhar por rede restrita do sandbox.
 
-### Lotes 4-8 — pendentes
+### Lote 4/8 — Chat ✅ concluído
+- 2 arquivos movidos para `src/services/chat/`; 3 consumidores atualizados (`ChatArea.jsx`, `DealOncaPage.jsx`, `RelatoriosPage.jsx` — todos previstos no plano original, nenhuma surpresa desta vez).
+- Nenhum import interno a ajustar.
+- `npm run build` passou de primeira (regex de verificação corrigido desde o lote 3 evitou repetir a falha de metodologia).
+- Testado ao vivo: Inbox/ChatArea com conversa real, sem erro. RelatoriosPage renderiza normalmente.
+
+**Achado (limitação de ambiente, não bug):** `RelatoriosPage` mostra "Erro ao carregar relatórios — Token inválido... Renovar token". Isso é o comportamento **documentado e esperado** do `CLAUDE.md` (token GPT Maker expira ~24h) — a página tratou o erro graciosamente (sem crash JS, sem erro de console), o que na verdade confirma que a cadeia de import do `interactionsService` está funcionando corretamente até o ponto da chamada de dados. Não relacionado à Fase 3B.
+
+### Lotes 5-8 — pendentes
 
 ---
 
