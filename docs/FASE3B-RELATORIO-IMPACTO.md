@@ -142,7 +142,15 @@ Cada domínio: mover → atualizar imports → `npm run build` → validar pági
 | **Relação com a Fase 3B** | **Nenhuma.** O diff desta sessão nesse arquivo toca só as 2 linhas de import (`photoFlowService`/`photoCacheService` apontando para `foto/`). A lógica de chamada (incluindo o `await` faltante) é idêntica à versão pré-3B. |
 | **Ação tomada** | Nenhuma correção aplicada — registrado como pendência a ser tratada separadamente, fora do escopo da Fase 3B. |
 
-### Lote 3/8 — Plataforma 🔄 em andamento
+### Lote 3/8 — Plataforma ✅ concluído
+- 7 arquivos movidos para `src/services/plataforma/`; 9 consumidores atualizados (2 não previstos no plano original: `App.jsx` e `opsHealthService.js`, ambos encontrados só na verificação pós-build, não na varredura inicial de `pages/`/`components/`).
+- Ajuste de metodologia: o regex de verificação usado nos lotes 1-2 (`(\.\./)*`) não cobria imports `./nome` de mesma pasta — corrigido para `(\.\.?/)*` a partir deste lote. Recomendado reconferir lotes 1-2 com o regex corrigido antes do checkpoint final (ver seção 6).
+- Ajuste de import interno: `systemHealthService.js` (`./gptmaker` → `../gptmaker`).
+- `npm run build` falhou 2x antes de passar (import de `App.jsx` não coberto na 1ª rodada; import `./systemHealthService` dentro de `opsHealthService.js` não coberto na 2ª). Corrigido e revalidado — build limpo na 3ª tentativa.
+- Testado ao vivo: Dashboard (cards Storage/Database/DeepSeek Lite/Saldo DeepSeek OK), AgentsPage (botão avatares em cache), DealOncaPage/CODEX (Plano do Dia, Diagnóstico do Dia) — sem erro de render.
+- Commit: `6029117`.
+
+**Achado (não é bug, é limitação de ambiente — registrado para contexto):** o card de créditos GPT Maker no Dashboard mostra "Failed to fetch" ao chamar `https://ignite-webhook.vercel.app/api/gptmaker-credits`. Confirmado que `gptmakerCreditsService.js` teve **zero alteração de conteúdo** nesta movimentação (puro rename). A causa é o sandbox de teste não ter egress de rede real para domínios externos — mesma categoria da limitação já documentada na seção 3 do `FASE3-PLANO-EXECUCAO.md`, agora estendida: não é só `/api/*` local que falha em `npm run dev`, chamadas a domínios externos a partir do navegador de teste também podem falhar por rede restrita do sandbox.
 
 ### Lotes 4-8 — pendentes
 
