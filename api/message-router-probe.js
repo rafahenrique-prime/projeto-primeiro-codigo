@@ -36,6 +36,44 @@ const CONTENT_KEY_PATTERN = /message|text|content|pergunta|prompt|texto|caption/
 // temporário.
 const ID_KEY_SUFFIX_PATTERN = /id$/i
 
+// Campos de mídia — NUNCA passam pelo truncamento genérico de string, que
+// preservaria os primeiros 80 caracteres da URL (hostname + início do path,
+// confirmado por auditoria real contra um evento de imagem capturado na
+// Fase 2C.0). Só metadado estrutural é registrado: presença, contagem, tipo
+// de cada item, e nomes de chave (nunca valores) quando o item for objeto.
+const MEDIA_FIELD_NAMES = new Set(['images', 'audios', 'documents'])
+const MAX_OBJECT_KEYS = 10
+const MAX_KEY_NAME_LENGTH = 60
+
+function summarizeMediaItem(item) {
+  if (item === null || item === undefined) return 'null'
+  if (typeof item === 'string') return 'string'
+  if (Array.isArray(item)) return { type: 'array', length: item.length }
+  if (typeof item === 'object') {
+    const allKeys = Object.keys(item)
+    const shownKeys = allKeys.slice(0, MAX_OBJECT_KEYS).map(k => String(k).slice(0, MAX_KEY_NAME_LENGTH))
+    const summary = { type: 'object', key_count: allKeys.length, keys: shownKeys }
+    if (allKeys.length > MAX_OBJECT_KEYS) {
+      summary.keys_omitted = allKeys.length - MAX_OBJECT_KEYS
+    }
+    return summary // nunca lê/registra value nenhum de item[key] — só os nomes
+  }
+  return typeof item
+}
+
+function summarizeMediaField(value) {
+  if (value === null || value === undefined) return { present: false }
+  if (!Array.isArray(value)) {
+    return { present: true, unexpected_shape: typeof value }
+  }
+  const items = value.slice(0, MAX_ARRAY_ITEMS)
+  const summary = { present: true, count: value.length, item_types: items.map(summarizeMediaItem) }
+  if (value.length > MAX_ARRAY_ITEMS) {
+    summary.items_omitted_from_summary = value.length - MAX_ARRAY_ITEMS
+  }
+  return summary
+}
+
 function classifyKey(rawKey) {
   const k = String(rawKey).toLowerCase()
   if (SECRET_KEY_PATTERN.test(k)) return 'secret'
@@ -111,7 +149,9 @@ function sanitizeBody(body) {
   }
   const out = {}
   for (const k of Object.keys(body)) {
-    out[k] = sanitizeValue(k, body[k], 1)
+    out[k] = MEDIA_FIELD_NAMES.has(k.toLowerCase())
+      ? summarizeMediaField(body[k])
+      : sanitizeValue(k, body[k], 1)
   }
   return out
 }
