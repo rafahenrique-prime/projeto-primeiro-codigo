@@ -4,6 +4,13 @@
 
 import { upsertIdentity } from './_profileIdentity.js'
 
+// Remove um único `$` residual no início do valor (artefato de substituição de
+// variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
+function removerDollarInicial(valor) {
+  if (typeof valor !== 'string') return valor
+  return valor.startsWith('$') ? valor.slice(1) : valor
+}
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 
@@ -368,8 +375,8 @@ export default async function handler(req, res) {
 
     console.log(`[Webhook] 🔍 Pergunta extraída: "${pergunta}"`)
 
-    const cliente_id = req.body?.cliente_id || 'desconhecido'
-    const telefone = req.body?.telefone || null
+    const cliente_id = removerDollarInicial(req.body?.cliente_id) || 'desconhecido'
+    const telefone = removerDollarInicial(req.body?.telefone) || null
     const canal = req.body?.canal || null
     const tipo_busca = req.body?.tipo_busca || 'auto'
 
