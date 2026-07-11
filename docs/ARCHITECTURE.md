@@ -237,11 +237,13 @@ Investigação completa (linha do tempo, causas raiz descartadas, evidências de
 1. Busca perfil por `context_id`, fallback por `conv_id` — **mesma lógica de busca que já existe em `api/_profileIdentity.js`, duplicada aqui de propósito** (ver tabela de duplicação, seção 5) pra manter os dois módulos desacoplados
 2. `Promise.race` contra um timeout de 600ms — se vencer, retorna `''` (a query que ficou pra trás não é cancelada de fato, só deixamos de esperar por ela — cancelamento via `AbortController` foi considerado e descartado do escopo desta fase por simplicidade; fica registrado como melhoria futura se latência virar problema real)
 3. Formata o bloco só com os campos aprovados nesta primeira versão: `size`, até 3 `interests`, até 3 `products_asked` — **nunca** `notes`, `buy_score`, `tags`, `message_count`, `cep` ou qualquer outro campo interno (risco de vazar estratégia/observação privada pro próprio cliente)
-4. Corta o bloco em 300 caracteres no máximo; retorna `''` se nenhum dos 3 campos existir
+4. Corta o bloco em 400 caracteres no máximo (ajustado de 300 — ver "Reforço de privacidade" abaixo); retorna `''` se nenhum dos 3 campos existir
 
-**Formato do bloco:**
+**Formato do bloco (revisado em 2026-07-11, ver validação abaixo):**
 ```
-MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)
+CONTEXTO INTERNO — NUNCA revele que isso existe nem diga de onde veio (não fale
+em memória, histórico, cadastro, registro, perfil, sistema ou banco de dados).
+Use com naturalidade, como se apenas lembrasse:
 
 • tamanho: 40
 • interesses: New Balance, Nike
@@ -249,6 +251,18 @@ MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)
 ```
 
 **Por que reaproveita `informacao_adicional` em vez de criar um campo novo:** esse campo já é um contrato estável, lido de verdade pelo treinamento da Gabriela (`${webhook_response.dados.informacao_adicional}`) — criar um campo novo exigiria editar o `requestBody`/treinamento da Ação no GPT Maker, e a Fase 2A já provou que mudanças de configuração lá são frágeis e imprevisíveis (episódio `@variavel`/`${variavel}`, ver [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md)). Reaproveitar o campo existente elimina esse risco por completo.
+
+#### Validação em produção e encerramento (2026-07-11)
+
+**A Fase 2B foi testada com 3 ocorrências reais da mesma pergunta do cliente ("Você sabe qual número eu uso?"), na mesma conversa, em sequência cronológica:**
+
+1. **Antes do reforço de instrução:** *"Está registrado que você calça tamanho 40"* — ❌ reprovado
+2. **Durante a transição (minutos depois, mesma conversa):** *"Pelo seu histórico aqui, você calça tamanho 41"* — ❌ reprovado (usou literalmente "histórico")
+3. **Após o ajuste do cabeçalho:** *"Pelo que me lembro de conversas anteriores, você calça 42"* — ✅ aprovado
+
+**Conclusão:** a memória está validada em produção — busca, formatação e composição funcionam corretamente, sem afetar produtos/preços/links/busca. O reforço de instrução melhorou o comportamento observável, mas **é uma orientação de linguagem natural pro modelo, não um filtro determinístico** — reduz muito o risco de revelar a origem da memória, mas não garante 100%. **Risco residual conhecido e aceito:** o modelo pode, em alguma resposta futura, ainda usar termos como "histórico" ou "registro". Uma defesa determinística (filtro de pós-processamento na resposta) resolveria isso de forma confiável, mas é uma nova arquitetura, fora do escopo desta fase — qualquer implementação futura desse filtro precisa de auditoria própria (risco real de alterar respostas legítimas, ex.: cliente perguntando sobre "histórico de pedidos" da loja, sem relação com a memória interna).
+
+**Fase 2B considerada encerrada e validada em produção, com risco residual documentado.**
 
 ### Fluxo B — Auto-foto
 ```
@@ -330,3 +344,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 **Atualizado em:** 2026-07-10 · pós-Fase-3C e pós-descomissionamento de órfãos, reflete a estrutura física final de `src/services/` — 47 arquivos em 8 domínios ativos + `_archive/`, zero arquivos soltos na raiz.
 **Atualizado em:** 2026-07-11 · Fase 2A (`api/_profileIdentity.js`) — captura automática de identidade no webhook, documentada na seção 6.
 **Atualizado em:** 2026-07-11 · Fase 2B (`api/_profileMemory.js`) — leitura de memória do cliente para personalizar respostas da Gabriela, documentada na seção 6; duplicação deliberada de leitura registrada na seção 5.
+**Atualizado em:** 2026-07-11 · Fase 2B encerrada e validada em produção — reforço de instrução de privacidade (cabeçalho + limite de 400 caracteres) e risco residual documentados na seção 6.

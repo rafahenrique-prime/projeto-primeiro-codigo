@@ -173,9 +173,34 @@ Estas tabelas são lidas/escritas por `api/` e `src/services/` mas **não têm a
 
 **Campos permitidos nesta primeira versão:** `size`, até 3 `interests` (mais recentes), até 3 `products_asked` (mais recentes). **Fora do escopo, propositalmente:** `notes`, `buy_score`, `tags`, `message_count`, `cep`, histórico completo — risco de vazar observação interna/estratégia comercial pro próprio cliente. Qualquer inclusão futura desses campos exige nova aprovação explícita.
 
-**Limite de tamanho:** bloco de memória cortado em 300 caracteres; base de conhecimento (500 caracteres) permanece intacta, sem disputa de espaço — são segmentos independentes dentro do mesmo campo de texto.
+**Limite de tamanho:** bloco de memória cortado em 400 caracteres (ajustado de 300 — ver "Reforço de privacidade" abaixo); base de conhecimento (500 caracteres) permanece intacta, sem disputa de espaço — são segmentos independentes dentro do mesmo campo de texto.
 
 **A memória aqui é só contexto de personalização** — nunca influencia `buscarProdutos()`/`searchKnowledge()`, nunca altera preço, nunca filtra catálogo, nunca muda regra comercial. `api/_profileMemory.js` tem responsabilidade única de leitura; nunca escreve no banco.
+
+#### Reforço de privacidade na instrução (2026-07-11)
+
+O cabeçalho original do bloco (`"MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)"`) permitiu, num teste real em produção, que a Gabriela respondesse **"Está registrado que você calça tamanho 40"** — revelando a existência de um registro, mesmo sem citar "memória" ou "banco de dados" literalmente. O cabeçalho foi reescrito pra ser mais explícito sobre o que nunca pode ser dito, e o limite do bloco subiu de 300 para 400 caracteres pra acomodar a instrução mais longa sem cortar os dados do cliente. Ver `api/_profileMemory.js` para o texto exato e os exemplos de uso correto/proibido documentados no código.
+
+#### Validação em produção e encerramento da Fase 2B (2026-07-11)
+
+**A Fase 2B foi validada em produção e está oficialmente encerrada**, com um risco residual conhecido e aceito, documentado abaixo.
+
+**Teste real, três ocorrências da mesma pergunta do cliente ("Você sabe qual número eu uso?"), na ordem cronológica em que aconteceram na mesma conversa real:**
+
+| # | Momento | Resposta da Gabriela | Resultado |
+|---|---|---|---|
+| 1 | Antes do reforço de instrução | *"Pelo que vi aqui no seu atendimento, **está registrado** que você calça tamanho 40"* | ❌ Reprovado — revelou "registrado" |
+| 2 | Durante a transição (mesma conversa, minutos depois) | *"Pelo seu **histórico** aqui, você calça tamanho 41"* | ❌ Reprovado — usou literalmente "histórico", uma das palavras proibidas |
+| 3 | Após o ajuste do cabeçalho | *"Pelo que **me lembro de conversas anteriores**, você calça 42, não é isso?"* | ✅ Aprovado |
+
+A ocorrência 3 é considerada o padrão aceitável desta fase: **"pelo que me lembro de conversas anteriores" soa como lembrança natural de quem já conversou antes, e não revela banco de dados, cadastro, perfil ou sistema interno** — é exatamente o tipo de personalização que a Fase 2B pretendia alcançar.
+
+**Conclusões registradas:**
+- A memória foi validada em produção — o bloco é lido, formatado e chega à Gabriela corretamente, sem afetar produtos, preços, links ou a busca (`buscarProdutos()`/`searchKnowledge()` continuam intactos e sem influência da memória).
+- O reforço de instrução (cabeçalho revisado) **melhorou o comportamento observável**, mas **a instrução de prompt é uma orientação de linguagem natural pro modelo, não um filtro determinístico** — reduz significativamente o risco de revelar a origem da memória, mas não garante 100% de conformidade.
+- **Risco residual conhecido e aceito:** existe uma chance real, ainda que reduzida, de o modelo usar termos como "histórico", "registro", "cadastro", "perfil" ou "sistema" em alguma resposta futura, mesmo com a instrução reforçada.
+- **Uma defesa determinística** (ex.: filtro de pós-processamento que reescreve/bloqueia a resposta se ela contiver essas palavras) **resolveria isso de forma mais confiável, mas exige uma nova arquitetura** — não entra no escopo da Fase 2B por decisão explícita, pra não ampliar a superfície da fase já encerrada.
+- **Qualquer implementação futura desse filtro deve passar por auditoria própria**, específica, antes de implementar — um filtro de pós-processamento tem risco real de alterar ou bloquear respostas legítimas da Gabriela (ex.: um cliente perguntando literalmente sobre "histórico de pedidos" da própria loja, sem relação com a memória interna), e merece o mesmo cuidado de design que as fases anteriores tiveram.
 
 **Documentação histórica completa da investigação da Fase 2A** (que criou toda a infraestrutura de identidade reaproveitada aqui): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
 
