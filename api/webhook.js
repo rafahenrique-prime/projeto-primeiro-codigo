@@ -380,6 +380,21 @@ export default async function handler(req, res) {
     const canal = req.body?.canal || null
     const tipo_busca = req.body?.tipo_busca || 'auto'
 
+    // Instrumentação temporária (diagnóstico) — remover depois de confirmar a causa.
+    // Nunca loga headers/token/Authorization, só os 3 campos de identidade.
+    const identidadeVaiAbortar = !cliente_id || cliente_id === 'desconhecido'
+    console.log('[IDENTITY_DEBUG] Identidade recebida:', {
+      pergunta_recebida: req.body?.pergunta ?? null,
+      cliente_id_recebido: req.body?.cliente_id ?? null,
+      telefone_recebido: req.body?.telefone ?? null,
+      cliente_id_pos_limpeza: cliente_id,
+      telefone_pos_limpeza: telefone,
+      upsertIdentity_vai_abortar: identidadeVaiAbortar,
+      motivo_abort: !req.body?.cliente_id
+        ? 'req.body.cliente_id ausente/vazio no payload'
+        : (cliente_id === 'desconhecido' ? 'valor caiu no fallback "desconhecido"' : null),
+    })
+
     // Captura de identidade (Fase 2A) — fire-and-forget, nunca deve atrasar
     // ou travar a resposta da Gabriela. Não implementa memória/prompt ainda.
     upsertIdentity({ contextId: cliente_id, telefone, canal }).catch(() => {})
