@@ -68,8 +68,8 @@ PROJETO DO CLAUDECODE/
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
-├── api/            (15)        ← serverless Vercel (rotas /api/*)
-│   ├── webhook.js              ← busca conhecimento p/ Gabriela
+├── api/            (16)        ← serverless Vercel (rotas /api/*)
+│   ├── webhook.js              ← busca conhecimento p/ Gabriela + captura de identidade
 │   ├── auto-photo.js           ← envio automático de fotos
 │   ├── cron-diagnosis.js       ← DealOnça (cron 2x/dia)
 │   ├── cron-stuck-check.js     ← healthcheck (GitHub Action 5min)
@@ -80,7 +80,7 @@ PROJETO DO CLAUDECODE/
 │   ├── embed-knowledge.js      ← embeddings Cohere
 │   ├── gptmaker-credits.js     ← saldo de créditos
 │   ├── log-history.js          ← log de ações do catálogo
-│   └── _*.js (3)               ← helpers internos (não viram rota)
+│   └── _*.js (4)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A, ver seção 6)
 │
 ├── supabase/migrations/ (8)    ← SQL aplicado manualmente no SQL Editor
 ├── catalogo-publico/           ← projeto Vercel SEPARADO (HTML estático)
@@ -188,15 +188,34 @@ Estas regras existem **como cópia** nos dois lados, não como import compartilh
 ### Fluxo A — Atendimento em tempo real
 ```
 1. Cliente escreve no WhatsApp/Instagram
-2. GPT Maker recebe → chama webhook POST /api/webhook com {prompt, ...}
+2. GPT Maker recebe → chama webhook POST /api/webhook com {pergunta, cliente_id, telefone}
 3. webhook.js:
    a. warm-up Supabase (evita cold start)
-   b. buscarProdutos() — keywords + score de similaridade, top 5, retry 5x se 0
-   c. buscarKnowledge() — entrada 'knowledge_gabriela_supabase_completo'
-   d. formatarRespostaGPT() → {contexto, dados:{produtos, informacao_adicional}}
+   b. removerDollarInicial() — limpa `$` residual que o GPT Maker deixa na substituição
+      de variável (${...}) em cliente_id/telefone (ver Fase 2A, item d)
+   c. buscarProdutos() — keywords + score de similaridade, top 5, retry 5x se 0
+   d. buscarKnowledge() — entrada 'knowledge_gabriela_supabase_completo'
+   e. formatarRespostaGPT() → {contexto, dados:{produtos, informacao_adicional}}
 4. GPT Maker incorpora contexto → Gabriela responde
-5. Paralelamente: se cliente pediu foto → Fluxo B
+5. Paralelamente:
+   - se cliente pediu foto → Fluxo B
+   - upsertIdentity() (fire-and-forget, api/_profileIdentity.js) — captura de
+     identidade, ver detalhe abaixo
 ```
+
+#### `api/_profileIdentity.js` — captura automática de identidade (Fase 2A)
+
+Responsabilidade: manter `customer_profiles` atualizada **sem depender do painel** — antes da Fase 2A, só `ChatArea.jsx`/`DealOncaPage.jsx` (client-side, exigia o app aberto) escreviam nessa tabela; `api/webhook.js` nunca tocava nela.
+
+Chamado por `webhook.js` como `upsertIdentity({ contextId, telefone, canal })`, sempre fire-and-forget (`.catch(() => {})`) — uma falha aqui nunca pode atrasar ou quebrar a resposta da Gabriela. Fluxo interno:
+
+1. Busca perfil por `context_id` (caso comum: cliente que já mandou mensagem antes)
+2. Se não achar, busca por `conv_id = contextId` — **reconciliação com o perfil já criado pelo painel**, possível porque `conv_id` (chave do painel, vem de `listChats()`) e `context_id` (chave do webhook, vem do `${contextId}` do GPT Maker) foram observados coincidindo, tanto em WhatsApp quanto em Instagram
+3. Se não achar por nenhum dos dois, cria linha nova com `conv_id = context_id = contextId` (sem gerar valor sintético — `conv_id` é `NOT NULL`+`UNIQUE` na tabela, então precisa ser preenchido; usar o próprio `contextId` satisfaz isso sem inventar dado)
+
+Nunca sobrescreve campo existente com `null`/vazio. Não implementa memória nem entra no prompt da Gabriela — é só existência/identidade básica (fase futura: Fase 2B).
+
+Investigação completa (linha do tempo, causas raiz descartadas, evidências de produção): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
 
 ### Fluxo B — Auto-foto
 ```
@@ -276,3 +295,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 
 **Gerado em:** 2026-07-08 · apenas com dados do repositório.
 **Atualizado em:** 2026-07-10 · pós-Fase-3C e pós-descomissionamento de órfãos, reflete a estrutura física final de `src/services/` — 47 arquivos em 8 domínios ativos + `_archive/`, zero arquivos soltos na raiz.
+**Atualizado em:** 2026-07-11 · Fase 2A (`api/_profileIdentity.js`) — captura automática de identidade no webhook, documentada na seção 6.

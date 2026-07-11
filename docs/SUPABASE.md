@@ -145,13 +145,24 @@ Estas tabelas são lidas/escritas por `api/` e `src/services/` mas **não têm a
 
 ### 3.3 `customer_profiles.context_id` e `.telefone` — identidade automática por canal (migrations 011, 012)
 
-`context_id` (migration 011, `text`, nullable) e `telefone` (migration 012, `text`, nullable) — sem índice em nenhuma das duas.
+`context_id` (migration 011, `text`, nullable, sem índice) e `telefone` (migration 012, `text`, nullable, sem índice). **Status: implementado, corrigido e validado em produção (Fase 2A, 2026-07-11).**
 
-- **Fase 2A (atual):** `context_id` deixou de ser só preparação de schema — agora tem escrita ativa. `api/webhook.js` extrai `cliente_id`/`telefone`/`canal` de todo request do GPT Maker e chama `upsertIdentity()` ([api/_profileIdentity.js](../api/_profileIdentity.js)), fire-and-forget, criando ou atualizando a linha em `customer_profiles` indexada por `context_id`. `canal` não é enviado pelo GPT Maker hoje (confirmado em auditoria) — fica `null` até isso mudar.
-- **Ainda NÃO implementado nesta fase:** nenhuma leitura desse perfil volta pro prompt da Gabriela. Não existe `buildProfileBlock` no webhook, não há mudança de estratégia de resposta/venda. É só captura e persistência de identidade — a "memória" propriamente dita (uso desse dado pra personalizar resposta) é uma fase futura.
-- **`context_id` é a chave do caminho automático; `conv_id` continua sendo a chave do caminho do painel.** Auditoria prévia (ver histórico do projeto) confirmou por teste real que os dois identificadores não têm relação entre si e que `context_id` varia por canal (WhatsApp usa telefone como parte do valor; Instagram não tem telefone e usa outro formato) — ou seja, hoje existem **duas populações de perfil na mesma tabela**, sem reconciliação automática entre elas.
-- **Não altera nenhum fluxo existente do painel:** `customerProfileService.js`, `ChatArea.jsx`, `DealOncaPage.jsx` continuam operando exclusivamente por `conv_id`, sem nenhuma modificação.
-- **Segurança:** toda chamada de `upsertIdentity()` é envolvida em try/catch com fallback silencioso (só loga erro) — uma falha de gravação nunca impede a resposta da Gabriela.
+**Como funciona hoje:**
+- `api/webhook.js` extrai `cliente_id`/`telefone`/`canal` de todo request do GPT Maker e chama `upsertIdentity()` ([api/_profileIdentity.js](../api/_profileIdentity.js)), fire-and-forget — nunca atrasa nem trava a resposta da Gabriela.
+- **Reconciliação automática `conv_id` ↔ `context_id`:** a função busca primeiro por `context_id`; se não achar, busca por `conv_id = contextId` — isso **une** a linha já criada pelo caminho do painel (`ChatArea.jsx`/`DealOncaPage.jsx`, que só usa `conv_id`) com a identidade capturada automaticamente pelo webhook. Confirmado por teste real: `conv_id` e `context_id` coincidem no mesmo valor tanto em WhatsApp quanto em Instagram — por isso **não existem mais duas populações de perfil separadas** na prática; só se cria linha nova (`conv_id = context_id = contextId`) quando nenhuma das duas buscas encontra nada.
+- **Tratamento do `$` residual:** o GPT Maker, ao substituir a variável de template `${contextId}`/`${whatsappPhone}` no `requestBody` da Ação "Buscar Produtos", deixa um `$` sobrando no início do valor (ex.: `${contextId}` → `"$3F306A8A...-..."`, não `"3F306A8A...-..."`). `api/webhook.js` remove esse caractere com `removerDollarInicial()` (remove só 1 `$` na posição inicial, nunca mexe em `$` no meio da string) antes de gravar.
+- **Nunca sobrescreve campo existente com `null`/vazio** — `telefone`/`channel` só entram no `PATCH` quando o valor recebido é válido (string não-vazia).
+- `canal` não é enviado pelo GPT Maker hoje (confirmado em auditoria) — fica `null` até isso mudar.
+
+**Validado em produção:** teste oficial cronometrado (`"quero ver tênis masculino"`) confirmou `context_id` e `telefone` gravados limpos (sem `$`) numa linha pré-existente do painel (`created_at` de 21/06, `last_seen` atualizado no teste) — prova de reconciliação por `conv_id` funcionando de ponta a ponta.
+
+**Ainda NÃO implementado (fase futura, 2B):** nenhuma leitura desse perfil volta pro prompt da Gabriela ainda. Não existe `buildProfileBlock` no webhook, não há mudança de estratégia de resposta/venda. É só captura e persistência de identidade.
+
+**Não altera nenhum fluxo existente do painel:** `customerProfileService.js`, `ChatArea.jsx`, `DealOncaPage.jsx` continuam operando exclusivamente por `conv_id`, sem nenhuma modificação.
+
+**Segurança:** toda chamada de `upsertIdentity()` é envolvida em try/catch com fallback silencioso (só loga erro) — uma falha de gravação nunca impede a resposta da Gabriela.
+
+**Documentação histórica completa da investigação** (linha do tempo, hipóteses descartadas, logs, causas raiz, evidências de produção): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
 
 ---
 
