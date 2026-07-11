@@ -3,6 +3,7 @@
 // Integrado com GPT Maker
 
 import { upsertIdentity } from './_profileIdentity.js'
+import { getMemoryBlock } from './_profileMemory.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -251,7 +252,10 @@ function validarRequest(body) {
 }
 
 // Formatar resposta para GPT Maker
-function formatarRespostaGPT(dadosBusca) {
+// memoriaBlock (Fase 2B): string opcional vinda de getMemoryBlock() — contexto de
+// personalização apenas. Nunca influencia produtos/preços/regras comerciais aqui,
+// só é inserida como texto dentro de informacao_adicional (ver comentário abaixo).
+function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
   const { produtos, knowledge, totalVariacoes, variacoesRestantes } = dadosBusca.dados || {}
 
   let resposta = {
@@ -298,6 +302,18 @@ function formatarRespostaGPT(dadosBusca) {
   // da base de conhecimento, que é sempre o mesmo texto de produtos independente da pergunta.
   if ((produtos?.length || 0) > 0 && variacoesRestantes > 0) {
     resposta.dados.informacao_adicional += `Total de variações deste produto: ${totalVariacoes} (mostrando ${produtos.length}, restam ${variacoesRestantes} cores não listadas aqui).\n\n`
+  }
+
+  // Memória do cliente (Fase 2B) — inserida entre o total de variações e a base de
+  // conhecimento. Serve só para personalizar tom/abordagem da Gabriela; nunca altera
+  // busca de produtos, preços, regras comerciais, filtro de catálogo, nem interfere
+  // em searchKnowledge(). Reaproveita este mesmo campo (informacao_adicional) porque
+  // já é um contrato estável, lido de verdade pelo treinamento da Gabriela
+  // (${webhook_response.dados.informacao_adicional}) — evita qualquer mudança de
+  // configuração na Ação do GPT Maker (mesma lição da Fase 2A: mexer em Ação/template
+  // lá é frágil e imprevisível).
+  if (memoriaBlock) {
+    resposta.dados.informacao_adicional += `${memoriaBlock}\n\n`
   }
 
   // Adicionar informação da knowledge base
@@ -386,8 +402,13 @@ export default async function handler(req, res) {
 
     console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
 
-    // Executar busca
-    const resultado = await searchKnowledge(pergunta)
+    // Busca de produtos/conhecimento e busca de memória (Fase 2B) rodam em paralelo —
+    // getMemoryBlock() já encapsula seu próprio timeout/fallback (nunca atrasa nem
+    // trava esta resposta; pior caso, contribui só com '').
+    const [resultado, memoriaBlock] = await Promise.all([
+      searchKnowledge(pergunta),
+      getMemoryBlock(cliente_id),
+    ])
 
     if (!resultado.ok) {
       return res.status(400).json({
@@ -397,7 +418,7 @@ export default async function handler(req, res) {
     }
 
     // Formatar para GPT Maker
-    const respostaGPT = formatarRespostaGPT(resultado)
+    const respostaGPT = formatarRespostaGPT(resultado, memoriaBlock)
 
     console.log(`[Webhook] ✅ Encontrados ${respostaGPT.contexto.produtos_encontrados} produtos`)
 

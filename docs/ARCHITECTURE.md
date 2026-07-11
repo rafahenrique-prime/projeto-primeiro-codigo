@@ -68,8 +68,8 @@ PROJETO DO CLAUDECODE/
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
-├── api/            (16)        ← serverless Vercel (rotas /api/*)
-│   ├── webhook.js              ← busca conhecimento p/ Gabriela + captura de identidade
+├── api/            (17)        ← serverless Vercel (rotas /api/*)
+│   ├── webhook.js              ← busca conhecimento p/ Gabriela + identidade + memória
 │   ├── auto-photo.js           ← envio automático de fotos
 │   ├── cron-diagnosis.js       ← DealOnça (cron 2x/dia)
 │   ├── cron-stuck-check.js     ← healthcheck (GitHub Action 5min)
@@ -80,7 +80,7 @@ PROJETO DO CLAUDECODE/
 │   ├── embed-knowledge.js      ← embeddings Cohere
 │   ├── gptmaker-credits.js     ← saldo de créditos
 │   ├── log-history.js          ← log de ações do catálogo
-│   └── _*.js (4)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A, ver seção 6)
+│   └── _*.js (5)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A) e `_profileMemory.js` (Fase 2B, ver seção 6)
 │
 ├── supabase/migrations/ (8)    ← SQL aplicado manualmente no SQL Editor
 ├── catalogo-publico/           ← projeto Vercel SEPARADO (HTML estático)
@@ -178,6 +178,7 @@ Estas regras existem **como cópia** nos dois lados, não como import compartilh
 | **Busca de conhecimento** | ~~`searchKnowledge.js`~~ (removido em 2026-07-10 — nunca teve consumidor no frontend) | `webhook.js` (`buscarKnowledge`+`buscarProdutos`) — **implementação canônica** | Resolvido: só existe uma implementação agora, em `api/webhook.js::searchKnowledge()`. Duplicação eliminada, não mitigada. |
 | **Catálogo fallback** | `src/data/catalog.json` (sem consumidor ativo; único candidato, `_archive/photoRecognitionService.js`, nunca teve consumidor) | `auto-photo.js` (`CATALOG_FALLBACK`) | 2 fontes de verdade ativas do catálogo |
 | **Boilerplate Supabase** | (em cada service) | replicado em **11 das 12** funções `api/` | Mudança de auth toca 11 arquivos |
+| **Busca de perfil por identidade** (`context_id` → fallback `conv_id`) | — | `api/_profileIdentity.js` (escrita, Fase 2A) **e** `api/_profileMemory.js` (leitura, Fase 2B) — duas cópias dentro do próprio `api/` | Decisão deliberada (Fase 2B): manter os dois módulos desacoplados — identidade/escrita vs. memória/leitura — em vez de um importar o outro. Se a lógica de reconciliação mudar, **as duas cópias precisam ser atualizadas manualmente**; não há import compartilhado avisando a divergência |
 
 > **Recomendação registrada (não executada):** unificar scoring/funil/objections num módulo compartilhado e extrair `api/lib/supabaseClient.js`. Exige análise de impacto prévia.
 
@@ -193,10 +194,12 @@ Estas regras existem **como cópia** nos dois lados, não como import compartilh
    a. warm-up Supabase (evita cold start)
    b. removerDollarInicial() — limpa `$` residual que o GPT Maker deixa na substituição
       de variável (${...}) em cliente_id/telefone (ver Fase 2A, item d)
-   c. buscarProdutos() — keywords + score de similaridade, top 5, retry 5x se 0
-   d. buscarKnowledge() — entrada 'knowledge_gabriela_supabase_completo'
-   e. formatarRespostaGPT() → {contexto, dados:{produtos, informacao_adicional}}
-4. GPT Maker incorpora contexto → Gabriela responde
+   c. em paralelo (Promise.all): buscarProdutos()+buscarKnowledge() E getMemoryBlock()
+      (Fase 2B, api/_profileMemory.js — timeout interno de 600ms, nunca atrasa a resposta)
+   d. formatarRespostaGPT(resultado, memoriaBlock) → {contexto, dados:{produtos,
+      informacao_adicional}} — o bloco de memória entra dentro de informacao_adicional,
+      entre o total de variações e a base de conhecimento
+4. GPT Maker incorpora contexto → Gabriela responde, agora personalizada
 5. Paralelamente:
    - se cliente pediu foto → Fluxo B
    - upsertIdentity() (fire-and-forget, api/_profileIdentity.js) — captura de
@@ -213,9 +216,39 @@ Chamado por `webhook.js` como `upsertIdentity({ contextId, telefone, canal })`, 
 2. Se não achar, busca por `conv_id = contextId` — **reconciliação com o perfil já criado pelo painel**, possível porque `conv_id` (chave do painel, vem de `listChats()`) e `context_id` (chave do webhook, vem do `${contextId}` do GPT Maker) foram observados coincidindo, tanto em WhatsApp quanto em Instagram
 3. Se não achar por nenhum dos dois, cria linha nova com `conv_id = context_id = contextId` (sem gerar valor sintético — `conv_id` é `NOT NULL`+`UNIQUE` na tabela, então precisa ser preenchido; usar o próprio `contextId` satisfaz isso sem inventar dado)
 
-Nunca sobrescreve campo existente com `null`/vazio. Não implementa memória nem entra no prompt da Gabriela — é só existência/identidade básica (fase futura: Fase 2B).
+Nunca sobrescreve campo existente com `null`/vazio. Não implementa memória nem entra no prompt da Gabriela — é só existência/identidade básica (memória: Fase 2B, ver abaixo).
 
 Investigação completa (linha do tempo, causas raiz descartadas, evidências de produção): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
+
+#### `api/_profileMemory.js` — memória de personalização na resposta (Fase 2B)
+
+**Responsabilidade única: leitura.** Busca o perfil do cliente, monta um bloco de memória curto, aplica timeout, trata fallback. **Nunca escreve no banco.** Não conhece `webhook.js` nem a configuração do GPT Maker — recebe só um `contextId` e devolve uma string (ou `''`).
+
+**A memória aqui serve só para personalizar tom/abordagem. Ela nunca:**
+- altera a busca de produtos (`buscarProdutos()`/`searchKnowledge()`)
+- altera preços
+- altera regras comerciais
+- filtra o catálogo
+- interfere em qualquer decisão de `formatarRespostaGPT()` além de acrescentar um parágrafo de texto em `informacao_adicional`
+
+**Assinatura:** `getMemoryBlock(contextId, timeoutMs = 600)` — chamado por `webhook.js` dentro do mesmo `Promise.all()` que já roda `searchKnowledge()`, então não soma latência sequencial.
+
+**Fluxo interno:**
+1. Busca perfil por `context_id`, fallback por `conv_id` — **mesma lógica de busca que já existe em `api/_profileIdentity.js`, duplicada aqui de propósito** (ver tabela de duplicação, seção 5) pra manter os dois módulos desacoplados
+2. `Promise.race` contra um timeout de 600ms — se vencer, retorna `''` (a query que ficou pra trás não é cancelada de fato, só deixamos de esperar por ela — cancelamento via `AbortController` foi considerado e descartado do escopo desta fase por simplicidade; fica registrado como melhoria futura se latência virar problema real)
+3. Formata o bloco só com os campos aprovados nesta primeira versão: `size`, até 3 `interests`, até 3 `products_asked` — **nunca** `notes`, `buy_score`, `tags`, `message_count`, `cep` ou qualquer outro campo interno (risco de vazar estratégia/observação privada pro próprio cliente)
+4. Corta o bloco em 300 caracteres no máximo; retorna `''` se nenhum dos 3 campos existir
+
+**Formato do bloco:**
+```
+MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)
+
+• tamanho: 40
+• interesses: New Balance, Nike
+• produtos vistos: NB9060
+```
+
+**Por que reaproveita `informacao_adicional` em vez de criar um campo novo:** esse campo já é um contrato estável, lido de verdade pelo treinamento da Gabriela (`${webhook_response.dados.informacao_adicional}`) — criar um campo novo exigiria editar o `requestBody`/treinamento da Ação no GPT Maker, e a Fase 2A já provou que mudanças de configuração lá são frágeis e imprevisíveis (episódio `@variavel`/`${variavel}`, ver [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md)). Reaproveitar o campo existente elimina esse risco por completo.
 
 ### Fluxo B — Auto-foto
 ```
@@ -296,3 +329,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 **Gerado em:** 2026-07-08 · apenas com dados do repositório.
 **Atualizado em:** 2026-07-10 · pós-Fase-3C e pós-descomissionamento de órfãos, reflete a estrutura física final de `src/services/` — 47 arquivos em 8 domínios ativos + `_archive/`, zero arquivos soltos na raiz.
 **Atualizado em:** 2026-07-11 · Fase 2A (`api/_profileIdentity.js`) — captura automática de identidade no webhook, documentada na seção 6.
+**Atualizado em:** 2026-07-11 · Fase 2B (`api/_profileMemory.js`) — leitura de memória do cliente para personalizar respostas da Gabriela, documentada na seção 6; duplicação deliberada de leitura registrada na seção 5.

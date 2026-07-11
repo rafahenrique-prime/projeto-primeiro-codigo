@@ -156,13 +156,28 @@ Estas tabelas são lidas/escritas por `api/` e `src/services/` mas **não têm a
 
 **Validado em produção:** teste oficial cronometrado (`"quero ver tênis masculino"`) confirmou `context_id` e `telefone` gravados limpos (sem `$`) numa linha pré-existente do painel (`created_at` de 21/06, `last_seen` atualizado no teste) — prova de reconciliação por `conv_id` funcionando de ponta a ponta.
 
-**Ainda NÃO implementado (fase futura, 2B):** nenhuma leitura desse perfil volta pro prompt da Gabriela ainda. Não existe `buildProfileBlock` no webhook, não há mudança de estratégia de resposta/venda. É só captura e persistência de identidade.
-
 **Não altera nenhum fluxo existente do painel:** `customerProfileService.js`, `ChatArea.jsx`, `DealOncaPage.jsx` continuam operando exclusivamente por `conv_id`, sem nenhuma modificação.
 
 **Segurança:** toda chamada de `upsertIdentity()` é envolvida em try/catch com fallback silencioso (só loga erro) — uma falha de gravação nunca impede a resposta da Gabriela.
 
-**Documentação histórica completa da investigação** (linha do tempo, hipóteses descartadas, logs, causas raiz, evidências de produção): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
+**Documentação histórica completa da investigação da Fase 2A** (linha do tempo, hipóteses descartadas, logs, causas raiz, evidências de produção): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
+
+### 3.4 Leitura de memória na resposta da Gabriela (Fase 2B)
+
+**Status: implementado em 2026-07-11.** A partir da Fase 2B, os campos `size`, `interests` e `products_asked` de `customer_profiles` **são lidos de volta** e usados pra personalizar a resposta da Gabriela — não é mais só captura, agora tem uso real no atendimento.
+
+**Como funciona:**
+- `api/webhook.js` chama `getMemoryBlock(contextId)` ([api/_profileMemory.js](../api/_profileMemory.js)) **em paralelo** com a busca de produtos/conhecimento (`Promise.all`), nunca em sequência — não soma latência
+- `getMemoryBlock()` busca o perfil (mesma reconciliação `context_id` → fallback `conv_id`, **duplicada deliberadamente** de `_profileIdentity.js` — ver `docs/ARCHITECTURE.md` §5) com timeout de 600ms; timeout, erro, perfil não encontrado, ou perfil sem nenhum campo permitido → retorna `''` em todos os casos, sem distinção
+- Bloco resultante é **inserido dentro de `dados.informacao_adicional`**, entre o total de variações e o texto da base de conhecimento — reaproveita esse campo porque já é um contrato estável, lido de verdade pelo treinamento da Gabriela; **nenhuma configuração da Ação no GPT Maker foi alterada** (mesma lição da Fase 2A: mexer em template/Ação lá é frágil)
+
+**Campos permitidos nesta primeira versão:** `size`, até 3 `interests` (mais recentes), até 3 `products_asked` (mais recentes). **Fora do escopo, propositalmente:** `notes`, `buy_score`, `tags`, `message_count`, `cep`, histórico completo — risco de vazar observação interna/estratégia comercial pro próprio cliente. Qualquer inclusão futura desses campos exige nova aprovação explícita.
+
+**Limite de tamanho:** bloco de memória cortado em 300 caracteres; base de conhecimento (500 caracteres) permanece intacta, sem disputa de espaço — são segmentos independentes dentro do mesmo campo de texto.
+
+**A memória aqui é só contexto de personalização** — nunca influencia `buscarProdutos()`/`searchKnowledge()`, nunca altera preço, nunca filtra catálogo, nunca muda regra comercial. `api/_profileMemory.js` tem responsabilidade única de leitura; nunca escreve no banco.
+
+**Documentação histórica completa da investigação da Fase 2A** (que criou toda a infraestrutura de identidade reaproveitada aqui): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
 
 ---
 
