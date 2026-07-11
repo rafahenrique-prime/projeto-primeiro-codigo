@@ -2,6 +2,8 @@
 // Processa perguntas do cliente e retorna dados do Supabase
 // Integrado com GPT Maker
 
+import { upsertIdentity } from './_profileIdentity.js'
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 
@@ -367,7 +369,13 @@ export default async function handler(req, res) {
     console.log(`[Webhook] 🔍 Pergunta extraída: "${pergunta}"`)
 
     const cliente_id = req.body?.cliente_id || 'desconhecido'
+    const telefone = req.body?.telefone || null
+    const canal = req.body?.canal || null
     const tipo_busca = req.body?.tipo_busca || 'auto'
+
+    // Captura de identidade (Fase 2A) — fire-and-forget, nunca deve atrasar
+    // ou travar a resposta da Gabriela. Não implementa memória/prompt ainda.
+    upsertIdentity({ contextId: cliente_id, telefone, canal }).catch(() => {})
 
     console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
 

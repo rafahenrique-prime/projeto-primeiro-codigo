@@ -130,7 +130,7 @@ Estas tabelas são lidas/escritas por `api/` e `src/services/` mas **não têm a
 |---|---|---|
 | `products` | `catalog.js`, `webhook.js`, `auto-photo.js`, vários | Catálogo (~538 itens) |
 | `knowledge` | `knowledgeDB.js`, `webhook.js`, `embed-knowledge.js` | Base de conhecimento (entrada `knowledge_gabriela_supabase_completo`) |
-| `customer_profiles` | `customerProfileService.js`, `_customerScoring.js`, `cron-diagnosis.js` | Scoring de cliente (`buy_score`, dispara `lead_quente` em ≥70) |
+| `customer_profiles` | `customerProfileService.js`, `_customerScoring.js`, `cron-diagnosis.js` | Scoring de cliente (`buy_score`, dispara `lead_quente` em ≥70). Ver nota sobre `context_id` abaixo. |
 | `photo_history` | `photoHistory.js`, `auto-photo.js` | Histórico de fotos enviadas |
 | `diagnostics` | `diagnosticService.js`, `cron-diagnosis.js` | Relatórios diários do DealOnça |
 | `agent_audits` | `agentAuditService.js`, `cron-diagnosis.js` | Auditoria da Gabriela (rubrica 0-10) |
@@ -142,6 +142,16 @@ Estas tabelas são lidas/escritas por `api/` e `src/services/` mas **não têm a
 | `training_data` | (mencionado no `CLAUDE.md`) | Treinamentos de agentes |
 
 > **Lacuna documentada:** o schema exato destas 12 tabelas não está no repositório. Para recriá-las do zero seria necessário consultar o painel do Supabase.
+
+### 3.3 `customer_profiles.context_id` e `.telefone` — identidade automática por canal (migrations 011, 012)
+
+`context_id` (migration 011, `text`, nullable) e `telefone` (migration 012, `text`, nullable) — sem índice em nenhuma das duas.
+
+- **Fase 2A (atual):** `context_id` deixou de ser só preparação de schema — agora tem escrita ativa. `api/webhook.js` extrai `cliente_id`/`telefone`/`canal` de todo request do GPT Maker e chama `upsertIdentity()` ([api/_profileIdentity.js](../api/_profileIdentity.js)), fire-and-forget, criando ou atualizando a linha em `customer_profiles` indexada por `context_id`. `canal` não é enviado pelo GPT Maker hoje (confirmado em auditoria) — fica `null` até isso mudar.
+- **Ainda NÃO implementado nesta fase:** nenhuma leitura desse perfil volta pro prompt da Gabriela. Não existe `buildProfileBlock` no webhook, não há mudança de estratégia de resposta/venda. É só captura e persistência de identidade — a "memória" propriamente dita (uso desse dado pra personalizar resposta) é uma fase futura.
+- **`context_id` é a chave do caminho automático; `conv_id` continua sendo a chave do caminho do painel.** Auditoria prévia (ver histórico do projeto) confirmou por teste real que os dois identificadores não têm relação entre si e que `context_id` varia por canal (WhatsApp usa telefone como parte do valor; Instagram não tem telefone e usa outro formato) — ou seja, hoje existem **duas populações de perfil na mesma tabela**, sem reconciliação automática entre elas.
+- **Não altera nenhum fluxo existente do painel:** `customerProfileService.js`, `ChatArea.jsx`, `DealOncaPage.jsx` continuam operando exclusivamente por `conv_id`, sem nenhuma modificação.
+- **Segurança:** toda chamada de `upsertIdentity()` é envolvida em try/catch com fallback silencioso (só loga erro) — uma falha de gravação nunca impede a resposta da Gabriela.
 
 ---
 
