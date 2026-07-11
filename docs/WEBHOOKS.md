@@ -11,7 +11,7 @@ O backend é **serverless na Vercel** (funções em `api/`). Cada arquivo vira u
 
 ### Convenções observadas no código
 - Todas exportam `export default async function handler(req, res)`.
-- **CORS manual**: funções chamadas pelo browser tratam `OPTIONS` retornando `200` (ex.: `auto-photo.js:406`, `webhook.js:313`, `telegram-alert.js:120`).
+- **CORS manual**: funções chamadas pelo browser tratam `OPTIONS` retornando `200` (ex.: `auto-photo.js:406`, `webhook.js:313`).
 - **Method guard**: cada função valida `req.method` e devolve `405 Method not allowed` se inadequado.
 - **Auth Supabase**: via header `apikey` + `Authorization: Bearer` com `VITE_SUPABASE_KEY` (lê de `process.env`, não do client).
 
@@ -116,13 +116,8 @@ O backend é **serverless na Vercel** (funções em `api/`). Cada arquivo vira u
 
 ---
 
-### `/api/telegram-alert` — Alertas Telegram
-- **Arquivo:** `api/telegram-alert.js` (171 linhas)
-- **Método:** `POST` (`:124` recusa não-POST; `:120` trata `OPTIONS`)
-- **Quem chama:** GPT Maker (intenção) / crons
-- **Payload:** intenções formatadas — venda confirmada, novo lead, cliente insatisfeito, pedido grande.
-- **Erros:** `400` payload inválido (`:150`); `500` (`:166`).
-- **Resposta 200** (`:157`).
+### `/api/telegram-alert` — **removido em 2026-07-11**
+Existiu para centralizar alertas Telegram vindos de intenções do GPT Maker, mas auditoria ao vivo (`GET /v2/agent/{id}/intentions` nos 4 agentes do workspace) confirmou que **nenhuma** intenção apontava pra essa rota — as 5 intenções de alerta (Pedido grande, Cliente Insatisfeito, Novo Lead, Venda Confirmada, Alerta rafael) sempre chamaram `api.telegram.org` **diretamente**, com o token do bot embutido na própria URL configurada no painel. `cron-diagnosis.js` e `cron-stuck-check.js` também chamam `api.telegram.org` direto, sem passar por essa rota. Órfão confirmado, removido sem impacto — alertas continuam funcionando normalmente pelos caminhos diretos.
 
 ---
 

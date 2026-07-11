@@ -110,8 +110,8 @@ Estas variáveis são referenciadas no código mas **não existem em `.env` nem 
 
 | # | Variável | Arquivos que usam | Prefixo | Onde provavelmente existe |
 |---|---|---|---|---|
-| 1 | `TELEGRAM_BOT_TOKEN` | telegram-alert.js, cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
-| 2 | `TELEGRAM_CHAT_ID` | telegram-alert.js, cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
+| 1 | `TELEGRAM_BOT_TOKEN` | cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
+| 2 | `TELEGRAM_CHAT_ID` | cron-diagnosis.js, cron-stuck-check.js | Sem VITE_ | **Vercel only** |
 | 3 | `BAGY_STORE_URL` | bagy-audit.js | Sem VITE_ | **Vercel only** |
 | 4 | `VITE_GOOGLE_VISION_KEY` | `_archive/photoRecognitionService.js` (histórica/arquivada, sem consumidor) | Com VITE_ | N/A — código morto, não precisa existir em nenhum ambiente |
 | 5 | `VITE_OPENAI_API_KEY` | `_archive/photoRecognitionService.js` (histórica/arquivada, sem consumidor) | Com VITE_ | N/A — código morto, não precisa existir em nenhum ambiente |

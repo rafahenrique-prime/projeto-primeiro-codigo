@@ -35,12 +35,14 @@
 └──────────────────────────────────────────────────────────────────────┘
           ▲                       ▲                       ▲
           │                       │                       │
-┌─────────┴──────────┐ ┌─────────┴──────────┐ ┌──────────┴─────────────┐
-│  cron-diagnosis.js │ │  telegram-alert.js │ │  src/services/*        │
-│  (2x/dia) DealOnça │ │  alertas           │ │  (frontend)            │
-│  usa Groq LLM      │ └────────────────────┘ └────────────────────────┘
-└────────────────────┘
+┌─────────┴──────────┐                       ┌──────────┴─────────────┐
+│  cron-diagnosis.js │                       │  src/services/*        │
+│  (2x/dia) DealOnça │                       │  (frontend)            │
+│  usa Groq LLM       │                       │  (frontend)            │
+└────────────────────┘                       └────────────────────────┘
 ```
+
+> **Alertas Telegram:** não há um webhook próprio no projeto — `cron-diagnosis.js`, `cron-stuck-check.js` e as 5 intenções de alerta configuradas no GPT Maker (Pedido grande, Cliente Insatisfeito, Novo Lead, Venda Confirmada, Alerta rafael) chamam `api.telegram.org` **diretamente**. A rota `api/telegram-alert.js` que existia para centralizar esse envio foi removida em 2026-07-11 por estar órfã — confirmado por auditoria ao vivo (nenhuma intenção do workspace GPT Maker apontava pra ela) — ver `docs/WEBHOOKS.md`.
 
 ### Separação frontend × serverless
 
@@ -68,13 +70,12 @@ PROJETO DO CLAUDECODE/
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
-├── api/            (17)        ← serverless Vercel (rotas /api/*)
+├── api/            (16)        ← serverless Vercel (rotas /api/*)
 │   ├── webhook.js              ← busca conhecimento p/ Gabriela + identidade + memória
 │   ├── auto-photo.js           ← envio automático de fotos
 │   ├── cron-diagnosis.js       ← DealOnça (cron 2x/dia)
 │   ├── cron-stuck-check.js     ← healthcheck (GitHub Action 5min)
 │   ├── scraper.js              ← scraping server-side
-│   ├── telegram-alert.js       ← alertas Telegram
 │   ├── bagy-audit.js (+ ignore)← auditoria da loja Bagy
 │   ├── cache-avatar.js         ← bypass CORS p/ avatares IG
 │   ├── embed-knowledge.js      ← embeddings Cohere
@@ -345,3 +346,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 **Atualizado em:** 2026-07-11 · Fase 2A (`api/_profileIdentity.js`) — captura automática de identidade no webhook, documentada na seção 6.
 **Atualizado em:** 2026-07-11 · Fase 2B (`api/_profileMemory.js`) — leitura de memória do cliente para personalizar respostas da Gabriela, documentada na seção 6; duplicação deliberada de leitura registrada na seção 5.
 **Atualizado em:** 2026-07-11 · Fase 2B encerrada e validada em produção — reforço de instrução de privacidade (cabeçalho + limite de 400 caracteres) e risco residual documentados na seção 6.
+**Atualizado em:** 2026-07-11 · `api/telegram-alert.js` removido (órfão confirmado por auditoria ao vivo no workspace GPT Maker, Fase 2C.0/preparação) — `api/` cai de 17 para 16 arquivos; alertas Telegram seguem intactos via `api.telegram.org` direto (crons + intenções), ver `docs/WEBHOOKS.md`.
