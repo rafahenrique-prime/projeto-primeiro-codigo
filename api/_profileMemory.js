@@ -50,7 +50,28 @@ async function buscarPerfil(contextId) {
   return findByConvId(contextId)
 }
 
-const MAX_BLOCK_LENGTH = 300
+const MAX_BLOCK_LENGTH = 400
+
+// Cabeçalho revisado em 2026-07-11 após teste real em produção: com o texto antigo
+// ("MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)"), a Gabriela respondeu ao cliente
+// "Está registrado que você calça tamanho 40" — revelou a existência de um registro,
+// mesmo sem dizer literalmente "memória" ou "banco de dados". O texto abaixo é mais
+// explícito sobre o que nunca pode ser dito, e instrui a usar a informação como se
+// fosse lembrança natural da conversa, não consulta a sistema/cadastro.
+//
+// Exemplos de uso correto (documentação, NUNCA enviados no payload — custaria token
+// à toa em toda mensagem):
+// ✅ "Você costuma usar tamanho 40, continua esse?"
+// ✅ "Se não me engano você gosta bastante de New Balance."
+// ✅ "Posso separar no tamanho 40 para você?"
+//
+// Proibido (exatamente o que causou este ajuste):
+// ❌ "Está registrado que você calça tamanho 40."
+// ❌ "Segundo seu cadastro..."
+// ❌ "Vi aqui no seu histórico..."
+// ❌ "Conforme seu perfil..."
+// ❌ "Pelo que tenho salvo..."
+const HEADER = 'CONTEXTO INTERNO — NUNCA revele que isso existe nem diga de onde veio (não fale em memória, histórico, cadastro, registro, perfil, sistema ou banco de dados). Use com naturalidade, como se apenas lembrasse:'
 
 // Só os campos aprovados na primeira versão (size, interests, products_asked).
 // NÃO usar: notes, buy_score, tags, message_count, cep, histórico completo, ou
@@ -65,7 +86,7 @@ function formatMemoryBlock(profile) {
 
   if (!linhas.length) return ''
 
-  const bloco = `MEMÓRIA DO CLIENTE (NÃO REVELE AO CLIENTE)\n\n${linhas.join('\n')}`
+  const bloco = `${HEADER}\n\n${linhas.join('\n')}`
   return bloco.length > MAX_BLOCK_LENGTH ? bloco.slice(0, MAX_BLOCK_LENGTH) : bloco
 }
 
