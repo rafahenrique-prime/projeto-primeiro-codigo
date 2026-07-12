@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
 import TokenUsageCard from '../components/TokenUsageCard'
-import GPTMakerCreditsCard from '../components/GPTMakerCreditsCard'
 import DeepSeekBalanceCard from '../components/DeepSeekBalanceCard'
 
 function today() {
@@ -149,9 +148,6 @@ export default function DashboardNewPage({ conversations = [] }) {
               <MiniStat label="Pendente" value={stats.aguardando.length} color={primary} t={t} />
             </div>
           </div>
-
-          {/* GPTMaker Credits */}
-          <GPTMakerCreditsCard />
 
           {/* Canais hoje */}
           <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${t.border}` }}>
