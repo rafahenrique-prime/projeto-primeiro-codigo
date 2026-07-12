@@ -44,6 +44,8 @@
 
 > **Alertas Telegram:** não há um webhook próprio no projeto — `cron-diagnosis.js`, `cron-stuck-check.js` e as 5 intenções de alerta configuradas no GPT Maker (Pedido grande, Cliente Insatisfeito, Novo Lead, Venda Confirmada, Alerta rafael) chamam `api.telegram.org` **diretamente**. A rota `api/telegram-alert.js` que existia para centralizar esse envio foi removida em 2026-07-11 por estar órfã — confirmado por auditoria ao vivo (nenhuma intenção do workspace GPT Maker apontava pra ela) — ver `docs/WEBHOOKS.md`.
 
+> **Aprendizado automático de `size` (Fase 2C):** além dos dois caminhos acima, existe um terceiro gatilho do GPT Maker — o webhook de sistema **`onNewMessage`** (dispara em toda mensagem, não só nas classificadas como busca de produto), apontado para `api/onnewmessage.js`. Ver seção 6 para o fluxo completo.
+
 ### Separação frontend × serverless
 
 **Importante:** `api/` (serverless) e `src/` (frontend) **compartilham o banco Supabase, mas não compartilham código**. O serverless é autossuficiente — **zero imports** de `src/services/`. Onde a mesma regra de negócio é necessária nos dois lados, ela foi **copiada à mão** (ver seção 5).
@@ -70,9 +72,10 @@ PROJETO DO CLAUDECODE/
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
-├── api/            (16)        ← serverless Vercel (rotas /api/*)
+├── api/            (18)        ← serverless Vercel (rotas /api/*)
 │   ├── webhook.js              ← busca conhecimento p/ Gabriela + identidade + memória
 │   ├── auto-photo.js           ← envio automático de fotos
+│   ├── onnewmessage.js         ← aprendizado automático de size (Fase 2C, ver seção 6)
 │   ├── cron-diagnosis.js       ← DealOnça (cron 2x/dia)
 │   ├── cron-stuck-check.js     ← healthcheck (GitHub Action 5min)
 │   ├── scraper.js              ← scraping server-side
@@ -81,7 +84,7 @@ PROJETO DO CLAUDECODE/
 │   ├── embed-knowledge.js      ← embeddings Cohere
 │   ├── gptmaker-credits.js     ← saldo de créditos
 │   ├── log-history.js          ← log de ações do catálogo
-│   └── _*.js (5)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A) e `_profileMemory.js` (Fase 2B, ver seção 6)
+│   └── _*.js (6)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A), `_profileMemory.js` (Fase 2B) e `_profileLearning.js` (Fase 2C, ver seção 6)
 │
 ├── supabase/migrations/ (8)    ← SQL aplicado manualmente no SQL Editor
 ├── catalogo-publico/           ← projeto Vercel SEPARADO (HTML estático)
@@ -265,6 +268,45 @@ Use com naturalidade, como se apenas lembrasse:
 
 **Fase 2B considerada encerrada e validada em produção, com risco residual documentado.**
 
+### Fluxo A2 — Aprendizado automático de `size` via `onNewMessage` (Fase 2C)
+
+Diferente do Fluxo A (que só roda quando o GPT Maker classifica a mensagem como busca de produto, via Ação), este fluxo usa o **webhook de sistema `onNewMessage`**, que dispara em **toda** mensagem — cliente, agente, ou resultado de ferramenta — independente de classificação de intenção. Investigado e validado em duas janelas de observação controladas (Fase 2C.0 e 2C.1, ver `docs/investigations/`).
+
+```
+1. GPT Maker dispara onNewMessage → POST /api/onnewmessage (rota fina)
+2. onnewmessage.js:
+   a. Filtro positivo role === 'user' — único critério de origem confiável
+      confirmado empiricamente. role: 'assistant' (resposta da Gabriela) e
+      role: 'tool' (resultado de Ação reinjetado na conversa, achado da
+      Fase 2C.1) são ambos ignorados com segurança, junto com qualquer
+      outro valor não catalogado — nunca uma lista negativa.
+   b. Sem contextId/messageId, ou mensagem sem texto (imagem/áudio/
+      documento sem legenda) → 200, encerra, nenhum I/O
+   c. Encaminha pra api/_profileLearning.js::learnSizeFromMessage()
+3. _profileLearning.js (lógica, sem rota própria):
+   a. extractSize(texto) — síncrona, pura, sem I/O. Padrões explícitos e
+      separados (não um regex único), exigindo âncora ("tamanho"/"número"/
+      verbo de calçar-vestir), com exclusão de terceiro e de pergunta/
+      oferta, e checagem de ambiguidade sobre TODOS os números plausíveis
+      da mensagem inteira, não só o trecho capturado. Sem sinal → nenhum
+      I/O acontece.
+   b. upsertIdentity() (api/_profileIdentity.js, NÃO alterado) — corrida
+      via Promise.race contra o mesmo timeout total (~3000ms), porque essa
+      função não aceita AbortSignal e nunca rejeita: um await direto
+      travaria a função inteira se a rede dela travasse. A chamada
+      abandonada continua rodando sozinha em segundo plano — seguro porque
+      só toca campos de identidade, nunca size.
+   c. findProfile() — mesma reconciliação context_id→fallback conv_id já
+      usada em _profileIdentity.js/_profileMemory.js, duplicada de
+      propósito (ver seção 5) — com AbortController real via signal.
+   d. RPC apply_profile_size_learning() — transacional, ver `docs/SUPABASE.md §3.5`
+4. Nenhuma etapa nova inicia depois que o timeout é detectado entre
+   transições da cadeia. Nenhuma resposta é enviada ao cliente por este
+   fluxo — é escrita silenciosa, sem interferir na conversa em andamento.
+```
+
+**Escopo desta primeira versão:** só o campo `size`. `interests`, `products_asked`, marca, tags, `buy_score`, `notes` continuam fora — qualquer ampliação exige nova aprovação explícita, mesmo padrão já usado nas Fases 2A/2B.
+
 ### Fluxo B — Auto-foto
 ```
 1. /api/auto-photo recebe POST com chat_id
@@ -347,3 +389,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 **Atualizado em:** 2026-07-11 · Fase 2B (`api/_profileMemory.js`) — leitura de memória do cliente para personalizar respostas da Gabriela, documentada na seção 6; duplicação deliberada de leitura registrada na seção 5.
 **Atualizado em:** 2026-07-11 · Fase 2B encerrada e validada em produção — reforço de instrução de privacidade (cabeçalho + limite de 400 caracteres) e risco residual documentados na seção 6.
 **Atualizado em:** 2026-07-11 · `api/telegram-alert.js` removido (órfão confirmado por auditoria ao vivo no workspace GPT Maker, Fase 2C.0/preparação) — `api/` cai de 17 para 16 arquivos; alertas Telegram seguem intactos via `api.telegram.org` direto (crons + intenções), ver `docs/WEBHOOKS.md`.
+**Atualizado em:** 2026-07-12 · Fase 2C (`api/onnewmessage.js` + `api/_profileLearning.js`) — aprendizado automático de `customer_profiles.size` via o webhook de sistema `onNewMessage`, documentado no Fluxo A2 da seção 6; `api/message-router-probe.js` (probe temporário de investigação) removido, substituído por `api/onnewmessage.js` na mesma vaga de função; `api/` sobe de 16 para 18 arquivos (12 rotas + 6 helpers).

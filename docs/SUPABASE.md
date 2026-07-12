@@ -204,6 +204,36 @@ A ocorrência 3 é considerada o padrão aceitável desta fase: **"pelo que me l
 
 **Documentação histórica completa da investigação da Fase 2A** (que criou toda a infraestrutura de identidade reaproveitada aqui): [`docs/investigations/2026-07-11-fase2a-context-id.md`](investigations/2026-07-11-fase2a-context-id.md).
 
+### 3.5 Aprendizado automático de `size` — `profile_learning_audit` + `apply_profile_size_learning` (Fase 2C, migration 013)
+
+**Status: migration 013 aplicada em produção em 2026-07-12**, testada isoladamente via transação `BEGIN`/`ROLLBACK` (10 cenários A-J, sem resíduo) antes de qualquer código de aplicação usá-la.
+
+**`profile_learning_audit`** — tabela de auditoria nova:
+```sql
+id, conv_id, context_id, message_id, field, old_value, new_value,
+source_text (truncado em 200 chars), rule_matched, confidence,
+channel, applied, created_at, reverted_at
+-- constraint uq_profile_learning_event unique (message_id, field)
+-- constraints de integridade: field='size', confidence='high',
+-- channel in ('WHATSAPP','INSTAGRAM') ou null, new_value entre 33-46,
+-- coerência applied/reverted_at — old_value SEM constraint de faixa
+-- (precisa aceitar valores legados não-numéricos como 'M'/'G'/'GG')
+```
+
+**`apply_profile_size_learning(...)`** — função transacional, `SECURITY INVOKER`, chamada só por `service_role`:
+- **Deduplicação dupla:** checagem rápida de `(message_id, field)` antes do lock (atalho) **e** depois do `SELECT ... FOR UPDATE` (defesa real contra corrida — duas chamadas quase simultâneas com o mesmo `message_id` podem passar pela checagem rápida antes de qualquer uma commitar). A constraint `UNIQUE(message_id, field)` + `INSERT ... ON CONFLICT DO NOTHING` é a garantia final, independente das checagens em código.
+- **`FOR UPDATE`** na leitura de `customer_profiles.size` — serializa duas atualizações simultâneas do mesmo perfil, garante que `old_value` gravado na auditoria é sempre o valor real imediatamente anterior à mudança, nunca uma leitura obsoleta.
+- **Status possíveis:** `applied` (mudança real, 1 linha de auditoria), `duplicate` (mesmo evento já processado), `unchanged` (valor já era esse, nenhuma auditoria gravada), `profile_not_found` (a função nunca cria perfil — isso continua exclusivo de `upsertIdentity()`), `invalid_input` (com `reason`: `campo_obrigatorio_ausente`, `size_formato_invalido`, `size_fora_da_faixa`, `channel_invalido`, `confidence_nao_suportada`), `error` (interno — só `SQLSTATE` vai pro log do Postgres, nunca `SQLERRM` no retorno).
+- **Só `size`** — `field` é literal fixo dentro da função, não parâmetro; não há como usar essa RPC pra escrever em nenhum outro campo.
+
+**Permissões:** `RLS` habilitada em `profile_learning_audit`, **sem nenhuma policy** — `anon`/`authenticated`/`public` não conseguem ler nem escrever via REST direto, mesmo que tentassem. `service_role` ignora RLS por natureza própria da role. `REVOKE ALL`/`GRANT EXECUTE` explícitos na função, restritos a `service_role`.
+
+**Credencial:** `SUPABASE_SECRET_KEY` (nova Secret key do Supabase, formato `sb_secret_...`, autentica como `service_role`) — configurada só na Vercel (`Production`, tipo `Sensitive`), **nunca** em `.env.local`/arquivo do workspace, **nunca** com prefixo `VITE_` (garante que o Vite nunca embute no bundle do frontend). Usada exclusivamente dentro de `api/_profileLearning.js`, em todas as suas chamadas (leituras de perfil e a RPC) — nenhum outro módulo do projeto a referencia.
+
+**Header testado empiricamente (2026-07-12):** confirmado que a Secret Key autentica corretamente usando **só o header `apikey`** — `Authorization: Bearer` **não é necessário** e foi removido de `api/_profileLearning.js` depois da confirmação (teste real: `anon` → `401`/`permission_denied`/`42501`; `service_role` com só `apikey` → `200`/execução real da função).
+
+**Documentação histórica completa das investigações que validaram o gatilho `onNewMessage`** (schema real do payload, estabilidade de `contextId`/`messageId`, achado `role: "tool"`): [`docs/investigations/2026-07-11-fase2c0-onnewmessage-relatorio.md`](investigations/2026-07-11-fase2c0-onnewmessage-relatorio.md) e [`docs/investigations/2026-07-11-fase2c1-segunda-janela-relatorio.md`](investigations/2026-07-11-fase2c1-segunda-janela-relatorio.md).
+
 ---
 
 ## 4. RLS (Row Level Security)
