@@ -234,6 +234,22 @@ channel, applied, created_at, reverted_at
 
 **Documentação histórica completa das investigações que validaram o gatilho `onNewMessage`** (schema real do payload, estabilidade de `contextId`/`messageId`, achado `role: "tool"`): [`docs/investigations/2026-07-11-fase2c0-onnewmessage-relatorio.md`](investigations/2026-07-11-fase2c0-onnewmessage-relatorio.md) e [`docs/investigations/2026-07-11-fase2c1-segunda-janela-relatorio.md`](investigations/2026-07-11-fase2c1-segunda-janela-relatorio.md).
 
+#### Validação em produção e encerramento da Fase 2C (2026-07-12)
+
+**A Fase 2C foi validada em produção e está oficialmente encerrada**, com `onNewMessage` ativo apontando para `api/onnewmessage.js`.
+
+**Incidente descoberto e corrigido durante a validação:** o primeiro teste controlado em produção (perfil sintético) retornou `profile_not_found_after_identity` mesmo com o perfil existindo — investigação com instrumentação temporária (removida depois, nunca commitada) isolou a causa em `findByContextId`/`findByConvId`: ambas as buscas retornavam **HTTP 401**, que o código converte silenciosamente em `null` (mesmo comportamento hoje, sem alteração de lógica). Causa raiz: **a `SUPABASE_SECRET_KEY` configurada em Production na Vercel estava incorreta/desatualizada.** Correção: variável recriada em Production com o valor correto — sem nenhuma mudança de código, migration ou permissão no banco.
+
+**Sequência de testes controlados em produção, todos aprovados após a correção da credencial:**
+- `applied` — perfil sintético (`size` inicial `G`) → declaração de tamanho `41` → `customer_profiles.size` atualizado, 1 linha gravada em `profile_learning_audit` (`old_value='G'`, `new_value='41'`, `confidence='high'`, `applied=true`).
+- `duplicate` — reenvio do mesmo `message_id` → nenhuma nova auditoria, `size` inalterado.
+- `unchanged` — novo `message_id`, mesmo valor de tamanho → nenhuma nova auditoria, `size` inalterado.
+- Dados sintéticos removidos ao final (`profile_learning_audit`/`customer_profiles` do `conv_id` de teste), contagem zero confirmada.
+
+**Teste real de ponta a ponta (WhatsApp, perfil real, não sintético):** mensagem neutra ("Oi") corretamente ignorada pelo aprendizado (sem sinal de tamanho, nenhum I/O); declaração real de tamanho processada com sucesso (`rpc_applied`); `customer_profiles.size` do perfil real confirmado atualizado para `41` no horário exato do teste. Conversa com a Gabriela seguiu normalmente, sem qualquer interferência perceptível — confirma que o aprendizado é silencioso, como desenhado.
+
+**Status final: `onNewMessage` ativo em produção**, apontando para `https://ignite-webhook.vercel.app/api/onnewmessage`. Nenhum outro campo de webhook do GPT Maker foi alterado.
+
 ---
 
 ## 4. RLS (Row Level Security)
