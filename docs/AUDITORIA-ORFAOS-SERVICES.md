@@ -42,7 +42,7 @@ Verificado em todo o repositório (`src/`, `api/`, `scripts/`, `docs/`, configs,
 | `searchKnowledge` | **1** | Zero consumo no frontend; duplicado (não importado) por `api/webhook.js::searchKnowledge()`, que é a versão viva |
 | `photoMatchingService` | **1** | Teve refino de engenharia real (3 commits de fix), superado por `photoFlowService.js` |
 | `photoRecognitionService` | **1** | Arquitetura multi-provider desenhada e nunca conectada, superada por `photoFlowService.js` |
-| `importBackupService` | **2** | Feature completa nunca conectada a uma tela; decisão de remoção amarrada ao destino de `dealism-backup/` (ainda em aberto) |
+| `importBackupService` | **2** | Feature completa nunca conectada a uma tela; `dealism-backup/` foi removida da árvore atual em 2026-07-12 (commit `d940b05`) — permanece arquivado como referência, sem dependência externa pendente |
 
 ## 4. Plano de descomissionamento
 

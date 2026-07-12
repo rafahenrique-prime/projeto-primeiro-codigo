@@ -1,6 +1,10 @@
 /**
  * ARQUIVADO em 2026-07-10 — sem consumidores desde a criação (fan-in 0).
- * Ligado ao ciclo de vida de dealism-backup/ (decisão ainda em aberto).
+ * dealism-backup/ (o backup legado ao qual esta função se referia) foi
+ * removido da árvore atual do repositório em 2026-07-12 (commit d940b05).
+ * O conteúdo permanece recuperável pelo histórico do Git. Este service
+ * continua arquivado como referência de arquitetura, sem dependência
+ * externa pendente.
  * Ver docs/AUDITORIA-ORFAOS-SERVICES.md.
  */
 /**

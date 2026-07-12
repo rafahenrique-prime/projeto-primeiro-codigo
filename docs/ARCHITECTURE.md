@@ -88,7 +88,6 @@ PROJETO DO CLAUDECODE/
 │
 ├── supabase/migrations/ (8)    ← SQL aplicado manualmente no SQL Editor
 ├── catalogo-publico/           ← projeto Vercel SEPARADO (HTML estático)
-├── dealism-backup/ (101MB)     ← referência, sem uso em runtime
 ├── scripts/                    ← ferramentas operacionais
 ├── docs/ · knowledge/ · strategy/  ← documentação
 └── .github/workflows/stuck-check.yml
@@ -369,6 +368,8 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 > **Atualizado 2026-07-10 (descomissionamento de órfãos, Etapa B — remover):** `awsRekognitionService` (`foto/`) e `searchKnowledge` (`conhecimento/`) foram **removidos** — auditoria de segurança confirmou zero consumidores em qualquer forma (import estático, dinâmico, `eval`, string, teste, config, CI). Ver `docs/AUDITORIA-ORFAOS-SERVICES.md`.
 >
 > **Atualizado 2026-07-10 (descomissionamento de órfãos, Etapa A — arquivar):** `photoMatchingService`, `photoRecognitionService` (`foto/`) e `importBackupService` (`catalogo/`) foram movidos para `src/services/_archive/` — mesma auditoria confirmou zero consumidores, mas os 3 têm valor de referência arquitetural ou dependem de uma decisão externa ainda em aberto (`dealism-backup/`), por isso preservados em vez de removidos. Total de `src/services/` permanece em 47 arquivos (só mudou de pasta).
+>
+> **Atualizado 2026-07-12 (remoção do backup legado):** `dealism-backup/` (aprox. 101MB, backup antigo do sistema Dealism, sem uso em runtime) foi removida da árvore atual do repositório por decisão intencional (commit `d940b05`). O conteúdo permanece recuperável pelo histórico do Git. A dependência externa mencionada na nota de 2026-07-10 está resolvida; `importBackupService` permanece em `_archive/` como referência de arquitetura, sem uso funcional.
 
 ---
 
