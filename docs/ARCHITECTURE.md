@@ -84,6 +84,7 @@ PROJETO DO CLAUDECODE/
 │   ├── embed-knowledge.js      ← embeddings Cohere
 │   ├── gptmaker-credits.js     ← saldo de créditos
 │   ├── log-history.js          ← log de ações do catálogo
+│   ├── system-tools.js         ← `?tool=vercel-status` (Dashboard) + `?tool=sync-lyra` (Cobranças, ver Fluxo F)
 │   └── _*.js (6)               ← helpers internos (não viram rota) — inclui `_profileIdentity.js` (Fase 2A), `_profileMemory.js` (Fase 2B) e `_profileLearning.js` (Fase 2C, ver seção 6)
 │
 ├── supabase/migrations/ (8)    ← SQL aplicado manualmente no SQL Editor
@@ -347,6 +348,52 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 - **Não está no `vercel.json`.** Roda via **GitHub Action** (`.github/workflows/stuck-check.yml`, cron `*/5 * * * *`) que faz `curl` para `/api/cron-stuck-check`.
 - Detecta conversas sem resposta há 3-30min → alerta Telegram.
 
+### Fluxo F — Sincronização Lyra ↔ PRIME STORE COBRANÇAS (Cobranças, Fase 1 — 2026-07-13)
+
+O módulo de Cobranças (`CobrancasPage.jsx` / `src/services/crm/cobrancasService.js`) não fala com o Mercado Pago diretamente — ele depende de **dois apps Base44 separados**, com uma sincronização unidirecional entre eles feita por `api/system-tools.js`:
+
+| App | appId | Papel |
+|---|---|---|
+| **PRIME STORE - COBRANÇAS** | `6a50402b2eeb1d1114312861` | Fonte financeira oficial — schema `Cliente → Venda → Parcela`, é o que a UI local lê/escreve |
+| **Lyra** | `6a518d72335f3c31663dc63d` | Agente Base44 separado com integração Mercado Pago própria (geração de link, webhook de confirmação) — entidade `Cobranca` |
+
+```
+Cliente paga via link Mercado Pago
+        ↓
+Lyra recebe o webhook do MP → Cobranca.status = 'pago' (mp_payment_id preenchido)
+        ↓
+Cron da Vercel (4x/dia: 9h/13h/17h/21h, vercel.json) dispara
+GET /api/system-tools?tool=sync-lyra&dryRun=false
+com header Authorization: Bearer <CRON_SECRET> (injetado automaticamente pela Vercel)
+        ↓
+syncLyra() em api/system-tools.js:
+  1. lê todas as Cobranca da Lyra + Cliente da Lyra e Cliente/Parcela do PRIME
+  2. pra cada Cobranca, localiza a Parcela correspondente nesta ordem de prioridade:
+     a) lyra_cobranca_id  — chave permanente, gravada desde a criação da Parcela
+     b) mp_preference_id  — existe desde que o link é gerado, antes do pagamento
+     c) mp_payment_id     — só existe depois que o pagamento acontece
+     d) fallback legado (nome+valor+vencimento) — só cobre Parcelas anteriores a 2026-07-13,
+        que não têm nenhum dos 3 campos acima
+  3. sem match → cria Cliente (se preciso, casado por telefone) + Venda + Parcela,
+     já gravando lyra_cobranca_id/mp_preference_id/mp_payment_id
+  4. match encontrado e ainda 'pendente' no PRIME, mas 'pago' na Lyra → ATUALIZA a
+     MESMA Parcela (status, valor_pago — atribuído, nunca somado) e cria 1 registro em
+     HistoricoAtividade (tipo: 'pagamento', descrição prefixada com [AUTOMÁTICO])
+  5. match encontrado e já 'pago' → JA_SINCRONIZADO, idempotente, nada é escrito de novo
+        ↓
+Parcela atualizada aparece na aba Cobranças (CobrancasPage.jsx) sem ação manual
+```
+
+**Autenticação:** `?tool=sync-lyra` exige `Authorization: Bearer <CRON_SECRET>` em **qualquer** modo, inclusive `dryRun=true` (a resposta expõe nomes/valores/status financeiros reais, mesmo em modo relatório). `?tool=vercel-status` (consumido pelo Dashboard) permanece sem autenticação. `CRON_SECRET` vive só em `.env.local`/env da Vercel (nunca em `VITE_*`, nunca chega ao navegador); a própria Vercel injeta o header automaticamente nas chamadas do cron.
+
+**Idempotência:** validada em teste ponta a ponta real (2026-07-13) — cobrança de teste criada `pendente` na Lyra, sincronizada, paga via Mercado Pago de verdade, sincronizada de novo (Parcela atualizada 1x, histórico criado 1x), e uma 3ª sincronização confirmou `JA_SINCRONIZADO` sem duplicar nada.
+
+**Limitações conhecidas (não resolvidas nesta fase):**
+- `data_pagamento` e `forma_pagamento` **não são preenchidos automaticamente** na baixa via sync — a Lyra não expõe a data real do pagamento nem a forma com confiança suficiente; preencher isso seria presumir dado sem evidência. `HistoricoAtividade.detalhes` registra apenas a data/hora em que o **sync identificou** o pagamento, deixando explícito que não é necessariamente a data real.
+- Proteção de concorrência é **best-effort** (releitura pontual do registro/entidade imediatamente antes de criar ou atualizar), não uma trava real de banco — reduz a janela de corrida, não elimina.
+- **Parcelamento real** (uma Venda com N parcelas geridas de forma encadeada) não existe — a Lyra cria cobranças 1:1, o sync sempre gera `numero_parcelas: 1`.
+- O **código interno do webhook da Lyra** (geração de link MP, validação de assinatura, `processarEventoMP`) não foi auditado nem alterado — está fora do repositório, dentro do sandbox da Lyra, que exige plano Base44 Builder (o Starter atual não libera acesso de agente externo ao código).
+
 ---
 
 ## 7. Agrupamento funcional dos serviços (49 arquivos) — estrutura física real, 100% organizada
@@ -383,6 +430,7 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 4. **Dois sistemas de agendamento paralelos** (cron Vercel + cron GitHub) sem documentação do porquê.
 5. **ServerlessFunctions monolíticas** — `auto-photo.js` (635 linhas) e `cron-diagnosis.js` (797 linhas) concentram muita lógica.
 6. **`src/services/__tests__/syncCatalog.test.js` não é um teste seguro** — grava dados reais na tabela `products` de produção quando executado via `npm test`. Descoberto durante a Fase 3B (2026-07-10), não corrigido — ver `docs/FASE3B-RELATORIO-IMPACTO.md §4` (risco #7).
+7. **Sincronização Lyra→PRIME (Fluxo F) depende de dois apps Base44 externos ao repositório** — o código do Mercado Pago em si vive dentro do sandbox da Lyra, inacessível no plano Starter atual (exigiria upgrade pra Builder). `data_pagamento`/`forma_pagamento` não são preenchidos na baixa automática por falta de dado confiável da origem, e parcelamento real (N parcelas por venda) não está implementado — ver Fluxo F na seção 6 para detalhes e limitações completas.
 
 ---
 
@@ -394,3 +442,4 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 **Atualizado em:** 2026-07-11 · `api/telegram-alert.js` removido (órfão confirmado por auditoria ao vivo no workspace GPT Maker, Fase 2C.0/preparação) — `api/` cai de 17 para 16 arquivos; alertas Telegram seguem intactos via `api.telegram.org` direto (crons + intenções), ver `docs/WEBHOOKS.md`.
 **Atualizado em:** 2026-07-12 · Fase 2C (`api/onnewmessage.js` + `api/_profileLearning.js`) — aprendizado automático de `customer_profiles.size` via o webhook de sistema `onNewMessage`, documentado no Fluxo A2 da seção 6; `api/message-router-probe.js` (probe temporário de investigação) removido, substituído por `api/onnewmessage.js` na mesma vaga de função; `api/` sobe de 16 para 18 arquivos (12 rotas + 6 helpers).
 **Atualizado em:** 2026-07-12 · Fase 2C encerrada e validada em produção — `onNewMessage` ativo apontando para `api/onnewmessage.js`; testes `applied`/`duplicate`/`unchanged` e teste real de ponta a ponta (WhatsApp, perfil real) aprovados; incidente de `SUPABASE_SECRET_KEY` incorreta em Production identificado e corrigido durante a validação (ver `docs/SUPABASE.md` §3.5).
+**Atualizado em:** 2026-07-13 · Fase 1 crítica da sincronização Lyra↔PRIME COBRANÇAS (`api/system-tools.js::syncLyra`) — documentado o Fluxo F na seção 6: autenticação por `CRON_SECRET` em `sync-lyra` (inclusive `dryRun=true`), identificação determinística por `lyra_cobranca_id`/`mp_preference_id`/`mp_payment_id` com fallback legado, atualização idempotente de Parcela pendente→pago com registro em `HistoricoAtividade`. Validado em teste ponta a ponta com pagamento real via Mercado Pago. Limitações conhecidas registradas na seção 8 (item 7).
