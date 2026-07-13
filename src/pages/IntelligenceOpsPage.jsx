@@ -8,6 +8,7 @@ import WhatsappAuditTab from './WhatsappAuditTab'
 import InstagramAuditTab from './InstagramAuditTab'
 import GabrielaAuditTab from './GabrielaAuditTab'
 import CodexAuditTab from './CodexAuditTab'
+import ProfileLearningAuditTab from './ProfileLearningAuditTab'
 import { getOverallHealth } from '../services/plataforma/opsHealthService'
 
 const TABS = [
@@ -75,6 +76,14 @@ const TABS = [
     description: 'Compara o catálogo publicado na Bagy com o catálogo interno.',
     engine: 'Sem IA — apenas regras e comparações',
   },
+  {
+    id: 'aprendizado-perfil',
+    label: 'Aprendizado de Perfil',
+    icon: '🧵',
+    status: 'live',
+    description: 'Histórico de quando o sistema detectou automaticamente o tamanho (size) de um cliente a partir de uma mensagem.',
+    engine: 'Sem IA — regra + função transacional no Supabase (apply_profile_size_learning)',
+  },
 ]
 
 export default function IntelligenceOpsPage({ initialTab = 'bagy' }) {
@@ -116,6 +125,7 @@ export default function IntelligenceOpsPage({ initialTab = 'bagy' }) {
         {tab.id === 'instagram' && <InstagramAuditTab t={t} />}
         {tab.id === 'gabriela' && <GabrielaAuditTab t={t} />}
         {tab.id === 'codex' && <CodexAuditTab t={t} />}
+        {tab.id === 'aprendizado-perfil' && <ProfileLearningAuditTab t={t} />}
         {tab.status === 'dev' && <DevelopmentTab tab={tab} t={t} />}
       </div>
     </div>

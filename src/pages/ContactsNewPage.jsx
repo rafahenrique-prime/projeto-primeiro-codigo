@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import { listContacts, getChatMessages } from '../services/chat/gptmaker'
-import { getAllProfiles, getProfile } from '../services/crm/customerProfileService'
+import { getAllProfiles, getProfile, addNote, addTag } from '../services/crm/customerProfileService'
 import { getAnalysis, analyzeConversation } from '../services/crm/contactAnalysisService'
 import { saveEntry } from '../services/conhecimento/knowledgeDB'
 import Tooltip from '../components/Tooltip.jsx'
@@ -189,6 +189,7 @@ const TABS = [
   { key: 'analise', label: 'Análise IA' },
   { key: 'aprendizados', label: 'Aprendizados' },
   { key: 'perspectiva', label: 'Insights' },
+  { key: 'tags', label: 'Tags' },
 ]
 
 function ContactDetail({ contact, t, onBack }) {
@@ -202,6 +203,10 @@ function ContactDetail({ contact, t, onBack }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [profile, setProfile] = useState(null)
   const [followUp, setFollowUp] = useState(() => !!loadFollowUpFlags()[id])
+  const [noteInput, setNoteInput] = useState('')
+  const [tagInput, setTagInput] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [savingTag, setSavingTag] = useState(false)
 
   useEffect(() => {
     if (!chatId) {
@@ -234,6 +239,36 @@ function ContactDetail({ contact, t, onBack }) {
       alert('Erro ao analisar: ' + e.message + '\n\nSe a mensagem for sobre tabela inexistente, veja o SQL em src/services/contactAnalysisService.js')
     } finally {
       setAnalyzing(false)
+    }
+  }
+
+  async function handleAddNote() {
+    if (!chatId || !noteInput.trim()) return
+    setSavingNote(true)
+    try {
+      await addNote(chatId, noteInput.trim())
+      const updated = await getProfile(chatId)
+      setProfile(updated)
+      setNoteInput('')
+    } catch (e) {
+      alert('Erro ao salvar nota: ' + e.message)
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  async function handleAddTag() {
+    if (!chatId || !tagInput.trim()) return
+    setSavingTag(true)
+    try {
+      await addTag(chatId, tagInput.trim())
+      const updated = await getProfile(chatId)
+      setProfile(updated)
+      setTagInput('')
+    } catch (e) {
+      alert('Erro ao salvar tag: ' + e.message)
+    } finally {
+      setSavingTag(false)
     }
   }
 
@@ -316,8 +351,31 @@ function ContactDetail({ contact, t, onBack }) {
           <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Produtos de interesse</div>
           <div style={{ fontSize: 12, color: t.text, marginBottom: 12 }}>{(profile?.products_asked || []).join(', ') || '—'}</div>
 
+          {profile?.interests?.length > 0 && (
+            <>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Marcas / Interesses</div>
+              <div style={{ fontSize: 12, color: t.text, marginBottom: 12 }}>{profile.interests.join(', ')}</div>
+            </>
+          )}
+
           <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Tags</div>
-          <div style={{ fontSize: 12, color: t.text }}>{(profile?.tags || []).join(', ') || '—'}</div>
+          <div style={{ fontSize: 12, color: t.text, marginBottom: profile?.cep || profile?.message_count ? 16 : 0 }}>{(profile?.tags || []).join(', ') || '—'}</div>
+
+          {(profile?.cep || profile?.message_count) && <div style={{ height: 1, background: t.border, margin: '14px 0' }} />}
+
+          {profile?.cep && (
+            <>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>CEP</div>
+              <div style={{ fontSize: 12, color: t.text, marginBottom: 12 }}>{profile.cep}</div>
+            </>
+          )}
+
+          {profile?.message_count > 0 && (
+            <>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Mensagens trocadas</div>
+              <div style={{ fontSize: 12, color: t.text }}>{profile.message_count}</div>
+            </>
+          )}
         </div>
 
         {/* Coluna direita — conteúdo por aba */}
@@ -403,6 +461,62 @@ function ContactDetail({ contact, t, onBack }) {
             <PerspectivaBlock t={t} title="Riscos" content={(analysis?.objecoes || []).join(' · ')} />
             <PerspectivaBlock t={t} title="Preferências" content={(analysis?.produtos_citados || []).join(', ') || profile?.size} />
             {!analysis && <div style={{ fontSize: 12, color: t.textMuted }}>Preenchido automaticamente depois que você rodar a "Análise IA".</div>}
+          </div>
+        )}
+
+        {tab === 'tags' && (
+          <div style={{ maxWidth: 500 }}>
+            {!profile ? (
+              <div style={{ color: t.textMuted, fontSize: 13 }}>Este contato ainda não tem perfil salvo — notas e tags manuais ficam disponíveis assim que ele trocar a primeira mensagem.</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Tags atuais</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
+                  {(profile.tags || []).length === 0
+                    ? <span style={{ fontSize: 12, color: t.textMuted }}>Nenhuma tag ainda.</span>
+                    : profile.tags.map((tg, i) => (
+                      <span key={i} style={{ fontSize: 12, background: t.bgTertiary, color: t.textSecondary, borderRadius: 9999, padding: '4px 12px', fontWeight: 500 }}>{tg}</span>
+                    ))}
+                </div>
+
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 8 }}>Adicionar nota</div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+                  <input
+                    value={noteInput}
+                    onChange={e => setNoteInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                    placeholder="Escreva uma nota..."
+                    style={{ flex: 1, fontSize: 13, padding: '9px 12px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.inputBg, color: t.text, outline: 'none' }}
+                  />
+                  <button onClick={handleAddNote} disabled={savingNote || !noteInput.trim()} style={{
+                    fontSize: 12, fontWeight: 600, padding: '9px 16px', borderRadius: 8, border: 'none', cursor: savingNote ? 'default' : 'pointer',
+                    background: t.primary || '#E8192C', color: '#fff', opacity: savingNote || !noteInput.trim() ? 0.5 : 1,
+                  }}>{savingNote ? '...' : 'Salvar'}</button>
+                </div>
+
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 8 }}>Adicionar tag</div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+                  <input
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddTag()}
+                    placeholder="Ex: Cliente VIP"
+                    style={{ flex: 1, fontSize: 13, padding: '9px 12px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.inputBg, color: t.text, outline: 'none' }}
+                  />
+                  <button onClick={handleAddTag} disabled={savingTag || !tagInput.trim()} style={{
+                    fontSize: 12, fontWeight: 600, padding: '9px 16px', borderRadius: 8, border: 'none', cursor: savingTag ? 'default' : 'pointer',
+                    background: t.primary || '#E8192C', color: '#fff', opacity: savingTag || !tagInput.trim() ? 0.5 : 1,
+                  }}>{savingTag ? '...' : 'Salvar'}</button>
+                </div>
+
+                {profile.notes && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Notas salvas</div>
+                    <div style={{ background: t.bgSecondary, borderRadius: 10, padding: '14px 16px', border: `1px solid ${t.border}`, fontSize: 13, color: t.text, whiteSpace: 'pre-wrap' }}>{profile.notes}</div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
         </div>

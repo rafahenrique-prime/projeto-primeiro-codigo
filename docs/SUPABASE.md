@@ -55,6 +55,8 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | 008 | `008_codex_audit.sql` | `codex_audit_findings` | Auditoria de código do projeto |
 | 009 | `009_catalog_public_config.sql` | `catalog_public_config` | Config de visibilidade do catálogo público (`catalogo-publico/`) |
 | 010 | `010_catalog_public_config_hidden_brands.sql` | (renomeia coluna `visible_brands` → `hidden_brands` na tabela acima) | idem |
+| 013 | `013_profile_learning_audit.sql` | `profile_learning_audit` | Aprendizado automático de `size` (ver §3.5) |
+| 014 | `014_profile_learning_audit_select_policy.sql` | (policy de SELECT em `profile_learning_audit`, sem tabela nova) | idem |
 
 ### Detalhe de cada tabela
 
@@ -226,7 +228,9 @@ channel, applied, created_at, reverted_at
 - **Status possíveis:** `applied` (mudança real, 1 linha de auditoria), `duplicate` (mesmo evento já processado), `unchanged` (valor já era esse, nenhuma auditoria gravada), `profile_not_found` (a função nunca cria perfil — isso continua exclusivo de `upsertIdentity()`), `invalid_input` (com `reason`: `campo_obrigatorio_ausente`, `size_formato_invalido`, `size_fora_da_faixa`, `channel_invalido`, `confidence_nao_suportada`), `error` (interno — só `SQLSTATE` vai pro log do Postgres, nunca `SQLERRM` no retorno).
 - **Só `size`** — `field` é literal fixo dentro da função, não parâmetro; não há como usar essa RPC pra escrever em nenhum outro campo.
 
-**Permissões:** `RLS` habilitada em `profile_learning_audit`, **sem nenhuma policy** — `anon`/`authenticated`/`public` não conseguem ler nem escrever via REST direto, mesmo que tentassem. `service_role` ignora RLS por natureza própria da role. `REVOKE ALL`/`GRANT EXECUTE` explícitos na função, restritos a `service_role`.
+**Permissões:** `RLS` habilitada em `profile_learning_audit`. Originalmente **sem nenhuma policy** (`anon`/`authenticated`/`public` não conseguiam ler nem escrever via REST direto). **Migration 014** (`014_profile_learning_audit_select_policy.sql`) adicionou uma policy de **SELECT apenas** para `anon`/`authenticated` — libera leitura para o painel React sem abrir escrita. `INSERT`/`UPDATE`/`DELETE` continuam exclusivos de `service_role` (sem policy para essas operações). `service_role` ignora RLS por natureza própria da role. `REVOKE ALL`/`GRANT EXECUTE` explícitos na função `apply_profile_size_learning`, restritos a `service_role`.
+
+**Tela:** aba "Aprendizado de Perfil" dentro de `IntelligenceOpsPage.jsx` (menu "Inteligência Operacional"), lida por `src/services/auditoria/profileLearningAuditService.js` (`getProfileLearningEvents`, só leitura) e renderizada por `src/pages/ProfileLearningAuditTab.jsx`.
 
 **Credencial:** `SUPABASE_SECRET_KEY` (nova Secret key do Supabase, formato `sb_secret_...`, autentica como `service_role`) — configurada só na Vercel (`Production`, tipo `Sensitive`), **nunca** em `.env.local`/arquivo do workspace, **nunca** com prefixo `VITE_` (garante que o Vite nunca embute no bundle do frontend). Usada exclusivamente dentro de `api/_profileLearning.js`, em todas as suas chamadas (leituras de perfil e a RPC) — nenhum outro módulo do projeto a referencia.
 

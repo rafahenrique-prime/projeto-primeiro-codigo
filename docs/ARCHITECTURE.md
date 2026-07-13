@@ -67,8 +67,8 @@ PROJETO DO CLAUDECODE/
 │   ├── data/
 │   │   ├── catalog.json        ← catálogo bundled (fallback)
 │   │   └── mockData.js
-│   └── services/    (48)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
-│       ├── auditoria/    (9)   ├── catalogo/     (6)   ├── chat/  (4)
+│   └── services/    (49)       ← 100% organizados em 8 domínios (Fases 3A+3B+3C) — zero arquivos soltos na raiz
+│       ├── auditoria/    (10)  ├── catalogo/     (6)   ├── chat/  (4)
 │       ├── conhecimento/ (5)   ├── crm/          (5)   ├── foto/  (5)
 │       ├── ia/           (3)   ├── plataforma/   (8)   ├── _archive/ (3, sem consumidores)
 │
@@ -349,7 +349,7 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 
 ---
 
-## 7. Agrupamento funcional dos serviços (48 arquivos) — estrutura física real, 100% organizada
+## 7. Agrupamento funcional dos serviços (49 arquivos) — estrutura física real, 100% organizada
 
 | Domínio (pasta) | Services | Arquivos |
 |---|---|---|
@@ -358,7 +358,7 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 | **`crm/`** | contactAnalysisService, cobrancasService, stageHistory, followUpService, customerProfileService | 5 |
 | **`conhecimento/`** | knowledgeGenerator, knowledgeParser, knowledgeExtractor, knowledgeTimestamps, knowledgeDB | 5 |
 | **`foto/`** | photoFlowService, photoCacheService, ocrService, imageExtractor, imageReviewService | 5 |
-| **`auditoria/`** | agentAuditService, codexAuditService, codexAlertsService, agentLearningsService, learningsAuditService, knowledgeAuditService, whatsappAuditService, instagramAuditService, bagyAuditService | 9 |
+| **`auditoria/`** | agentAuditService, codexAuditService, codexAlertsService, agentLearningsService, learningsAuditService, knowledgeAuditService, whatsappAuditService, instagramAuditService, bagyAuditService, profileLearningAuditService | 10 |
 | **`ia/`** | deepseek, deepseekBalanceService, groq | 3 |
 | **`plataforma/`** | supabaseStorage, systemHealthService, diagnosticService, avatarCacheService, tokenLoggingService, gptmakerCreditsService, weeklyInsightService, opsHealthService | 8 |
 | **`_archive/`** | photoMatchingService, photoRecognitionService, importBackupService | 3 |
@@ -370,6 +370,8 @@ Tiebreaker: mensagem mais recente sobe (comportamento WhatsApp).
 > **Atualizado 2026-07-10 (descomissionamento de órfãos, Etapa A — arquivar):** `photoMatchingService`, `photoRecognitionService` (`foto/`) e `importBackupService` (`catalogo/`) foram movidos para `src/services/_archive/` — mesma auditoria confirmou zero consumidores, mas os 3 têm valor de referência arquitetural ou dependem de uma decisão externa ainda em aberto (`dealism-backup/`), por isso preservados em vez de removidos. Total de `src/services/` permanece em 47 arquivos (só mudou de pasta).
 >
 > **Atualizado 2026-07-12 (remoção do backup legado):** `dealism-backup/` (aprox. 101MB, backup antigo do sistema Dealism, sem uso em runtime) foi removida da árvore atual do repositório por decisão intencional (commit `d940b05`). O conteúdo permanece recuperável pelo histórico do Git. A dependência externa mencionada na nota de 2026-07-10 está resolvida; `importBackupService` permanece em `_archive/` como referência de arquitetura, sem uso funcional.
+>
+> **Atualizado 2026-07-12 (ligar fio — Aprendizado de Perfil):** adicionado `profileLearningAuditService.js` em `auditoria/` (10º arquivo do domínio) — só leitura da tabela `profile_learning_audit` (existente desde a migration 013), agora exibida na aba "Aprendizado de Perfil" de `IntelligenceOpsPage.jsx`. Exigiu a migration `014_profile_learning_audit_select_policy.sql` para liberar SELECT à chave anon (a tabela tinha RLS habilitada sem nenhuma policy de leitura).
 
 ---
 
