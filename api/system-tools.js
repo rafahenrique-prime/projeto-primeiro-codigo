@@ -85,25 +85,28 @@ async function syncLyra(req, res) {
 
     for (const cob of lyraCobrancas) {
       const lyraCliente = lyraClientePorId.get(cob.cliente_id)
+      // Nome vem preferencialmente do cadastro de Cliente da Lyra — o campo
+      // cliente_nome da própria Cobranca às vezes vem vazio (visto em teste real).
+      const nomeCliente = lyraCliente?.name || cob.cliente_nome || 'Sem nome'
       const telefoneLyra = normalizePhone(lyraCliente?.phone || '')
       let clienteExistente = telefoneLyra ? clientePorTelefone.get(telefoneLyra) : null
-      const jaTemParcela = parcelaJaExiste(cob.cliente_nome, cob.valor, cob.vencimento)
+      const jaTemParcela = parcelaJaExiste(nomeCliente, cob.valor, cob.vencimento)
 
       if (jaTemParcela) {
-        acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: cob.cliente_nome, acao: 'JA_SINCRONIZADO', executado: false })
+        acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false })
         continue
       }
 
       const acaoProposta = clienteExistente ? 'CRIAR_VENDA_E_PARCELA' : 'CRIAR_CLIENTE_VENDA_E_PARCELA'
 
       if (dryRun) {
-        acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: cob.cliente_nome, valor: cob.valor, vencimento: cob.vencimento, status_lyra: cob.status, acao: acaoProposta, executado: false })
+        acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: nomeCliente, valor: cob.valor, vencimento: cob.vencimento, status_lyra: cob.status, acao: acaoProposta, executado: false })
         continue
       }
 
       if (!clienteExistente) {
         clienteExistente = await prime.entities.Cliente.create({
-          nome: cob.cliente_nome,
+          nome: nomeCliente,
           telefone: telefoneLyra || '',
           status: 'ativo',
         })
@@ -111,7 +114,7 @@ async function syncLyra(req, res) {
       }
 
       const venda = await prime.entities.Venda.create({
-        cliente_nome: cob.cliente_nome,
+        cliente_nome: nomeCliente,
         cliente_id: clienteExistente.id,
         valor_total: cob.valor,
         numero_parcelas: 1,
@@ -126,7 +129,7 @@ async function syncLyra(req, res) {
       const parcela = await prime.entities.Parcela.create({
         venda_id: venda.id,
         cliente_id: clienteExistente.id,
-        cliente_nome: cob.cliente_nome,
+        cliente_nome: nomeCliente,
         numero: 1,
         valor_base: cob.valor,
         valor_atualizado: cob.valor,
@@ -138,7 +141,7 @@ async function syncLyra(req, res) {
         cobranca_enviada: true,
       })
 
-      acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: cob.cliente_nome, acao: acaoProposta, executado: true, novo_cliente_id: clienteExistente.id, nova_venda_id: venda.id, nova_parcela_id: parcela.id })
+      acoes.push({ lyra_cobranca_id: cob.id, mp_payment_id: cob.mp_payment_id, cliente_nome: nomeCliente, acao: acaoProposta, executado: true, novo_cliente_id: clienteExistente.id, nova_venda_id: venda.id, nova_parcela_id: parcela.id })
     }
 
     return res.status(200).json({
