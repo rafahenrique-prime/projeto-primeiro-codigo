@@ -1,4 +1,4 @@
-const STATUS_ENDPOINT = 'https://ignite-webhook.vercel.app/api/vercel-status'
+const STATUS_ENDPOINT = 'https://ignite-webhook.vercel.app/api/system-tools?tool=vercel-status'
 
 let cached = null
 let lastFetchTime = 0

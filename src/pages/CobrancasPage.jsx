@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados } from '../services/crm/cobrancasService'
+import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados, registrarPagamentoManual } from '../services/crm/cobrancasService'
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 
 // Dados fake pra fallback se API falhar
@@ -16,6 +16,14 @@ const MOCK_COBRANCAS = [
   { id: 9, nome: 'DINEI BARBEARIA', status: 'Atrasado', diasAtraso: 66, vencimento: '01/05/2026', valorTotal: 879.00, valorAberto: 629.00, valorPago: 250.00, parcelas: '1x', telefone: '(34) 98765-0000' },
   { id: 10, nome: 'GABRIEL SILVA PINHEIRO GARRAGEM', status: 'Atrasado', diasAtraso: 38, vencimento: '29/05/2026', valorTotal: 3136.00, valorAberto: 3136.00, valorPago: 0, parcelas: '1x', telefone: '(34) 99876-1111' },
 ]
+
+function WhatsAppIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <path fill="#25D366" d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.33C8.52 21.5 10.22 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.23.65-1.35 1.24-1.86 1.28-.5.05-1.02.24-3.4-.7-2.87-1.15-4.7-4.06-4.84-4.25-.14-.19-1.16-1.55-1.16-2.95s.72-2.1.98-2.38c.26-.28.56-.35.75-.35.19 0 .38 0 .54.01.18.01.42-.07.65.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.48-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.08.17-.21.72-.84.91-1.13.19-.29.38-.24.64-.14.26.1 1.65.78 1.93.92.28.14.47.21.54.33.07.12.07.68-.16 1.33z" />
+    </svg>
+  )
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -60,6 +68,7 @@ export default function CobrancasPage() {
   const [clienteSearch, setClienteSearch] = useState('')
   const [clienteSortBy, setClienteSortBy] = useState('nome-asc')
   const [sincronizandoTelefones, setSincronizandoTelefones] = useState(false)
+  const [pagamentoModalCobranca, setPagamentoModalCobranca] = useState(null)
 
   useEffect(() => {
     loadCobrancas()
@@ -133,12 +142,8 @@ export default function CobrancasPage() {
 
     if (filter !== 'todos') {
       if (filter === 'hoje') {
-        result = result.filter(c => {
-          if (!c.vencimento) return false
-          const vencDate = new Date(c.vencimento)
-          vencDate.setHours(0, 0, 0, 0)
-          return vencDate.getTime() === hoje.getTime()
-        })
+        const hojeStr = new Date().toISOString().slice(0, 10)
+        result = result.filter(c => (c.vencimentoRaw || '').slice(0, 10) === hojeStr)
       } else if (filter === '1-5') {
         // Atenção: exclui pagos (100%)
         result = result.filter(c => !(c.valorAberto === 0 && c.valorPago > 0) && c.diasAtraso >= 1 && c.diasAtraso <= 5)
@@ -156,12 +161,12 @@ export default function CobrancasPage() {
       } else if (filter === 'parcial') {
         result = result.filter(c => c.valorAberto > 0 && c.valorPago > 0)
       } else if (filter === 'avencer') {
-        // A vencer: sem atraso, vence próx 7 dias
+        // A vencer: sem atraso, vence entre amanhã e daqui 7 dias (comparação por string ISO, sem risco de fuso)
+        const amanhaStr = amanha.toISOString().slice(0, 10)
+        const fimSemanaStr = fimSemana.toISOString().slice(0, 10)
         result = result.filter(c => {
-          if (!c.vencimento) return false
-          const vencDate = new Date(c.vencimento)
-          vencDate.setHours(0, 0, 0, 0)
-          return c.diasAtraso === 0 && vencDate.getTime() > hoje.getTime() && vencDate.getTime() <= fimSemana.getTime()
+          const vencStr = (c.vencimentoRaw || '').slice(0, 10)
+          return c.diasAtraso === 0 && vencStr >= amanhaStr && vencStr <= fimSemanaStr
         })
       } else if (filter === 'risco') {
         // Risco Alto: 30+ dias atrasado OU parcialmente pago (exclui pagos 100%)
@@ -184,6 +189,51 @@ export default function CobrancasPage() {
       return 0
     })
   }, [filter, search, sortBy, cobrancas])
+
+  // Definições dos filtros rápidos — separado do JSX pra poder distribuir os chips
+  // em 2 lugares diferentes na tela (linha principal + ao lado da busca).
+  const filterDefs = useMemo(() => {
+    const hojeStr = new Date().toISOString().slice(0, 10)
+    const hoje0 = new Date()
+    hoje0.setHours(0, 0, 0, 0)
+    const fimSemanaStr = new Date(hoje0.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
+    return {
+      hoje: { id: 'hoje', label: '📅 Hoje', getCount: () => cobrancas.filter(c => (c.vencimentoRaw || '').slice(0, 10) === hojeStr).length },
+      critico: { id: 'critico', label: '🔴 Crítico (15+)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso > 15).length },
+      '6-15': { id: '6-15', label: '🟠 Urgente (6-15)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 6 && c.diasAtraso <= 15).length },
+      '1-5': { id: '1-5', label: '🟡 Atenção (1-5)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 1 && c.diasAtraso <= 5).length },
+      avencer: { id: 'avencer', label: '🔵 A Vencer (7d)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso === 0 && (c.vencimentoRaw || '').slice(0, 10) > hojeStr && (c.vencimentoRaw || '').slice(0, 10) <= fimSemanaStr).length },
+      risco: { id: 'risco', label: '💥 Risco Alto', getCount: () => cobrancas.filter(c => !pagoFilter(c) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0))).length },
+      todos: { id: 'todos', label: '📋 Todos', getCount: () => cobrancas.length },
+      pendente: { id: 'pendente', label: '⏳ Pendente', getCount: () => cobrancas.filter(c => c.valorPago === 0).length },
+      parcial: { id: 'parcial', label: '◐ Parc. Pago', getCount: () => cobrancas.filter(c => c.valorAberto > 0 && c.valorPago > 0).length },
+      pago: { id: 'pago', label: '✅ Pago', getCount: () => cobrancas.filter(c => c.valorAberto === 0 && c.valorPago > 0).length },
+    }
+  }, [cobrancas])
+
+  function FilterChip({ f, compact = false }) {
+    return (
+      <button
+        onClick={() => setFilter(f.id)}
+        style={{
+          fontSize: compact ? 11 : 12,
+          padding: compact ? '6px 12px' : '7px 14px',
+          borderRadius: 7,
+          border: 'none',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
+          color: filter === f.id ? '#fff' : t.textMid,
+          fontWeight: filter === f.id ? 600 : 500,
+          transition: 'all 0.12s',
+          flexShrink: 0,
+        }}
+      >
+        {f.label} ({f.getCount()})
+      </button>
+    )
+  }
 
   return (
     <div style={{ flex: 1, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -316,17 +366,16 @@ export default function CobrancasPage() {
         {tab === 'lista' && (
           <>
             {/* Busca e Filtros */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por nome ou telefone..."
                 style={{
-                  flex: 1,
-                  minWidth: 200,
+                  width: 320,
                   border: `1px solid ${t.border}`,
-                  borderRadius: 8,
-                  padding: '8px 12px',
+                  borderRadius: 7,
+                  padding: '7px 12px',
                   fontSize: 13,
                   background: t.inputBg,
                   color: t.text,
@@ -338,8 +387,8 @@ export default function CobrancasPage() {
                 onChange={e => setSortBy(e.target.value)}
                 style={{
                   border: `1px solid ${t.border}`,
-                  borderRadius: 8,
-                  padding: '8px 12px',
+                  borderRadius: 7,
+                  padding: '7px 12px',
                   fontSize: 13,
                   background: t.inputBg,
                   color: t.text,
@@ -354,56 +403,23 @@ export default function CobrancasPage() {
                 <option value="valor-asc">Menor dívida</option>
                 <option value="tentativas">Mais cobranças</option>
               </select>
+              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
+              <FilterChip f={filterDefs.parcial} compact />
+              <FilterChip f={filterDefs.pago} compact />
             </div>
 
-            {/* Filtros inteligentes — 3 grupos numa única linha, separados por divisor fino */}
+            {/* Filtros rápidos por urgência — Pago/Parc. Pago ficaram ao lado da busca, ver acima */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {(() => {
-                const hoje = new Date()
-                hoje.setHours(0, 0, 0, 0)
-                const fimSemana = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
-                const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
-                return [
-                  { id: 'todos', label: 'Todos', getCount: () => cobrancas.length },
-                  { id: 'pago', label: 'Pago', getCount: () => cobrancas.filter(c => c.valorAberto === 0 && c.valorPago > 0).length },
-                  { id: 'pendente', label: 'Pendente', getCount: () => cobrancas.filter(c => c.valorPago === 0).length },
-                  { id: 'parcial', label: 'Parc. Pago', getCount: () => cobrancas.filter(c => c.valorAberto > 0 && c.valorPago > 0).length },
-                  { divider: true },
-                  { id: 'critico', label: '🔴 Crítico (15+)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso > 15).length },
-                  { id: '6-15', label: '🟠 Urgente (6-15)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 6 && c.diasAtraso <= 15).length },
-                  { id: '1-5', label: '🟡 Atenção (1-5)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 1 && c.diasAtraso <= 5).length },
-                  { id: 'avencer', label: '🔵 A Vencer', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso === 0 && c.vencimento && new Date(c.vencimento) <= fimSemana).length },
-                  { divider: true },
-                  { id: 'risco', label: '💥 Risco Alto', getCount: () => cobrancas.filter(c => !pagoFilter(c) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0))).length },
-                  { id: 'hoje', label: 'Hoje', getCount: () => cobrancas.filter(c => {
-                    if (!c.vencimento) return false
-                    const vencDate = new Date(c.vencimento)
-                    vencDate.setHours(0, 0, 0, 0)
-                    return vencDate.getTime() === hoje.getTime()
-                  }).length },
-                ]
-              })().map((f, i) => f.divider
-                ? <div key={`div-${i}`} style={{ width: 1, height: 14, background: t.border, flexShrink: 0 }} />
-                : (
-                  <button
-                    key={f.id}
-                    onClick={() => setFilter(f.id)}
-                    style={{
-                      fontSize: 9,
-                      padding: '3px 8px',
-                      borderRadius: 5,
-                      border: 'none',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
-                      color: filter === f.id ? '#fff' : t.textMid,
-                      fontWeight: filter === f.id ? 600 : 500,
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    {f.label} ({f.getCount()})
-                  </button>
-                ))}
+              <FilterChip f={filterDefs.hoje} />
+              <FilterChip f={filterDefs.critico} />
+              <FilterChip f={filterDefs['6-15']} />
+              <FilterChip f={filterDefs['1-5']} />
+              <FilterChip f={filterDefs.avencer} />
+              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
+              <FilterChip f={filterDefs.risco} />
+              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
+              <FilterChip f={filterDefs.todos} />
+              <FilterChip f={filterDefs.pendente} />
             </div>
           </>
         )}
@@ -535,10 +551,8 @@ export default function CobrancasPage() {
                         height: 32,
                         borderRadius: 6,
                         border: 'none',
-                        background: '#DC2626',
-                        color: '#fff',
+                        background: '#ECFDF5',
                         cursor: 'pointer',
-                        fontSize: 14,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -547,7 +561,7 @@ export default function CobrancasPage() {
                       onMouseEnter={e => { e.currentTarget.style.opacity = 0.8 }}
                       onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
                     >
-                      📱
+                      <WhatsAppIcon size={17} />
                     </button>
                     <button
                       title="Copiar link do Portal do Cliente"
@@ -579,6 +593,28 @@ export default function CobrancasPage() {
                     >
                       🔗
                     </button>
+                    <button
+                      title="Registrar pagamento manual"
+                      onClick={() => setPagamentoModalCobranca(cobranca)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        border: 'none',
+                        background: '#ECFDF5',
+                        color: '#047857',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'opacity 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = 0.8 }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
+                    >
+                      💰
+                    </button>
                   </div>
                 </div>
               )
@@ -605,6 +641,98 @@ export default function CobrancasPage() {
         {tab === 'clientes' && (
           <ClientesTab clientes={clientes} search={clienteSearch} setSearch={setClienteSearch} sortBy={clienteSortBy} setSortBy={setClienteSortBy} theme={t} sincronizarTelefones={sincronizarTelefones} sincronizandoTelefones={sincronizandoTelefones} />
         )}
+      </div>
+
+      {pagamentoModalCobranca && (
+        <PagamentoModal
+          cobranca={pagamentoModalCobranca}
+          theme={t}
+          onClose={() => setPagamentoModalCobranca(null)}
+          onSalvo={() => { setPagamentoModalCobranca(null); loadCobrancas() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function PagamentoModal({ cobranca, theme: t, onClose, onSalvo }) {
+  const [valor, setValor] = useState(cobranca.valorAberto?.toFixed(2) || '0.00')
+  const [forma, setForma] = useState('pix')
+  const [data, setData] = useState(new Date().toISOString().slice(0, 10))
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  async function handleSalvar() {
+    const valorNum = parseFloat(valor.replace(',', '.'))
+    if (!valorNum || valorNum <= 0) {
+      setErro('Digite um valor válido')
+      return
+    }
+    setSalvando(true)
+    setErro('')
+    try {
+      await registrarPagamentoManual(cobranca.id, { valorPago: valorNum, formaPagamento: forma, dataPagamento: data })
+      onSalvo()
+    } catch (err) {
+      setErro('Erro ao registrar: ' + err.message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: t.bg, borderRadius: 12, padding: 24, width: '100%', maxWidth: 380, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: t.text, margin: 0 }}>Registrar Pagamento</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: t.textMuted }}>✕</button>
+        </div>
+
+        <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 4 }}>{cobranca.nome}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: t.text, marginBottom: 16 }}>
+          {formatCurrency(cobranca.valorAberto)} <span style={{ fontSize: 11, fontWeight: 400, color: t.textMuted }}>em aberto</span>
+        </div>
+
+        <label style={{ fontSize: 11, fontWeight: 600, color: t.textMid, display: 'block', marginBottom: 4 }}>Valor pago</label>
+        <input
+          value={valor}
+          onChange={e => setValor(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${t.border}`, background: t.inputBg, color: t.text, fontSize: 14, marginBottom: 12, boxSizing: 'border-box' }}
+        />
+
+        <label style={{ fontSize: 11, fontWeight: 600, color: t.textMid, display: 'block', marginBottom: 4 }}>Forma de pagamento</label>
+        <select
+          value={forma}
+          onChange={e => setForma(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${t.border}`, background: t.inputBg, color: t.text, fontSize: 13, marginBottom: 12, boxSizing: 'border-box' }}
+        >
+          <option value="pix">PIX</option>
+          <option value="dinheiro">Dinheiro</option>
+          <option value="cartao">Cartão</option>
+          <option value="transferencia">Transferência</option>
+          <option value="outro">Outro</option>
+        </select>
+
+        <label style={{ fontSize: 11, fontWeight: 600, color: t.textMid, display: 'block', marginBottom: 4 }}>Data do pagamento</label>
+        <input
+          type="date"
+          value={data}
+          onChange={e => setData(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${t.border}`, background: t.inputBg, color: t.text, fontSize: 13, marginBottom: 16, boxSizing: 'border-box' }}
+        />
+
+        {erro && <div style={{ fontSize: 11, color: '#DC2626', marginBottom: 12 }}>{erro}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `1px solid ${t.border}`, background: 'none', color: t.textMid, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Cancelar</button>
+          <button
+            onClick={handleSalvar}
+            disabled={salvando}
+            style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', background: '#047857', color: '#fff', cursor: salvando ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, opacity: salvando ? 0.6 : 1 }}
+          >
+            {salvando ? 'Salvando...' : 'Confirmar Pagamento'}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -1,282 +1,249 @@
-import { createClient } from '@base44/sdk';
+import { createClient } from '@base44/sdk'
 
-let base44Client = null;
+// Conta nova (migrada 13/07/2026): schema relacional Cliente → Venda → Parcela,
+// em vez do antigo Cobranca (registro único por cliente com parcelas aninhadas em JSON).
+// Cada Parcela vira 1 linha na UI (antes era 1 linha por Cobranca agregada).
+
+let base44Client = null
 
 function getClient() {
   if (!base44Client) {
-    const appId = import.meta.env.VITE_BASE44_APP_ID;
-    if (!appId) throw new Error('VITE_BASE44_APP_ID não configurado');
+    const appId = import.meta.env.VITE_BASE44_APP_ID
+    const apiKey = import.meta.env.VITE_BASE44_API_KEY
+    if (!appId) throw new Error('VITE_BASE44_APP_ID não configurado')
 
-    base44Client = createClient({ appId });
+    base44Client = createClient({
+      appId,
+      headers: apiKey ? { api_key: apiKey } : undefined,
+    })
   }
-  return base44Client;
+  return base44Client
 }
 
-// Calcula dias em atraso baseado na data de vencimento
 function calcularDiasAtraso(vencimento) {
-  if (!vencimento) return 0;
-  const vencDate = new Date(vencimento);
-  const hoje = new Date();
-  const diffMs = hoje - vencDate;
-  const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return dias > 0 ? dias : 0;
+  if (!vencimento) return 0
+  const vencDate = new Date(vencimento)
+  const hoje = new Date()
+  const diffMs = hoje - vencDate
+  const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  return dias > 0 ? dias : 0
 }
 
-// Normaliza dados da API para o formato esperado pela UI
-function normalizarCobranca(c, telefonecliente = '-') {
-  const valorAberto = (parseFloat(c.valorTotal) || 0) - (parseFloat(c.valorPago) || 0);
-  const normalized = {
-    id: c.id,
-    nome: c.clienteNome || 'Sem nome',
-    clienteId: c.clienteId,
-    status: c.statusCobranca || 'Não Cobrado',
-    diasAtraso: calcularDiasAtraso(c.vencimento),
-    vencimento: c.vencimento ? new Date(c.vencimento).toLocaleDateString('pt-BR') : '-',
-    valorTotal: parseFloat(c.valorTotal) || 0,
-    valorAberto: valorAberto,
-    valorPago: parseFloat(c.valorPago) || 0,
-    parcelas: `${c.parcelasTotal || 1}x`,
-    telefone: telefonecliente || c.telefonePrincipal || c.telefone || '-',
-    observacoes: c.observacoes || '',
-    quantidadeCobrancas: c.quantidadeCobrancas || 0,
-    proximaAcao: c.proximaAcao || '-',
-    historicoPagamentos: c.historicoPagamentos || [], // Array de { data, valor }
-  };
+// Normaliza uma Parcela pro mesmo formato que a UI já espera (era normalizarCobranca)
+function normalizarParcela(p, telefonecliente = '-') {
+  const valorTotal = parseFloat(p.valor_atualizado) || parseFloat(p.valor_base) || 0
+  const valorPago = parseFloat(p.valor_pago) || 0
+  const valorAberto = valorTotal - valorPago
 
-  return normalized;
+  // Schema novo não tem contador de tentativas de cobrança, só um flag booleano —
+  // aproximação: 1 se já foi enviada, 0 se não.
+  const quantidadeCobrancas = p.cobranca_enviada ? 1 : 0
+
+  const historicoPagamentos = (valorPago > 0 && p.data_pagamento)
+    ? [{ data: p.data_pagamento, valor: valorPago }]
+    : []
+
+  return {
+    id: p.id,
+    nome: p.cliente_nome || 'Sem nome',
+    clienteId: p.cliente_id,
+    status: p.status || 'pendente',
+    diasAtraso: calcularDiasAtraso(p.data_vencimento),
+    vencimento: p.data_vencimento ? new Date(p.data_vencimento).toLocaleDateString('pt-BR') : '-',
+    vencimentoRaw: p.data_vencimento || null,
+    valorTotal,
+    valorAberto,
+    valorPago,
+    parcelas: `Parcela ${p.numero || 1}`,
+    telefone: telefonecliente || '-',
+    observacoes: '',
+    quantidadeCobrancas,
+    proximaAcao: '-',
+    historicoPagamentos,
+  }
 }
 
 async function buscarTelefoneCliente(clienteId, nomeCliente) {
   try {
-    const base44 = getClient();
-    let cliente = null;
+    const base44 = getClient()
+    let cliente = null
 
-    // Tenta por ID primeiro
     if (clienteId) {
       try {
-        cliente = await base44.entities.Cliente.get(clienteId);
+        cliente = await base44.entities.Cliente.get(clienteId)
       } catch (err) {
-        console.warn(`[buscarTelefoneCliente] ⚠️ ID ${clienteId} não encontrado, tentando por nome...`);
+        console.warn(`[buscarTelefoneCliente] ⚠️ ID ${clienteId} não encontrado, tentando por nome...`)
       }
     }
 
-    // Se não achou por ID, tenta por nome
     if (!cliente && nomeCliente) {
       try {
-        const clientes = await base44.entities.Cliente.filter({ nome: nomeCliente });
-        if (clientes && clientes.length > 0) {
-          cliente = clientes[0];
-          console.log(`[buscarTelefoneCliente] ✅ ${nomeCliente}: encontrado por NOME`);
-        }
+        const clientes = await base44.entities.Cliente.filter({ nome: nomeCliente })
+        if (clientes && clientes.length > 0) cliente = clientes[0]
       } catch (err) {
-        console.warn(`[buscarTelefoneCliente] ⚠️ Filtro por nome falhou:`, err.message);
+        console.warn(`[buscarTelefoneCliente] ⚠️ Filtro por nome falhou:`, err.message)
       }
     }
 
-    const telefone = cliente?.telefone || '-';
-    if (telefone !== '-') {
-      console.log(`[buscarTelefoneCliente] ✅ ${nomeCliente}: telefone="${telefone}"`);
-    }
-    return telefone;
+    return cliente?.telefone || '-'
   } catch (err) {
-    console.warn(`[buscarTelefoneCliente] ❌ ${nomeCliente}:`, err.message);
-    return '-';
+    console.warn(`[buscarTelefoneCliente] ❌ ${nomeCliente}:`, err.message)
+    return '-'
   }
+}
+
+// Busca todas as parcelas + mapa de telefone por cliente (1 fetch de Cliente, não N)
+async function listarParcelasComTelefone() {
+  const base44 = getClient()
+  const [parcelas, clientes] = await Promise.all([
+    base44.entities.Parcela.list(),
+    base44.entities.Cliente.list(),
+  ])
+
+  const telefonePorClienteId = new Map(clientes.map(c => [c.id, c.telefone || '-']))
+
+  return (parcelas || []).map(p => normalizarParcela(p, telefonePorClienteId.get(p.cliente_id) || '-'))
 }
 
 export async function getAllCobrancas() {
   try {
-    const base44 = getClient();
-    const result = await base44.entities.Cobranca.list();
-
-    // Normaliza SEM buscar telefone (evita rate limit)
-    const normalized = (result || []).map(c => normalizarCobranca(c, '-'));
-
-    if (result && result.length > 0) {
-      console.log('[cobrancasService] 📊 Total de registros:', result.length);
-    }
-
-    return normalized;
+    const normalized = await listarParcelasComTelefone()
+    console.log('[cobrancasService] 📊 Total de parcelas:', normalized.length)
+    return normalized
   } catch (err) {
-    console.error('[cobrancasService] Erro ao listar todas:', err.message);
-    return [];
+    console.error('[cobrancasService] Erro ao listar todas:', err.message)
+    return []
   }
 }
 
-// Busca telefone sob demanda (quando usuário clica no botão WhatsApp)
 export async function buscarTelefoneParaWhatsApp(clienteId, nomeCliente) {
-  return await buscarTelefoneCliente(clienteId, nomeCliente);
+  return await buscarTelefoneCliente(clienteId, nomeCliente)
 }
 
 export async function listCobrancas(filtroStatus = null) {
   try {
-    const base44 = getClient();
-    const result = await base44.entities.Cobranca.list();
-    let cobrancas = (result || []).map(normalizarCobranca);
-
+    let cobrancas = await listarParcelasComTelefone()
     if (filtroStatus && filtroStatus !== 'todos') {
-      cobrancas = cobrancas.filter(c => c.status === filtroStatus);
+      cobrancas = cobrancas.filter(c => c.status === filtroStatus)
     }
-
-    return cobrancas.sort((a, b) => b.diasAtraso - a.diasAtraso);
+    return cobrancas.sort((a, b) => b.diasAtraso - a.diasAtraso)
   } catch (err) {
-    console.error('[cobrancasService] Erro ao listar cobranças:', err.message);
-    return [];
+    console.error('[cobrancasService] Erro ao listar cobranças:', err.message)
+    return []
   }
 }
 
 export async function listCobrancasAtrasadas() {
   try {
-    const base44 = getClient();
-    const result = await base44.entities.Cobranca.list();
-    const cobrancas = (result || []).map(normalizarCobranca);
-    return cobrancas.filter(c => c.diasAtraso > 0).sort((a, b) => b.diasAtraso - a.diasAtraso);
+    const cobrancas = await listarParcelasComTelefone()
+    return cobrancas.filter(c => c.diasAtraso > 0).sort((a, b) => b.diasAtraso - a.diasAtraso)
   } catch (err) {
-    console.error('[cobrancasService] Erro ao listar atrasadas:', err.message);
-    return [];
+    console.error('[cobrancasService] Erro ao listar atrasadas:', err.message)
+    return []
   }
 }
 
-// Dados mock para fallback quando ActivityLog falhar
+// Quantas parcelas vencem hoje (usado no card do Dashboard)
+export async function contarVencemHoje() {
+  try {
+    const base44 = getClient()
+    const parcelas = await base44.entities.Parcela.list()
+    const hojeStr = new Date().toISOString().slice(0, 10)
+    const hoje = (parcelas || []).filter(p => p.status !== 'pago' && (p.data_vencimento || '').slice(0, 10) === hojeStr)
+    const valorEmAberto = hoje.reduce((sum, p) => sum + ((parseFloat(p.valor_atualizado) || parseFloat(p.valor_base) || 0) - (parseFloat(p.valor_pago) || 0)), 0)
+    return { quantidade: hoje.length, valorEmAberto }
+  } catch (err) {
+    console.error('[cobrancasService] Erro ao contar vencem hoje:', err.message)
+    return { quantidade: 0, valorEmAberto: 0 }
+  }
+}
+
 const MOCK_HISTORICO_ATIVIDADES = [
   { id: '1', tipo: 'pagamento', activityType: 'PAYMENT', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), entityId: 'ALESSANDRO ELISA', descricao: 'Pagamento recebido', valor: 918.99, valorAnterior: null, valorNovo: null, userId: 'sistema' },
   { id: '2', tipo: 'edicao', activityType: 'EDIT', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), entityId: 'ALESSANDRO PEREIRA LOPES', descricao: 'Status atualizado', valor: 0, valorAnterior: 'Pendente', valorNovo: 'Atrasado', userId: 'rafael' },
   { id: '3', tipo: 'pagamento', activityType: 'PAYMENT', timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), entityId: 'DINEI BARBEARIA', descricao: 'Pagamento parcial', valor: 250.00, valorAnterior: null, valorNovo: null, userId: 'sistema' },
   { id: '4', tipo: 'importacao', activityType: 'IMPORT', timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), entityId: 'Lote 001', descricao: 'Importação em lote', valor: 5000.00, valorAnterior: null, valorNovo: null, userId: 'rafael' },
   { id: '5', tipo: 'novo', activityType: 'NEW', timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), entityId: 'GABRIEL SILVA', descricao: 'Nova cobrança criada', valor: 3136.00, valorAnterior: null, valorNovo: null, userId: 'rafael' },
-];
+]
 
 export async function getHistoricoAtividades() {
   try {
-    const base44 = getClient();
-
-    console.log('[getHistoricoAtividades] 🔍 Buscando ActivityLog do Base44...');
-
-    let result = [];
+    const base44 = getClient()
+    let result = []
     try {
-      // ActivityLog é a entidade correta no Base44
-      result = await base44.entities.ActivityLog.list();
-      console.log('[getHistoricoAtividades] ✅ ActivityLog carregado:', result.length, 'registros');
+      result = await base44.entities.HistoricoAtividade.list()
     } catch (err) {
-      console.error('[getHistoricoAtividades] ❌ Erro ao carregar ActivityLog:', err.message);
-      console.log('[getHistoricoAtividades] ℹ️ Usando dados mock como fallback');
-      return MOCK_HISTORICO_ATIVIDADES;
+      console.error('[getHistoricoAtividades] ❌ Erro ao carregar HistoricoAtividade:', err.message)
+      return MOCK_HISTORICO_ATIVIDADES
     }
 
-    if (!result || result.length === 0) {
-      console.log('[getHistoricoAtividades] ℹ️ ActivityLog vazio, usando mock');
-      return MOCK_HISTORICO_ATIVIDADES;
-    }
+    if (!result || result.length === 0) return MOCK_HISTORICO_ATIVIDADES
 
-    console.log('[getHistoricoAtividades] 📊 Mapeando', result.length, 'atividades...');
-
-    // Normalizar atividades usando o schema REAL do Base44
     const atividades = result
       .map(log => {
-        try {
-          // Schema do Base44: tipo, descricao, clienteNome, valor, valorAnterior, cobrancaId, usuario, detalhes, created_date
-          const timestamp = log.created_date || new Date().toISOString();
-          const timestampDate = new Date(timestamp);
-
-          if (isNaN(timestampDate.getTime())) {
-            console.warn(`[getHistoricoAtividades] ⚠️ Data inválida: ${timestamp}`);
-            return null;
-          }
-
-          return {
-            id: log.id,
-            tipo: log.tipo || 'outro', // pagamento, edicao, importacao, exclusao, novo
-            descricao: log.descricao || '-',
-            clienteNome: log.clienteNome || '-',
-            entityId: log.cobrancaId || '-',
-            valor: log.valor || 0,
-            valorAnterior: log.valorAnterior || null,
-            timestamp: timestamp,
-            userId: log.usuario || log.created_by || '-',
-            detalhes: log.detalhes || '',
-          };
-        } catch (e) {
-          console.warn('[getHistoricoAtividades] ⚠️ Erro ao processar:', e.message);
-          return null;
+        const timestamp = log.created_date || new Date().toISOString()
+        if (isNaN(new Date(timestamp).getTime())) return null
+        return {
+          id: log.id,
+          tipo: log.tipo || 'outro',
+          descricao: log.descricao || '-',
+          clienteNome: log.cliente_nome || '-',
+          entityId: log.cobranca_id || '-',
+          valor: log.valor || 0,
+          valorAnterior: log.valor_anterior || null,
+          timestamp,
+          userId: log.usuario || '-',
+          detalhes: log.detalhes || '',
         }
       })
-      .filter(Boolean);
+      .filter(Boolean)
 
-    if (atividades.length === 0) {
-      console.log('[getHistoricoAtividades] ℹ️ Nenhuma atividade válida, usando mock');
-      return MOCK_HISTORICO_ATIVIDADES;
-    }
-
-    console.log('[getHistoricoAtividades] ✅ Retornando', atividades.length, 'atividades do Base44');
-    return atividades.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return atividades.length > 0
+      ? atividades.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      : MOCK_HISTORICO_ATIVIDADES
   } catch (err) {
-    console.error('[getHistoricoAtividades] ❌ Erro fatal:', err.message);
-    return MOCK_HISTORICO_ATIVIDADES;
+    console.error('[getHistoricoAtividades] ❌ Erro fatal:', err.message)
+    return MOCK_HISTORICO_ATIVIDADES
   }
 }
 
 export async function getClientes() {
   try {
-    const base44 = getClient();
+    const base44 = getClient()
+    const result = await base44.entities.Cliente.list()
+    if (!result || result.length === 0) return []
 
-    console.log('[getClientes] 🔍 Buscando Clientes do Base44...');
-
-    let result = [];
-    try {
-      result = await base44.entities.Cliente.list();
-      console.log('[getClientes] ✅ Clientes carregados:', result.length, 'registros');
-    } catch (err) {
-      console.error('[getClientes] ❌ Erro ao carregar Clientes:', err.message);
-      return [];
-    }
-
-    if (!result || result.length === 0) {
-      console.log('[getClientes] ℹ️ Nenhum cliente encontrado');
-      return [];
-    }
-
-    console.log('[getClientes] 📊 Normalizando', result.length, 'clientes...');
-
-    // Normalizar clientes usando o schema REAL do Base44
     const clientes = result
-      .map(cliente => {
-        try {
-          return {
-            id: cliente.id,
-            nome: cliente.nome || '-',
-            telefone: cliente.telefone || '-',
-            documento: cliente.documento || '-',
-            email: cliente.email || '-',
-            endereco: cliente.endereco || '-',
-            cidade: cliente.cidade || '-',
-            estado: cliente.estado || '-',
-            cep: cliente.cep || '-',
-            observacoes: cliente.observacoes || '',
-            dataNascimento: cliente.dataNascimento ? new Date(cliente.dataNascimento).toLocaleDateString('pt-BR') : '-',
-            limiteCredito: cliente.limiteCredito || 0,
-            profissao: cliente.profissao || '-',
-            created_date: cliente.created_date,
-            updated_date: cliente.updated_date,
-          };
-        } catch (e) {
-          console.warn('[getClientes] ⚠️ Erro ao processar cliente:', e.message);
-          return null;
-        }
-      })
-      .filter(Boolean);
+      .map(cliente => ({
+        id: cliente.id,
+        nome: cliente.nome || '-',
+        telefone: cliente.telefone || '-',
+        documento: cliente.cpf || '-',
+        email: cliente.email || '-',
+        endereco: cliente.endereco || '-',
+        cidade: '-',
+        estado: '-',
+        cep: '-',
+        observacoes: cliente.observacoes || '',
+        dataNascimento: cliente.data_nascimento ? new Date(cliente.data_nascimento).toLocaleDateString('pt-BR') : '-',
+        limiteCredito: cliente.limite_credito || 0,
+        profissao: '-',
+        status: cliente.status || 'ativo',
+        created_date: cliente.created_date,
+        updated_date: cliente.updated_date,
+      }))
 
-    console.log('[getClientes] ✅ Retornando', clientes.length, 'clientes normalizados');
-    return clientes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+    return clientes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
   } catch (err) {
-    console.error('[getClientes] ❌ Erro fatal:', err.message);
-    return [];
+    console.error('[getClientes] ❌ Erro fatal:', err.message)
+    return []
   }
 }
 
+// Sincroniza telefones encontrados manualmente na agenda do Rafael com o cadastro de Cliente
 export async function sincronizarTelefonesEncontrados() {
-  const base44 = getClient();
+  const base44 = getClient()
 
-  // 26 números encontrados na agenda do Rafael
   const telefones = {
     "JADER": "999774855",
     "DINEI BARBEARIA": "034993133042",
@@ -304,118 +271,98 @@ export async function sincronizarTelefonesEncontrados() {
     "PH OK MATEUS SUZI": "+55 34 99133-2313",
     "SAMUKA JD BRASILIA": "+55 15 99746-3524",
     "WELITON MIRELY": "+55 34 99296-7862"
-  };
+  }
 
-  console.log(`\n🔄 Sincronizando ${Object.keys(telefones).length} clientes com Base44...\n`);
-
-  let sucesso = 0;
-  let erro = 0;
-  const resultados = [];
+  let sucesso = 0
+  let erro = 0
+  const resultados = []
 
   for (const [nome, telefone] of Object.entries(telefones)) {
     try {
-      const clientes = await base44.entities.Cliente.filter({ nome: nome });
-
+      const clientes = await base44.entities.Cliente.filter({ nome })
       if (clientes && clientes.length > 0) {
-        const clienteId = clientes[0].id;
-        const telefoneLimpo = telefone.replace(/[^\d+]/g, '');
-
-        await base44.entities.Cliente.update(clienteId, {
-          telefone: telefoneLimpo
-        });
-
-        console.log(`✅ ${nome.padEnd(40)} → ${telefone}`);
-        resultados.push({ nome, telefone, status: 'sucesso' });
-        sucesso++;
+        const clienteId = clientes[0].id
+        const telefoneLimpo = telefone.replace(/[^\d+]/g, '')
+        await base44.entities.Cliente.update(clienteId, { telefone: telefoneLimpo })
+        resultados.push({ nome, telefone, status: 'sucesso' })
+        sucesso++
       } else {
-        console.warn(`⚠️  ${nome.padEnd(40)} → Não encontrado no Base44`);
-        resultados.push({ nome, telefone, status: 'nao_encontrado' });
-        erro++;
+        resultados.push({ nome, telefone, status: 'nao_encontrado' })
+        erro++
       }
     } catch (err) {
-      console.error(`❌ ${nome.padEnd(40)} → ${err.message}`);
-      resultados.push({ nome, telefone, status: 'erro', erro: err.message });
-      erro++;
+      resultados.push({ nome, telefone, status: 'erro', erro: err.message })
+      erro++
     }
   }
 
-  console.log(`\n${'='.repeat(70)}`);
-  console.log(`📊 RESULTADO: ${sucesso} sincronizados, ${erro} com erro`);
-  console.log(`${'='.repeat(70)}\n`);
+  return { sucesso, erro, total: Object.keys(telefones).length, resultados }
+}
 
-  return { sucesso, erro, total: Object.keys(telefones).length, resultados };
+// Baixa manual — pra pagamento que não passa pelo Mercado Pago (dinheiro, PIX direto, etc).
+export async function registrarPagamentoManual(parcelaId, { valorPago, formaPagamento, dataPagamento }) {
+  try {
+    const base44 = getClient()
+    const parcela = await base44.entities.Parcela.get(parcelaId)
+    if (!parcela) throw new Error('Parcela não encontrada')
+
+    const novoValorPago = (parseFloat(parcela.valor_pago) || 0) + parseFloat(valorPago)
+    const valorTotal = parseFloat(parcela.valor_atualizado) || parseFloat(parcela.valor_base) || 0
+    const novoStatus = novoValorPago >= valorTotal ? 'pago' : 'parcial'
+
+    // Passo crítico: se isso falhar, o pagamento não foi registrado — deve lançar erro.
+    await base44.entities.Parcela.update(parcelaId, {
+      valor_pago: novoValorPago,
+      status: novoStatus,
+      forma_pagamento: formaPagamento,
+      data_pagamento: dataPagamento || new Date().toISOString().slice(0, 10),
+    })
+
+    // Passo secundário (log): já vale como pagamento salvo mesmo se isso falhar —
+    // não deixamos um erro de log derrubar uma baixa que já aconteceu de verdade.
+    try {
+      await base44.entities.HistoricoAtividade.create({
+        tipo: 'pagamento',
+        cliente_nome: parcela.cliente_nome,
+        cobranca_id: parcelaId,
+        valor: parseFloat(valorPago),
+        valor_anterior: String(parcela.valor_pago || 0),
+        descricao: `Pagamento manual de R$ ${parseFloat(valorPago).toFixed(2)} registrado para ${parcela.cliente_nome} (forma: ${formaPagamento})`,
+        detalhes: `Forma: ${formaPagamento} | Total pago: R$ ${novoValorPago.toFixed(2)}`,
+      })
+    } catch (logErr) {
+      console.error('[registrarPagamentoManual] Pagamento salvo, mas log do histórico falhou:', logErr.message)
+    }
+
+    return { sucesso: true, novoStatus, novoValorPago }
+  } catch (err) {
+    console.error('[registrarPagamentoManual] Erro:', err.message)
+    throw err
+  }
 }
 
 export async function getTotalizadores() {
   try {
-    const base44 = getClient();
-    const result = await base44.entities.Cobranca.list();
-    const cobrancas = (result || []).map(c => normalizarCobranca(c, '-'));
+    const cobrancas = await listarParcelasComTelefone()
 
     if (cobrancas.length === 0) {
-      return {
-        totalAtraso: 0,
-        qtdAtrasados: 0,
-        diasMedia: 0,
-        totalReceber: 0,
-        critico: 0,
-        urgente: 0
-      };
+      return { totalAtraso: 0, qtdAtrasados: 0, diasMedia: 0, totalReceber: 0, totalRecebido: 0, critico: 0, urgente: 0 }
     }
 
-    // Total a Receber: soma de TODOS os valorAberto (o que REALMENTE falta receber)
-    const totalReceber = cobrancas.reduce((sum, c) => sum + (c.valorAberto || 0), 0);
-
-    // Total em Atraso: soma do valorAberto apenas das cobranças com atraso
-    const atrasadas = cobrancas.filter(c => c.diasAtraso > 0);
-    const totalAtraso = atrasadas.reduce((sum, c) => sum + c.valorAberto, 0);
-
-    // Clientes Atrasados: contagem de clientes únicos com atraso
-    const clientesAtrasadosUnicos = new Set(atrasadas.map(c => c.nome)).size;
-
-    // Dias Médios de Atraso
+    const totalReceber = cobrancas.reduce((sum, c) => sum + (c.valorAberto || 0), 0)
+    const atrasadas = cobrancas.filter(c => c.diasAtraso > 0)
+    const totalAtraso = atrasadas.reduce((sum, c) => sum + c.valorAberto, 0)
+    const clientesAtrasadosUnicos = new Set(atrasadas.map(c => c.nome)).size
     const diasMedia = atrasadas.length > 0
       ? Math.round(atrasadas.reduce((sum, c) => sum + c.diasAtraso, 0) / atrasadas.length)
-      : 0;
+      : 0
+    const critico = cobrancas.filter(c => c.diasAtraso > 15).length
+    const urgente = cobrancas.filter(c => c.diasAtraso >= 6 && c.diasAtraso <= 15).length
+    const totalRecebido = cobrancas.reduce((sum, c) => sum + (c.valorPago || 0), 0)
 
-    // Crítico (15+ dias): contagem de cobranças
-    const critico = cobrancas.filter(c => c.diasAtraso > 15).length;
-
-    // Urgente (6-15 dias): contagem de cobranças
-    const urgente = cobrancas.filter(c => c.diasAtraso >= 6 && c.diasAtraso <= 15).length;
-
-    // Total Recebido: soma de todos os valorPago
-    const totalRecebido = cobrancas.reduce((sum, c) => sum + (c.valorPago || 0), 0);
-
-    console.log('[getTotalizadores] 📊 TOTAIS CALCULADOS (BASE44):');
-    console.log(`  Total a Receber (∑ valorTotal): R$ ${totalReceber.toFixed(2)}`);
-    console.log(`  Total em Atraso (∑ valorAberto onde diasAtraso>0): R$ ${totalAtraso.toFixed(2)}`);
-    console.log(`  Total Recebido (∑ valorPago): R$ ${cobrancas.reduce((s, c) => s + (c.valorPago || 0), 0).toFixed(2)}`);
-    console.log(`  Clientes Atrasados: ${clientesAtrasadosUnicos}`);
-    console.log(`  Dias Médios: ${diasMedia}d`);
-    console.log(`  Crítico (15+): ${critico}`);
-    console.log(`  Urgente (6-15): ${urgente}`);
-    console.log(`  📌 VERIFICAÇÃO: R$ ${totalAtraso.toFixed(2)} (falta) + R$ ${cobrancas.reduce((s, c) => s + (c.valorPago || 0), 0).toFixed(2)} (pago) = R$ ${(totalAtraso + cobrancas.reduce((s, c) => s + (c.valorPago || 0), 0)).toFixed(2)} (bruto)`);
-
-    return {
-      totalAtraso,
-      qtdAtrasados: clientesAtrasadosUnicos,
-      diasMedia,
-      totalReceber,
-      totalRecebido,
-      critico,
-      urgente,
-    };
+    return { totalAtraso, qtdAtrasados: clientesAtrasadosUnicos, diasMedia, totalReceber, totalRecebido, critico, urgente }
   } catch (err) {
-    console.error('[cobrancasService] Erro ao calcular totalizadores:', err.message);
-    return {
-      totalAtraso: 0,
-      qtdAtrasados: 0,
-      diasMedia: 0,
-      totalReceber: 0,
-      totalRecebido: 0,
-      critico: 0,
-      urgente: 0
-    };
+    console.error('[cobrancasService] Erro ao calcular totalizadores:', err.message)
+    return { totalAtraso: 0, qtdAtrasados: 0, diasMedia: 0, totalReceber: 0, totalRecebido: 0, critico: 0, urgente: 0 }
   }
 }

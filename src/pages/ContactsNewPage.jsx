@@ -8,6 +8,30 @@ import { getAnalysis, analyzeConversation } from '../services/crm/contactAnalysi
 import { saveEntry } from '../services/conhecimento/knowledgeDB'
 import Tooltip from '../components/Tooltip.jsx'
 
+function ChannelIcon({ isInstagram, size = 15 }) {
+  if (isInstagram) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+        <defs>
+          <linearGradient id="ig-contacts-grad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor="#F58529" />
+            <stop offset="50%" stopColor="#DD2A7B" />
+            <stop offset="100%" stopColor="#8134AF" />
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig-contacts-grad)" />
+        <rect x="6.5" y="6.5" width="11" height="11" rx="3.5" fill="none" stroke="#fff" strokeWidth="1.6" />
+        <circle cx="17.3" cy="6.7" r="1.1" fill="#fff" />
+      </svg>
+    )
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      <path fill="#25D366" d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.33C8.52 21.5 10.22 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.23.65-1.35 1.24-1.86 1.28-.5.05-1.02.24-3.4-.7-2.87-1.15-4.7-4.06-4.84-4.25-.14-.19-1.16-1.55-1.16-2.95s.72-2.1.98-2.38c.26-.28.56-.35.75-.35.19 0 .38 0 .54.01.18.01.42-.07.65.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.48-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.08.17-.21.72-.84.91-1.13.19-.29.38-.24.64-.14.26.1 1.65.78 1.93.92.28.14.47.21.54.33.07.12.07.68-.16 1.33z" />
+    </svg>
+  )
+}
+
 function HelpIcon({ text, position = 'bottom' }) {
   return (
     <Tooltip text={text} position={position}>
@@ -164,7 +188,12 @@ function ContactsList({ t, conversations, onSelect }) {
                       {followUpFlags[c.id] && <span title="Marcado para acompanhamento" style={{ fontSize: 10 }}>📌</span>}
                     </div>
                   </td>
-                  <td style={{ padding: '8px', color: t.textMid }}>{c.type === 'INSTAGRAM' ? 'Instagram' : 'WhatsApp'}</td>
+                  <td style={{ padding: '8px', color: t.textMid }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ChannelIcon isInstagram={c.type === 'INSTAGRAM'} />
+                      {c.type === 'INSTAGRAM' ? 'Instagram' : 'WhatsApp'}
+                    </div>
+                  </td>
                   <td style={{ padding: '8px', color: t.textMid }}>{c.phone || '—'}</td>
                   <td style={{ padding: '8px' }}>
                     {c.profile?.buy_score != null
@@ -321,7 +350,10 @@ function ContactDetail({ contact, t, onBack }) {
               : <div style={{ width: 40, height: 40, borderRadius: '50%', background: colorFor(contactName), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#fff', flexShrink: 0 }}>{initialsFor(contactName)}</div>}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contactName}</div>
-              <div style={{ fontSize: 11, color: t.textMuted }}>{contact.type === 'INSTAGRAM' ? 'Instagram' : 'WhatsApp'}</div>
+              <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <ChannelIcon isInstagram={contact.type === 'INSTAGRAM'} size={13} />
+                {contact.type === 'INSTAGRAM' ? 'Instagram' : 'WhatsApp'}
+              </div>
             </div>
           </div>
 
