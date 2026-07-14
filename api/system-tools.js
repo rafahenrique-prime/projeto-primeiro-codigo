@@ -75,6 +75,65 @@ function encontrarParcelaCorrespondente(cob, nomeCliente, primeParcelas) {
   )
 }
 
+// Confirma se a Parcela encontrada tem um identificador que bate EXATAMENTE com a Cobranca
+// atual — não basta o campo existir, precisa corresponder. Distingue 3 situações:
+// confirmado (bate certinho), divergente (tem ID mas não bate com esta Cobranca) e "nenhum
+// dos dois" (parcela sem nenhum dos 3 campos, achada só pelo fallback legado).
+function obterVinculoDeterministico(parcela, cob) {
+  const porLyraId = Boolean(parcela.lyra_cobranca_id) && parcela.lyra_cobranca_id === cob.id
+  const porPreferenceId = Boolean(parcela.mp_preference_id) && Boolean(cob.mp_preference_id) && parcela.mp_preference_id === cob.mp_preference_id
+  const porPaymentId = Boolean(parcela.mp_payment_id) && Boolean(cob.mp_payment_id) && parcela.mp_payment_id === cob.mp_payment_id
+
+  return {
+    confirmado: porLyraId || porPreferenceId || porPaymentId,
+    porLyraId,
+    porPreferenceId,
+    porPaymentId,
+    temAlgumIdPreenchido: Boolean(parcela.lyra_cobranca_id || parcela.mp_preference_id || parcela.mp_payment_id),
+  }
+}
+
+// Garante exatamente 1 registro de HistoricoAtividade automático por Parcela — idempotente
+// mesmo sob falha parcial anterior (Parcela paga sem histórico) ou reprocessamento repetido
+// (webhook + cron). Existência é checada por cobranca_id + tipo:'pagamento' + marcador
+// '[AUTOMÁTICO]' na descrição (não usamos texto completo nem data/hora, que variam).
+async function garantirHistoricoBaixaAutomatica(prime, { parcelaId, clienteNome, valor, mpPaymentId, dryRun }) {
+  const ehAutomatico = h => h.tipo === 'pagamento' && (h.descricao || '').includes('[AUTOMÁTICO]')
+
+  const existentes = await prime.entities.HistoricoAtividade.filter({ cobranca_id: parcelaId })
+  if (existentes.some(ehAutomatico)) {
+    return { criado: false, faltava: false }
+  }
+
+  if (dryRun) {
+    return { criado: false, faltava: true }
+  }
+
+  // Proteção best-effort de concorrência: releitura imediatamente antes de escrever.
+  const releitura = await prime.entities.HistoricoAtividade.filter({ cobranca_id: parcelaId })
+  if (releitura.some(ehAutomatico)) {
+    return { criado: false, faltava: false, nota: 'detectado na releitura de concorrência' }
+  }
+
+  await prime.entities.HistoricoAtividade.create({
+    cobranca_id: parcelaId,
+    tipo: 'pagamento',
+    cliente_nome: clienteNome,
+    valor,
+    valor_anterior: '0',
+    usuario: null,
+    detalhes: `[AUTOMÁTICO] Identificado via sincronização Lyra/Mercado Pago em ${new Date().toISOString()} (mp_payment_id: ${mpPaymentId || 'n/d'}). Esta é a data em que o sync detectou o pagamento, não necessariamente a data real em que ele ocorreu.`,
+    descricao: `[AUTOMÁTICO] Pagamento de R$ ${Number(valor).toFixed(2)} identificado via Lyra/Mercado Pago para ${clienteNome}`,
+  })
+
+  // Confirmação pós-escrita: reporta (em vez de mascarar) se duas execuções concorrentes
+  // ainda assim conseguiram criar mais de um registro automático.
+  const confirmacao = await prime.entities.HistoricoAtividade.filter({ cobranca_id: parcelaId })
+  const totalAutomaticos = confirmacao.filter(ehAutomatico).length
+
+  return { criado: true, faltava: true, duplicidadeDetectada: totalAutomaticos > 1, totalAutomaticos }
+}
+
 async function vercelStatus(req, res) {
   if (!VERCEL_TOKEN) {
     return res.status(500).json({ error: 'VERCEL_ACCESS_TOKEN não configurado' })
@@ -212,9 +271,61 @@ async function processarCobranca(cob, ctx) {
 
   const parcelaExistente = encontrarParcelaCorrespondente(cob, nomeCliente, primeParcelas)
 
-  // --- Caso 1: já existe e já está paga — nada a fazer, idempotente ---
+  // --- Caso 1: já existe e já está paga — classifica o vínculo antes de decidir ---
   if (parcelaExistente && parcelaExistente.status === 'pago') {
-    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false }
+    const vinculo = obterVinculoDeterministico(parcelaExistente, cob)
+    const dadosParaAuditoria = {
+      lyra_cobranca_id: cob.id,
+      cliente_nome: nomeCliente,
+      parcela_id: parcelaExistente.id,
+      valor: parcelaExistente.valor_base,
+      vencimento: parcelaExistente.data_vencimento,
+      parcela_lyra_cobranca_id: parcelaExistente.lyra_cobranca_id || null,
+      cobranca_lyra_id: cob.id,
+      parcela_mp_preference_id: parcelaExistente.mp_preference_id || null,
+      cobranca_mp_preference_id: cob.mp_preference_id || null,
+      parcela_mp_payment_id: parcelaExistente.mp_payment_id || null,
+      cobranca_mp_payment_id: cob.mp_payment_id || null,
+    }
+
+    if (!vinculo.confirmado) {
+      if (vinculo.temAlgumIdPreenchido) {
+        return {
+          ...dadosParaAuditoria,
+          acao: 'VINCULO_DIVERGENTE',
+          executado: false,
+          motivo: 'Parcela possui identificador(es) preenchido(s), mas nenhum corresponde exatamente à Cobranca atual — requer auditoria manual',
+        }
+      }
+      return {
+        ...dadosParaAuditoria,
+        acao: 'VINCULO_LEGADO_NAO_CONFIRMADO',
+        executado: false,
+        motivo: 'Parcela encontrada só pelo fallback nome+valor+vencimento — sem nenhum identificador determinístico preenchido, não é seguro atribuir histórico automático',
+      }
+    }
+
+    // Vínculo confirmado — repara histórico automático ausente (idempotente)
+    const resultadoHistorico = await garantirHistoricoBaixaAutomatica(prime, {
+      parcelaId: parcelaExistente.id,
+      clienteNome: nomeCliente,
+      valor: parcelaExistente.valor_pago || cob.valor,
+      mpPaymentId: cob.mp_payment_id,
+      dryRun,
+    })
+
+    if (!resultadoHistorico.faltava) {
+      return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, parcela_id: parcelaExistente.id, acao: 'JA_SINCRONIZADO', executado: false }
+    }
+
+    return {
+      lyra_cobranca_id: cob.id,
+      cliente_nome: nomeCliente,
+      parcela_id: parcelaExistente.id,
+      acao: 'REPARAR_HISTORICO',
+      executado: resultadoHistorico.criado,
+      ...(resultadoHistorico.duplicidadeDetectada ? { duplicidadeDetectada: true, totalAutomaticos: resultadoHistorico.totalAutomaticos } : {}),
+    }
   }
 
   // --- Caso 2: já existe, ainda não paga, e a Lyra agora diz que está paga — ATUALIZAR ---
@@ -240,15 +351,12 @@ async function processarCobranca(cob, ctx) {
       // a Lyra não fornece essa informação com confiança suficiente pra presumir.
     })
 
-    await prime.entities.HistoricoAtividade.create({
-      cobranca_id: parcelaExistente.id,
-      tipo: 'pagamento',
-      cliente_nome: nomeCliente,
+    await garantirHistoricoBaixaAutomatica(prime, {
+      parcelaId: parcelaExistente.id,
+      clienteNome: nomeCliente,
       valor: cob.valor,
-      valor_anterior: '0',
-      usuario: null,
-      detalhes: `[AUTOMÁTICO] Identificado via sincronização Lyra/Mercado Pago em ${new Date().toISOString()} (mp_payment_id: ${cob.mp_payment_id || 'n/d'}). Esta é a data em que o sync detectou o pagamento, não necessariamente a data real em que ele ocorreu.`,
-      descricao: `[AUTOMÁTICO] Pagamento de R$ ${Number(cob.valor).toFixed(2)} identificado via Lyra/Mercado Pago para ${nomeCliente}`,
+      mpPaymentId: cob.mp_payment_id,
+      dryRun: false, // já passou pelo `if (dryRun)` acima, aqui é sempre escrita real
     })
 
     return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'ATUALIZAR', executado: true, parcela_id: parcelaExistente.id }
@@ -305,14 +413,26 @@ async function processarCobranca(cob, ctx) {
     valor_atualizado: cob.valor,
     valor_pago: cob.status === 'pago' ? cob.valor : 0,
     data_vencimento: cob.vencimento,
-    data_pagamento: cob.status === 'pago' ? cob.vencimento : null,
+    // data_pagamento e forma_pagamento NÃO presumidos — a Lyra não fornece a data real
+    // do pagamento nem a forma com confiança suficiente; ficam vazios até haver evidência.
+    data_pagamento: null,
     status: cob.status === 'pago' ? 'pago' : 'pendente',
-    forma_pagamento: cob.status === 'pago' ? 'pix' : null,
+    forma_pagamento: null,
     cobranca_enviada: true,
     lyra_cobranca_id: cob.id,
     mp_preference_id: cob.mp_preference_id || null,
     mp_payment_id: cob.mp_payment_id || null,
   })
+
+  if (cob.status === 'pago') {
+    await garantirHistoricoBaixaAutomatica(prime, {
+      parcelaId: parcela.id,
+      clienteNome: nomeCliente,
+      valor: cob.valor,
+      mpPaymentId: cob.mp_payment_id,
+      dryRun: false, // já passou pelo `if (dryRun)` acima, aqui é sempre escrita real
+    })
+  }
 
   return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: acaoProposta, executado: true, novo_cliente_id: clienteExistente.id, nova_venda_id: venda.id, nova_parcela_id: parcela.id }
 }
@@ -357,6 +477,9 @@ async function syncLyra(req, res) {
       atualizados: acoes.filter(a => a.acao === 'ATUALIZAR' && a.executado).length,
       semMudanca: acoes.filter(a => a.acao === 'SEM_MUDANCA').length,
       jaSincronizados: acoes.filter(a => a.acao === 'JA_SINCRONIZADO').length,
+      historicosReparados: acoes.filter(a => a.acao === 'REPARAR_HISTORICO' && a.executado).length,
+      vinculosLegadosNaoConfirmados: acoes.filter(a => a.acao === 'VINCULO_LEGADO_NAO_CONFIRMADO').length,
+      vinculosDivergentes: acoes.filter(a => a.acao === 'VINCULO_DIVERGENTE').length,
       erros: erros.length,
     }
 
