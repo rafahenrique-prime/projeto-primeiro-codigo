@@ -1,3 +1,5 @@
+# Reprocessado em 2026-07-14 pra forçar o GitHub a reindexar os gatilhos
+# (cache de trigger ficou inconsistente após commits recentes no arquivo).
 name: Verificar clientes sem resposta
 
 on:
