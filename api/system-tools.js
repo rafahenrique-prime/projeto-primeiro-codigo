@@ -10,6 +10,11 @@
 // ?tool=stuck-check       → healthcheck de conversas do GPT Maker sem resposta há 3-30min
 //                           (chamado pelo GitHub Actions .github/workflows/stuck-check.yml)
 //                           Exige header Authorization: Bearer <CRON_SECRET>
+// ?tool=lyra-webhook      → recebe aviso em tempo real da Lyra (processarEventoMP) quando
+//                           um pagamento é confirmado — baixa a Parcela na hora, sem esperar
+//                           o cron. Exige header Authorization: Bearer <LYRA_WEBHOOK_SECRET>
+//                           (segredo próprio, diferente do CRON_SECRET). O cron de sync-lyra
+//                           continua existindo como rede de segurança caso este webhook falhe.
 
 import { createClient } from '@base44/sdk'
 
@@ -20,6 +25,7 @@ const TEAM_ID = 'team_O0lVaTLcrP62cKLeTZwclgAq'
 const BASE44_API_KEY = process.env.BASE44_API_KEY
 const LYRA_APP_ID = '6a518d72335f3c31663dc63d'
 const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
+const LYRA_WEBHOOK_SECRET = process.env.LYRA_WEBHOOK_SECRET
 
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
 const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
@@ -190,6 +196,127 @@ async function stuckCheck(req, res) {
   }
 }
 
+// Processa 1 Cobranca da Lyra contra o estado do PRIME: acha a Parcela correspondente
+// (ou decide criar) e aplica a ação necessária. Usado tanto pelo sync em lote (syncLyra)
+// quanto pelo webhook em tempo real (lyraWebhook) — mesma lógica, uma só implementação.
+// `ctx.clientePorTelefone` é mutado (novo Cliente criado entra no Map) de propósito, pra
+// runs sucessivos dentro do mesmo lote reaproveitarem o Cliente recém-criado.
+async function processarCobranca(cob, ctx) {
+  const { prime, lyraClientePorId, clientePorTelefone, primeParcelas, dryRun } = ctx
+
+  // Nome vem preferencialmente do cadastro de Cliente da Lyra — o campo
+  // cliente_nome da própria Cobranca às vezes vem vazio (visto em teste real).
+  const lyraCliente = lyraClientePorId.get(cob.cliente_id)
+  const nomeCliente = lyraCliente?.name || cob.cliente_nome || 'Sem nome'
+  const telefoneLyra = normalizePhone(lyraCliente?.phone || '')
+
+  const parcelaExistente = encontrarParcelaCorrespondente(cob, nomeCliente, primeParcelas)
+
+  // --- Caso 1: já existe e já está paga — nada a fazer, idempotente ---
+  if (parcelaExistente && parcelaExistente.status === 'pago') {
+    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false }
+  }
+
+  // --- Caso 2: já existe, ainda não paga, e a Lyra agora diz que está paga — ATUALIZAR ---
+  if (parcelaExistente && cob.status === 'pago') {
+    if (dryRun) {
+      return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, valor: cob.valor, acao: 'ATUALIZAR', executado: false, parcela_id: parcelaExistente.id }
+    }
+
+    // Releitura pontual — reduz a janela de corrida caso outra execução já tenha
+    // processado esta mesma parcela entre a leitura inicial e agora.
+    const parcelaAtual = await prime.entities.Parcela.get(parcelaExistente.id)
+    if (parcelaAtual.status === 'pago') {
+      return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false, nota: 'detectado na releitura de concorrência' }
+    }
+
+    await prime.entities.Parcela.update(parcelaExistente.id, {
+      status: 'pago',
+      valor_pago: cob.valor, // atribuição direta, nunca soma — evita duplicar valor em reprocessamento
+      lyra_cobranca_id: cob.id,
+      mp_preference_id: cob.mp_preference_id || parcelaAtual.mp_preference_id || null,
+      mp_payment_id: cob.mp_payment_id || parcelaAtual.mp_payment_id || null,
+      // data_pagamento e forma_pagamento propositalmente NÃO alterados —
+      // a Lyra não fornece essa informação com confiança suficiente pra presumir.
+    })
+
+    await prime.entities.HistoricoAtividade.create({
+      cobranca_id: parcelaExistente.id,
+      tipo: 'pagamento',
+      cliente_nome: nomeCliente,
+      valor: cob.valor,
+      valor_anterior: '0',
+      usuario: null,
+      detalhes: `[AUTOMÁTICO] Identificado via sincronização Lyra/Mercado Pago em ${new Date().toISOString()} (mp_payment_id: ${cob.mp_payment_id || 'n/d'}). Esta é a data em que o sync detectou o pagamento, não necessariamente a data real em que ele ocorreu.`,
+      descricao: `[AUTOMÁTICO] Pagamento de R$ ${Number(cob.valor).toFixed(2)} identificado via Lyra/Mercado Pago para ${nomeCliente}`,
+    })
+
+    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'ATUALIZAR', executado: true, parcela_id: parcelaExistente.id }
+  }
+
+  // --- Caso 3: já existe, mas nem ela nem a Lyra estão pagas — nada muda ---
+  if (parcelaExistente) {
+    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'SEM_MUDANCA', executado: false }
+  }
+
+  // --- Caso 4: não existe ainda — CRIAR Cliente (se preciso) + Venda + Parcela ---
+  let clienteExistente = telefoneLyra ? clientePorTelefone.get(telefoneLyra) : null
+  const acaoProposta = clienteExistente ? 'CRIAR_VENDA_E_PARCELA' : 'CRIAR_CLIENTE_VENDA_E_PARCELA'
+
+  if (dryRun) {
+    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, valor: cob.valor, vencimento: cob.vencimento, status_lyra: cob.status, acao: acaoProposta, executado: false }
+  }
+
+  // Releitura pontual por lyra_cobranca_id — reduz risco de duas execuções
+  // concorrentes (ex.: webhook e cron ao mesmo tempo) criarem Venda/Parcela duplicadas.
+  const jaExisteAgora = await prime.entities.Parcela.filter({ lyra_cobranca_id: cob.id })
+  if (jaExisteAgora && jaExisteAgora.length > 0) {
+    return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false, nota: 'detectado na releitura de concorrência' }
+  }
+
+  if (!clienteExistente) {
+    clienteExistente = await prime.entities.Cliente.create({
+      nome: nomeCliente,
+      telefone: telefoneLyra || '',
+      status: 'ativo',
+    })
+    clientePorTelefone.set(telefoneLyra, clienteExistente)
+  }
+
+  const venda = await prime.entities.Venda.create({
+    cliente_nome: nomeCliente,
+    cliente_id: clienteExistente.id,
+    valor_total: cob.valor,
+    numero_parcelas: 1,
+    data_venda: cob.vencimento,
+    descricao_itens: cob.descricao || 'Importado da Lyra',
+    valor_parcela: cob.valor,
+    valor_entrada: 0,
+    taxa_juros: 0,
+    status: cob.status === 'pago' ? 'quitada' : 'aberta',
+  })
+
+  const parcela = await prime.entities.Parcela.create({
+    venda_id: venda.id,
+    cliente_id: clienteExistente.id,
+    cliente_nome: nomeCliente,
+    numero: 1,
+    valor_base: cob.valor,
+    valor_atualizado: cob.valor,
+    valor_pago: cob.status === 'pago' ? cob.valor : 0,
+    data_vencimento: cob.vencimento,
+    data_pagamento: cob.status === 'pago' ? cob.vencimento : null,
+    status: cob.status === 'pago' ? 'pago' : 'pendente',
+    forma_pagamento: cob.status === 'pago' ? 'pix' : null,
+    cobranca_enviada: true,
+    lyra_cobranca_id: cob.id,
+    mp_preference_id: cob.mp_preference_id || null,
+    mp_payment_id: cob.mp_payment_id || null,
+  })
+
+  return { lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: acaoProposta, executado: true, novo_cliente_id: clienteExistente.id, nova_venda_id: venda.id, nova_parcela_id: parcela.id }
+}
+
 async function syncLyra(req, res) {
   if (!BASE44_API_KEY) {
     return res.status(500).json({ error: 'BASE44_API_KEY não configurado' })
@@ -212,127 +339,11 @@ async function syncLyra(req, res) {
 
     const acoes = []
     const erros = []
+    const ctx = { prime, lyraClientePorId, clientePorTelefone, primeParcelas, dryRun }
 
     for (const cob of lyraCobrancas) {
       try {
-        // Nome vem preferencialmente do cadastro de Cliente da Lyra — o campo
-        // cliente_nome da própria Cobranca às vezes vem vazio (visto em teste real).
-        const lyraCliente = lyraClientePorId.get(cob.cliente_id)
-        const nomeCliente = lyraCliente?.name || cob.cliente_nome || 'Sem nome'
-        const telefoneLyra = normalizePhone(lyraCliente?.phone || '')
-
-        const parcelaExistente = encontrarParcelaCorrespondente(cob, nomeCliente, primeParcelas)
-
-        // --- Caso 1: já existe e já está paga — nada a fazer, idempotente ---
-        if (parcelaExistente && parcelaExistente.status === 'pago') {
-          acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false })
-          continue
-        }
-
-        // --- Caso 2: já existe, ainda não paga, e a Lyra agora diz que está paga — ATUALIZAR ---
-        if (parcelaExistente && cob.status === 'pago') {
-          if (dryRun) {
-            acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, valor: cob.valor, acao: 'ATUALIZAR', executado: false, parcela_id: parcelaExistente.id })
-            continue
-          }
-
-          // Releitura pontual — reduz a janela de corrida caso outra execução já tenha
-          // processado esta mesma parcela entre o list() inicial e agora.
-          const parcelaAtual = await prime.entities.Parcela.get(parcelaExistente.id)
-          if (parcelaAtual.status === 'pago') {
-            acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false, nota: 'detectado na releitura de concorrência' })
-            continue
-          }
-
-          await prime.entities.Parcela.update(parcelaExistente.id, {
-            status: 'pago',
-            valor_pago: cob.valor, // atribuição direta, nunca soma — evita duplicar valor em reprocessamento
-            lyra_cobranca_id: cob.id,
-            mp_preference_id: cob.mp_preference_id || parcelaAtual.mp_preference_id || null,
-            mp_payment_id: cob.mp_payment_id || parcelaAtual.mp_payment_id || null,
-            // data_pagamento e forma_pagamento propositalmente NÃO alterados —
-            // a Lyra não fornece essa informação com confiança suficiente pra presumir.
-          })
-
-          await prime.entities.HistoricoAtividade.create({
-            cobranca_id: parcelaExistente.id,
-            tipo: 'pagamento',
-            cliente_nome: nomeCliente,
-            valor: cob.valor,
-            valor_anterior: '0',
-            usuario: null,
-            detalhes: `[AUTOMÁTICO] Identificado via sincronização Lyra/Mercado Pago em ${new Date().toISOString()} (mp_payment_id: ${cob.mp_payment_id || 'n/d'}). Esta é a data em que o sync detectou o pagamento, não necessariamente a data real em que ele ocorreu.`,
-            descricao: `[AUTOMÁTICO] Pagamento de R$ ${Number(cob.valor).toFixed(2)} identificado via Lyra/Mercado Pago para ${nomeCliente}`,
-          })
-
-          acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'ATUALIZAR', executado: true, parcela_id: parcelaExistente.id })
-          continue
-        }
-
-        // --- Caso 3: já existe, mas nem ela nem a Lyra estão pagas — nada muda ---
-        if (parcelaExistente) {
-          acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'SEM_MUDANCA', executado: false })
-          continue
-        }
-
-        // --- Caso 4: não existe ainda — CRIAR Cliente (se preciso) + Venda + Parcela ---
-        let clienteExistente = telefoneLyra ? clientePorTelefone.get(telefoneLyra) : null
-        const acaoProposta = clienteExistente ? 'CRIAR_VENDA_E_PARCELA' : 'CRIAR_CLIENTE_VENDA_E_PARCELA'
-
-        if (dryRun) {
-          acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, valor: cob.valor, vencimento: cob.vencimento, status_lyra: cob.status, acao: acaoProposta, executado: false })
-          continue
-        }
-
-        // Releitura pontual por lyra_cobranca_id — reduz risco de duas execuções
-        // concorrentes criarem Venda/Parcela duplicadas pra mesma Cobranca.
-        const jaExisteAgora = await prime.entities.Parcela.filter({ lyra_cobranca_id: cob.id })
-        if (jaExisteAgora && jaExisteAgora.length > 0) {
-          acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: 'JA_SINCRONIZADO', executado: false, nota: 'detectado na releitura de concorrência' })
-          continue
-        }
-
-        if (!clienteExistente) {
-          clienteExistente = await prime.entities.Cliente.create({
-            nome: nomeCliente,
-            telefone: telefoneLyra || '',
-            status: 'ativo',
-          })
-          clientePorTelefone.set(telefoneLyra, clienteExistente)
-        }
-
-        const venda = await prime.entities.Venda.create({
-          cliente_nome: nomeCliente,
-          cliente_id: clienteExistente.id,
-          valor_total: cob.valor,
-          numero_parcelas: 1,
-          data_venda: cob.vencimento,
-          descricao_itens: cob.descricao || 'Importado da Lyra',
-          valor_parcela: cob.valor,
-          valor_entrada: 0,
-          taxa_juros: 0,
-          status: cob.status === 'pago' ? 'quitada' : 'aberta',
-        })
-
-        const parcela = await prime.entities.Parcela.create({
-          venda_id: venda.id,
-          cliente_id: clienteExistente.id,
-          cliente_nome: nomeCliente,
-          numero: 1,
-          valor_base: cob.valor,
-          valor_atualizado: cob.valor,
-          valor_pago: cob.status === 'pago' ? cob.valor : 0,
-          data_vencimento: cob.vencimento,
-          data_pagamento: cob.status === 'pago' ? cob.vencimento : null,
-          status: cob.status === 'pago' ? 'pago' : 'pendente',
-          forma_pagamento: cob.status === 'pago' ? 'pix' : null,
-          cobranca_enviada: true,
-          lyra_cobranca_id: cob.id,
-          mp_preference_id: cob.mp_preference_id || null,
-          mp_payment_id: cob.mp_payment_id || null,
-        })
-
-        acoes.push({ lyra_cobranca_id: cob.id, cliente_nome: nomeCliente, acao: acaoProposta, executado: true, novo_cliente_id: clienteExistente.id, nova_venda_id: venda.id, nova_parcela_id: parcela.id })
+        acoes.push(await processarCobranca(cob, ctx))
       } catch (errItem) {
         console.error('[system-tools:sync-lyra] Erro na cobrança', cob.id, errItem.message)
         erros.push({ lyra_cobranca_id: cob.id, mensagem: errItem.message })
@@ -360,6 +371,66 @@ async function syncLyra(req, res) {
   } catch (e) {
     console.error('[system-tools:sync-lyra] Erro geral:', e.message)
     return res.status(500).json({ error: 'Erro ao sincronizar', detail: e.message, success: false })
+  }
+}
+
+// Webhook em tempo real: a Lyra chama isso logo depois que processarEventoMP confirma
+// um pagamento. Só o `id` do body é confiável — o resto (valor/status/mp_payment_id/etc)
+// é sempre relido direto da Lyra via API antes de qualquer escrita, nunca confiamos no
+// que veio no POST (mesmo padrão de cautela do sync em lote).
+async function lyraWebhook(req, res) {
+  if (!BASE44_API_KEY) {
+    return res.status(500).json({ error: 'BASE44_API_KEY não configurado' })
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Use POST' })
+  }
+
+  const cobrancaId = req.body?.id
+  if (!cobrancaId) {
+    return res.status(400).json({ error: 'Campo "id" (id da Cobranca na Lyra) é obrigatório no body' })
+  }
+
+  try {
+    const lyra = createClient({ appId: LYRA_APP_ID, headers: { api_key: BASE44_API_KEY } })
+    const prime = createClient({ appId: PRIME_APP_ID, headers: { api_key: BASE44_API_KEY } })
+
+    const cob = await lyra.entities.Cobranca.get(cobrancaId)
+
+    if (cob.status !== 'pago') {
+      // Webhook disparou mas a Lyra ainda não marcou como pago (corrida improvável, mas
+      // possível) — não faz nada agora; o cron pega isso depois com segurança.
+      return res.status(200).json({ ok: true, skipped: 'cobranca ainda não está pago na Lyra', lyra_cobranca_id: cobrancaId })
+    }
+
+    let lyraCliente = null
+    if (cob.cliente_id) {
+      try {
+        lyraCliente = await lyra.entities.Cliente.get(cob.cliente_id)
+      } catch (err) {
+        console.error('[system-tools:lyra-webhook] Cliente da Lyra não encontrado:', cob.cliente_id, err.message)
+      }
+    }
+
+    const [primeClientes, primeParcelas] = await Promise.all([
+      prime.entities.Cliente.list(),
+      prime.entities.Parcela.list(),
+    ])
+
+    const ctx = {
+      prime,
+      lyraClientePorId: new Map(lyraCliente ? [[cob.cliente_id, lyraCliente]] : []),
+      clientePorTelefone: new Map(primeClientes.filter(c => c.telefone).map(c => [normalizePhone(c.telefone), c])),
+      primeParcelas,
+      dryRun: false, // webhook só é chamado depois que o pagamento já foi confirmado de verdade
+    }
+
+    const acao = await processarCobranca(cob, ctx)
+    console.log('[system-tools:lyra-webhook] Processado:', JSON.stringify(acao))
+    return res.status(200).json({ ok: true, acao })
+  } catch (e) {
+    console.error('[system-tools:lyra-webhook] Erro:', cobrancaId, e.message)
+    return res.status(500).json({ error: 'Erro ao processar webhook', detail: e.message })
   }
 }
 
@@ -393,7 +464,18 @@ export default async function handler(req, res) {
       return stuckCheck(req, res)
     }
 
+    case 'lyra-webhook': {
+      // Segredo próprio (LYRA_WEBHOOK_SECRET), diferente do CRON_SECRET — configurado
+      // manualmente dentro da Lyra, não é injetado automaticamente por nada da Vercel.
+      const webhookSecret = LYRA_WEBHOOK_SECRET
+      const authHeader = req.headers.authorization
+      if (!webhookSecret || authHeader !== `Bearer ${webhookSecret}`) {
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+      return lyraWebhook(req, res)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra ou stuck-check)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check ou lyra-webhook)' })
   }
 }
