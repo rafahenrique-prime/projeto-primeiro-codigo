@@ -388,11 +388,41 @@ Parcela atualizada aparece na aba Cobranças (CobrancasPage.jsx) sem ação manu
 
 **Idempotência:** validada em teste ponta a ponta real (2026-07-13) — cobrança de teste criada `pendente` na Lyra, sincronizada, paga via Mercado Pago de verdade, sincronizada de novo (Parcela atualizada 1x, histórico criado 1x), e uma 3ª sincronização confirmou `JA_SINCRONIZADO` sem duplicar nada.
 
+#### Baixa em tempo real via webhook (2026-07-14) — elimina a espera pelo cron
+
+Além do cron (que continua ativo como rede de segurança), a própria Lyra agora **avisa a gente na hora** que confirma um pagamento, em vez de a gente só descobrir isso na próxima rodada do cron (até 6h de delay):
+
+```
+Lyra confirma pagamento (processarEventoMP, dentro do sandbox dela)
+        ↓
+Lyra dispara POST assíncrono e silencioso (não bloqueia a resposta ao cliente):
+https://ignite-webhook.vercel.app/api/system-tools?tool=lyra-webhook
+Header: Authorization: Bearer <LYRA_WEBHOOK_SECRET>
+Body: { id, valor, status, mp_payment_id, mp_preference_id, cliente_id }
+        ↓
+lyraWebhook() em api/system-tools.js:
+  1. só confia no `id` do body — relê a Cobranca completa direto da API da Lyra
+     antes de qualquer escrita (nunca confia em valor/status vindos do POST)
+  2. roda processarCobranca() — MESMA função usada pelo sync em lote (extraída
+     do antigo corpo do loop de syncLyra, sem duplicar lógica)
+  3. cria ou atualiza a Parcela igual ao sync, só que instantâneo em vez de
+     esperar o próximo horário do cron
+```
+
+**Autenticação separada:** `LYRA_WEBHOOK_SECRET` é um segredo **próprio, diferente do `CRON_SECRET`** — configurado manualmente dentro da Lyra (ela guarda como "segredo" no builder dela), não é injetado automaticamente por nada da Vercel. Só o `id` da Cobranca é confiado do payload recebido; todo o resto é relido da fonte (Lyra) antes de qualquer escrita no PRIME.
+
+**Validado em produção com pagamento real de R$0,01 (2026-07-14):** cobrança nova criada `pendente` → paga → Parcela nova criada automaticamente no PRIME em **~2 segundos** (contra até 6h de espera pelo cron antes disso). Nenhuma duplicação, nenhum `HistoricoAtividade` extra (esperado — a criação direta já-paga nunca gerou histórico, mesmo comportamento de antes da Fase 1; histórico só é gerado no caminho de *atualização* pendente→pago).
+
 **Limitações conhecidas (não resolvidas nesta fase):**
-- `data_pagamento` e `forma_pagamento` **não são preenchidos automaticamente** na baixa via sync — a Lyra não expõe a data real do pagamento nem a forma com confiança suficiente; preencher isso seria presumir dado sem evidência. `HistoricoAtividade.detalhes` registra apenas a data/hora em que o **sync identificou** o pagamento, deixando explícito que não é necessariamente a data real.
-- Proteção de concorrência é **best-effort** (releitura pontual do registro/entidade imediatamente antes de criar ou atualizar), não uma trava real de banco — reduz a janela de corrida, não elimina.
-- **Parcelamento real** (uma Venda com N parcelas geridas de forma encadeada) não existe — a Lyra cria cobranças 1:1, o sync sempre gera `numero_parcelas: 1`.
-- O **código interno do webhook da Lyra** (geração de link MP, validação de assinatura, `processarEventoMP`) não foi auditado nem alterado — está fora do repositório, dentro do sandbox da Lyra, que exige plano Base44 Builder (o Starter atual não libera acesso de agente externo ao código).
+- `data_pagamento` e `forma_pagamento` **não são preenchidos automaticamente** na atualização via sync/webhook — a Lyra não expõe a data real do pagamento nem a forma com confiança suficiente; preencher isso seria presumir dado sem evidência. `HistoricoAtividade.detalhes` registra apenas a data/hora em que o **sync identificou** o pagamento, deixando explícito que não é necessariamente a data real. (Na criação direta já-paga, esses campos ainda assumem `pix`/vencimento como aproximação — comportamento herdado de antes da Fase 1, não alterado.)
+- Proteção de concorrência é **best-effort** (releitura pontual do registro/entidade imediatamente antes de criar ou atualizar), não uma trava real de banco — reduz a janela de corrida, não elimina. Agora existem 2 gatilhos (cron + webhook) que podem, em teoria, correr ao mesmo tempo — mitigado pela mesma releitura pontual.
+- **Parcelamento real** (uma Venda com N parcelas geridas de forma encadeada) não existe — a Lyra cria cobranças 1:1, o sync/webhook sempre gera `numero_parcelas: 1`.
+- O **código interno do webhook da Lyra** (geração de link MP, validação de assinatura, `processarEventoMP`) não foi auditado — está fora do repositório, dentro do sandbox da Lyra, que exige plano Base44 Builder (o Starter atual não libera acesso de agente externo ao código). A chamada de saída pro nosso webhook foi adicionada por ela mesma via chat builder, não por nós.
+- Se o webhook falhar silenciosamente (rede, timeout, etc.) — a falha é ignorada do lado da Lyra por design (não deve atrasar a resposta ao cliente) — o cron continua sendo a rede de segurança que garante que nada fica pendente pra sempre.
+
+### Fluxo G — Healthcheck de conversas via `?tool=stuck-check` (2026-07-13/14)
+
+`api/cron-stuck-check.js` foi removido em sessão anterior (12-13/07) por engano — achavam que era órfão, mas na verdade era chamado a cada 5min pelo GitHub Action `.github/workflows/stuck-check.yml` (Fluxo E). Isso quebrou o healthcheck (404 por um período). A correção consolidou a lógica dentro de `api/system-tools.js` como `?tool=stuck-check` (mesmo padrão de combinar ferramentas leves num arquivo só, pelo limite de 12 funções do Hobby), protegido por `Authorization: Bearer <CRON_SECRET>` (mesmo segredo do `sync-lyra`, já que ambos são chamados por automações confiáveis — GitHub Actions e cron da Vercel).
 
 ---
 
@@ -431,6 +461,7 @@ Parcela atualizada aparece na aba Cobranças (CobrancasPage.jsx) sem ação manu
 5. **ServerlessFunctions monolíticas** — `auto-photo.js` (635 linhas) e `cron-diagnosis.js` (797 linhas) concentram muita lógica.
 6. **`src/services/__tests__/syncCatalog.test.js` não é um teste seguro** — grava dados reais na tabela `products` de produção quando executado via `npm test`. Descoberto durante a Fase 3B (2026-07-10), não corrigido — ver `docs/FASE3B-RELATORIO-IMPACTO.md §4` (risco #7).
 7. **Sincronização Lyra→PRIME (Fluxo F) depende de dois apps Base44 externos ao repositório** — o código do Mercado Pago em si vive dentro do sandbox da Lyra, inacessível no plano Starter atual (exigiria upgrade pra Builder). `data_pagamento`/`forma_pagamento` não são preenchidos na baixa automática por falta de dado confiável da origem, e parcelamento real (N parcelas por venda) não está implementado — ver Fluxo F na seção 6 para detalhes e limitações completas.
+8. **Dois gatilhos independentes disparam a mesma lógica de sincronização** (cron 4x/dia + webhook em tempo real da Lyra, ambos Fluxo F) — mitigado por releitura pontual antes de escrever, mas não é uma trava real de concorrência. Se o volume de pagamentos crescer muito, vale revisar.
 
 ---
 
@@ -443,3 +474,4 @@ Parcela atualizada aparece na aba Cobranças (CobrancasPage.jsx) sem ação manu
 **Atualizado em:** 2026-07-12 · Fase 2C (`api/onnewmessage.js` + `api/_profileLearning.js`) — aprendizado automático de `customer_profiles.size` via o webhook de sistema `onNewMessage`, documentado no Fluxo A2 da seção 6; `api/message-router-probe.js` (probe temporário de investigação) removido, substituído por `api/onnewmessage.js` na mesma vaga de função; `api/` sobe de 16 para 18 arquivos (12 rotas + 6 helpers).
 **Atualizado em:** 2026-07-12 · Fase 2C encerrada e validada em produção — `onNewMessage` ativo apontando para `api/onnewmessage.js`; testes `applied`/`duplicate`/`unchanged` e teste real de ponta a ponta (WhatsApp, perfil real) aprovados; incidente de `SUPABASE_SECRET_KEY` incorreta em Production identificado e corrigido durante a validação (ver `docs/SUPABASE.md` §3.5).
 **Atualizado em:** 2026-07-13 · Fase 1 crítica da sincronização Lyra↔PRIME COBRANÇAS (`api/system-tools.js::syncLyra`) — documentado o Fluxo F na seção 6: autenticação por `CRON_SECRET` em `sync-lyra` (inclusive `dryRun=true`), identificação determinística por `lyra_cobranca_id`/`mp_preference_id`/`mp_payment_id` com fallback legado, atualização idempotente de Parcela pendente→pago com registro em `HistoricoAtividade`. Validado em teste ponta a ponta com pagamento real via Mercado Pago. Limitações conhecidas registradas na seção 8 (item 7).
+**Atualizado em:** 2026-07-14 · Baixa em tempo real via webhook (`?tool=lyra-webhook`, Fluxo F) — a Lyra agora avisa na hora que confirma um pagamento (`processarEventoMP` chama nosso endpoint), eliminando a espera pelo cron; lógica de match/atualização/criação extraída pra `processarCobranca()`, reaproveitada por sync em lote e webhook; autenticado por `LYRA_WEBHOOK_SECRET` (segredo próprio). Validado em produção com pagamento real de R$0,01, Parcela criada em ~2s. Também documentado o Fluxo G: `?tool=stuck-check` — recriação do healthcheck de conversas travadas (`api/cron-stuck-check.js` tinha sido removido por engano em sessão anterior, achando que era órfão). Novo item 8 na seção 8 sobre os dois gatilhos concorrentes (cron + webhook).
