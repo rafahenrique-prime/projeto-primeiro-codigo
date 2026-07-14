@@ -442,6 +442,73 @@ A Fase 1 deixou uma lacuna: quando uma Cobranca chegava **já paga** e criava a 
 
 **Validado em produção (2026-07-14):** reparo real rodado contra os dados de produção — a Parcela de teste "TESTE FASE1 CLAUDE" (R$0,01, vínculo determinístico confirmado) recebeu `REPARAR_HISTORICO`, criando exatamente 1 `HistoricoAtividade`; uma 2ª execução confirmou idempotência (`JA_SINCRONIZADO`, sem duplicar). Os 3 registros antigos do "Álvaro" (criados em 2026-07-13, antes dos campos `lyra_cobranca_id`/`mp_preference_id`/`mp_payment_id` existirem no schema) foram classificados `VINCULO_LEGADO_NAO_CONFIRMADO` e **permanecem sem histórico e sem IDs preenchidos** — o eventual backfill desses 3 IDs é uma decisão separada, ainda pendente de aprovação explícita, fora do escopo da Fase 2.1. Os 22 registros legados de 2026-07-10 (importação manual, sem nenhuma Cobranca correspondente na Lyra) nunca entram nesse fluxo — não recebem backfill, por design.
 
+### Fluxo F.1 — Geração de cobrança sob demanda (Fase 2 — 2026-07-14)
+
+Complementa o Fluxo F: aquele é unidirecional (Lyra→PRIME, refletindo pagamentos já confirmados). O Fluxo F.1 é o caminho contrário — PRIME→Lyra, sob demanda — que ainda não existia até a Fase 2: gerar uma cobrança nova a partir de uma Parcela existente no PRIME.
+
+**Entrada:** `?tool=gerar-cobranca-lyra` em `api/system-tools.js` (dispatcher — só valida auth/Origin/rate-limit e delega). A lógica de negócio inteira vive em `api/_gerarCobrancaLyra.js`, um **helper privado** (prefixo `_`, mesmo padrão de `_codexAlerts.js`/`_profileIdentity.js`/`_profileMemory.js`/`_profileLearning.js`/`_customerScoring.js`/`_scoring.js`) — não é `export default handler`, então **não conta como Function pública** (continua em 12/12 no limite do plano Hobby).
+
+**Entrada externa aceita: só `parcela_id`.** Nenhum outro dado (valor, telefone, nome, vencimento, IDs da Lyra) é confiado do request — tudo é lido oficialmente do PRIME em cada chamada.
+
+**Fluxo (`dryRun=false`):**
+```
+Request { parcela_id }
+        ↓
+Lê Parcela + Venda + Cliente oficiais no PRIME
+        ↓
+Calcula saldo restante: (valor_atualizado || valor_base) - valor_pago
+        ↓
+Parcela já tem lyra_cobranca_id / mp_preference_id / payment_link?
+        ├─ SIM → localiza a Cobranca correspondente na Lyra (por id, por
+        │        prime_parcela_id, por mp_preference_id, nessa ordem — cruzando
+        │        as 3 fontes) → responde IDEMPOTENTE (reutilizada:true, mesmos
+        │        IDs/link, escritas_realizadas:0) → NÃO cria Cliente, NÃO chama
+        │        criarCobranca, NÃO atualiza a Parcela, NÃO cria histórico.
+        │        Qualquer divergência entre as 3 fontes (ou nenhuma encontrada,
+        │        ou Cobranca cancelada) BLOQUEIA para auditoria manual — nunca
+        │        escolhe sozinho, nunca sobrescreve.
+        │
+        └─ NÃO → resolve ou cria Cliente na Lyra por telefone normalizado
+                 (bloqueia se houver mais de 1 Cliente Lyra com o mesmo telefone)
+                       ↓
+                 POST https://lyra-663dc63d.base44.app/functions/criarCobranca
+                 Header: api_key: <BASE44_API_KEY> — timeout 15s, sem retry cego
+                 Payload: { cliente_id, cliente_nome, valor, vencimento,
+                            descricao, prime_parcela_id }
+                       ↓
+                 Valida JSON de retorno (cobranca_id/mp_preference_id/payment_link)
+                       ↓
+                 Falha (timeout/erro/JSON inválido)? → busca
+                 Cobranca.filter({prime_parcela_id}) antes de desistir —
+                 nunca reprocessa criarCobranca sem checar isso primeiro
+                       ↓
+                 Atualiza a Parcela: lyra_cobranca_id, mp_preference_id, payment_link
+                       ↓
+                 Cria HistoricoAtividade (tipo:'criacao', descrição
+                 iniciando com [COBRANÇA ONLINE]) — idempotente pelo mesmo
+                 padrão de marcador fixo do Fluxo F
+        ↓
+Cliente paga → Lyra confirma → webhook em tempo real (Fluxo F) baixa a
+MESMA Parcela para 'pago' — o CRM/PRIME não faz nada além de espelhar
+```
+
+**Autenticação (temporária):** header `Authorization: Bearer <GERAR_COBRANCA_SECRET>` — segredo próprio, isolado de `CRON_SECRET`/`LYRA_WEBHOOK_SECRET` (um vazamento de um não compromete os outros) — mais checagem de Origin/Referer contra `GERAR_COBRANCA_ALLOWED_ORIGINS` (`https://prime-vip.base44.app`), **obrigatória** (não só best-effort) quando `dryRun=false`. `dryRun=true` é o padrão sempre que o parâmetro não é enviado como `false` literal.
+
+**Vínculo determinístico:** mesma filosofia do Fluxo F (Fase 2.1) — presença de um ID não basta, precisa corresponder exatamente entre Parcela e Cobranca. Aqui aplicado no sentido inverso (PRIME→Lyra) via `resolverIdempotenciaExistente`.
+
+**Validado localmente contra dados e serviços reais, com cobrança e pagamento reais de R$ 1,00 (2026-07-14):** Cliente Lyra criado automaticamente, `criarCobranca` chamada de verdade, `lyra_cobranca_id`/`mp_preference_id`/`payment_link` persistidos na Parcela, chamada repetida confirmada idempotente (mesmos IDs, zero escrita), pagamento real confirmado via Mercado Pago com baixa automática em ~2,1s pelo webhook em tempo real (Fluxo F já existente), 3ª chamada após o pagamento bloqueada corretamente (Parcela paga), zero duplicação de Cobranca/Cliente/histórico em nenhuma etapa. (Este é um teste independente do teste de R$0,01 da Fase 1/2.1 — usa um registro de teste próprio.)
+
+**CRM permanece só espelho:** nenhuma tela do IGNITE PRIME CRM foi alterada nesta fase — o botão que vai chamar este endpoint fica para uma fase futura, dentro do próprio PRIME STORE - COBRANÇAS (Base44), não no CRM.
+
+**Limitações conhecidas:**
+- Autenticação por segredo estático — aceitável apenas enquanto o painel de Cobranças não tiver um sistema de login real; um vazamento do segredo permite gerar cobranças arbitrárias.
+- Origin/Referer é proteção **complementar**, não autenticação forte (headers são falsificáveis por quem já possui o segredo).
+- Rate limit é **best-effort por instância** — reseta a cada cold start, não é uma trava distribuída.
+- Proteção de concorrência é best-effort (releitura pontual antes de criar), não uma trava real de banco — pior caso plausível é duplicar o Cliente Lyra, não a Cobranca (a idempotência por `prime_parcela_id` do lado da Lyra, da Fase 1, protege a cobrança em si).
+- Dependência total do endpoint HTTP `functions/criarCobranca` da Lyra — fora do nosso controle/deploy; mudança de contrato sem aviso quebra a geração (com segurança — `validarRespostaCriarCobranca` recusa JSON incompleto, não escreve dado errado).
+- `payment_link` pode expirar (regra do Mercado Pago) — não há verificação de validade nem regeneração automática hoje.
+- Regeneração de cobrança cancelada não está implementada — bloqueia com segurança, mas exige intervenção manual.
+
 ### Fluxo G — Healthcheck de conversas via `?tool=stuck-check` (2026-07-13/14)
 
 `api/cron-stuck-check.js` foi removido em sessão anterior (12-13/07) por engano — achavam que era órfão, mas na verdade era chamado a cada 5min pelo GitHub Action `.github/workflows/stuck-check.yml` (Fluxo E). Isso quebrou o healthcheck (404 por um período). A correção consolidou a lógica dentro de `api/system-tools.js` como `?tool=stuck-check` (mesmo padrão de combinar ferramentas leves num arquivo só, pelo limite de 12 funções do Hobby), protegido por `Authorization: Bearer <CRON_SECRET>` (mesmo segredo do `sync-lyra`, já que ambos são chamados por automações confiáveis — GitHub Actions e cron da Vercel).
@@ -484,6 +551,7 @@ A Fase 1 deixou uma lacuna: quando uma Cobranca chegava **já paga** e criava a 
 6. **`src/services/__tests__/syncCatalog.test.js` não é um teste seguro** — grava dados reais na tabela `products` de produção quando executado via `npm test`. Descoberto durante a Fase 3B (2026-07-10), não corrigido — ver `docs/FASE3B-RELATORIO-IMPACTO.md §4` (risco #7).
 7. **Sincronização Lyra→PRIME (Fluxo F) depende de dois apps Base44 externos ao repositório** — o código do Mercado Pago em si vive dentro do sandbox da Lyra, inacessível no plano Starter atual (exigiria upgrade pra Builder). `data_pagamento`/`forma_pagamento` não são preenchidos na baixa automática por falta de dado confiável da origem, e parcelamento real (N parcelas por venda) não está implementado — ver Fluxo F na seção 6 para detalhes e limitações completas.
 8. **Dois gatilhos independentes disparam a mesma lógica de sincronização** (cron 4x/dia + webhook em tempo real da Lyra, ambos Fluxo F) — mitigado por releitura pontual antes de escrever, mas não é uma trava real de concorrência. Se o volume de pagamentos crescer muito, vale revisar.
+9. **Geração de cobrança sob demanda (Fluxo F.1) usa autenticação por segredo estático** — aceitável só enquanto o painel de Cobranças não tiver login real; Origin/Referer é proteção complementar (falsificável por quem já tem o segredo), rate limit é best-effort por instância, e não há regeneração automática para Cobranca cancelada nem verificação de expiração de `payment_link` — ver Fluxo F.1 na seção 6 para detalhes completos.
 
 ---
 
@@ -498,3 +566,4 @@ A Fase 1 deixou uma lacuna: quando uma Cobranca chegava **já paga** e criava a 
 **Atualizado em:** 2026-07-13 · Fase 1 crítica da sincronização Lyra↔PRIME COBRANÇAS (`api/system-tools.js::syncLyra`) — documentado o Fluxo F na seção 6: autenticação por `CRON_SECRET` em `sync-lyra` (inclusive `dryRun=true`), identificação determinística por `lyra_cobranca_id`/`mp_preference_id`/`mp_payment_id` com fallback legado, atualização idempotente de Parcela pendente→pago com registro em `HistoricoAtividade`. Validado em teste ponta a ponta com pagamento real via Mercado Pago. Limitações conhecidas registradas na seção 8 (item 7).
 **Atualizado em:** 2026-07-14 · Baixa em tempo real via webhook (`?tool=lyra-webhook`, Fluxo F) — a Lyra agora avisa na hora que confirma um pagamento (`processarEventoMP` chama nosso endpoint), eliminando a espera pelo cron; lógica de match/atualização/criação extraída pra `processarCobranca()`, reaproveitada por sync em lote e webhook; autenticado por `LYRA_WEBHOOK_SECRET` (segredo próprio). Validado em produção com pagamento real de R$0,01, Parcela criada em ~2s. Também documentado o Fluxo G: `?tool=stuck-check` — recriação do healthcheck de conversas travadas (`api/cron-stuck-check.js` tinha sido removido por engano em sessão anterior, achando que era órfão). Novo item 8 na seção 8 sobre os dois gatilhos concorrentes (cron + webhook).
 **Atualizado em:** 2026-07-14 · Fase 2.1 — rastreabilidade completa das baixas automáticas (`garantirHistoricoBaixaAutomatica`, Fluxo F): fecha a lacuna da criação direta já-paga sem histórico, adiciona reparo idempotente (`REPARAR_HISTORICO`) restrito a Parcelas com vínculo determinístico confirmado (`obterVinculoDeterministico` — correspondência exata, não só presença do campo), classifica vínculos ambíguos/legados (`VINCULO_LEGADO_NAO_CONFIRMADO`, `VINCULO_DIVERGENTE`) sem escrever nada neles, e remove as presunções de `forma_pagamento:'pix'`/`data_pagamento:vencimento` na criação direta. Validado em produção contra dados reais — 1 reparo real (Parcela de teste R$0,01) + 3 registros legados do Álvaro corretamente não tocados (pendentes de backfill separado, fora de escopo). Testado também falha simulada isolada (mock local, sem tocar Base44/Lyra/MP): falha não corrompe, execução seguinte repara, terceira não duplica.
+**Atualizado em:** 2026-07-14 · Fase 2 — geração de cobrança Lyra sob demanda a partir da Parcela (Fluxo F.1, seção 6): novo `?tool=gerar-cobranca-lyra` em `api/system-tools.js` (dispatcher) + `api/_gerarCobrancaLyra.js` (helper privado, zero Functions públicas novas — continua 12/12). Entrada externa limitada a `parcela_id`; resolve/cria Cliente na Lyra por telefone; chama `functions/criarCobranca` via HTTP direto (timeout 15s, sem retry cego); vínculo determinístico por `prime_parcela_id`/`lyra_cobranca_id`/`mp_preference_id` com resposta idempotente (`reutilizada:true`) quando já existe, bloqueando em qualquer divergência; persiste `lyra_cobranca_id`/`mp_preference_id`/`payment_link`; histórico `[COBRANÇA ONLINE]` idempotente. Validado localmente contra dados e serviços reais, com cobrança e pagamento reais de R$ 1,00 — baixa automática em ~2,1s pelo webhook em tempo real já existente (Fluxo F), zero duplicação em nenhuma etapa (teste independente do R$0,01 da Fase 1/2.1). Autenticação temporária por segredo estático (`GERAR_COBRANCA_SECRET`) — limitações conhecidas documentadas na seção do Fluxo F.1.

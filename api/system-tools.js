@@ -15,8 +15,16 @@
 //                           o cron. Exige header Authorization: Bearer <LYRA_WEBHOOK_SECRET>
 //                           (segredo próprio, diferente do CRON_SECRET). O cron de sync-lyra
 //                           continua existindo como rede de segurança caso este webhook falhe.
+// ?tool=gerar-cobranca-lyra → FASE 2.2, estritamente dry-run: recebe só parcela_id, consulta
+//                           Parcela/Venda/Cliente no PRIME + Cliente na Lyra (só leitura) e
+//                           devolve um relatório do que a FASE 2.3 faria — não escreve nada,
+//                           não chama a Lyra nem o Mercado Pago. Exige header
+//                           Authorization: Bearer <GERAR_COBRANCA_SECRET> (segredo próprio,
+//                           diferente de CRON_SECRET e LYRA_WEBHOOK_SECRET) + checagem
+//                           best-effort de Origin/Referer contra GERAR_COBRANCA_ALLOWED_ORIGINS.
 
 import { createClient } from '@base44/sdk'
+import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
 
 const VERCEL_TOKEN = process.env.VERCEL_ACCESS_TOKEN
 const PROJECT_ID = 'prj_apJGLxIL6ooCFTCuboQiHwuveOw9'
@@ -598,7 +606,55 @@ export default async function handler(req, res) {
       return lyraWebhook(req, res)
     }
 
+    case 'gerar-cobranca-lyra': {
+      // Segredo próprio (GERAR_COBRANCA_SECRET) — não reutiliza CRON_SECRET nem
+      // LYRA_WEBHOOK_SECRET, pra não ampliar o alcance de um vazamento eventual.
+      const gerarCobrancaSecret = process.env.GERAR_COBRANCA_SECRET
+      const authHeader = req.headers.authorization
+      if (!gerarCobrancaSecret || authHeader !== `Bearer ${gerarCobrancaSecret}`) {
+        console.error('[system-tools:gerar-cobranca-lyra] Tentativa não autorizada', { ip: req.headers['x-forwarded-for'] || null })
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+
+      const origemCheck = checarOrigemBestEffort(req)
+      if (!origemCheck.ok) {
+        console.error('[system-tools:gerar-cobranca-lyra] Origin/Referer bloqueado', { motivo: origemCheck.motivo })
+        return res.status(403).json({ error: 'Origem não permitida' })
+      }
+
+      const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
+      if (!checarRateLimitBestEffort(ip)) {
+        console.error('[system-tools:gerar-cobranca-lyra] Rate limit best-effort excedido', { ip })
+        return res.status(429).json({ error: 'Muitas tentativas — aguarde e tente novamente' })
+      }
+
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Use POST' })
+      }
+
+      const parcelaId = req.body?.parcela_id
+      // Default seguro: qualquer coisa diferente do booleano `false` literal mantém dryRun=true.
+      const dryRun = req.body?.dryRun !== false
+
+      if (!dryRun) {
+        // Modo real exige Origin efetivamente checada (allowlist configurada), não só
+        // "pulada por falta de configuração" — dry-run tolera a checagem best-effort,
+        // escrita real não.
+        if (!origemCheck.checado) {
+          console.error('[system-tools:gerar-cobranca-lyra] dryRun=false recusado — GERAR_COBRANCA_ALLOWED_ORIGINS não configurada')
+          return res.status(403).json({ error: 'dryRun=false exige GERAR_COBRANCA_ALLOWED_ORIGINS configurada e Origin/Referer validado' })
+        }
+        console.log('[system-tools:gerar-cobranca-lyra] Requisição REAL (dryRun=false)', { parcela_id: parcelaId, ip })
+        const resultado = await gerarCobrancaLyraReal({ parcelaId })
+        return res.status(resultado.httpStatus).json(resultado.body)
+      }
+
+      console.log('[system-tools:gerar-cobranca-lyra] Requisição dry-run', { parcela_id: parcelaId, ip, origemChecada: origemCheck.checado })
+      const resultado = await gerarCobrancaLyraDryRun({ parcelaId, ip, req })
+      return res.status(resultado.httpStatus).json(resultado.body)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check ou lyra-webhook)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook ou gerar-cobranca-lyra)' })
   }
 }
