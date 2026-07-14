@@ -1,12 +1,15 @@
 // Endpoint combinado pra caber no limite de 12 Serverless Functions do Hobby.
-// Dois utilitários pequenos e sem relação direta, mas ambos leves e de baixo
-// tráfego — junto num arquivo só, dividido por ?tool=.
+// Utilitários pequenos e sem relação direta entre si, mas todos leves e de
+// baixo tráfego — juntos num arquivo só, divididos por ?tool=.
 //
 // ?tool=vercel-status     → status do último deploy da Vercel (card do Dashboard) — SEM autenticação
 // ?tool=sync-lyra         → sincroniza Cobranca da Lyra pro PRIME (Cliente/Venda/Parcela)
 //                           (?dryRun=false pra escrever de verdade; default só relatório)
 //                           Exige header Authorization: Bearer <CRON_SECRET> em AMBOS os modos
 //                           (dryRun=true também, porque expõe nomes/valores/status financeiros)
+// ?tool=stuck-check       → healthcheck de conversas do GPT Maker sem resposta há 3-30min
+//                           (chamado pelo GitHub Actions .github/workflows/stuck-check.yml)
+//                           Exige header Authorization: Bearer <CRON_SECRET>
 
 import { createClient } from '@base44/sdk'
 
@@ -17,6 +20,18 @@ const TEAM_ID = 'team_O0lVaTLcrP62cKLeTZwclgAq'
 const BASE44_API_KEY = process.env.BASE44_API_KEY
 const LYRA_APP_ID = '6a518d72335f3c31663dc63d'
 const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
+
+const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
+const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
+const GPTMAKER_BASE = 'https://api.gptmaker.ai'
+
+const STUCK_THRESHOLD_MS = 3 * 60 * 1000   // sem resposta por mais de 3min = suspeito
+const STUCK_MAX_AGE_MS = 30 * 60 * 1000    // ignora chats com última msg há mais de 30min
+const STUCK_DEDUPE_WINDOW_MS = 10 * 60 * 1000 // não alerta o mesmo chat de novo por 10min
 
 function normalizePhone(phone) {
   return (phone || '').replace(/\D/g, '')
@@ -83,6 +98,95 @@ async function vercelStatus(req, res) {
   } catch (e) {
     console.error('[system-tools:vercel-status] Erro:', e.message)
     return res.status(500).json({ error: 'Erro interno ao consultar status da Vercel' })
+  }
+}
+
+async function enviarTelegramStuck(mensagem) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.error('[system-tools:stuck-check] Telegram não configurado')
+    return
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: mensagem, parse_mode: 'HTML' }),
+    })
+    if (!res.ok) console.error('[system-tools:stuck-check] Telegram respondeu:', res.status, await res.text())
+  } catch (err) {
+    console.error('[system-tools:stuck-check] Erro ao enviar Telegram:', err.message)
+  }
+}
+
+async function jaAlertadoRecenteStuck(chatId) {
+  try {
+    const desde = new Date(Date.now() - STUCK_DEDUPE_WINDOW_MS).toISOString()
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/codex_alerts?type=eq.chat_travado&conversation_id=eq.${encodeURIComponent(chatId)}&created_at=gte.${desde}&select=id&limit=1`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    )
+    if (!res.ok) return false
+    const data = await res.json()
+    return data.length > 0
+  } catch (err) {
+    console.error('[system-tools:stuck-check] Erro ao checar dedupe:', err.message)
+    return false
+  }
+}
+
+async function registrarAlertaStuck(chatId, mensagem) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/codex_alerts`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ type: 'chat_travado', severity: 'critico', conversation_id: chatId, message: mensagem, data: null }),
+    })
+  } catch (err) {
+    console.error('[system-tools:stuck-check] Erro ao registrar alerta:', err.message)
+  }
+}
+
+async function stuckCheck(req, res) {
+  try {
+    const now = Date.now()
+    const listRes = await fetch(`${GPTMAKER_BASE}/v2/workspace/${GPTMAKER_WS}/chats?page=1&pageSize=20`, {
+      headers: { Authorization: `Bearer ${GPTMAKER_TOKEN}` },
+    })
+    if (!listRes.ok) {
+      console.error('[system-tools:stuck-check] Falha ao listar chats:', listRes.status)
+      return res.status(200).json({ ok: true, skipped: 'failed to list chats' })
+    }
+    const data = await listRes.json()
+    const chats = Array.isArray(data) ? data : (data.data || [])
+
+    let travados = 0
+
+    for (const chat of chats) {
+      const chatTime = chat.time || 0
+      const idadeMs = now - chatTime
+      if (idadeMs > STUCK_MAX_AGE_MS || idadeMs < STUCK_THRESHOLD_MS) continue
+      // O campo "role" no resumo do chat já reflete quem mandou a última mensagem —
+      // se não for cliente, alguém (ou o sistema) já respondeu, não está travado.
+      if (chat.role !== 'user' && chat.role !== 'client') continue
+
+      const jaAlertou = await jaAlertadoRecenteStuck(chat.id)
+      if (jaAlertou) continue
+
+      const minutos = Math.round(idadeMs / 60000)
+      const nome = chat.name || chat.whatsappPhone || 'Cliente'
+      const textoCliente = (chat.conversation || '').slice(0, 150)
+      const mensagem = `⚠️ <b>CLIENTE SEM RESPOSTA</b>\n\n👤 ${nome}\n💬 "${textoCliente}"\n⏱️ Há ${minutos}min sem resposta\n\nVerifique o WhatsApp/painel GPT Maker.`
+
+      await enviarTelegramStuck(mensagem)
+      await registrarAlertaStuck(chat.id, `Cliente "${nome}" sem resposta: "${textoCliente}"`)
+      travados++
+    }
+
+    console.log(`[system-tools:stuck-check] Verificados ${chats.length} chats, ${travados} alertados`)
+    return res.status(200).json({ ok: true, checked: chats.length, alertados: travados })
+  } catch (err) {
+    console.error('[system-tools:stuck-check] Erro:', err.message)
+    return res.status(500).json({ error: err.message })
   }
 }
 
@@ -279,7 +383,17 @@ export default async function handler(req, res) {
       return syncLyra(req, res)
     }
 
+    case 'stuck-check': {
+      // Autenticação obrigatória — chamado pelo GitHub Actions via CRON_SECRET.
+      const cronSecret = process.env.CRON_SECRET
+      const authHeader = req.headers.authorization
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+      return stuckCheck(req, res)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status ou sync-lyra)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra ou stuck-check)' })
   }
 }

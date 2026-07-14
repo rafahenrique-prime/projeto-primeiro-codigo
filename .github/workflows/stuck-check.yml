@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Chamar healthcheck de conversas travadas
-        run: curl -s -f "https://ignite-webhook.vercel.app/api/cron-stuck-check"
+        run: curl -s -f -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://ignite-webhook.vercel.app/api/system-tools?tool=stuck-check"
