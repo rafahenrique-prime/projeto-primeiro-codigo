@@ -607,6 +607,35 @@ export default async function handler(req, res) {
     }
 
     case 'gerar-cobranca-lyra': {
+      // CORS específico desta tool (FASE 3.2.0) — remove o "*" global (linha do topo do
+      // handler) só pra este case, pra permitir chamada direta do navegador com header
+      // Authorization/Content-Type. Comparação de Origin é por IGUALDADE EXATA (nunca
+      // startsWith/includes) — evita aceitar subdomínios ou paths forjados como
+      // "https://prime-vip.base44.app.evil.com". Reutiliza GERAR_COBRANCA_ALLOWED_ORIGINS,
+      // mesma env já usada pela checagem de Origin best-effort mais abaixo.
+      const normalizarOrigin = (valor) => String(valor || '').trim().replace(/\/+$/, '')
+      const origemRecebida = normalizarOrigin(req.headers.origin)
+      const origensPermitidas = String(process.env.GERAR_COBRANCA_ALLOWED_ORIGINS || '')
+        .split(',')
+        .map(normalizarOrigin)
+        .filter(Boolean)
+      const origemPermitida = Boolean(origemRecebida) && origensPermitidas.includes(origemRecebida)
+
+      res.removeHeader('Access-Control-Allow-Origin')
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+      res.setHeader('Vary', 'Origin')
+      if (origemPermitida) {
+        res.setHeader('Access-Control-Allow-Origin', origemRecebida)
+      }
+
+      if (req.method === 'OPTIONS') {
+        if (!origemPermitida) {
+          return res.status(403).json({ success: false, error: 'Origem não permitida' })
+        }
+        return res.status(204).end()
+      }
+
       // Segredo próprio (GERAR_COBRANCA_SECRET) — não reutiliza CRON_SECRET nem
       // LYRA_WEBHOOK_SECRET, pra não ampliar o alcance de um vazamento eventual.
       const gerarCobrancaSecret = process.env.GERAR_COBRANCA_SECRET
