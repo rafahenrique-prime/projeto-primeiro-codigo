@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
-import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados, registrarPagamentoManual } from '../services/crm/cobrancasService'
+import { getAllCobrancas, getTotalizadores, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados, registrarPagamentoManual } from '../services/crm/cobrancasService'
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import ParcelasTab from '../components/cobrancas/ParcelasTab'
+import ClientesEmCobrancaTab from '../components/cobrancas/ClientesEmCobrancaTab'
 
 // Dados fake pra fallback se API falhar
 const MOCK_COBRANCAS = [
@@ -18,47 +19,14 @@ const MOCK_COBRANCAS = [
   { id: 10, nome: 'GABRIEL SILVA PINHEIRO GARRAGEM', status: 'Atrasado', diasAtraso: 38, vencimento: '29/05/2026', valorTotal: 3136.00, valorAberto: 3136.00, valorPago: 0, parcelas: '1x', telefone: '(34) 99876-1111' },
 ]
 
-function WhatsAppIcon({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24">
-      <path fill="#25D366" d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.33C8.52 21.5 10.22 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.23.65-1.35 1.24-1.86 1.28-.5.05-1.02.24-3.4-.7-2.87-1.15-4.7-4.06-4.84-4.25-.14-.19-1.16-1.55-1.16-2.95s.72-2.1.98-2.38c.26-.28.56-.35.75-.35.19 0 .38 0 .54.01.18.01.42-.07.65.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.48-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.29.76 1.25 1.63 2.02 1.12 1 2.06 1.31 2.35 1.46.29.15.46.13.63-.08.17-.21.72-.84.91-1.13.19-.29.38-.24.64-.14.26.1 1.65.78 1.93.92.28.14.47.21.54.33.07.12.07.68-.16 1.33z" />
-    </svg>
-  )
-}
-
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
-function statusColor(status, diasAtraso) {
-  if (diasAtraso > 0) {
-    return { bg: '#FEE2E2', text: '#DC2626', icon: '⚠️', label: 'Atrasado' }
-  }
-  const s = (status || '').trim()
-  switch (s) {
-    case 'Pago':
-      return { bg: '#D1FAE5', text: '#047857', icon: '✅', label: 'Pago' }
-    case 'Cobrado Hoje':
-      return { bg: '#FEF3C7', text: '#D97706', icon: '📞', label: 'Cobrado Hoje' }
-    case 'Aguardando Resposta':
-      return { bg: '#E0E7FF', text: '#4F46E5', icon: '⏳', label: 'Aguardando' }
-    case 'Promessa de Pagamento':
-      return { bg: '#BFDBFE', text: '#1E40AF', icon: '🤝', label: 'Promessa' }
-    case 'Sem Retorno':
-      return { bg: '#FECACA', text: '#991B1B', icon: '❌', label: 'Sem Retorno' }
-    case 'Não Cobrado':
-      return { bg: '#F3F4F6', text: '#6B7280', icon: '•', label: 'Não Cobrado' }
-    default:
-      return { bg: '#F3F4F6', text: '#6B7280', icon: '•', label: s || 'Sem Status' }
-  }
-}
-
 export default function CobrancasPage() {
   const { theme: t } = useTheme()
-  const [tab, setTab] = useState('lista') // 'lista' | 'dashboard' | 'fluxo' | 'historico'
-  const [filter, setFilter] = useState('todos')
-  const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('diasAtraso') // 'diasAtraso' | 'nome-asc' | 'nome-desc' | 'valor-desc' | 'valor-asc' | 'tentativas'
+  const [tab, setTab] = useState('clientes-cobranca') // 'clientes-cobranca' | 'dashboard' | 'fluxo' | 'historico' | 'clientes' | 'parcelas'
+  const [initialParcelasFilter, setInitialParcelasFilter] = useState(null) // { clienteId, nome } | null — vindo de "💳 Ver parcelas"
   const [cobrancas, setCobrancas] = useState([])
   const [clientes, setClientes] = useState([])
   const [totalizadores, setTotalizadores] = useState({ totalAtraso: 0, qtdAtrasados: 0, diasMedia: 0, totalReceber: 0, totalRecebido: 0, critico: 0, urgente: 0 })
@@ -74,6 +42,12 @@ export default function CobrancasPage() {
   useEffect(() => {
     loadCobrancas()
   }, [])
+
+  // "💳 Ver parcelas" (aba Clientes em Cobrança) — abre a aba Parcelas já filtrada pelo cliente.
+  function handleVerParcelas(filtro) {
+    setInitialParcelasFilter(filtro)
+    setTab('parcelas')
+  }
 
   async function sincronizarTelefones() {
     setSincronizandoTelefones(true)
@@ -132,110 +106,6 @@ export default function CobrancasPage() {
     }
   }
 
-  // Filtros
-  const filtered = useMemo(() => {
-    let result = cobrancas
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const amanha = new Date(hoje.getTime() + 24 * 60 * 60 * 1000)
-    const fimSemana = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-
-    if (filter !== 'todos') {
-      if (filter === 'hoje') {
-        const hojeStr = new Date().toISOString().slice(0, 10)
-        result = result.filter(c => (c.vencimentoRaw || '').slice(0, 10) === hojeStr)
-      } else if (filter === '1-5') {
-        // Atenção: exclui pagos (100%)
-        result = result.filter(c => !(c.valorAberto === 0 && c.valorPago > 0) && c.diasAtraso >= 1 && c.diasAtraso <= 5)
-      } else if (filter === '6-15') {
-        // Urgente: exclui pagos (100%)
-        result = result.filter(c => !(c.valorAberto === 0 && c.valorPago > 0) && c.diasAtraso >= 6 && c.diasAtraso <= 15)
-      } else if (filter === 'critico') {
-        // Crítico: apenas 15+ dias (sem limite de valor, exclui pagos)
-        result = result.filter(c => !(c.valorAberto === 0 && c.valorPago > 0) && c.diasAtraso > 15)
-      } else if (filter === 'pago') {
-        result = result.filter(c => c.valorAberto === 0 && c.valorPago > 0)
-      } else if (filter === 'pendente') {
-        // Sem pagamento nenhum
-        result = result.filter(c => c.valorPago === 0)
-      } else if (filter === 'parcial') {
-        result = result.filter(c => c.valorAberto > 0 && c.valorPago > 0)
-      } else if (filter === 'avencer') {
-        // A vencer: sem atraso, vence entre amanhã e daqui 7 dias (comparação por string ISO, sem risco de fuso)
-        const amanhaStr = amanha.toISOString().slice(0, 10)
-        const fimSemanaStr = fimSemana.toISOString().slice(0, 10)
-        result = result.filter(c => {
-          const vencStr = (c.vencimentoRaw || '').slice(0, 10)
-          return c.diasAtraso === 0 && vencStr >= amanhaStr && vencStr <= fimSemanaStr
-        })
-      } else if (filter === 'risco') {
-        // Risco Alto: 30+ dias atrasado OU parcialmente pago (exclui pagos 100%)
-        result = result.filter(c => !(c.valorAberto === 0 && c.valorPago > 0) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0)))
-      }
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(c => c.nome?.toLowerCase().includes(q) || c.telefone?.includes(q))
-    }
-
-    return result.sort((a, b) => {
-      if (sortBy === 'diasAtraso') return (b.diasAtraso || 0) - (a.diasAtraso || 0)
-      if (sortBy === 'nome-asc') return (a.nome || '').localeCompare(b.nome || '')
-      if (sortBy === 'nome-desc') return (b.nome || '').localeCompare(a.nome || '')
-      if (sortBy === 'valor-desc') return (b.valorAberto || 0) - (a.valorAberto || 0)
-      if (sortBy === 'valor-asc') return (a.valorAberto || 0) - (b.valorAberto || 0)
-      if (sortBy === 'tentativas') return (b.quantidadeCobrancas || 0) - (a.quantidadeCobrancas || 0)
-      return 0
-    })
-  }, [filter, search, sortBy, cobrancas])
-
-  // Definições dos filtros rápidos — separado do JSX pra poder distribuir os chips
-  // em 2 lugares diferentes na tela (linha principal + ao lado da busca).
-  const filterDefs = useMemo(() => {
-    const hojeStr = new Date().toISOString().slice(0, 10)
-    const hoje0 = new Date()
-    hoje0.setHours(0, 0, 0, 0)
-    const fimSemanaStr = new Date(hoje0.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const pagoFilter = c => c.valorAberto === 0 && c.valorPago > 0
-    return {
-      hoje: { id: 'hoje', label: '📅 Hoje', getCount: () => cobrancas.filter(c => (c.vencimentoRaw || '').slice(0, 10) === hojeStr).length },
-      critico: { id: 'critico', label: '🔴 Crítico (15+)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso > 15).length },
-      '6-15': { id: '6-15', label: '🟠 Urgente (6-15)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 6 && c.diasAtraso <= 15).length },
-      '1-5': { id: '1-5', label: '🟡 Atenção (1-5)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso >= 1 && c.diasAtraso <= 5).length },
-      avencer: { id: 'avencer', label: '🔵 A Vencer (7d)', getCount: () => cobrancas.filter(c => !pagoFilter(c) && c.diasAtraso === 0 && (c.vencimentoRaw || '').slice(0, 10) > hojeStr && (c.vencimentoRaw || '').slice(0, 10) <= fimSemanaStr).length },
-      risco: { id: 'risco', label: '💥 Risco Alto', getCount: () => cobrancas.filter(c => !pagoFilter(c) && (c.diasAtraso > 30 || (c.valorAberto > 0 && c.valorPago > 0))).length },
-      todos: { id: 'todos', label: '📋 Todos', getCount: () => cobrancas.length },
-      pendente: { id: 'pendente', label: '⏳ Pendente', getCount: () => cobrancas.filter(c => c.valorPago === 0).length },
-      parcial: { id: 'parcial', label: '◐ Parc. Pago', getCount: () => cobrancas.filter(c => c.valorAberto > 0 && c.valorPago > 0).length },
-      pago: { id: 'pago', label: '✅ Pago', getCount: () => cobrancas.filter(c => c.valorAberto === 0 && c.valorPago > 0).length },
-    }
-  }, [cobrancas])
-
-  function FilterChip({ f, compact = false }) {
-    return (
-      <button
-        onClick={() => setFilter(f.id)}
-        style={{
-          fontSize: compact ? 11 : 12,
-          padding: compact ? '6px 12px' : '7px 14px',
-          borderRadius: 7,
-          border: 'none',
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          background: filter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
-          color: filter === f.id ? '#fff' : t.textMid,
-          fontWeight: filter === f.id ? 600 : 500,
-          transition: 'all 0.12s',
-          flexShrink: 0,
-        }}
-      >
-        {f.label} ({f.getCount()})
-      </button>
-    )
-  }
-
   return (
     <div style={{ flex: 1, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
@@ -271,20 +141,20 @@ export default function CobrancasPage() {
         {/* Abas */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: `1px solid ${t.border}`, paddingBottom: 12 }}>
           <button
-            onClick={() => setTab('lista')}
+            onClick={() => setTab('clientes-cobranca')}
             style={{
               background: 'none',
               border: 'none',
               padding: '8px 12px',
               fontSize: 13,
-              fontWeight: tab === 'lista' ? 700 : 500,
-              color: tab === 'lista' ? (t.primary || '#E8192C') : t.textMid,
+              fontWeight: tab === 'clientes-cobranca' ? 700 : 500,
+              color: tab === 'clientes-cobranca' ? (t.primary || '#E8192C') : t.textMid,
               cursor: 'pointer',
-              borderBottom: tab === 'lista' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
+              borderBottom: tab === 'clientes-cobranca' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
               transition: 'all 0.2s',
             }}
           >
-            📋 Lista
+            👤 Clientes em Cobrança
           </button>
           <button
             onClick={() => setTab('dashboard')}
@@ -351,7 +221,7 @@ export default function CobrancasPage() {
             👥 Clientes
           </button>
           <button
-            onClick={() => setTab('parcelas')}
+            onClick={() => { setInitialParcelasFilter(null); setTab('parcelas') }}
             style={{
               background: 'none',
               border: 'none',
@@ -379,72 +249,11 @@ export default function CobrancasPage() {
           <Card icon="🟠" label="Urgente (6-15)" value={totalizadores.urgente} color="#F59E0B" />
         </div>
 
-        {/* Conteúdo Lista */}
-        {tab === 'lista' && (
-          <>
-            {/* Busca e Filtros */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por nome ou telefone..."
-                style={{
-                  width: 320,
-                  border: `1px solid ${t.border}`,
-                  borderRadius: 7,
-                  padding: '7px 12px',
-                  fontSize: 13,
-                  background: t.inputBg,
-                  color: t.text,
-                  outline: 'none',
-                }}
-              />
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                style={{
-                  border: `1px solid ${t.border}`,
-                  borderRadius: 7,
-                  padding: '7px 12px',
-                  fontSize: 13,
-                  background: t.inputBg,
-                  color: t.text,
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="nome-asc">Nome (A → Z)</option>
-                <option value="nome-desc">Nome (Z → A)</option>
-                <option value="diasAtraso">Dias (maior atraso)</option>
-                <option value="valor-desc">Maior dívida</option>
-                <option value="valor-asc">Menor dívida</option>
-                <option value="tentativas">Mais cobranças</option>
-              </select>
-              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
-              <FilterChip f={filterDefs.parcial} compact />
-              <FilterChip f={filterDefs.pago} compact />
-            </div>
-
-            {/* Filtros rápidos por urgência — Pago/Parc. Pago ficaram ao lado da busca, ver acima */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <FilterChip f={filterDefs.hoje} />
-              <FilterChip f={filterDefs.critico} />
-              <FilterChip f={filterDefs['6-15']} />
-              <FilterChip f={filterDefs['1-5']} />
-              <FilterChip f={filterDefs.avencer} />
-              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
-              <FilterChip f={filterDefs.risco} />
-              <div style={{ width: 1, height: 20, background: t.border, flexShrink: 0 }} />
-              <FilterChip f={filterDefs.todos} />
-              <FilterChip f={filterDefs.pendente} />
-            </div>
-          </>
-        )}
       </div>
 
       {/* Conteúdo */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
-        {tab === 'lista' && (loading ? (
+        {tab === 'clientes-cobranca' && (loading ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>
             ⏳ Carregando cobranças...
           </div>
@@ -465,178 +274,8 @@ export default function CobrancasPage() {
               Tentar novamente
             </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>
-            Nenhuma cobrança encontrada
-          </div>
         ) : (
-          <div>
-            {filtered.map(cobranca => {
-              const colors = statusColor(cobranca.status, cobranca.diasAtraso)
-              const percentualPago = cobranca.valorTotal > 0 ? Math.round((cobranca.valorPago / cobranca.valorTotal) * 100) : 0
-              return (
-                <div
-                  key={cobranca.id}
-                  style={{
-                    padding: '12px 24px',
-                    borderBottom: `1px solid ${t.border}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 16,
-                    transition: 'background 0.1s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = t.bgSecondary }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                >
-                  {/* Status badge */}
-                  <div style={{
-                    background: colors.bg,
-                    color: colors.text,
-                    padding: '5px 8px',
-                    borderRadius: 6,
-                    fontSize: 10,
-                    fontWeight: 600,
-                    minWidth: 64,
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}>
-                    {colors.icon} {colors.label}
-                  </div>
-
-                  {/* Info cliente */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cobranca.nome}
-                    </div>
-                    <div style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cobranca.telefone} • Venc: {cobranca.vencimento}
-                    </div>
-                  </div>
-
-                  {/* Tentativas */}
-                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 40, flexShrink: 0 }}>
-                    <div style={{ fontWeight: 700, color: t.text }}>{cobranca.quantidadeCobrancas}</div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>tentativas</div>
-                  </div>
-
-                  {/* Dias em atraso */}
-                  {cobranca.diasAtraso > 0 && (
-                    <div style={{ textAlign: 'center', fontSize: 11, minWidth: 34, flexShrink: 0 }}>
-                      <div style={{ fontWeight: 700, color: '#DC2626' }}>{cobranca.diasAtraso}d</div>
-                      <div style={{ fontSize: 9, color: t.textMuted }}>atraso</div>
-                    </div>
-                  )}
-
-                  {/* Valores */}
-                  <div style={{ textAlign: 'right', fontSize: 11, minWidth: 84, flexShrink: 0 }}>
-                    <div style={{ fontWeight: 600, color: t.text }}>
-                      {formatCurrency(cobranca.valorAberto)}
-                    </div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>
-                      de {formatCurrency(cobranca.valorTotal)}
-                    </div>
-                  </div>
-
-                  {/* % pago — chip, sem barra visual (economiza espaço horizontal pro nome) */}
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, minWidth: 40, textAlign: 'center', flexShrink: 0,
-                    color: percentualPago >= 70 ? '#10B981' : percentualPago >= 30 ? '#F59E0B' : '#DC2626',
-                    background: percentualPago >= 70 ? '#ECFDF5' : percentualPago >= 30 ? '#FFFBEB' : '#FEF2F2',
-                    borderRadius: 6, padding: '3px 6px',
-                  }}>
-                    {percentualPago}%
-                  </div>
-
-                  {/* Ações */}
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button
-                      title={`WhatsApp: ${cobranca.nome}`}
-                      onClick={async () => {
-                        const telefone = await buscarTelefoneParaWhatsApp(cobranca.clienteId, cobranca.nome)
-                        if (!telefone || telefone === '-') {
-                          alert('⚠️ Telefone não disponível para este cliente')
-                          return
-                        }
-                        const msg = `Olá ${cobranca.nome}, seu débito de ${formatCurrency(cobranca.valorAberto)} venceu há ${cobranca.diasAtraso} dias. Podemos combinar um pagamento?\n\nPara acompanhar sua notinha, acesse:\nhttps://primeapp.base44.app/portal`
-                        const encodedMsg = encodeURIComponent(msg)
-                        const phone = telefone.replace(/\D/g, '')
-                        window.open(`https://wa.me/55${phone}?text=${encodedMsg}`, '_blank')
-                      }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 6,
-                        border: 'none',
-                        background: '#ECFDF5',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'opacity 0.15s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.opacity = 0.8 }}
-                      onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
-                    >
-                      <WhatsAppIcon size={17} />
-                    </button>
-                    <button
-                      title="Copiar link do Portal do Cliente"
-                      onClick={async () => {
-                        const msg = `Olá ${cobranca.nome}! Para acompanhar sua notinha, acesse o Portal do Cliente:\nhttps://primeapp.base44.app/portal`
-                        try {
-                          await navigator.clipboard.writeText(msg)
-                          alert('✅ Link copiado! Cole no WhatsApp do cliente.')
-                        } catch (err) {
-                          console.error('[CobrancasPage] Erro ao copiar link do portal:', err.message)
-                          alert('⚠️ Não foi possível copiar o link.')
-                        }
-                      }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 6,
-                        border: `1px solid ${t.border}`,
-                        background: t.bgTertiary,
-                        color: t.textMid,
-                        cursor: 'pointer',
-                        fontSize: 14,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.opacity = 0.8 }}
-                      onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
-                    >
-                      🔗
-                    </button>
-                    <button
-                      title="Registrar pagamento manual"
-                      onClick={() => setPagamentoModalCobranca(cobranca)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 6,
-                        border: 'none',
-                        background: '#ECFDF5',
-                        color: '#047857',
-                        cursor: 'pointer',
-                        fontSize: 14,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'opacity 0.15s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.opacity = 0.8 }}
-                      onMouseLeave={e => { e.currentTarget.style.opacity = 1 }}
-                    >
-                      💰
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <ClientesEmCobrancaTab cobrancas={cobrancas} theme={t} onVerParcelas={handleVerParcelas} />
         ))}
 
         {/* Dashboard */}
@@ -661,7 +300,12 @@ export default function CobrancasPage() {
 
         {/* Parcelas */}
         {tab === 'parcelas' && (
-          <ParcelasTab cobrancas={cobrancas} theme={t} />
+          <ParcelasTab
+            cobrancas={cobrancas}
+            theme={t}
+            initialClienteFilter={initialParcelasFilter}
+            onClearInitialFilter={() => setInitialParcelasFilter(null)}
+          />
         )}
       </div>
 

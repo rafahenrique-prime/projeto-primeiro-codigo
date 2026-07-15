@@ -36,27 +36,48 @@ function matchesQuickFilter(c, quickFilter) {
   }
 }
 
-export default function ParcelasTab({ cobrancas, theme: t }) {
+export default function ParcelasTab({ cobrancas, theme: t, initialClienteFilter = null, onClearInitialFilter }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('todos')
   const [quickFilter, setQuickFilter] = useState('todas')
   const [sortBy, setSortBy] = useState('vencimento') // 'vencimento' | 'atraso' | 'valor'
+  // Filtro por cliente vindo de "💳 Ver parcelas" (aba Clientes em Cobrança).
+  // Inicializado só na montagem — o componente é desmontado/remontado a cada troca de aba,
+  // então não precisa de useEffect pra sincronizar com a prop.
+  const [clienteFilter, setClienteFilter] = useState(initialClienteFilter)
+
+  function limparFiltroCliente() {
+    setClienteFilter(null)
+    onClearInitialFilter?.()
+  }
+
+  // Base já restrita ao cliente selecionado (se houver) — todo o resto (busca,
+  // status, filtros rápidos, contadores) opera em cima dessa base.
+  const baseCobrancas = useMemo(() => {
+    if (!clienteFilter) return cobrancas
+    if (clienteFilter.clienteId) {
+      return cobrancas.filter(c => c.clienteId === clienteFilter.clienteId)
+    }
+    // Fallback só quando o cliente não tinha clienteId (ver ClientesEmCobrancaTab)
+    const nomeAlvo = (clienteFilter.nome || '').toLowerCase()
+    return cobrancas.filter(c => (c.nome || '').toLowerCase() === nomeAlvo)
+  }, [cobrancas, clienteFilter])
 
   const statusOptions = useMemo(() => {
-    const set = new Set(cobrancas.map(c => c.status).filter(Boolean))
+    const set = new Set(baseCobrancas.map(c => c.status).filter(Boolean))
     return Array.from(set).sort()
-  }, [cobrancas])
+  }, [baseCobrancas])
 
   const quickFilterCounts = useMemo(() => {
     const counts = {}
     for (const f of QUICK_FILTERS) {
-      counts[f.id] = cobrancas.filter(c => matchesQuickFilter(c, f.id)).length
+      counts[f.id] = baseCobrancas.filter(c => matchesQuickFilter(c, f.id)).length
     }
     return counts
-  }, [cobrancas])
+  }, [baseCobrancas])
 
   const filtered = useMemo(() => {
-    let result = cobrancas.filter(c => matchesQuickFilter(c, quickFilter))
+    let result = baseCobrancas.filter(c => matchesQuickFilter(c, quickFilter))
 
     if (statusFilter !== 'todos') {
       result = result.filter(c => c.status === statusFilter)
@@ -76,10 +97,33 @@ export default function ParcelasTab({ cobrancas, theme: t }) {
       // vencimento: mais próximo/mais antigo primeiro (ISO string ordena bem)
       return (a.vencimentoRaw || '').localeCompare(b.vencimentoRaw || '')
     })
-  }, [cobrancas, quickFilter, statusFilter, search, sortBy])
+  }, [baseCobrancas, quickFilter, statusFilter, search, sortBy])
 
   return (
     <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+      {/* Filtro por cliente (vindo da aba Clientes em Cobrança) */}
+      {clienteFilter && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+          padding: '8px 14px', borderRadius: 8,
+          background: t.primaryBg || '#FEE2E2', border: `1px solid ${t.primary || '#E8192C'}`,
+        }}>
+          <span style={{ fontSize: 12, color: t.text }}>
+            Mostrando parcelas de: <strong>{clienteFilter.nome}</strong>
+          </span>
+          <button
+            onClick={limparFiltroCliente}
+            style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '4px 10px',
+              borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: t.primary || '#E8192C', color: '#fff',
+            }}
+          >
+            ✕ Limpar filtro
+          </button>
+        </div>
+      )}
+
       {/* Busca, status e ordenação */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <input
