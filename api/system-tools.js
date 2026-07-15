@@ -22,9 +22,48 @@
 //                           Authorization: Bearer <GERAR_COBRANCA_SECRET> (segredo próprio,
 //                           diferente de CRON_SECRET e LYRA_WEBHOOK_SECRET) + checagem
 //                           best-effort de Origin/Referer contra GERAR_COBRANCA_ALLOWED_ORIGINS.
+//                           FASE 3.3.1 — aceita também Authorization: Bearer <COBRANCA_FRONTEND_TOKEN>
+//                           (modoAuth='frontend'), token público temporário exclusivo desta tool,
+//                           que só autoriza dryRun=false com body estritamente {parcela_id, dryRun}
+//                           e Origin exato — nunca autentica nenhuma outra tool.
 
 import { createClient } from '@base44/sdk'
+import crypto from 'node:crypto'
 import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
+
+// Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
+// administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
+// orçamento entre os dois modos. Best-effort: em memória do processo, reseta a cada
+// cold start, não é compartilhado entre instâncias/regiões da Vercel — não substitui
+// autenticação real, só reduz abuso trivial repetido na mesma instância quente.
+const tentativasFrontendPorIp = new Map()
+const tentativasFrontendPorParcela = new Map()
+const FRONTEND_RATE_LIMIT_JANELA_MS = 60 * 1000
+const FRONTEND_RATE_LIMIT_MAX_POR_IP = 5
+const FRONTEND_RATE_LIMIT_PARCELA_JANELA_MS = 5 * 60 * 1000
+const FRONTEND_RATE_LIMIT_MAX_POR_PARCELA = 2
+
+function checarRateLimitFrontendBestEffort(ip) {
+  const agora = Date.now()
+  const chave = ip || 'desconhecido'
+  const historico = (tentativasFrontendPorIp.get(chave) || []).filter(t => agora - t < FRONTEND_RATE_LIMIT_JANELA_MS)
+  historico.push(agora)
+  tentativasFrontendPorIp.set(chave, historico)
+  return historico.length <= FRONTEND_RATE_LIMIT_MAX_POR_IP
+}
+
+function checarRateLimitPorParcelaBestEffort(parcelaId) {
+  const agora = Date.now()
+  const historico = (tentativasFrontendPorParcela.get(parcelaId) || []).filter(t => agora - t < FRONTEND_RATE_LIMIT_PARCELA_JANELA_MS)
+  historico.push(agora)
+  tentativasFrontendPorParcela.set(parcelaId, historico)
+  return historico.length <= FRONTEND_RATE_LIMIT_MAX_POR_PARCELA
+}
+
+// Hash curto do IP pra log — nunca o IP completo, nunca token/Authorization.
+function ipHashCurto(ip) {
+  return ip ? crypto.createHash('sha256').update(ip).digest('hex').slice(0, 8) : null
+}
 
 const VERCEL_TOKEN = process.env.VERCEL_ACCESS_TOKEN
 const PROJECT_ID = 'prj_apJGLxIL6ooCFTCuboQiHwuveOw9'
@@ -636,24 +675,120 @@ export default async function handler(req, res) {
         return res.status(204).end()
       }
 
-      // Segredo próprio (GERAR_COBRANCA_SECRET) — não reutiliza CRON_SECRET nem
-      // LYRA_WEBHOOK_SECRET, pra não ampliar o alcance de um vazamento eventual.
+      const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
+
+      // --- 1. Autenticação dupla isolada (FASE 3.3.1) ---
+      // Dois segredos completamente independentes, nunca comparados entre si, nunca
+      // aceitos como equivalentes. COBRANCA_FRONTEND_TOKEN só existe dentro deste case —
+      // nenhum outro `case` do switch abaixo lê essa variável, então ele nunca autentica
+      // sync-lyra/lyra-webhook/stuck-check, mesmo se alguém tentar usá-lo lá.
       const gerarCobrancaSecret = process.env.GERAR_COBRANCA_SECRET
+      const frontendToken = process.env.COBRANCA_FRONTEND_TOKEN
       const authHeader = req.headers.authorization
-      if (!gerarCobrancaSecret || authHeader !== `Bearer ${gerarCobrancaSecret}`) {
-        console.error('[system-tools:gerar-cobranca-lyra] Tentativa não autorizada', { ip: req.headers['x-forwarded-for'] || null })
+
+      let modoAuth = null
+      if (gerarCobrancaSecret && authHeader === `Bearer ${gerarCobrancaSecret}`) {
+        modoAuth = 'admin'
+      } else if (frontendToken && authHeader === `Bearer ${frontendToken}`) {
+        modoAuth = 'frontend'
+      }
+
+      if (!modoAuth) {
+        console.error('[system-tools:gerar-cobranca-lyra] Tentativa não autorizada', { ip: ipHashCurto(ip) })
         return res.status(401).json({ error: 'Não autorizado' })
       }
 
+      // ============================================================================
+      // MODO FRONTEND (FASE 3.3.1) — token público temporário, exclusivo desta tool.
+      // Só aceita dryRun=false, body estritamente {parcela_id, dryRun}, Origin exato
+      // (não best-effort). Nunca lê valor/telefone/nome/cliente/vencimento/IDs do
+      // request — a lógica financeira (gerarCobrancaLyraReal) sempre relê tudo
+      // oficialmente do PRIME, igual ao modo admin.
+      // ============================================================================
+      if (modoAuth === 'frontend') {
+        // 2. Origin exato — reaproveita `origemPermitida` já calculado no bloco de CORS
+        // acima (igualdade exata contra GERAR_COBRANCA_ALLOWED_ORIGINS), não o
+        // checarOrigemBestEffort (que é best-effort e usado só pelo modo admin).
+        if (!origemPermitida) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: Origin não permitida', { modoAuth, ip: ipHashCurto(ip), status: 403, resultado: 'origin_invalida' })
+          return res.status(403).json({ error: 'Origem não permitida' })
+        }
+
+        // FASE 3.3.1B — rate limit por IP aplicado JÁ AQUI, logo após auth+Origin válidos,
+        // ANTES de validar método/body/campos/parcela_id. Objetivo: qualquer tentativa
+        // autenticada pelo token frontend consome o limite por IP, mesmo que o resto do
+        // request seja malformado (GET, body vazio, JSON malformado, campo extra,
+        // dryRun inválido, parcela_id inválido) — evita que alguém spamme tentativas
+        // inválidas pra sempre sem nunca esbarrar no rate limit.
+        if (!checarRateLimitFrontendBestEffort(ip)) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: rate limit por IP excedido', { modoAuth, ip: ipHashCurto(ip), status: 429, resultado: 'rate_limit_ip' })
+          return res.status(429).json({ error: 'Muitas tentativas — aguarde e tente novamente' })
+        }
+
+        // 3. Método
+        if (req.method !== 'POST') {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: método inválido', { modoAuth, ip: ipHashCurto(ip), metodo: req.method, status: 405, resultado: 'metodo_invalido' })
+          return res.status(405).json({ error: 'Use POST' })
+        }
+
+        // 4. Body estritamente {parcela_id, dryRun} — rejeita qualquer campo extra
+        // (valor, telefone, nome, cliente, vencimento, link, IDs externos) mesmo que
+        // a lógica financeira já os ignore — defesa em profundidade, não só confiança.
+        const body = req.body
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: body inválido', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'body_invalido' })
+          return res.status(400).json({ error: 'Body inválido' })
+        }
+        const chaves = Object.keys(body).sort()
+        const permitidas = ['dryRun', 'parcela_id'].sort()
+        const estruturaValida = chaves.length === permitidas.length && chaves.every((chave, index) => chave === permitidas[index])
+        if (!estruturaValida) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: campos não permitidos no body', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'campos_invalidos' })
+          return res.status(400).json({ error: 'Campos não permitidos no request' })
+        }
+
+        // 5. Extração e validação de parcela_id (só depois da validação de estrutura) —
+        // parcela_id NUNCA é usado antes deste ponto, inclusive pro rate limit por parcela.
+        if (typeof body.parcela_id !== 'string' || !body.parcela_id.trim()) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: parcela_id inválido', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'parcela_id_invalido' })
+          return res.status(400).json({ error: 'parcela_id inválido' })
+        }
+        if (body.dryRun !== false) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: dryRun deve ser false', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'dryrun_invalido' })
+          return res.status(400).json({ error: 'dryRun deve ser false no modo frontend' })
+        }
+        const parcelaIdFrontend = body.parcela_id
+
+        // 6. Rate limit por parcela — só depois de parcela_id validado como string não
+        // vazia (nunca antes). Mapa separado do rate limit por IP (item anterior) e do
+        // modo admin — ambos best-effort, em memória do processo (ver declaração no topo
+        // do arquivo): resetam a cada cold start, não são compartilhados entre instâncias/
+        // regiões da Vercel, não substituem autenticação real.
+        if (!checarRateLimitPorParcelaBestEffort(parcelaIdFrontend)) {
+          console.error('[system-tools:gerar-cobranca-lyra] frontend: rate limit por parcela excedido', { modoAuth, ip: ipHashCurto(ip), status: 429, resultado: 'rate_limit_parcela' })
+          return res.status(429).json({ error: 'Muitas tentativas para esta parcela — aguarde' })
+        }
+
+        // 7. Execução do helper já existente — mesma lógica financeira do modo admin,
+        // sem nenhuma alteração (Parcela/Venda/Cliente relidos oficialmente, saldo,
+        // vínculo divergente, idempotência, recuperação por prime_parcela_id).
+        console.log('[system-tools:gerar-cobranca-lyra] Requisição frontend', { modoAuth, parcela_id: parcelaIdFrontend, ip: ipHashCurto(ip) })
+        const resultado = await gerarCobrancaLyraReal({ parcelaId: parcelaIdFrontend })
+        return res.status(resultado.httpStatus).json(resultado.body)
+      }
+
+      // ============================================================================
+      // MODO ADMIN — comportamento idêntico ao já existente desde a FASE 2, sem
+      // nenhuma alteração de lógica (só o log ganhou o campo modoAuth).
+      // ============================================================================
       const origemCheck = checarOrigemBestEffort(req)
       if (!origemCheck.ok) {
-        console.error('[system-tools:gerar-cobranca-lyra] Origin/Referer bloqueado', { motivo: origemCheck.motivo })
+        console.error('[system-tools:gerar-cobranca-lyra] Origin/Referer bloqueado', { modoAuth, motivo: origemCheck.motivo })
         return res.status(403).json({ error: 'Origem não permitida' })
       }
 
-      const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
       if (!checarRateLimitBestEffort(ip)) {
-        console.error('[system-tools:gerar-cobranca-lyra] Rate limit best-effort excedido', { ip })
+        console.error('[system-tools:gerar-cobranca-lyra] Rate limit best-effort excedido', { modoAuth, ip: ipHashCurto(ip) })
         return res.status(429).json({ error: 'Muitas tentativas — aguarde e tente novamente' })
       }
 
@@ -673,12 +808,12 @@ export default async function handler(req, res) {
           console.error('[system-tools:gerar-cobranca-lyra] dryRun=false recusado — GERAR_COBRANCA_ALLOWED_ORIGINS não configurada')
           return res.status(403).json({ error: 'dryRun=false exige GERAR_COBRANCA_ALLOWED_ORIGINS configurada e Origin/Referer validado' })
         }
-        console.log('[system-tools:gerar-cobranca-lyra] Requisição REAL (dryRun=false)', { parcela_id: parcelaId, ip })
+        console.log('[system-tools:gerar-cobranca-lyra] Requisição REAL (dryRun=false)', { modoAuth, parcela_id: parcelaId, ip: ipHashCurto(ip) })
         const resultado = await gerarCobrancaLyraReal({ parcelaId })
         return res.status(resultado.httpStatus).json(resultado.body)
       }
 
-      console.log('[system-tools:gerar-cobranca-lyra] Requisição dry-run', { parcela_id: parcelaId, ip, origemChecada: origemCheck.checado })
+      console.log('[system-tools:gerar-cobranca-lyra] Requisição dry-run', { modoAuth, parcela_id: parcelaId, ip: ipHashCurto(ip), origemChecada: origemCheck.checado })
       const resultado = await gerarCobrancaLyraDryRun({ parcelaId, ip, req })
       return res.status(resultado.httpStatus).json(resultado.body)
     }
