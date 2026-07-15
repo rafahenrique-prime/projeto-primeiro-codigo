@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getAllCobrancas, getTotalizadores, buscarTelefoneParaWhatsApp, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados, registrarPagamentoManual } from '../services/crm/cobrancasService'
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import ParcelasTab from '../components/cobrancas/ParcelasTab'
 
 // Dados fake pra fallback se API falhar
 const MOCK_COBRANCAS = [
@@ -349,6 +350,22 @@ export default function CobrancasPage() {
           >
             👥 Clientes
           </button>
+          <button
+            onClick={() => setTab('parcelas')}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '8px 12px',
+              fontSize: 13,
+              fontWeight: tab === 'parcelas' ? 700 : 500,
+              color: tab === 'parcelas' ? (t.primary || '#E8192C') : t.textMid,
+              cursor: 'pointer',
+              borderBottom: tab === 'parcelas' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            💳 Parcelas
+          </button>
         </div>
 
         {/* Cards de totalizadores */}
@@ -640,6 +657,11 @@ export default function CobrancasPage() {
         {/* Clientes */}
         {tab === 'clientes' && (
           <ClientesTab clientes={clientes} search={clienteSearch} setSearch={setClienteSearch} sortBy={clienteSortBy} setSortBy={setClienteSortBy} theme={t} sincronizarTelefones={sincronizarTelefones} sincronizandoTelefones={sincronizandoTelefones} />
+        )}
+
+        {/* Parcelas */}
+        {tab === 'parcelas' && (
+          <ParcelasTab cobrancas={cobrancas} theme={t} />
         )}
       </div>
 

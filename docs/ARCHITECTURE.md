@@ -442,6 +442,16 @@ A Fase 1 deixou uma lacuna: quando uma Cobranca chegava **já paga** e criava a 
 
 **Validado em produção (2026-07-14):** reparo real rodado contra os dados de produção — a Parcela de teste "TESTE FASE1 CLAUDE" (R$0,01, vínculo determinístico confirmado) recebeu `REPARAR_HISTORICO`, criando exatamente 1 `HistoricoAtividade`; uma 2ª execução confirmou idempotência (`JA_SINCRONIZADO`, sem duplicar). Os 3 registros antigos do "Álvaro" (criados em 2026-07-13, antes dos campos `lyra_cobranca_id`/`mp_preference_id`/`mp_payment_id` existirem no schema) foram classificados `VINCULO_LEGADO_NAO_CONFIRMADO` e **permanecem sem histórico e sem IDs preenchidos** — o eventual backfill desses 3 IDs é uma decisão separada, ainda pendente de aprovação explícita, fora do escopo da Fase 2.1. Os 22 registros legados de 2026-07-10 (importação manual, sem nenhuma Cobranca correspondente na Lyra) nunca entram nesse fluxo — não recebem backfill, por design.
 
+### Aba 💳 Parcelas — visão financeira somente-leitura (CobrancasPage.jsx, Fase 1 — 2026-07-15)
+
+Nova aba dentro do módulo Cobranças, ao lado de "👥 Clientes": `📋 Lista | 📊 Dashboard | 📈 Fluxo de Caixa | 📅 Histórico | 👥 Clientes | 💳 Parcelas`.
+
+- **Componente:** `src/components/cobrancas/ParcelasTab.jsx` — primeiro arquivo do módulo extraído para fora de `CobrancasPage.jsx` (que estava com 1338 linhas); os demais componentes de aba (`DashboardCobrancas`, `FluxoCaixaCobrancas`, `HistoricoAtividadesCobrancas`, `ClientesTab`) continuam inline no arquivo principal — não houve refatoração ampla, só o novo componente já nasceu separado.
+- **Fonte de dados:** reaproveita 100% o state `cobrancas` já carregado em `CobrancasPage.jsx` via `getAllCobrancas()` (mesmo dado que alimenta a aba Lista) — **nenhuma chamada de API nova**, nenhuma escrita no Base44.
+- **Conteúdo:** tabela com 1 linha por Parcela — cliente, número/label da parcela, vencimento, status, dias em atraso, valor total, valor pago, valor restante, quantidade de cobranças, telefone e link de pagamento (`paymentLink`/`payment_link`, hoje sempre "—" porque `normalizarParcela()` em `cobrancasService.js` ainda não expõe esse campo — ver Fluxo F.1 sobre `payment_link`).
+- **Interações (somente leitura):** busca por nome/telefone, filtro por status (dropdown, populado dinamicamente a partir dos status presentes nos dados), filtros rápidos (Todas/Pendentes/Vencidas/Parciais/Pagas) com contador, ordenação (vencimento/maior atraso/maior valor), contador de resultados. Sem criação, edição, baixa de pagamento, renegociação ou geração de link nesta fase.
+- **Limitação herdada do Fluxo F:** "parcelamento real" (N parcelas por venda) não é gerado automaticamente pelo sync Lyra→PRIME hoje — a aba já está pronta para exibir múltiplas parcelas por cliente quando esse fluxo existir, mas não cria esse dado.
+
 ### Fluxo F.1 — Geração de cobrança sob demanda (Fase 2 — 2026-07-14)
 
 Complementa o Fluxo F: aquele é unidirecional (Lyra→PRIME, refletindo pagamentos já confirmados). O Fluxo F.1 é o caminho contrário — PRIME→Lyra, sob demanda — que ainda não existia até a Fase 2: gerar uma cobrança nova a partir de uma Parcela existente no PRIME.
