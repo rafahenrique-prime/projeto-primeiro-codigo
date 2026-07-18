@@ -9,6 +9,57 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const BASE = 'https://api.gptmaker.ai'
 
+// ── Diagnóstico temporário (fluxo de fotos WhatsApp Web vs Meta Cloud API) ──
+// Só instrumentação/observabilidade — não altera payload, endpoint, seleção de
+// chat, busca de produto ou envio. Remover depois que a causa raiz for achada.
+function genRequestId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function maskPhone(value) {
+  if (!value || typeof value !== 'string') return null
+  const digits = value.replace(/\D/g, '')
+  if (digits.length < 4) return null
+  return `****${digits.slice(-4)}`
+}
+
+// Sniffa campos comuns de telefone sem assumir um único formato — só para log.
+function extractPhoneCandidate(obj) {
+  if (!obj || typeof obj !== 'object') return null
+  const candidates = [
+    obj.telefone, obj.phone, obj.customerPhone, obj.customer_phone,
+    obj.from, obj.number, obj.whatsapp, obj?.customer?.phone, obj?.contact?.phone,
+  ]
+  return candidates.find(v => typeof v === 'string' && v.length >= 4) || null
+}
+
+function getHostname(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
+function summarizeGptMakerResponse(data) {
+  try {
+    if (!data || typeof data !== 'object') return String(data).slice(0, 200)
+    const { id, chatId, error, message, status } = data
+    return JSON.stringify({ id, chatId, error, message, status }).slice(0, 300)
+  } catch {
+    return null
+  }
+}
+
+function diagLog(tag, payload) {
+  try {
+    console.log(`[auto-photo][diag] ${tag}`, JSON.stringify(payload))
+  } catch {
+    console.log(`[auto-photo][diag] ${tag}`, '(payload não serializável)')
+  }
+}
+// ── fim helpers de diagnóstico ──
+
 async function logPhotoHistory({ produto, cliente, canal, sucesso, erro }) {
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/photo_history`, {
@@ -319,7 +370,7 @@ async function getChatMessages(chatId) {
 }
 
 // Quando o GPT Maker não substitui as variáveis, busca o chat recente com pedido de foto
-async function findRecentPhotoChat(catalog) {
+async function findRecentPhotoChat(catalog, requestId) {
   if (!GPTMAKER_WS) {
     console.warn('[auto-photo] GPTMAKER_WS não configurado')
     return null
@@ -335,6 +386,7 @@ async function findRecentPhotoChat(catalog) {
     const data = await res.json()
     const chats = Array.isArray(data) ? data : (data.data || [])
     console.log('[auto-photo] Chats recentes encontrados:', chats.length)
+    diagLog('fallback_chats_listados', { requestId, totalChats: chats.length })
 
     const cutoff = Date.now() - 5 * 60 * 1000 // últimos 5 minutos
 
@@ -346,12 +398,33 @@ async function findRecentPhotoChat(catalog) {
       const msgText = lastMsg.text || lastMsg.content || lastMsg.message || ''
       const msgRole = lastMsg.role || lastMsg.sender || ''
 
+      diagLog('fallback_candidato_avaliado', {
+        requestId,
+        etapa: 'lastMessage',
+        chatId: chat.id,
+        channelId: chat.channelId || chat.channel_id || chat.channel?.id || null,
+        channelType: chat.channelType || chat.channel_type || chat.channel?.type || null,
+        agentId: chat.agentId || chat.agent_id || chat.agent?.id || null,
+        type: chat.type || null,
+        conversationType: chat.conversationType || chat.conversation_type || null,
+        telefoneMascarado: maskPhone(extractPhoneCandidate(chat) || extractPhoneCandidate(chat.customer) || extractPhoneCandidate(chat.contact)),
+        dentroDaJanela: msgTime > cutoff,
+      })
+
       if (
         msgTime > cutoff &&
         (msgRole === 'user' || msgRole === 'client' || !msgRole) &&
         detectProductRequest(msgText)
       ) {
         console.log('[auto-photo] Chat encontrado via lastMessage:', chat.id, '| msg:', msgText)
+        diagLog('fallback_chat_escolhido', {
+          requestId,
+          etapa: 'lastMessage',
+          chatId: chat.id,
+          channelId: chat.channelId || chat.channel_id || chat.channel?.id || null,
+          channelType: chat.channelType || chat.channel_type || chat.channel?.type || null,
+          agentId: chat.agentId || chat.agent_id || chat.agent?.id || null,
+        })
         return { chatId: chat.id, message: msgText }
       }
     }
@@ -371,8 +444,28 @@ async function findRecentPhotoChat(catalog) {
       const msgTime = new Date(lastClientMsg.createdAt || lastClientMsg.created_at || 0).getTime()
       const msgText = lastClientMsg.text || lastClientMsg.content || lastClientMsg.message || ''
 
+      diagLog('fallback_candidato_avaliado', {
+        requestId,
+        etapa: 'mensagens_individuais',
+        chatId: chat.id,
+        channelId: chat.channelId || chat.channel_id || chat.channel?.id || null,
+        channelType: chat.channelType || chat.channel_type || chat.channel?.type || null,
+        agentId: chat.agentId || chat.agent_id || chat.agent?.id || null,
+        type: chat.type || null,
+        conversationType: chat.conversationType || chat.conversation_type || null,
+        dentroDaJanela: msgTime > cutoff,
+      })
+
       if (msgTime > cutoff && detectProductRequest(msgText, getLastAssistantText(msgs))) {
         console.log('[auto-photo] Chat encontrado via mensagens:', chat.id, '| msg:', msgText)
+        diagLog('fallback_chat_escolhido', {
+          requestId,
+          etapa: 'mensagens_individuais',
+          chatId: chat.id,
+          channelId: chat.channelId || chat.channel_id || chat.channel?.id || null,
+          channelType: chat.channelType || chat.channel_type || chat.channel?.type || null,
+          agentId: chat.agentId || chat.agent_id || chat.agent?.id || null,
+        })
         // Também busca contexto do agente para identificar o produto
         const agentContext = msgs.slice(-10).filter(m => m.role !== 'user' && m.role !== 'client')
         return { chatId: chat.id, message: msgText, agentMsgs: agentContext, allMsgs: msgs }
@@ -380,6 +473,7 @@ async function findRecentPhotoChat(catalog) {
     }
 
     console.log('[auto-photo] Nenhum chat recente com pedido de foto encontrado')
+    diagLog('fallback_sem_resultado', { requestId })
     return null
   } catch (err) {
     console.error('[auto-photo] Erro em findRecentPhotoChat:', err.message)
@@ -387,14 +481,32 @@ async function findRecentPhotoChat(catalog) {
   }
 }
 
-async function sendMessage(chatId, text, imageUrl = null) {
+async function sendMessage(chatId, text, imageUrl = null, diag = {}) {
   const body = imageUrl ? { message: text, image: imageUrl } : { message: text, type: 'TEXT' }
+  const { requestId, photoIndex } = diag
+  const startedAt = Date.now()
+
+  if (imageUrl) {
+    diagLog('envio_imagem_iniciado', {
+      requestId, chatId, photoIndex,
+      imageHostname: getHostname(imageUrl),
+    })
+  }
+
   const res = await fetch(`${BASE}/v2/chat/${chatId}/send-message`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GPTMAKER_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   const data = await res.json()
+
+  diagLog('gptmaker_resposta', {
+    requestId, chatId, photoIndex,
+    status: res.status,
+    durationMs: Date.now() - startedAt,
+    corpo: summarizeGptMakerResponse(data),
+  })
+
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
   return data
 }
@@ -408,6 +520,15 @@ export default async function handler(req, res) {
 
   const body = req.body || {}
   console.log('[auto-photo] Webhook recebido:', JSON.stringify(body).slice(0, 300))
+
+  const requestId = genRequestId()
+  diagLog('webhook_recebido', {
+    requestId,
+    telefoneMascarado: maskPhone(extractPhoneCandidate(body)),
+    channelId: body.channelId || body.channel_id || null,
+    channelType: body.channelType || body.channel_type || null,
+    agentId: body.agentId || body.agent_id || null,
+  })
 
   let message = body.message || body.text || body.content || body.userMessage || body.input || ''
   let chatId = body.chatId || body.chat_id || body.conversationId || body.conversation_id || body.id || ''
@@ -423,11 +544,17 @@ export default async function handler(req, res) {
   let allMsgs = []
   let agentMsgsFromSearch = []
 
+  diagLog('chat_id_origem', {
+    requestId,
+    origem: chatIdValid ? 'payload' : 'fallback',
+    chatIdRecebido: chatId || null,
+  })
+
   if (!chatIdValid) {
     // Sem chatId: busca em todos os chats recentes
     console.log('[auto-photo] Sem chatId válido — buscando chat recente...')
     const catalog = await getCatalog()
-    const found = await findRecentPhotoChat(catalog)
+    const found = await findRecentPhotoChat(catalog, requestId)
     if (!found) {
       return res.status(200).json({ ok: true, skipped: 'no recent photo request found' })
     }
@@ -496,12 +623,13 @@ export default async function handler(req, res) {
       for (let i = 0; i < produtos.length; i++) {
         const p = produtos[i]
         console.log(`[auto-photo] Enviando foto ${i + 1}/${produtos.length}: ${p.nome}`)
+        diagLog('produto_detectado', { requestId, photoIndex: i, produto: p.nome, imageHostname: getHostname(p.imagem) })
 
-        await sendMessage(chatId, p.nome, p.imagem)
+        await sendMessage(chatId, p.nome, p.imagem, { requestId, photoIndex: i })
         await new Promise(resolve => setTimeout(resolve, 1000))
         // Guard: alguns produtos têm link nulo no catálogo (achado em 2026-07-04);
         // sem isso, o template literal manda a string literal "null" pro cliente.
-        await sendMessage(chatId, p.link ? `${p.preco}\n\n${p.link}` : p.preco)
+        await sendMessage(chatId, p.link ? `${p.preco}\n\n${p.link}` : p.preco, null, { requestId, photoIndex: i })
 
         if (i < produtos.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000))
@@ -615,13 +743,14 @@ export default async function handler(req, res) {
   }
 
   console.log('[auto-photo] Enviando foto:', produto.nome, '| chatId:', chatId)
+  diagLog('produto_detectado', { requestId, photoIndex: 0, produto: produto.nome, imageHostname: getHostname(produto.imagem) })
 
   try {
-    await sendMessage(chatId, produto.nome, produto.imagem)
+    await sendMessage(chatId, produto.nome, produto.imagem, { requestId, photoIndex: 0 })
     await new Promise(r => setTimeout(r, 1000))
     // Guard: alguns produtos têm link nulo no catálogo (achado em 2026-07-04);
     // sem isso, o template literal manda a string literal "null" pro cliente.
-    await sendMessage(chatId, produto.link ? `${produto.preco}\n\n${produto.link}` : produto.preco)
+    await sendMessage(chatId, produto.link ? `${produto.preco}\n\n${produto.link}` : produto.preco, null, { requestId, photoIndex: 0 })
 
     console.log('[auto-photo] ✅ Foto enviada com sucesso:', produto.nome, '| chatId:', chatId)
     await logPhotoHistory({ produto: produto.nome, canal: chatId })
