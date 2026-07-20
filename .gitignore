@@ -3,3 +3,5 @@
 dist/
 node_modules/
 .vercel
+.DS_Store
+**/.DS_Store
