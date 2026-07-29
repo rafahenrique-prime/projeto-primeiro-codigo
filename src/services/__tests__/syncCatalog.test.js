@@ -1,145 +1,165 @@
 /**
- * 🔐 TEST FILE SEGURO - Sincronização de Catálogo Bagy
+ * Teste de sincronização de catálogo — 100% isolado, nunca toca o Supabase real.
  *
- * Execute: npm test -- syncCatalog.test.js
+ * Reescrito em 2026-07-29 depois de uma auditoria confirmar que a versão anterior deste
+ * arquivo escrevia de verdade no Supabase de Produção (fazia `fetch` real usando
+ * VITE_SUPABASE_URL/VITE_SUPABASE_KEY de `.env.local`, as mesmas credenciais do app em
+ * produção). Isso criou uma 4ª duplicata do produto "Tênis New Balance 530 Marrom Claro"
+ * (id ab156538-47d7-4496-bac3-ce7d3d189ee9, removido manualmente após confirmação de que
+ * era um registro isolado, sem referência em `catalog_history` nem qualquer outra tabela).
  *
- * ⚠️  IMPORTANTE:
- * - Confirme os dados antes de rodar
- * - Verificar no Supabase após execução
- * - Não rodar múltiplas vezes sem necessidade
+ * Duas proteções implementadas:
+ *   A. Mock completo — VITE_SUPABASE_URL/KEY são sobrescritas para valores falsos
+ *      (vi.stubEnv) ANTES do serviço ser importado, e `global.fetch` é substituído por
+ *      um banco de dados falso em memória (nunca sai para a rede).
+ *   B. Trava explícita — o próprio mock de fetch lança erro imediatamente se alguma
+ *      chamada tentar atingir um host real do Supabase (`supabase.co`/`supabase.com`),
+ *      mesmo que a proteção A falhe por algum motivo futuro. Nenhuma escrita chega a
+ *      acontecer antes dessa checagem.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { upsertProducts, getProductCount } from '../catalogo/catalogSyncService'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 
-// 50 PRODUTOS DO PAINEL BAGY (Páginas 1-2)
-const PRODUTOS_50_BAGY = [
-  { nome: "Perfume Armaf Club de Nuit Woman 105ml", priceOriginal: 399, priceDiscount: 379, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Creme C/ Cinza", priceOriginal: 549, priceDiscount: 419, status: "Ativo" },
-  { nome: "Nike Dunk Low Gray Premium", priceOriginal: 499, priceDiscount: 299, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Cinza Claro", priceOriginal: 499, priceDiscount: 449, status: "Ativo" },
-  { nome: "Plataforma Gucci Feminina - Marrom Escuro", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Tenis New Balance 530 Rosa Cream", priceOriginal: 499, priceDiscount: 449, status: "Ativo" },
-  { nome: "Tenis New Balance 530 Marron Claro", priceOriginal: 499, priceDiscount: 449, status: "Ativo" },
-  { nome: "Tenis New Balance 530 Branco", priceOriginal: 499, priceDiscount: 449, status: "Ativo" },
-  { nome: "Cueca Lup 009", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 007", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 006", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 005", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 004", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 003", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 002", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Cueca Lup 034", priceOriginal: 79, priceDiscount: 59, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Off White C/ Verde Claro", priceOriginal: 599, priceDiscount: 449, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Marrom C/ Preto", priceOriginal: 599, priceDiscount: 449, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Marrom", priceOriginal: 599, priceDiscount: 449, status: "Ativo" },
-  { nome: "Tenis New Balance 9060 Grey Cinza", priceOriginal: 599, priceDiscount: 449, status: "Ativo" },
-  { nome: "Boné Importado Diesel Preto", priceOriginal: 599, priceDiscount: 219, status: "Ativo" },
-  { nome: "Bone Armani Importado", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Louis Vitton Importado Lv Ii", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Balenciaga Importado", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Gucci Ii Importado", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Gucci Importado", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Dior Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Philipp Plein Camo", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Philipp Plein Caveira", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Philipp Plein Logo Pp", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Boss Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bone Burberry Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Burberry Preta Importada Lv", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Louis Vitton Preta Importada Lv", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Louis Vitton Branca Importada Lv", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Louis Vitton Importada Lv", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Dior Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Fendi Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Bermuda Prado Importada", priceOriginal: 499, priceDiscount: 319, status: "Ativo" },
-  { nome: "Camisetas On Runing Treino - Cinza Claro", priceOriginal: 299, priceDiscount: 139, status: "Ativo" },
-  { nome: "Camisetas On Runing Treino - Azul Marinho", priceOriginal: 299, priceDiscount: 139, status: "Ativo" },
-  { nome: "Camisetas On Runing Treino - Cinza", priceOriginal: 299, priceDiscount: 139, status: "Ativo" },
-  { nome: "Camisetas On Runing Treino - Branca", priceOriginal: 299, priceDiscount: 139, status: "Ativo" },
-  { nome: "Camisetas On Runing Treino - Preta", priceOriginal: 299, priceDiscount: 139, status: "Ativo" },
-  { nome: "Camisa Brasil Azul Feminina Jordan II 2026/27 Torcedor - Nike", priceOriginal: 449, priceDiscount: 199, status: "Ativo" },
-  { nome: "Camisa Brasil Amarela Nike I 2026/27 Torcedor Masculina", priceOriginal: 449, priceDiscount: 189, status: "Ativo" },
-  { nome: "Camisa Brasil Amarela Nike I 2026/27 Jogador Masculina", priceOriginal: 749, priceDiscount: 299, status: "Ativo" },
-  { nome: "Camisa Brasil II 26/27 Jogador Pro Masculina Nike Jordan Azul", priceOriginal: 749, priceDiscount: 329, status: "Ativo" },
-  { nome: "Camisa Brasil Azul Masculina Jordan II 2026/27 Torcedor - Nike", priceOriginal: 449, priceDiscount: 199, status: "Ativo" },
-]
+const HOSTS_PROIBIDOS = ['supabase.co', 'supabase.com']
 
-describe('🔐 Sincronização Segura de Catálogo', () => {
-  let countBefore = 0
-  let countAfter = 0
+// Banco de dados falso em memória — sempre reiniciado a cada teste (beforeEach).
+let bancoFalso = []
+let proximoId = 1
 
-  beforeAll(async () => {
-    console.log('\n' + '='.repeat(80))
-    console.log('📊 TESTE DE SINCRONIZAÇÃO - 50 PRODUTOS BAGY')
-    console.log('='.repeat(80))
-    console.log('\n✅ Validando dados antes de sincronizar...\n')
+function resetBancoFalso(produtosIniciais = []) {
+  bancoFalso = produtosIniciais.map(p => ({ ...p }))
+  proximoId = produtosIniciais.length + 1
+}
 
-    // Conta quantos produtos tem ANTES
-    countBefore = await getProductCount()
-    console.log(`📈 Produtos no Supabase ANTES: ${countBefore}`)
-    console.log(`📦 Produtos a sincronizar: ${PRODUTOS_50_BAGY.length}`)
-  })
+// Simula o subconjunto da REST API do PostgREST usado por catalogSyncService.js —
+// GET (select, com ?nome=eq./?id=eq.), POST (insert), PATCH (update por ?id=eq.).
+// Trava explícita (Proteção B): qualquer URL de host real do Supabase lança erro ANTES
+// de qualquer outra lógica — nunca cai silenciosamente pra rede de verdade.
+function criarFetchMock() {
+  return vi.fn(async (url, opts = {}) => {
+    const urlStr = String(url)
 
-  it('✅ Valida estrutura dos 50 produtos', () => {
-    PRODUTOS_50_BAGY.forEach((p, idx) => {
-      expect(p.nome).toBeTruthy()
-      expect(p.priceOriginal).toBeGreaterThan(0)
-      expect(p.priceDiscount).toBeGreaterThan(0)
-      expect(p.priceDiscount).toBeLessThanOrEqual(p.priceOriginal)
-    })
-    console.log(`✅ Estrutura OK: todos os 50 produtos têm dados válidos\n`)
-  })
-
-  it('✅ Calcula descontos corretamente', () => {
-    const discounts = PRODUTOS_50_BAGY.map(p =>
-      Math.round(((p.priceOriginal - p.priceDiscount) / p.priceOriginal) * 100)
-    )
-    const avgDiscount = Math.round(discounts.reduce((a, b) => a + b) / discounts.length)
-
-    console.log(`📊 Desconto mínimo: ${Math.min(...discounts)}%`)
-    console.log(`📊 Desconto máximo: ${Math.max(...discounts)}%`)
-    console.log(`📊 Desconto médio: ${avgDiscount}%\n`)
-
-    expect(avgDiscount).toBeGreaterThan(0)
-    expect(avgDiscount).toBeLessThan(100)
-  })
-
-  it('🚀 Sincroniza 50 produtos no Supabase', async () => {
-    console.log('⚠️  SINCRONIZANDO AGORA...\n')
-
-    const result = await upsertProducts(PRODUTOS_50_BAGY)
-
-    if (result.success) {
-      console.log(`✅ SUCESSO! ${result.count} produtos sincronizados`)
-      console.log(`   - Perfume Armaf: R$ 379`)
-      console.log(`   - Tenis New Balance: R$ 419`)
-      console.log(`   - Nike Dunk: R$ 299`)
-      console.log(`   - ... e mais 47 produtos\n`)
-
-      expect(result.success).toBe(true)
-      expect(result.count).toBe(50)
-    } else {
-      console.log(`❌ ERRO na sincronização:`, result.error)
-      expect(result.success).toBe(true)
+    if (HOSTS_PROIBIDOS.some(h => urlStr.includes(h))) {
+      throw new Error(
+        `BLOQUEADO: teste tentou acessar um host real do Supabase (${urlStr}). ` +
+        `Isso nunca deveria acontecer — a Proteção A (vi.stubEnv) deveria ter garantido ` +
+        `que a URL usada pelo serviço fosse sempre a URL falsa de teste.`
+      )
     }
+
+    const method = opts.method || 'GET'
+    const u = new URL(urlStr, 'http://mock-supabase.test')
+    const params = u.searchParams
+
+    const jsonResponse = (body, status = 200) => ({
+      ok: status >= 200 && status < 300,
+      status,
+      headers: { get: (name) => (name === 'content-range' ? `0-0/${bancoFalso.length}` : null) },
+      json: async () => body,
+    })
+
+    // /api/log-history (logAction) — endpoint interno da Vercel, não é Supabase, e não é
+    // a tabela `products`. Checado ANTES dos handlers genéricos de método pra não ser
+    // capturado por engano pelo handler de POST de produtos.
+    if (urlStr.includes('/api/log-history')) {
+      return jsonResponse({ ok: true })
+    }
+
+    if (method === 'GET') {
+      let resultado = bancoFalso
+      const idEq = params.get('id')?.match(/^eq\.(.+)$/)?.[1]
+      const nomeEq = params.get('nome')?.match(/^eq\.(.+)$/)?.[1]
+      if (idEq) resultado = bancoFalso.filter(p => p.id === decodeURIComponent(idEq))
+      if (nomeEq) resultado = bancoFalso.filter(p => p.nome === decodeURIComponent(nomeEq))
+      return jsonResponse(resultado)
+    }
+
+    if (method === 'POST') {
+      const dados = JSON.parse(opts.body)
+      const novo = { id: `mock-${proximoId++}`, ...dados }
+      bancoFalso.push(novo)
+      return jsonResponse([novo], 201)
+    }
+
+    if (method === 'PATCH') {
+      const idEq = params.get('id')?.match(/^eq\.(.+)$/)?.[1]
+      const dados = JSON.parse(opts.body)
+      const alvo = bancoFalso.find(p => p.id === decodeURIComponent(idEq || ''))
+      if (alvo) Object.assign(alvo, dados)
+      return jsonResponse(alvo ? [alvo] : [])
+    }
+
+    // /api/log-history (logAction) — endpoint interno da Vercel, não é Supabase, mas
+    // também não deve gerar tráfego real num teste. Responde OK sem fazer nada.
+    if (urlStr.includes('/api/log-history')) {
+      return jsonResponse({ ok: true })
+    }
+
+    throw new Error(`Mock de fetch não implementa: ${method} ${urlStr}`)
+  })
+}
+
+// --- Proteção A: env falso ANTES de importar o serviço (import dinâmico) ---
+vi.stubEnv('VITE_SUPABASE_URL', 'https://mock-supabase.test')
+vi.stubEnv('VITE_SUPABASE_KEY', 'mock-key-nunca-real')
+
+let upsertProducts
+
+beforeAll(async () => {
+  // Import dinâmico DEPOIS do stubEnv — garante que o módulo capture a URL falsa,
+  // nunca lê .env.local real.
+  const mod = await import('../catalogo/catalogSyncService')
+  upsertProducts = mod.upsertProducts
+})
+
+describe('🔒 Sincronização de Catálogo — isolada, sem tocar Supabase real', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', criarFetchMock())
   })
 
-  afterAll(async () => {
-    // Conta quantos produtos tem DEPOIS
-    countAfter = await getProductCount()
+  it('nunca chama um host real do Supabase', async () => {
+    resetBancoFalso([{ id: 'existente-1', nome: 'Produto Qualquer' }])
+    await upsertProducts([{ nome: 'Produto Qualquer', price_original: 100, price_discount: 80, status: 'Ativo' }])
 
-    console.log('='.repeat(80))
-    console.log('📊 RESULTADO FINAL')
-    console.log('='.repeat(80))
-    console.log(`📈 Produtos ANTES:  ${countBefore}`)
-    console.log(`📈 Produtos DEPOIS: ${countAfter}`)
-    console.log(`➕ Adicionados:     ${countAfter - countBefore}\n`)
+    for (const chamada of global.fetch.mock.calls) {
+      const urlChamada = String(chamada[0])
+      expect(HOSTS_PROIBIDOS.some(h => urlChamada.includes(h))).toBe(false)
+    }
+    expect(global.fetch.mock.calls.length).toBeGreaterThan(0) // confirma que o mock foi de fato usado
+  })
 
-    console.log('🔗 Verificar no Supabase:')
-    console.log('   https://app.supabase.com/project/mbbgqasvssueirynnoyk/editor/products\n')
+  it('reconhece grafia divergente como o MESMO produto e não cria duplicata (regressão do bug de 2026-07-29)', async () => {
+    resetBancoFalso([
+      { id: 'existente-1', nome: 'Tênis New Balance 530 Marrom Claro', price_original: null, price_discount: null },
+    ])
 
-    console.log('✅ Teste concluído com segurança!\n')
-    console.log('='.repeat(80) + '\n')
+    const resultado = await upsertProducts([
+      { nome: 'Tenis New Balance 530 Marron Claro', price_original: 499, price_discount: 449, status: 'Ativo' },
+    ])
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.inserted).toBe(0)
+    expect(resultado.updated).toBe(1)
+
+    const comEsseNome = bancoFalso.filter(p =>
+      p.nome === 'Tênis New Balance 530 Marrom Claro' || p.nome === 'Tenis New Balance 530 Marron Claro'
+    )
+    expect(comEsseNome.length).toBe(1) // continua 1 — não duplicou
+    expect(comEsseNome[0].price_discount).toBe(449) // valor foi atualizado no registro existente
+  })
+
+  it('produto genuinamente novo (nome sem correspondência) é inserido normalmente', async () => {
+    resetBancoFalso([
+      { id: 'existente-1', nome: 'Tênis New Balance 530 Marrom Claro' },
+    ])
+
+    const resultado = await upsertProducts([
+      { nome: 'Produto Totalmente Novo XPTO 2026', price_original: 199, price_discount: 149, status: 'Ativo' },
+    ])
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.inserted).toBe(1)
+    expect(resultado.updated).toBe(0)
+    expect(bancoFalso.length).toBe(2)
   })
 })

@@ -2,20 +2,12 @@
 // UPSERT pattern: insere ou atualiza produtos por nome
 
 import { validarProdutoUnico } from '../conhecimento/knowledgeGenerator'
+import { normalizarNomeProduto, chaveComparacaoProduto } from './normalizeProductName'
 
-// Autocorreção de nomes: padroniza acentos e grafia ao salvar
-export function normalizarNomeProduto(nome) {
-  if (!nome) return nome
-  return nome
-    .replace(/^Bone\b/i, 'Boné')
-    .replace(/\bBone\b(?=\s+(New Era|Armani|Gucci|Dior|Boss|Burberry|Balenciaga|Philipp|Louis|Diesel|Versace|Armaf|Itals))/gi, 'Boné')
-    .replace(/^Tenis\b/i, 'Tênis')
-    .replace(/^Oculos\b/i, 'Óculos')
-    .replace(/^Calcado\b/i, 'Calçado')
-    .replace(/\bMarron\b/gi, 'Marrom')
-    .replace(/\bImportada\b/gi, 'Importado')
-    .trim()
-}
+// Reexportado por compatibilidade — CatalogPage.jsx importa normalizarNomeProduto
+// diretamente daqui. Fonte real agora é normalizeProductName.js (única normalização,
+// compartilhada com knowledgeGenerator.js — ver auditoria de 2026-07-29).
+export { normalizarNomeProduto }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
@@ -148,12 +140,16 @@ export async function upsertProducts(products) {
         if (existente?.length > 0) console.log(`[CatalogSync] 🔑 Encontrado por ID: ${p.nome}`)
       }
 
-      // Fallback: sem UUID ou não encontrou — busca por nome
+      // Fallback: sem UUID ou não encontrou — busca por nome usando a MESMA chave de
+      // comparação usada ao salvar (chaveComparacaoProduto), nunca o nome cru. Antes
+      // comparava nome=eq.<cru>, que nunca batia quando a grafia de origem (ex.: Bagy)
+      // divergia da grafia já corrigida no banco (ex.: "Marron" vs "Marrom" salvo) —
+      // causava duplicata silenciosa a cada sincronização (auditoria de 2026-07-29).
       if (!existente || existente.length === 0) {
-        existente = await fetch(
-          `${base()}?nome=eq.${encodeURIComponent(p.nome)}`,
-          { headers }
-        ).then(r => r.json())
+        const candidatos = await fetch(`${base()}?select=id,nome`, { headers }).then(r => r.json())
+        const chaveAlvo = chaveComparacaoProduto(p.nome)
+        const match = (candidatos || []).find(c => chaveComparacaoProduto(c.nome) === chaveAlvo)
+        existente = match ? [match] : []
       }
 
       if (existente && existente.length > 0) {

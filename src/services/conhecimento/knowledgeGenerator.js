@@ -1,6 +1,8 @@
 // Gerador de Knowledge Base com proteção contra duplicatas
 // Sincroniza Supabase → MD estruturado → Tabela knowledge
 
+import { chaveComparacaoProduto } from '../catalogo/normalizeProductName'
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY
 
@@ -10,15 +12,14 @@ const sbHeaders = {
   'Content-Type': 'application/json',
 }
 
-// Normaliza nome para evitar duplicatas (case, espaços, acentos)
+// Normaliza nome para evitar duplicatas — delega pra chaveComparacaoProduto
+// (normalizeProductName.js), a mesma usada por catalogSyncService.js ao buscar/salvar.
+// Antes esta função só removia acento/caixa/espaço, sem corrigir grafia (ex.: "Marron" →
+// "Marrom") — isso fazia a checagem de duplicata falhar sempre que o nome de origem
+// divergia da grafia já corrigida no banco. Nome da função mantido por compatibilidade
+// (usada só internamente neste arquivo). Ver auditoria de 2026-07-29.
 function normalizarNome(nome) {
-  if (!nome) return ''
-  return nome
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ')  // Remove espaços extras
-    .normalize('NFD')       // Remove acentos
-    .replace(/[̀-ͯ]/g, '')   // Remove diacríticos
+  return chaveComparacaoProduto(nome)
 }
 
 // Remove duplicatas usando Set de nomes normalizados
