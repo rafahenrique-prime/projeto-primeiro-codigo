@@ -26,10 +26,83 @@
 //                           (modoAuth='frontend'), token público temporário exclusivo desta tool,
 //                           que só autoriza dryRun=false com body estritamente {parcela_id, dryRun}
 //                           e Origin exato — nunca autentica nenhuma outra tool.
+// ?tool=qwen-health       → health check do QwenCloud pro Operations Center (Fase 2A.1, migrado
+//                           de api/qwen-health.js pra caber no limite de 12 functions do Hobby —
+//                           mesma lógica, sem nenhuma mudança de comportamento). GET só lê o
+//                           último estado persistido em qwen_health_state (Supabase, nunca chama
+//                           o QwenCloud). POST solicita uma verificação real, mas só é efetivada
+//                           se a trava atômica persistida (claim_qwen_health_check, migration 015)
+//                           permitir — sem autenticação de usuário (o projeto não tem login hoje),
+//                           mitigado só pela trava. Ver docs/SUPABASE.md §3.6 para detalhes.
+// ?tool=openrouter-usage  → saldo real do OpenRouter pro Dashboard + Operations Center (Pacote 1
+//                           da migração de segurança — VITE_OPENROUTER_API_KEY saía exposta no
+//                           bundle do frontend). Só GET, sem autenticação de usuário (mesmo desenho
+//                           do vercel-status — consulta pública de baixo risco, sem custo por
+//                           chamada). Cache em memória best-effort de 5min (não precisa ser
+//                           persistente: consultar créditos de novo não gera custo real, ao
+//                           contrário de uma chamada de chat). Sem Supabase, sem trava atômica —
+//                           não se aplica aqui. CODEX e OCR migrados no Pacote 2 (ver abaixo).
+// ?tool=codex-openrouter  → Pacote 2: proxy fiel do fallback de modelo OpenRouter do CODEX
+//                           (askCODEX() em groq.js). POST faz a chamada real (sem autenticação
+//                           de usuário adicional — mesmo nível de exposição de antes da migração,
+//                           só que sem a chave no bundle). GET devolve a allowlist atual (curada,
+//                           até 10 modelos + o router automático "openrouter/free" no final) —
+//                           usada pelo dropdown do CODEX em DealOncaPage.jsx. Allowlist vem do
+//                           catálogo oficial do OpenRouter (cache 12h + último snapshot válido
+//                           como fallback — ver getOpenRouterAllowlist), não mais hardcoded:
+//                           auditoria de 2026-07-27 encontrou 7 dos 9 IDs antigos já removidos
+//                           pelo próprio OpenRouter. A allowlist server-side é sempre a
+//                           autoridade final — o POST revalida contra ela independente do que
+//                           o GET tiver mostrado.
+// ?tool=ocr-openrouter    → Pacote 2: proxy fiel do fallback de visão do OCR (ocrService.js).
+//                           Mesmo desenho do codex-openrouter (GET lista até 3 modelos de visão
+//                           curados, POST faz a chamada real).
+// ?tool=perplexity-health → health check real da API do Perplexity pro Operations Center. A API
+//                           do Perplexity não expõe saldo/uso/requests (só o endpoint de chat) —
+//                           por isso o card mostra só o que é real: status (online/offline),
+//                           modelo, latência e última verificação, nunca saldo/consumo inventado.
+//                           GET só lê o cache em memória (nunca chama o Perplexity). POST chama
+//                           de verdade (prompt mínimo, max_tokens:1) e atualiza o cache — mesmo
+//                           padrão de cache best-effort do openrouter-usage (sem Supabase, sem
+//                           trava atômica: não há custo real relevante em repetir a chamada).
+// ?tool=prime-cobrancas-status → Fase A do card real "PRIME Cobranças" no Operations Center
+//                           (substitui o mock estático do Base44). Consolida ping real dos 2 apps
+//                           Base44 (PRIME + Lyra, mesmo BASE44_API_KEY já usado por sync-lyra/
+//                           lyra-webhook) + a última atividade real (HistoricoAtividade, só
+//                           timestamp — nunca o registro bruto). WhatsApp/Z-API aparece sempre como
+//                           "not_checked" nesta fase — a integração de status real da Z-API fica
+//                           pra uma fase futura (não inventar "conectado"/"trial vencido" sem
+//                           confirmação técnica real). Só GET, cache em memória best-effort de
+//                           3min (?force=true ignora o cache, usado pelo "Atualizar agora").
+//                           Nunca retorna nome/telefone/CPF/PIX/valor de cliente nem segredo.
+// ?tool=mensagem-manual   → liga o proxy já existente (_mensagemManualProxy.js) ao
+//                           dispatcher — POST usado pelo modal "Enviar mensagem pelo
+//                           WhatsApp" (EnviarMensagemManualModal.jsx/cobrancasService.js).
+//                           Delega integralmente pro proxy: validação de payload, Origin
+//                           exata (MENSAGEM_MANUAL_ALLOWED_ORIGINS), rate-limit best-effort
+//                           por IP, dedupe de request_id em andamento na mesma instância,
+//                           e a chamada real a enviarMensagemManualWhatsapp (Base44) com
+//                           MENSAGEM_MANUAL_SERVICE_TOKEN. Nenhuma lógica nova aqui — só
+//                           o roteamento que faltava (o proxy já existia, sem case no switch).
 
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
 import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
+import {
+  checarRateLimitMensagemManualBestEffort,
+  iniciarRequestIdSeLivre,
+  liberarRequestId,
+  checarOrigemMensagemManual,
+  validarPayloadMensagemManual,
+  chamarEnviarMensagemManualWhatsapp,
+  construirRespostaSeguraMensagemManual,
+  validarPayloadListarTemplates,
+  validarPayloadPrevisualizar,
+  chamarListarTemplates,
+  chamarPrevisualizarMensagem,
+  construirRespostaSeguraListarTemplates,
+  construirRespostaSeguraPrevisualizar,
+} from './_mensagemManualProxy.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -72,6 +145,12 @@ const TEAM_ID = 'team_O0lVaTLcrP62cKLeTZwclgAq'
 const BASE44_API_KEY = process.env.BASE44_API_KEY
 const LYRA_APP_ID = '6a518d72335f3c31663dc63d'
 const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
+
+// tool=prime-cobrancas-status (Fase C) — token interno já usado pra autenticar
+// chamadas legítimas dentro do próprio Base44 (mesmo secret que lembreteCobrancas
+// usa pra chamar whatsappProvider). Nunca exposto ao frontend, nunca logado.
+const WHATSAPP_INTERNAL_TOKEN = process.env.WHATSAPP_INTERNAL_TOKEN
+const WHATSAPP_PROVIDER_URL = 'https://prime-vip.base44.app/functions/whatsappProvider'
 const LYRA_WEBHOOK_SECRET = process.env.LYRA_WEBHOOK_SECRET
 
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
@@ -81,6 +160,23 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 const GPTMAKER_BASE = 'https://api.gptmaker.ai'
+
+// tool=qwen-health — mesma Secret key (service_role) já usada em api/_profileLearning.js.
+// SUPABASE_URL acima é reaproveitada (não é segredo, já lida por outras tools deste arquivo).
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
+const QWEN_HEALTH_DEFAULT_MIN_INTERVAL_SECONDS = 1800
+const QWEN_HEALTH_REQUEST_TIMEOUT_MS = 15000
+
+// tool=openrouter-usage — Pacote 1 da migração de segurança (saldo só, sem chat/OCR ainda).
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+const OPENROUTER_CACHE_TTL_MS = 5 * 60 * 1000
+const OPENROUTER_REQUEST_TIMEOUT_MS = 8000
+
+// tool=perplexity-health — sem saldo/uso (API não expõe), só health check real.
+const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY
+const PERPLEXITY_MODEL = process.env.PERPLEXITY_MODEL || 'sonar'
+const PERPLEXITY_CACHE_TTL_MS = 5 * 60 * 1000
+const PERPLEXITY_REQUEST_TIMEOUT_MS = 15000
 
 const STUCK_THRESHOLD_MS = 3 * 60 * 1000   // sem resposta por mais de 3min = suspeito
 const STUCK_MAX_AGE_MS = 30 * 60 * 1000    // ignora chats com última msg há mais de 30min
@@ -604,6 +700,790 @@ async function lyraWebhook(req, res) {
   }
 }
 
+// ============================================================================
+// tool=qwen-health — migrado de api/qwen-health.js (Fase 2A.1), lógica idêntica,
+// só o local do código mudou (pra caber no limite de 12 functions do Hobby).
+// GET nunca chama o QwenCloud, só lê qwen_health_state. POST só chama de fato se
+// claim_qwen_health_check (migration 015) autorizar — trava atômica no Postgres,
+// não em memória do processo. Ver docs/SUPABASE.md §3.6.
+// ============================================================================
+
+function qwenHealthMinIntervalSeconds() {
+  const raw = Number(process.env.QWEN_HEALTH_MIN_INTERVAL_SECONDS)
+  return Number.isFinite(raw) && raw > 0 ? raw : QWEN_HEALTH_DEFAULT_MIN_INTERVAL_SECONDS
+}
+
+function qwenHealthSupabaseHeaders() {
+  return { 'apikey': SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' }
+}
+
+function qwenHealthRowToPayload(row) {
+  if (!row) return null
+  const hasUsage = row.input_tokens != null || row.output_tokens != null || row.total_tokens != null
+  return {
+    available: row.available ?? false,
+    model: row.model ?? null,
+    latencyMs: row.latency_ms ?? null,
+    lastChecked: row.last_checked_at ?? null,
+    errorCode: row.error_code || undefined,
+    usage: hasUsage ? {
+      inputTokens: row.input_tokens ?? 0,
+      outputTokens: row.output_tokens ?? 0,
+      totalTokens: row.total_tokens ?? 0,
+    } : undefined,
+    nextAllowedAt: row.next_allowed_at ?? null,
+  }
+}
+
+const QWEN_HEALTH_NOT_CHECKED_YET = {
+  available: false, model: null, latencyMs: null, lastChecked: null,
+  errorCode: 'QWEN_NOT_CHECKED_YET', nextAllowedAt: null,
+}
+
+async function qwenHealthReadState() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/qwen_health_state?id=eq.1&select=*`, {
+    headers: qwenHealthSupabaseHeaders(),
+  })
+  if (!res.ok) throw new Error(`supabase_read_${res.status}`)
+  const rows = await res.json()
+  return rows?.[0] || null
+}
+
+async function qwenHealthClaim() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_qwen_health_check`, {
+    method: 'POST',
+    headers: qwenHealthSupabaseHeaders(),
+    body: JSON.stringify({ p_min_interval_seconds: qwenHealthMinIntervalSeconds() }),
+  })
+  if (!res.ok) throw new Error(`supabase_claim_${res.status}`)
+  return res.json() // { claimed: boolean, state: {...} | null }
+}
+
+async function qwenHealthPersist(patch) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/qwen_health_state?id=eq.1`, {
+    method: 'PATCH',
+    headers: { ...qwenHealthSupabaseHeaders(), 'Prefer': 'return=representation' },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`supabase_persist_${res.status}`)
+  const rows = await res.json()
+  return rows?.[0] || null
+}
+
+// Chamada mínima e controlada ao QwenCloud — enable_thinking:false evita gastar
+// tokens de raciocínio num modelo híbrido (max_tokens não limita a fase de
+// "thinking"). Nunca devolve o texto gerado.
+async function qwenHealthCallOnce() {
+  const { QWEN_API_KEY, QWEN_BASE_URL, QWEN_MODEL } = process.env
+
+  if (!QWEN_API_KEY || !QWEN_BASE_URL || !QWEN_MODEL) {
+    console.error('[system-tools:qwen-health] Configuração ausente: verifique QWEN_API_KEY/QWEN_BASE_URL/QWEN_MODEL')
+    return { available: false, model: QWEN_MODEL || null, latency_ms: null, error_code: 'QWEN_NOT_CONFIGURED', input_tokens: null, output_tokens: null, total_tokens: null }
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), QWEN_HEALTH_REQUEST_TIMEOUT_MS)
+  const startedAt = Date.now()
+
+  try {
+    const url = `${QWEN_BASE_URL.replace(/\/$/, '')}/chat/completions`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${QWEN_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: QWEN_MODEL,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+        enable_thinking: false,
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeout)
+    const latencyMs = Date.now() - startedAt
+
+    if (!response.ok) {
+      console.warn(`[system-tools:qwen-health] QwenCloud respondeu com status ${response.status}`)
+      const code = (response.status === 401 || response.status === 403) ? 'QWEN_AUTH_ERROR' : 'QWEN_UNAVAILABLE'
+      return { available: false, model: QWEN_MODEL, latency_ms: null, error_code: code, input_tokens: null, output_tokens: null, total_tokens: null }
+    }
+
+    const data = await response.json()
+    return {
+      available: true,
+      model: QWEN_MODEL,
+      latency_ms: latencyMs,
+      error_code: null,
+      input_tokens: data.usage?.prompt_tokens ?? 0,
+      output_tokens: data.usage?.completion_tokens ?? 0,
+      total_tokens: data.usage?.total_tokens ?? 0,
+    }
+  } catch (e) {
+    clearTimeout(timeout)
+    const code = e.name === 'AbortError' ? 'QWEN_TIMEOUT' : 'QWEN_UNAVAILABLE'
+    console.error(`[system-tools:qwen-health] Falha na chamada de teste: ${code}`)
+    return { available: false, model: QWEN_MODEL || null, latency_ms: null, error_code: code, input_tokens: null, output_tokens: null, total_tokens: null }
+  }
+}
+
+async function qwenHealth(req, res) {
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    console.error('[system-tools:qwen-health] Configuração ausente: verifique VITE_SUPABASE_URL/SUPABASE_SECRET_KEY')
+    return res.status(200).json({ ...QWEN_HEALTH_NOT_CHECKED_YET, errorCode: 'QWEN_HEALTH_STORAGE_NOT_CONFIGURED', cached: true })
+  }
+
+  if (req.method === 'GET') {
+    try {
+      const row = await qwenHealthReadState()
+      return res.status(200).json({ ...(qwenHealthRowToPayload(row) || QWEN_HEALTH_NOT_CHECKED_YET), cached: true })
+    } catch (e) {
+      console.error('[system-tools:qwen-health] Falha ao ler estado persistido:', e.message)
+      return res.status(200).json({ ...QWEN_HEALTH_NOT_CHECKED_YET, errorCode: 'QWEN_HEALTH_READ_ERROR', cached: true })
+    }
+  }
+
+  if (req.method === 'POST') {
+    try {
+      const { claimed, state } = await qwenHealthClaim()
+
+      if (!claimed) {
+        return res.status(200).json({ ...(qwenHealthRowToPayload(state) || QWEN_HEALTH_NOT_CHECKED_YET), cached: true, throttled: true })
+      }
+
+      const result = await qwenHealthCallOnce()
+      const savedRow = await qwenHealthPersist({
+        provider: 'qwen',
+        available: result.available,
+        model: result.model,
+        latency_ms: result.latency_ms,
+        input_tokens: result.input_tokens,
+        output_tokens: result.output_tokens,
+        total_tokens: result.total_tokens,
+        error_code: result.error_code,
+        last_checked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      return res.status(200).json({ ...(qwenHealthRowToPayload(savedRow) || qwenHealthRowToPayload(state)), cached: false, throttled: false })
+    } catch (e) {
+      // e.message aqui é sempre uma string curta que o próprio código construiu
+      // (ex.: "supabase_claim_401", "supabase_persist_404") — nunca contém
+      // segredo, header ou payload; só o passo que falhou + status HTTP.
+      console.error('[system-tools:qwen-health] Falha no fluxo de POST (claim/persist):', e.message)
+      return res.status(200).json({ ...QWEN_HEALTH_NOT_CHECKED_YET, errorCode: 'QWEN_HEALTH_INTERNAL_ERROR', cached: true })
+    }
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' })
+}
+
+// ============================================================================
+// tool=openrouter-usage — Pacote 1: saldo do OpenRouter migrado pro server-side.
+// Só GET (consulta pública de baixo risco, sem custo por chamada — diferente de
+// uma chamada de chat). Cache em memória best-effort de 5min: reseta a cada cold
+// start e não é compartilhado entre instâncias/regiões — best-effort é aceitável
+// aqui porque não há custo real em consultar de novo, só reduz tráfego trivial.
+// Sem Supabase, sem trava atômica — não se aplica a este tipo de consulta.
+// ============================================================================
+
+let openrouterCache = null
+let openrouterCachedAt = 0
+
+function openrouterErrorPayload(code) {
+  return { available: false, errorCode: code, lastChecked: new Date().toISOString() }
+}
+
+async function openrouterUsage(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!OPENROUTER_API_KEY) {
+    console.error('[system-tools:openrouter-usage] Configuração ausente: verifique OPENROUTER_API_KEY')
+    return res.status(200).json({ ...openrouterErrorPayload('OPENROUTER_NOT_CONFIGURED'), cached: false })
+  }
+
+  const force = req.query?.force === 'true'
+  const now = Date.now()
+
+  if (!force && openrouterCache && (now - openrouterCachedAt) < OPENROUTER_CACHE_TTL_MS) {
+    return res.status(200).json({ ...openrouterCache, cached: true })
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), OPENROUTER_REQUEST_TIMEOUT_MS)
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/credits', {
+      headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}` },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      console.warn(`[system-tools:openrouter-usage] OpenRouter respondeu com status ${response.status}`)
+      const code = (response.status === 401 || response.status === 403) ? 'OPENROUTER_AUTH_ERROR' : 'OPENROUTER_UNAVAILABLE'
+      return res.status(200).json({ ...openrouterErrorPayload(code), cached: false })
+    }
+
+    const { data } = await response.json()
+    const totalCredits = data?.total_credits ?? 0
+    const totalUsage = data?.total_usage ?? 0
+
+    const payload = {
+      available: true,
+      totalCredits,
+      totalUsage,
+      remainingCredits: totalCredits - totalUsage,
+      lastChecked: new Date().toISOString(),
+    }
+
+    openrouterCache = payload
+    openrouterCachedAt = now
+    return res.status(200).json({ ...payload, cached: false })
+  } catch (e) {
+    clearTimeout(timeout)
+    const code = e.name === 'AbortError' ? 'OPENROUTER_TIMEOUT' : 'OPENROUTER_UNAVAILABLE'
+    console.error(`[system-tools:openrouter-usage] Falha na consulta: ${code}`)
+    return res.status(200).json({ ...openrouterErrorPayload(code), cached: false })
+  }
+}
+
+// ============================================================================
+// tool=perplexity-health — health check real da API do Perplexity. Sem saldo/uso/
+// requests (a API não expõe isso, só o endpoint de chat) — o card mostra apenas o
+// que é real: disponibilidade, modelo, latência e última verificação. Cache em
+// memória best-effort (mesmo padrão do openrouter-usage): GET nunca chama o
+// Perplexity, só lê o último resultado; POST faz a chamada real (respeitando o
+// cache de 5min, a menos que force=true) — usado pelo botão "Atualizar agora".
+// ============================================================================
+
+let perplexityCache = null
+let perplexityCachedAt = 0
+
+const PERPLEXITY_NOT_CHECKED_YET = {
+  available: false, model: null, latencyMs: null, lastChecked: null,
+  errorCode: 'PERPLEXITY_NOT_CHECKED_YET',
+}
+
+function perplexityErrorPayload(code) {
+  return { available: false, model: PERPLEXITY_MODEL, latencyMs: null, errorCode: code, lastChecked: new Date().toISOString() }
+}
+
+async function perplexityCallOnce() {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), PERPLEXITY_REQUEST_TIMEOUT_MS)
+  const startedAt = Date.now()
+
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: PERPLEXITY_MODEL,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 16, // mínimo aceito pela API do Perplexity (diferente de Groq/Qwen/OpenRouter, que aceitam 1)
+      }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    const latencyMs = Date.now() - startedAt
+
+    if (!response.ok) {
+      console.warn(`[system-tools:perplexity-health] Perplexity respondeu com status ${response.status}`)
+      const code = (response.status === 401 || response.status === 403) ? 'PERPLEXITY_AUTH_ERROR' : 'PERPLEXITY_UNAVAILABLE'
+      return { ...perplexityErrorPayload(code) }
+    }
+
+    const data = await response.json().catch(() => null) // nunca repassa o conteúdo gerado, só usage/cost
+    const usage = data?.usage
+    const hasTokens = usage?.prompt_tokens != null || usage?.completion_tokens != null || usage?.total_tokens != null
+    const totalCost = usage?.cost?.total_cost
+
+    return {
+      available: true,
+      model: PERPLEXITY_MODEL,
+      latencyMs,
+      errorCode: null,
+      lastChecked: new Date().toISOString(),
+      ...(hasTokens ? {
+        usage: {
+          inputTokens: usage.prompt_tokens ?? null,
+          outputTokens: usage.completion_tokens ?? null,
+          totalTokens: usage.total_tokens ?? null,
+        },
+      } : {}),
+      ...(typeof totalCost === 'number' ? { lastCheckCost: totalCost } : {}),
+    }
+  } catch (e) {
+    clearTimeout(timeout)
+    const code = e.name === 'AbortError' ? 'PERPLEXITY_TIMEOUT' : 'PERPLEXITY_UNAVAILABLE'
+    console.error(`[system-tools:perplexity-health] Falha na chamada de teste: ${code}`)
+    return { ...perplexityErrorPayload(code) }
+  }
+}
+
+async function perplexityHealth(req, res) {
+  if (!PERPLEXITY_API_KEY) {
+    console.error('[system-tools:perplexity-health] Configuração ausente: verifique PERPLEXITY_API_KEY')
+    return res.status(200).json({ ...PERPLEXITY_NOT_CHECKED_YET, errorCode: 'PERPLEXITY_NOT_CONFIGURED', cached: false })
+  }
+
+  if (req.method === 'GET') {
+    if (!perplexityCache) {
+      return res.status(200).json({ ...PERPLEXITY_NOT_CHECKED_YET, cached: false })
+    }
+    return res.status(200).json({ ...perplexityCache, cached: true })
+  }
+
+  if (req.method === 'POST') {
+    const force = req.query?.force === 'true'
+    const now = Date.now()
+    if (!force && perplexityCache && (now - perplexityCachedAt) < PERPLEXITY_CACHE_TTL_MS) {
+      return res.status(200).json({ ...perplexityCache, cached: true })
+    }
+
+    const result = await perplexityCallOnce()
+    perplexityCache = result
+    perplexityCachedAt = Date.now()
+    return res.status(200).json({ ...result, cached: false })
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' })
+}
+
+// ============================================================================
+// tool=prime-cobrancas-status — Fase A: card real "PRIME Cobranças". Ping real
+// dos 2 apps Base44 (PRIME + Lyra) + última atividade real via HistoricoAtividade
+// (só timestamp, nunca o registro bruto). WhatsApp/Z-API sempre "not_checked"
+// nesta fase — nunca inventa "conectado"/"trial vencido" sem checagem real.
+// ============================================================================
+
+const PRIME_COBRANCAS_CACHE_TTL_MS = 3 * 60 * 1000
+const PRIME_COBRANCAS_TIMEOUT_MS = 10000
+
+let primeCobrancasCache = null
+let primeCobrancasCachedAt = 0
+let primeCobrancasInFlight = null
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
+// Ping do app PRIME — reaproveita a MESMA chamada pra confirmar disponibilidade
+// E extrair a última atividade real (created_date mais recente), sem duplicar
+// requisição. Nunca devolve o registro (nome/valor/etc.), só o timestamp.
+async function pingPrimeEHistorico() {
+  try {
+    const prime = createClient({ appId: PRIME_APP_ID, headers: { api_key: BASE44_API_KEY } })
+    const historico = await withTimeout(prime.entities.HistoricoAtividade.list(), PRIME_COBRANCAS_TIMEOUT_MS)
+
+    let lastActivityAt = null
+    for (const h of historico || []) {
+      const ts = h?.created_date || h?.created_at
+      if (ts && (!lastActivityAt || new Date(ts) > new Date(lastActivityAt))) lastActivityAt = ts
+    }
+    return { available: true, lastActivityAt }
+  } catch (e) {
+    console.error('[system-tools:prime-cobrancas-status] Falha no ping PRIME:', e.message)
+    return { available: false, errorCode: 'PRIME_UNAVAILABLE', lastActivityAt: null }
+  }
+}
+
+// Ping do app Lyra — só confirma conectividade (mesma entity já usada por sync-lyra).
+async function pingLyra() {
+  try {
+    const lyra = createClient({ appId: LYRA_APP_ID, headers: { api_key: BASE44_API_KEY } })
+    await withTimeout(lyra.entities.Cliente.list(), PRIME_COBRANCAS_TIMEOUT_MS)
+    return { available: true }
+  } catch (e) {
+    console.error('[system-tools:prime-cobrancas-status] Falha no ping Lyra:', e.message)
+    return { available: false, errorCode: 'LYRA_UNAVAILABLE' }
+  }
+}
+
+// Status real do WhatsApp/Z-API (Fase C) — chama a Base44 Function whatsappProvider
+// (action:'status', somente leitura, nunca envia mensagem). Nunca recebe nem
+// conhece credenciais da Z-API/ZAP-API — só o token interno já usado internamente
+// no Base44. Repassa ao frontend só os 4 campos sanitizados que a Function já
+// devolve — nunca payload bruto.
+async function pingWhatsappStatus() {
+  if (!WHATSAPP_INTERNAL_TOKEN) {
+    return { whatsappStatus: 'not_configured', smartphoneConnected: null, provider: null, checkedAt: new Date().toISOString() }
+  }
+  try {
+    const res = await withTimeout(fetch(WHATSAPP_PROVIDER_URL, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_INTERNAL_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'status' }),
+    }), PRIME_COBRANCAS_TIMEOUT_MS)
+
+    if (!res.ok) {
+      console.error(`[system-tools:prime-cobrancas-status] whatsappProvider (status) respondeu ${res.status}`)
+      return { whatsappStatus: 'provider_unavailable', smartphoneConnected: null, provider: null, checkedAt: new Date().toISOString() }
+    }
+
+    const data = await res.json()
+    // Repassa só os 4 campos esperados — nunca qualquer outro campo que a
+    // Function eventualmente devolva (defesa em profundidade, mesmo ela já
+    // sendo sanitizada na origem).
+    return {
+      whatsappStatus: data?.whatsappStatus ?? 'unknown',
+      smartphoneConnected: typeof data?.smartphoneConnected === 'boolean' ? data.smartphoneConnected : null,
+      provider: data?.provider ?? null,
+      checkedAt: data?.checkedAt || new Date().toISOString(),
+    }
+  } catch (e) {
+    console.error('[system-tools:prime-cobrancas-status] Falha ao consultar status do WhatsApp:', e.message)
+    return { whatsappStatus: 'provider_unavailable', smartphoneConnected: null, provider: null, checkedAt: new Date().toISOString() }
+  }
+}
+
+// "Hoje" = dia civil em horário de Brasília (BRT, UTC-3 fixo — mesmo critério já
+// usado em cron-diagnosis.js/isBusinessHoursBRT), não UTC. Documentado aqui de
+// propósito pra nunca misturar os dois sem perceber.
+function brtDateString(iso) {
+  const d = new Date(iso)
+  const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000)
+  return brt.toISOString().slice(0, 10)
+}
+
+// Allowlist de error_code curtos já confirmados no código real das Base44
+// Functions (classificarErroHttp + erros de provider em whatsappProvider/main.ts).
+// Qualquer valor fora disso vira "unknown" — nunca repassa texto livre/stack trace.
+const LOG_NOTIFICACAO_ERROR_ALLOWLIST = new Set([
+  'bad_request', 'invalid_credentials', 'trial_or_plan_expired', 'not_found',
+  'rate_limit', 'provider_unavailable', 'unknown',
+  'missing_zapi_credentials', 'missing_zapapi_credentials',
+  'timeout_provider', 'fetch_error', 'invalid_response_format',
+])
+
+function sanitizeErrorCode(code) {
+  if (typeof code === 'string' && LOG_NOTIFICACAO_ERROR_ALLOWLIST.has(code)) return code
+  return 'unknown'
+}
+
+// Fase B — leitura agregada de LogNotificacao. Nunca devolve registro bruto:
+// só contagens de hoje (sucesso/erro), timestamp da tentativa mais recente,
+// código de erro sanitizado (allowlist) e duração média (só se o campo
+// duracao_ms existir de verdade nos registros — nunca inventado).
+async function pingLogNotificacaoAgregado() {
+  try {
+    const prime = createClient({ appId: PRIME_APP_ID, headers: { api_key: BASE44_API_KEY } })
+    const registros = await withTimeout(prime.entities.LogNotificacao.list(), PRIME_COBRANCAS_TIMEOUT_MS)
+    const lista = registros || []
+
+    // Log só de NOMES de campo (nunca valores) — apoio de diagnóstico único,
+    // visível só nos logs do servidor (Vercel), nunca na resposta HTTP.
+    if (lista.length > 0) {
+      console.log('[system-tools:prime-cobrancas-status] LogNotificacao — campos encontrados:', Object.keys(lista[0]))
+    }
+
+    const hojeBrt = brtDateString(new Date().toISOString())
+
+    let successToday = 0
+    let failedToday = 0
+    let lastAttemptAt = null
+    let lastErrorRecord = null
+    const duracoes = []
+
+    for (const r of lista) {
+      const ts = r?.created_date
+      if (!ts) continue
+
+      if (brtDateString(ts) === hojeBrt) {
+        if (r.status === 'sucesso') successToday++
+        else if (r.status === 'erro') failedToday++
+      }
+
+      if (!lastAttemptAt || new Date(ts) > new Date(lastAttemptAt)) lastAttemptAt = ts
+
+      if (r.status === 'erro' && (!lastErrorRecord || new Date(ts) > new Date(lastErrorRecord.created_date))) {
+        lastErrorRecord = r
+      }
+
+      if (typeof r.duracao_ms === 'number') duracoes.push(r.duracao_ms)
+    }
+
+    const avgDurationMs = duracoes.length > 0
+      ? Math.round(duracoes.reduce((a, b) => a + b, 0) / duracoes.length)
+      : null
+
+    return {
+      available: true,
+      notificationsToday: { success: successToday, failed: failedToday },
+      lastAttemptAt,
+      lastErrorCode: lastErrorRecord ? sanitizeErrorCode(lastErrorRecord.erro) : null,
+      avgDurationMs,
+    }
+  } catch (e) {
+    console.error('[system-tools:prime-cobrancas-status] Falha ao ler LogNotificacao:', e.message)
+    return { available: false, notificationsToday: null, lastAttemptAt: null, lastErrorCode: null, avgDurationMs: null }
+  }
+}
+
+async function primeCobrancasStatus(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!BASE44_API_KEY) {
+    console.error('[system-tools:prime-cobrancas-status] Configuração ausente: verifique BASE44_API_KEY')
+    return res.status(200).json({
+      primeAvailable: false, lyraAvailable: false, whatsappStatus: 'not_checked',
+      lastActivityAt: null, lastChecked: new Date().toISOString(),
+      errorCode: 'BASE44_NOT_CONFIGURED', cached: false,
+    })
+  }
+
+  const force = req.query?.force === 'true'
+  const now = Date.now()
+
+  if (!force && primeCobrancasCache && (now - primeCobrancasCachedAt) < PRIME_COBRANCAS_CACHE_TTL_MS) {
+    return res.status(200).json({ ...primeCobrancasCache, cached: true })
+  }
+
+  // Dedup — evita duas chamadas reais simultâneas à mesma instância quando o
+  // GET dispara mais de uma vez antes da primeira resposta voltar.
+  if (primeCobrancasInFlight) {
+    const result = await primeCobrancasInFlight
+    return res.status(200).json({ ...result, cached: true })
+  }
+
+  primeCobrancasInFlight = (async () => {
+    const [primeResult, lyraResult, logResult, whatsappResult] = await Promise.all([
+      pingPrimeEHistorico(), pingLyra(), pingLogNotificacaoAgregado(), pingWhatsappStatus(),
+    ])
+    const payload = {
+      primeAvailable: primeResult.available,
+      lyraAvailable: lyraResult.available,
+      // Fase C — status real do WhatsApp/Z-API (antes sempre "not_checked").
+      whatsappStatus: whatsappResult.whatsappStatus,
+      smartphoneConnected: whatsappResult.smartphoneConnected,
+      whatsappProvider: whatsappResult.provider,
+      whatsappCheckedAt: whatsappResult.checkedAt,
+      lastActivityAt: primeResult.lastActivityAt || null,
+      lastChecked: new Date().toISOString(),
+      ...(primeResult.errorCode ? { primeErrorCode: primeResult.errorCode } : {}),
+      ...(lyraResult.errorCode ? { lyraErrorCode: lyraResult.errorCode } : {}),
+      // Fase B — só agregados de LogNotificacao (nunca registro bruto). Se a
+      // leitura falhar, os 4 campos ficam null/indisponíveis, nunca inventados.
+      notificationsToday: logResult.notificationsToday,
+      lastAttemptAt: logResult.lastAttemptAt,
+      lastErrorCode: logResult.lastErrorCode,
+      avgDurationMs: logResult.avgDurationMs,
+    }
+    primeCobrancasCache = payload
+    primeCobrancasCachedAt = Date.now()
+    return payload
+  })()
+
+  try {
+    const result = await primeCobrancasInFlight
+    return res.status(200).json({ ...result, cached: false })
+  } finally {
+    primeCobrancasInFlight = null
+  }
+}
+
+// ============================================================================
+// tool=codex-openrouter / tool=ocr-openrouter — Pacote 2: migra as chamadas de
+// chat/visão via OpenRouter (fallback de modelo do CODEX e fallback de OCR) pro
+// server-side. Proxy fiel: o servidor não decide prompt, modelo ou regra de
+// negócio — só repassa exatamente o que o frontend já montava antes, trocando
+// só quem segura a chave. Único acréscimo de segurança (não é funcionalidade
+// nova): valida `model` contra a mesma lista fixa que a UI já oferece — sem
+// isso, o endpoint viraria um relay aberto pra qualquer chamada à API do
+// OpenRouter cobrada na nossa conta, sem nem precisar da chave (pior do que a
+// exposição anterior, que ao menos exigia extrair a chave do bundle).
+const OPENROUTER_CHAT_TIMEOUT_MS = 30000
+
+// Allowlist dinâmica — modelos gratuitos hardcoded ficam obsoletos com frequência
+// (o OpenRouter renomeia/descontinua variantes ":free" regularmente, confirmado
+// numa auditoria real: 7 dos 9 IDs antigos já não existiam mais). Em vez de uma
+// lista fixa no código, consultamos o catálogo oficial (endpoint público, não
+// precisa de OPENROUTER_API_KEY), cacheamos por 12h, e mantemos o último
+// snapshot válido mesmo depois do TTL expirar — nunca ficamos sem nenhuma opção
+// só porque o catálogo ficou temporariamente inacessível.
+const OPENROUTER_MODELS_CACHE_TTL_MS = 12 * 60 * 60 * 1000
+const OPENROUTER_CATALOG_TIMEOUT_MS = 5000
+const OPENROUTER_CATALOG_URL = 'https://openrouter.ai/api/v1/models'
+const OPENROUTER_FREE_ROUTER_ID = 'openrouter/free' // router oficial do OpenRouter — escolhe um modelo grátis sozinho
+const CODEX_CURATED_MAX = 10 // dentro do range 8-12 pedido
+const OCR_CURATED_MAX = 3
+
+// Rede de segurança — só usada se NUNCA houve um fetch bem-sucedido do catálogo
+// (cold start + catálogo inacessível). Confirmados manualmente com endpoint ativo
+// na auditoria de 2026-07-27 — podem ficar obsoletos com o tempo, é só um último recurso.
+const OPENROUTER_EMERGENCY_TEXT_MODELS = [
+  { id: 'openai/gpt-oss-20b:free', name: 'OpenAI: gpt-oss-20b (free)', contextLength: 131072 },
+  { id: 'google/gemma-4-31b-it:free', name: 'Google: Gemma 4 31B (free)', contextLength: 262144 },
+]
+const OPENROUTER_EMERGENCY_VISION_MODELS = [
+  { id: 'nvidia/nemotron-nano-12b-v2-vl:free', name: 'NVIDIA: Nemotron Nano 12B 2 VL (free)', contextLength: 128000 },
+  { id: 'google/gemma-4-31b-it:free', name: 'Google: Gemma 4 31B (free)', contextLength: 262144 },
+]
+
+let openrouterModelsCache = null // { text, vision, fetchedAt }
+let openrouterModelsLastGood = null // sobrevive além do TTL — só substituído por outro fetch bem-sucedido
+
+function openrouterIsFree(m) {
+  return parseFloat(m.pricing?.prompt) === 0 && parseFloat(m.pricing?.completion) === 0
+}
+function openrouterIsTextChat(m) {
+  return !!m.architecture?.input_modalities?.includes('text') && !!m.architecture?.output_modalities?.includes('text')
+}
+function openrouterIsVisionChat(m) {
+  return openrouterIsTextChat(m) && !!m.architecture?.input_modalities?.includes('image')
+}
+
+async function fetchOpenRouterCatalog() {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), OPENROUTER_CATALOG_TIMEOUT_MS)
+  try {
+    // Endpoint público do catálogo — não usa OPENROUTER_API_KEY, não é uma chamada de chat.
+    const res = await fetch(OPENROUTER_CATALOG_URL, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) throw new Error(`catalog_${res.status}`)
+    const { data } = await res.json()
+
+    // Modelos especializados (moderação, áudio/música) não servem pra chat/OCR de texto — excluídos.
+    const EXCLUDE_SUBSTR = ['content-safety', 'clip', 'lyria', 'moderation']
+    const notSpecialty = m => !EXCLUDE_SUBSTR.some(s => m.id.includes(s))
+
+    const text = data.filter(m => openrouterIsFree(m) && openrouterIsTextChat(m) && notSpecialty(m))
+      .map(m => ({ id: m.id, name: m.name, contextLength: m.context_length || null }))
+    const vision = data.filter(m => openrouterIsFree(m) && openrouterIsVisionChat(m) && notSpecialty(m))
+      .map(m => ({ id: m.id, name: m.name, contextLength: m.context_length || null }))
+
+    return { text, vision }
+  } catch (e) {
+    clearTimeout(timeout)
+    throw e
+  }
+}
+
+async function getOpenRouterAllowlist() {
+  const now = Date.now()
+  if (openrouterModelsCache && (now - openrouterModelsCache.fetchedAt) < OPENROUTER_MODELS_CACHE_TTL_MS) {
+    return { text: openrouterModelsCache.text, vision: openrouterModelsCache.vision, cached: true }
+  }
+
+  try {
+    const fresh = await fetchOpenRouterCatalog()
+    openrouterModelsCache = { ...fresh, fetchedAt: now }
+    openrouterModelsLastGood = openrouterModelsCache
+    return { text: fresh.text, vision: fresh.vision, cached: false }
+  } catch (e) {
+    console.warn('[system-tools:openrouter-models] Falha ao atualizar catálogo, usando fallback:', e.message)
+    if (openrouterModelsLastGood) {
+      return { text: openrouterModelsLastGood.text, vision: openrouterModelsLastGood.vision, cached: true }
+    }
+    return { text: OPENROUTER_EMERGENCY_TEXT_MODELS, vision: OPENROUTER_EMERGENCY_VISION_MODELS, cached: true }
+  }
+}
+
+// Não exibe/permite todos os modelos gratuitos do catálogo (podem ser dezenas) — cura pra um
+// número pequeno e prevísivel, priorizando contexto maior (proxy simples de "mais capaz/geral"),
+// e sempre acrescenta o router automático do OpenRouter como opção extra no final (nunca padrão).
+function curateCodexModels(textModels) {
+  const sorted = [...textModels].sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0))
+  const top = sorted.slice(0, CODEX_CURATED_MAX).filter(m => m.id !== OPENROUTER_FREE_ROUTER_ID)
+  const hasFreeRouter = textModels.some(m => m.id === OPENROUTER_FREE_ROUTER_ID)
+  if (hasFreeRouter) {
+    top.push({ id: OPENROUTER_FREE_ROUTER_ID, name: 'Automático (OpenRouter escolhe)', contextLength: null })
+  }
+  return top
+}
+
+function curateOcrModels(visionModels) {
+  return [...visionModels].sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0)).slice(0, OCR_CURATED_MAX)
+}
+
+async function openrouterChatProxy(req, res, allowedModels, toolLabel) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!OPENROUTER_API_KEY) {
+    console.error(`[system-tools:${toolLabel}] Configuração ausente: verifique OPENROUTER_API_KEY`)
+    return res.status(503).json({ error: 'OpenRouter não configurado no servidor' })
+  }
+
+  const { model, messages, temperature, max_tokens } = req.body || {}
+
+  if (!model || !allowedModels.has(model)) {
+    return res.status(400).json({ error: 'Modelo não permitido' })
+  }
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages é obrigatório' })
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), OPENROUTER_CHAT_TIMEOUT_MS)
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://ignite-prime.app',
+        'X-Title': 'IGNITE PRIME CRM',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: typeof temperature === 'number' ? temperature : 0.4,
+        max_tokens: typeof max_tokens === 'number' ? max_tokens : 800,
+      }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.warn(`[system-tools:${toolLabel}] OpenRouter respondeu com status ${response.status}`)
+      return res.status(response.status).json(data)
+    }
+
+    // Repassa o payload exatamente como o OpenRouter devolve — o frontend já espera
+    // esse formato (data.choices[0].message.content), nenhuma normalização aqui.
+    return res.status(200).json(data)
+  } catch (e) {
+    clearTimeout(timeout)
+    const code = e.name === 'AbortError' ? 'OPENROUTER_TIMEOUT' : 'OPENROUTER_UNAVAILABLE'
+    console.error(`[system-tools:${toolLabel}] Falha na chamada: ${code}`)
+    return res.status(502).json({ error: { message: code } })
+  }
+}
+
+async function codexOpenRouter(req, res) {
+  const { text, cached } = await getOpenRouterAllowlist()
+  const curated = curateCodexModels(text)
+
+  if (req.method === 'GET') {
+    return res.status(200).json({ models: curated.map(({ id, name }) => ({ id, name })), cached })
+  }
+
+  return openrouterChatProxy(req, res, new Set(curated.map(m => m.id)), 'codex-openrouter')
+}
+
+async function ocrOpenRouter(req, res) {
+  const { vision, cached } = await getOpenRouterAllowlist()
+  const curated = curateOcrModels(vision)
+
+  if (req.method === 'GET') {
+    return res.status(200).json({ models: curated.map(({ id, name }) => ({ id, name })), cached })
+  }
+
+  return openrouterChatProxy(req, res, new Set(curated.map(m => m.id)), 'ocr-openrouter')
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -611,6 +1491,40 @@ export default async function handler(req, res) {
     case 'vercel-status':
       // Sem autenticação — consumido diretamente pelo Dashboard no navegador.
       return vercelStatus(req, res)
+
+    case 'qwen-health':
+      // Sem autenticação de usuário (risco residual aceito e documentado — ver
+      // docs/SUPABASE.md §3.6) — GET é público e não custa nada (só leitura),
+      // POST é público mas protegido pela trava atômica persistida no Supabase.
+      return qwenHealth(req, res)
+
+    case 'openrouter-usage':
+      // Sem autenticação — mesmo desenho do vercel-status, consulta pública
+      // de baixo risco e sem custo por chamada.
+      return openrouterUsage(req, res)
+
+    case 'codex-openrouter':
+      // Proxy fiel do fallback de modelo do CODEX (Pacote 2) — model validado
+      // contra allowlist fixa, sem autenticação de usuário adicional (mesmo
+      // nível de exposição de antes, só que sem a chave no bundle).
+      return codexOpenRouter(req, res)
+
+    case 'ocr-openrouter':
+      // Proxy fiel do fallback de visão do OCR (Pacote 2) — mesmo desenho do
+      // codex-openrouter, allowlist própria de modelos de visão.
+      return ocrOpenRouter(req, res)
+
+    case 'perplexity-health':
+      // Sem autenticação de usuário — mesmo desenho do qwen-health/openrouter-usage.
+      // GET só lê cache em memória (nunca chama o Perplexity), POST faz a chamada
+      // real respeitando o cache de 5min (a menos que force=true).
+      return perplexityHealth(req, res)
+
+    case 'prime-cobrancas-status':
+      // Sem autenticação de usuário adicional — mesmo desenho do vercel-status
+      // (consulta pública de baixo risco, só métricas agregadas, nunca dado de
+      // cliente). Só GET, cache em memória de 3min (?force=true ignora).
+      return primeCobrancasStatus(req, res)
 
     case 'sync-lyra': {
       // Autenticação obrigatória pra AMBOS dryRun=true e dryRun=false: mesmo em
@@ -818,7 +1732,89 @@ export default async function handler(req, res) {
       return res.status(resultado.httpStatus).json(resultado.body)
     }
 
+    case 'mensagem-manual': {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Método não permitido' })
+      }
+
+      const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
+      const origemRecebida = req.headers.origin || req.headers.referer || ''
+
+      if (!checarOrigemMensagemManual(origemRecebida)) {
+        console.error('[system-tools:mensagem-manual] Origin não permitida', { ip: ipHashCurto(ip) })
+        return res.status(403).json({ error: 'Origem não permitida', error_code: 'origin_not_allowed' })
+      }
+
+      if (!checarRateLimitMensagemManualBestEffort(ip)) {
+        console.error('[system-tools:mensagem-manual] Rate limit por IP excedido', { ip: ipHashCurto(ip) })
+        return res.status(429).json({ error: 'Muitas tentativas em pouco tempo', error_code: 'rate_limit_excedido' })
+      }
+
+      // --- Fase 1 (mensagem pronta com template) — listar_templates/previsualizar,
+      // interceptados ANTES do envio existente. Mesma proteção de Origin/rate-limit
+      // acima já se aplica às duas. Ambas são só leitura (garantido do lado do Base44:
+      // nenhuma chama whatsappProvider nem cria LogNotificacao). ---
+      const acao = req.body?.acao
+
+      if (acao === 'listar_templates') {
+        const validacaoTemplates = validarPayloadListarTemplates(req.body)
+        if (!validacaoTemplates.valido) {
+          return res.status(400).json({ error: 'Payload inválido', error_code: validacaoTemplates.error_code, campos: validacaoTemplates.campos })
+        }
+        const resultadoTemplates = await chamarListarTemplates()
+        if (!resultadoTemplates.ok) {
+          console.error('[system-tools:mensagem-manual] Falha ao listar templates', { error_code: resultadoTemplates.error_code, ip: ipHashCurto(ip) })
+          return res.status(200).json({ success: false, error_code: resultadoTemplates.error_code })
+        }
+        return res.status(200).json(construirRespostaSeguraListarTemplates(resultadoTemplates.json))
+      }
+
+      if (acao === 'previsualizar') {
+        const validacaoPrevia = validarPayloadPrevisualizar(req.body)
+        if (!validacaoPrevia.valido) {
+          return res.status(400).json({ error: 'Payload inválido', error_code: validacaoPrevia.error_code, campos: validacaoPrevia.campos })
+        }
+        const resultadoPrevia = await chamarPrevisualizarMensagem(validacaoPrevia)
+        if (!resultadoPrevia.ok) {
+          console.error('[system-tools:mensagem-manual] Falha ao pré-visualizar', { error_code: resultadoPrevia.error_code, ip: ipHashCurto(ip) })
+          return res.status(200).json({ success: false, error_code: resultadoPrevia.error_code })
+        }
+        return res.status(200).json(construirRespostaSeguraPrevisualizar(resultadoPrevia.json))
+      }
+
+      if (acao !== undefined && acao !== null && acao !== 'enviar') {
+        return res.status(400).json({ error: 'Ação inválida', error_code: 'acao_invalida' })
+      }
+
+      // --- Envio (compatibilidade retroativa total — payload sem `acao` continua
+      // funcionando exatamente como antes desta fase) ---
+      const validacao = validarPayloadMensagemManual(req.body)
+      if (!validacao.valido) {
+        return res.status(400).json({ error: 'Payload inválido', error_code: validacao.error_code, campos: validacao.campos })
+      }
+
+      const { cliente_id, texto_mensagem, request_id } = validacao
+
+      if (!iniciarRequestIdSeLivre(request_id)) {
+        return res.status(429).json({ error: 'Requisição em andamento', error_code: 'requisicao_em_andamento' })
+      }
+
+      try {
+        const resultado = await chamarEnviarMensagemManualWhatsapp({ cliente_id, texto_mensagem, request_id })
+
+        if (!resultado.ok) {
+          console.error('[system-tools:mensagem-manual] Falha ao chamar Base44', { error_code: resultado.error_code, ip: ipHashCurto(ip) })
+          return res.status(200).json({ success: false, error_code: resultado.error_code, request_id })
+        }
+
+        console.log('[system-tools:mensagem-manual] Concluído', { status: resultado.json?.status, ip: ipHashCurto(ip) })
+        return res.status(200).json(construirRespostaSeguraMensagemManual(resultado.json, request_id))
+      } finally {
+        liberarRequestId(request_id)
+      }
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook ou gerar-cobranca-lyra)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status ou mensagem-manual)' })
   }
 }

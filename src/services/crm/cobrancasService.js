@@ -20,6 +20,21 @@ function getClient() {
   return base44Client
 }
 
+// Formata uma data pura (YYYY-MM-DD, sem horário/fuso — caso de data_vencimento/
+// data_pagamento na Parcela) sem passar por `new Date()`, que interpretaria a string
+// como UTC-meia-noite e deslocaria o dia em fusos negativos (ex.: America/Sao_Paulo
+// mostrava 27/07/2026 pra um vencimento real de 28/07/2026). Não usar para timestamps
+// com horário/fuso reais (created_date/updated_date etc.) — só para estas duas datas
+// civis puras.
+function formatarDataSemFuso(valor) {
+  if (!valor) return null
+  const dataPura = String(valor).slice(0, 10)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dataPura)
+  if (!match) return null
+  const [, ano, mes, dia] = match
+  return `${dia}/${mes}/${ano}`
+}
+
 function calcularDiasAtraso(vencimento) {
   if (!vencimento) return 0
   const vencDate = new Date(vencimento)
@@ -49,7 +64,7 @@ function normalizarParcela(p, telefonecliente = '-') {
     clienteId: p.cliente_id,
     status: p.status || 'pendente',
     diasAtraso: calcularDiasAtraso(p.data_vencimento),
-    vencimento: p.data_vencimento ? new Date(p.data_vencimento).toLocaleDateString('pt-BR') : '-',
+    vencimento: p.data_vencimento ? (formatarDataSemFuso(p.data_vencimento) || '-') : '-',
     vencimentoRaw: p.data_vencimento || null,
     valorTotal,
     valorAberto,
@@ -339,6 +354,102 @@ export async function registrarPagamentoManual(parcelaId, { valorPago, formaPaga
     console.error('[registrarPagamentoManual] Erro:', err.message)
     throw err
   }
+}
+
+export async function enviarMensagemManual({ clienteId, textoMensagem, requestId }) {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin)
+    const endpoint = `${apiUrl}/api/system-tools?tool=mensagem-manual`
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          texto_mensagem: textoMensagem,
+          request_id: requestId,
+        }),
+        signal: controller.signal,
+      })
+
+      let json = null
+      try {
+        json = await res.json()
+      } catch (_parseErr) {
+        return { ok: false, error_code: 'resposta_invalida' }
+      }
+
+      if (!res.ok) {
+        return { ok: false, error_code: json?.error_code || 'erro_http', httpStatus: res.status }
+      }
+
+      return { ok: true, json }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  } catch (err) {
+    const errorCode = err.name === 'AbortError' ? 'timeout' : 'erro_rede'
+    console.error('[enviarMensagemManual] Erro:', err.message)
+    return { ok: false, error_code: errorCode }
+  }
+}
+
+// --- Fase 1 (mensagem pronta com template) — listar_templates / previsualizar.
+// Mesmo endpoint/proxy já validado (enviarMensagemManual acima, intocada) — só o
+// `acao` no corpo muda. Nenhuma das duas envia mensagem nem cria LogNotificacao.
+async function postMensagemManualTool(body) {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin)
+    const endpoint = `${apiUrl}/api/system-tools?tool=mensagem-manual`
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      let json = null
+      try {
+        json = await res.json()
+      } catch (_parseErr) {
+        return { ok: false, error_code: 'resposta_invalida' }
+      }
+
+      if (!res.ok) {
+        return { ok: false, error_code: json?.error_code || 'erro_http', httpStatus: res.status }
+      }
+
+      return { ok: true, json }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  } catch (err) {
+    const errorCode = err.name === 'AbortError' ? 'timeout' : 'erro_rede'
+    console.error('[postMensagemManualTool] Erro:', err.message)
+    return { ok: false, error_code: errorCode }
+  }
+}
+
+export async function listarTemplatesWhatsapp() {
+  return postMensagemManualTool({ acao: 'listar_templates' })
+}
+
+export async function previsualizarMensagemWhatsapp({ clienteId, parcelaId, templateKey }) {
+  return postMensagemManualTool({
+    acao: 'previsualizar',
+    cliente_id: clienteId,
+    parcela_id: parcelaId,
+    template_key: templateKey,
+  })
 }
 
 export async function getTotalizadores() {

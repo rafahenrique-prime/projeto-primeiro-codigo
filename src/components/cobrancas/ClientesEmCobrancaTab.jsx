@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import { Search, CreditCard, MessageCircle, RefreshCw, Phone, Calendar } from 'lucide-react'
+import WhatsAppSendModal from './WhatsAppSendModal'
 
 // Aba "👤 Clientes em Cobrança" — visão financeira consolidada, 1 card por cliente.
 // Reaproveita exclusivamente o state `cobrancas` já carregado em CobrancasPage.jsx
@@ -113,15 +115,18 @@ function agruparPorCliente(cobrancas) {
       critico,
       progresso,
       quantidadeCobrancas,
+      // Só em aberto — usado pelo seletor de parcela do WhatsAppSendModal (Fase 2 UX).
+      // Não altera nenhum cálculo acima, é só exposição do array já computado.
+      parcelasDetalhe: parcelasEmAberto,
     }
   })
 }
 
 const STATUS_CONFIG = {
-  quitado: { bg: '#D1FAE5', text: '#047857', icon: '✅', label: 'Quitado' },
-  vencido: { bg: '#FEE2E2', text: '#DC2626', icon: '⚠️', label: 'Vencido' },
-  parcial: { bg: '#FEF3C7', text: '#D97706', icon: '◐', label: 'Parcial' },
-  pendente: { bg: '#E0E7FF', text: '#4F46E5', icon: '⏳', label: 'Pendente' },
+  quitado: { bg: '#ECFDF5', text: '#059669', dot: '#10B981', label: 'Quitado' },
+  vencido: { bg: '#FEF2F2', text: '#DC2626', dot: '#DC2626', label: 'Vencido' },
+  parcial: { bg: '#FFFBEB', text: '#B45309', dot: '#F59E0B', label: 'Parcial' },
+  pendente: { bg: '#F4F4F5', text: '#52525B', dot: '#A1A1AA', label: 'Pendente' },
 }
 
 const QUICK_FILTERS = [
@@ -153,10 +158,38 @@ function progressColor(progresso) {
   return '#DC2626'
 }
 
-export default function ClientesEmCobrancaTab({ cobrancas, theme: t, onVerParcelas }) {
+function getStatusBarColor(status, critico) {
+  if (critico) return '#DC2626' // Vermelho — crítico
+  switch (status) {
+    case 'quitado': return '#10B981' // Verde
+    case 'vencido': return '#DC2626' // Vermelho
+    case 'parcial': return '#F59E0B' // Laranja
+    case 'pendente': return '#F59E0B' // Amarelo
+    default: return '#9CA3AF' // Cinza
+  }
+}
+
+function getInitials(name) {
+  return (name || 'SN')
+    .split(' ')
+    .slice(0, 2)
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function getAvatarBgColor(name) {
+  const colors = ['#52525B', '#71717A', '#57534E', '#3F3F46', '#44403C', '#3F3F46']
+  const index = (name || '').charCodeAt(0) % colors.length
+  return colors[index]
+}
+
+export default function ClientesEmCobrancaTab({ cobrancas, theme: t, onVerParcelas, sincronizarTelefones, sincronizandoTelefones }) {
   const [search, setSearch] = useState('')
   const [quickFilter, setQuickFilter] = useState('todos')
-  const [sortBy, setSortBy] = useState('valorAberto') // valorAberto | atraso | vencimento | nome | progressoDesc | progressoAsc
+  const [sortBy, setSortBy] = useState('valorAberto')
+  const [clienteSelecionado, setClienteSelecionado] = useState(null)
 
   const clientes = useMemo(() => agruparPorCliente(cobrancas), [cobrancas])
 
@@ -189,40 +222,42 @@ export default function ClientesEmCobrancaTab({ cobrancas, theme: t, onVerParcel
         if (!b.proximoVencimentoRaw) return -1
         return a.proximoVencimentoRaw.localeCompare(b.proximoVencimentoRaw)
       }
-      // valorAberto (default)
       return (b.valorAberto || 0) - (a.valorAberto || 0)
     })
   }, [clientes, quickFilter, search, sortBy])
 
   return (
-    <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-      {/* Busca e ordenação */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por nome ou telefone..."
-          style={{
-            width: 320,
-            border: `1px solid ${t.border}`,
-            borderRadius: 7,
-            padding: '7px 12px',
-            fontSize: 13,
-            background: t.inputBg,
-            color: t.text,
-            outline: 'none',
-          }}
-        />
+    <div style={{ padding: '24px 24px 32px', overflowY: 'auto', flex: 1 }}>
+      {/* Busca, ordenação e sincronizar geral — sem bordas, fundo neutro */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 280 }}>
+          <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nome ou telefone"
+            style={{
+              width: '100%',
+              border: 'none',
+              borderRadius: 6,
+              padding: '8px 12px 8px 32px',
+              fontSize: 13,
+              background: t.bgTertiary,
+              color: t.text,
+              outline: 'none',
+            }}
+          />
+        </div>
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
           style={{
-            border: `1px solid ${t.border}`,
-            borderRadius: 7,
-            padding: '7px 12px',
+            border: 'none',
+            borderRadius: 6,
+            padding: '8px 12px',
             fontSize: 13,
-            background: t.inputBg,
-            color: t.text,
+            background: t.bgTertiary,
+            color: t.textMid,
             outline: 'none',
             cursor: 'pointer',
           }}
@@ -234,139 +269,247 @@ export default function ClientesEmCobrancaTab({ cobrancas, theme: t, onVerParcel
           <option value="progressoDesc">Maior progresso</option>
           <option value="progressoAsc">Menor progresso</option>
         </select>
+        <button
+          onClick={() => sincronizarTelefones?.(null, 'todos')}
+          disabled={sincronizandoTelefones}
+          title="Sincronizar telefones com Base44"
+          style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            border: 'none',
+            borderRadius: 6,
+            padding: '8px 14px',
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: t.bgTertiary,
+            color: t.textMid,
+            cursor: sincronizandoTelefones ? 'not-allowed' : 'pointer',
+            opacity: sincronizandoTelefones ? 0.6 : 1,
+            transition: 'background-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { if (!sincronizandoTelefones) { e.currentTarget.style.background = t.bgSecondary; e.currentTarget.style.color = t.text } }}
+          onMouseLeave={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.textMid }}
+        >
+          <RefreshCw size={13} strokeWidth={2} style={sincronizandoTelefones ? { animation: 'spin 0.8s linear infinite' } : undefined} />
+          Sincronizar Base44
+        </button>
       </div>
 
-      {/* Filtros rápidos */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      {/* Filtros rápidos — segmented control neutro, sem vermelho decorativo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
         {QUICK_FILTERS.map(f => (
           <button
             key={f.id}
             onClick={() => setQuickFilter(f.id)}
             style={{
-              fontSize: 12,
-              padding: '7px 14px',
-              borderRadius: 7,
+              fontSize: 12.5,
+              padding: '6px 12px',
+              borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              background: quickFilter === f.id ? (t.primary || '#E8192C') : t.bgTertiary,
-              color: quickFilter === f.id ? '#fff' : t.textMid,
-              fontWeight: quickFilter === f.id ? 600 : 500,
-              transition: 'all 0.12s',
+              background: quickFilter === f.id ? t.text : 'transparent',
+              color: quickFilter === f.id ? t.bg : t.textMid,
+              fontWeight: 600,
+              transition: 'all 0.15s',
             }}
           >
-            {f.label} ({quickFilterCounts[f.id] ?? 0})
+            {f.label} · {quickFilterCounts[f.id] ?? 0}
           </button>
         ))}
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: t.textMuted }}>
           {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* Cards de clientes */}
+      {/* Lista premium de clientes */}
       {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>
+        <div style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, fontSize: 14 }}>
           Nenhum cliente encontrado
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map(cliente => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {filtered.map((cliente, idx) => {
             const cfg = STATUS_CONFIG[cliente.status]
+            const statusBarColor = getStatusBarColor(cliente.status, cliente.critico)
+            const initials = getInitials(cliente.nome)
+            const avatarBg = getAvatarBgColor(cliente.nome)
+
             return (
               <div
                 key={cliente.key}
                 style={{
-                  border: `1px solid ${t.border}`,
-                  borderRadius: 8,
-                  padding: 14,
-                  background: t.bgSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '11px 12px',
+                  borderBottom: idx < filtered.length - 1 ? `1px solid ${t.borderLight || t.border}` : 'none',
+                  background: t.bg,
+                  transition: 'background-color 0.15s',
+                  borderLeft: `2px solid ${statusBarColor}`,
                 }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = t.bgSecondary}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = t.bg}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                  {/* Nome + telefone + status */}
-                  <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{cliente.nome}</span>
-                      <span style={{
-                        background: cfg.bg, color: cfg.text, fontSize: 10, fontWeight: 600,
-                        padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-                      }}>
-                        {cfg.icon} {cfg.label}
-                      </span>
-                      {cliente.critico && (
-                        <span style={{
-                          background: '#FEE2E2', color: '#DC2626', fontSize: 10, fontWeight: 600,
-                          padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-                        }}>
-                          🔴 Crítico
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-                      {cliente.telefone}
-                    </div>
-                  </div>
-
-                  {/* Contagem de parcelas */}
-                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 90 }}>
-                    <div style={{ fontWeight: 700, color: t.text }}>
-                      {cliente.pagasCount}/{cliente.totalParcelas} pagas
-                    </div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>
-                      {cliente.pendentesCount} pend. · {cliente.vencidasCount} venc.
-                    </div>
-                  </div>
-
-                  {/* Maior atraso */}
-                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 60 }}>
-                    <div style={{ fontWeight: 700, color: cliente.maiorAtraso > 0 ? '#DC2626' : t.textMuted }}>
-                      {cliente.maiorAtraso > 0 ? `${cliente.maiorAtraso}d` : '-'}
-                    </div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>maior atraso</div>
-                  </div>
-
-                  {/* Próximo vencimento */}
-                  <div style={{ textAlign: 'center', fontSize: 11, minWidth: 80 }}>
-                    <div style={{ fontWeight: 700, color: t.text }}>{cliente.proximoVencimento}</div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>próx. vencimento</div>
-                  </div>
-
-                  {/* Valores */}
-                  <div style={{ textAlign: 'right', fontSize: 11, minWidth: 100 }}>
-                    <div style={{ fontWeight: 700, color: t.text }}>{formatCurrency(cliente.valorAberto)}</div>
-                    <div style={{ fontSize: 9, color: t.textMuted }}>de {formatCurrency(cliente.valorTotal)}</div>
-                  </div>
-
-                  {/* Ação */}
-                  <button
-                    onClick={() => onVerParcelas?.({ clienteId: cliente.clienteId, nome: cliente.nome })}
-                    style={{
-                      fontSize: 11, fontWeight: 600, padding: '7px 12px', borderRadius: 7,
-                      border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                      background: t.bgTertiary, color: t.textMid,
-                    }}
-                  >
-                    💳 Ver parcelas
-                  </button>
+                {/* Avatar com iniciais — neutro, sem cor decorativa */}
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 6,
+                    background: avatarBg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials}
                 </div>
 
-                {/* Barra de progresso financeiro */}
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: t.textMuted, marginBottom: 4 }}>
-                    <span>{cliente.progresso}% pago · {cliente.pagasCount} de {cliente.totalParcelas} parcelas pagas</span>
-                    <span>{formatCurrency(cliente.valorPago)} pago · {formatCurrency(cliente.valorAberto)} restante</span>
+                {/* Coluna: Nome + ID + Telefone */}
+                <div style={{ flex: '0 0 210px', minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cliente.nome}
                   </div>
-                  <div style={{ height: 6, borderRadius: 4, background: t.bgTertiary, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{cliente.clienteId?.slice(0, 8) || '—'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <Phone size={10} strokeWidth={2} />
+                      {cliente.telefone}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Coluna: Status */}
+                <div style={{ flex: '0 0 130px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    color: cfg.text,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
+                    {cfg.label}
+                  </span>
+                  {cliente.critico && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#DC2626', whiteSpace: 'nowrap' }}>
+                      · Crítico
+                    </span>
+                  )}
+                </div>
+
+                {/* Coluna: Limite disponível (com mini barra de progresso) */}
+                <div style={{ flex: '0 0 140px' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>
+                    {formatCurrency(cliente.valorAberto)}
+                  </div>
+                  <div style={{ height: 2, borderRadius: 1, background: t.bgTertiary, overflow: 'hidden', marginTop: 5 }}>
                     <div style={{
-                      height: '100%', width: `${cliente.progresso}%`,
-                      background: progressColor(cliente.progresso), transition: 'width 0.2s',
+                      height: '100%',
+                      width: `${Math.min(100, cliente.progresso)}%`,
+                      background: progressColor(cliente.progresso),
+                      transition: 'width 0.2s',
                     }} />
                   </div>
+                  <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3 }}>
+                    {cliente.progresso}% de {formatCurrency(cliente.valorTotal)}
+                  </div>
                 </div>
+
+                {/* Coluna: Última atividade */}
+                <div style={{ flex: '0 0 100px', fontSize: 11.5, color: t.textMid, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Calendar size={12} strokeWidth={2} style={{ color: t.textMuted, flexShrink: 0 }} />
+                  {cliente.proximoVencimento}
+                </div>
+
+                {/* Coluna: Ações — Parcelas */}
+                <button
+                  onClick={() => onVerParcelas?.({ clienteId: cliente.clienteId, nome: cliente.nome })}
+                  title="Ver parcelas"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'transparent',
+                    color: t.textMid,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = t.bgTertiary
+                    e.currentTarget.style.color = t.text
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = t.textMid
+                  }}
+                >
+                  <CreditCard size={15} strokeWidth={2} />
+                </button>
+
+                {/* Coluna: Ações — WhatsApp */}
+                <button
+                  onClick={() => setClienteSelecionado(cliente)}
+                  title="Enviar mensagem WhatsApp"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'transparent',
+                    color: t.textMid,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#ECFDF5'
+                    e.currentTarget.style.color = '#059669'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = t.textMid
+                  }}
+                >
+                  <MessageCircle size={15} strokeWidth={2} />
+                </button>
               </div>
             )
           })}
         </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      {clienteSelecionado && (
+        <WhatsAppSendModal
+          cliente={clienteSelecionado}
+          parcelas={clienteSelecionado.parcelasDetalhe || []}
+          theme={t}
+          onClose={() => setClienteSelecionado(null)}
+        />
       )}
     </div>
   )

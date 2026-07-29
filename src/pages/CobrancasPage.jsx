@@ -2,8 +2,10 @@ import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getAllCobrancas, getTotalizadores, getHistoricoAtividades, getClientes, sincronizarTelefonesEncontrados, registrarPagamentoManual } from '../services/crm/cobrancasService'
 import { PieChart, Pie, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import { RefreshCw, AlertTriangle, Clock, BarChart3, CheckCircle2, Circle, Flame, Users, LayoutDashboard, TrendingUp, CalendarDays, CreditCard, Search, Phone, MessageCircle, PencilLine, Import, Trash2, PlusCircle, FileText } from 'lucide-react'
 import ParcelasTab from '../components/cobrancas/ParcelasTab'
 import ClientesEmCobrancaTab from '../components/cobrancas/ClientesEmCobrancaTab'
+import WhatsAppSendModal from '../components/cobrancas/WhatsAppSendModal'
 
 // Dados fake pra fallback se API falhar
 const MOCK_COBRANCAS = [
@@ -38,6 +40,7 @@ export default function CobrancasPage() {
   const [clienteSortBy, setClienteSortBy] = useState('nome-asc')
   const [sincronizandoTelefones, setSincronizandoTelefones] = useState(false)
   const [pagamentoModalCobranca, setPagamentoModalCobranca] = useState(null)
+  const [clienteSelecionado, setClienteSelecionado] = useState(null)
 
   useEffect(() => {
     loadCobrancas()
@@ -109,147 +112,92 @@ export default function CobrancasPage() {
   return (
     <div style={{ flex: 1, background: t.bg, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ padding: '20px 24px', borderBottom: `1px solid ${t.border}` }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: t.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 20 }}>💰</span>
+      <div style={{ padding: '24px 24px 0' }}>
+        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: t.text, margin: 0, letterSpacing: '-0.01em' }}>
             Cobranças
-            <span style={{ fontSize: 11, fontWeight: 600, color: t.primary, background: t.primaryBg, padding: '2px 8px', borderRadius: 6, marginLeft: 'auto' }}>
-              {cobrancas.length} registros
-            </span>
+          </h1>
+          <span style={{ fontSize: 12, fontWeight: 500, color: t.textMuted, marginLeft: 'auto' }}>
+            {cobrancas.length} registros
+          </span>
+          <button
+            onClick={syncData}
+            disabled={syncing}
+            title="Sincronizar dados"
+            style={{
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              color: t.textMuted,
+              transition: 'background-color 0.15s, color 0.15s',
+            }}
+            onMouseEnter={e => { if (!syncing) { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text } }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted }}
+          >
+            <RefreshCw size={14} strokeWidth={2} style={syncing ? { animation: 'spin 0.8s linear infinite' } : undefined} />
+          </button>
+        </div>
+
+        {/* Abas — underline neutro, sem cor de marca no texto inativo/ativo */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${t.borderLight || t.border}` }}>
+          {[
+            { id: 'clientes-cobranca', label: 'Clientes em Cobrança', Icon: Users },
+            { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+            { id: 'fluxo', label: 'Fluxo de Caixa', Icon: TrendingUp },
+            { id: 'historico', label: 'Histórico', Icon: CalendarDays },
+            { id: 'clientes', label: 'Clientes', Icon: Users },
+            { id: 'parcelas', label: 'Parcelas', Icon: CreditCard },
+          ].map(({ id, label, Icon }) => (
             <button
-              onClick={syncData}
-              disabled={syncing}
-              title="Sincronizar dados"
+              key={id}
+              onClick={() => { if (id === 'parcelas') setInitialParcelasFilter(null); setTab(id) }}
               style={{
                 background: 'none',
                 border: 'none',
-                cursor: syncing ? 'not-allowed' : 'pointer',
-                fontSize: 16,
-                padding: '4px 8px',
-                opacity: syncing ? 0.5 : 1,
-                transition: 'opacity 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '10px 4px',
+                marginRight: 20,
+                fontSize: 13,
+                fontWeight: 600,
+                color: tab === id ? t.text : t.textMuted,
+                cursor: 'pointer',
+                borderBottom: tab === id ? `2px solid ${t.text}` : '2px solid transparent',
+                marginBottom: -1,
+                transition: 'color 0.15s',
               }}
-              onMouseEnter={e => { if (!syncing) e.currentTarget.style.opacity = '0.7' }}
-              onMouseLeave={e => { if (!syncing) e.currentTarget.style.opacity = '1' }}
             >
-              🔄
+              <Icon size={14} strokeWidth={2} />
+              {label}
             </button>
-          </div>
+          ))}
         </div>
 
-        {/* Abas */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, borderBottom: `1px solid ${t.border}`, paddingBottom: 12 }}>
-          <button
-            onClick={() => setTab('clientes-cobranca')}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'clientes-cobranca' ? 700 : 500,
-              color: tab === 'clientes-cobranca' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'clientes-cobranca' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            👤 Clientes em Cobrança
-          </button>
-          <button
-            onClick={() => setTab('dashboard')}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'dashboard' ? 700 : 500,
-              color: tab === 'dashboard' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'dashboard' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            onClick={() => setTab('fluxo')}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'fluxo' ? 700 : 500,
-              color: tab === 'fluxo' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'fluxo' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            📈 Fluxo de Caixa
-          </button>
-          <button
-            onClick={() => setTab('historico')}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'historico' ? 700 : 500,
-              color: tab === 'historico' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'historico' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            📅 Histórico
-          </button>
-          <button
-            onClick={() => setTab('clientes')}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'clientes' ? 700 : 500,
-              color: tab === 'clientes' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'clientes' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            👥 Clientes
-          </button>
-          <button
-            onClick={() => { setInitialParcelasFilter(null); setTab('parcelas') }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '8px 12px',
-              fontSize: 13,
-              fontWeight: tab === 'parcelas' ? 700 : 500,
-              color: tab === 'parcelas' ? (t.primary || '#E8192C') : t.textMid,
-              cursor: 'pointer',
-              borderBottom: tab === 'parcelas' ? `2px solid ${t.primary || '#E8192C'}` : 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            💳 Parcelas
-          </button>
+        {/* Cards de totalizadores — flat, sem borda, hierarquia por tamanho */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 4, marginBottom: 20 }}>
+          <Card Icon={CreditCard} label="Total em Atraso" value={formatCurrency(totalizadores.totalAtraso)} tone="danger" />
+          <Card Icon={AlertTriangle} label="Clientes Atrasados" value={totalizadores.qtdAtrasados} tone="warning" />
+          <Card Icon={Clock} label="Dias Médios" value={`${totalizadores.diasMedia}d`} tone="neutral" />
+          <Card Icon={BarChart3} label="Total a Receber" value={formatCurrency(totalizadores.totalReceber)} tone="neutral" />
+          <Card Icon={CheckCircle2} label="Valores Pagos" value={formatCurrency(totalizadores.totalRecebido || 0)} tone="success" />
+          <Card Icon={Flame} label="Crítico (15+)" value={totalizadores.critico} tone="danger" />
+          <Card Icon={Circle} label="Urgente (6-15)" value={totalizadores.urgente} tone="warning" />
         </div>
-
-        {/* Cards de totalizadores */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
-          <Card icon="💵" label="Total em Atraso" value={formatCurrency(totalizadores.totalAtraso)} color="#DC2626" />
-          <Card icon="⚠️" label="Clientes Atrasados" value={totalizadores.qtdAtrasados} color="#F59E0B" />
-          <Card icon="📅" label="Dias Médios" value={`${totalizadores.diasMedia}d`} color="#3B82F6" />
-          <Card icon="📊" label="Total a Receber" value={formatCurrency(totalizadores.totalReceber)} color="#10B981" />
-          <Card icon="✅" label="Valores Pagos" value={formatCurrency(totalizadores.totalRecebido || 0)} color="#10B981" />
-          <Card icon="🔴" label="Crítico (15+)" value={totalizadores.critico} color="#DC2626" />
-          <Card icon="🟠" label="Urgente (6-15)" value={totalizadores.urgente} color="#F59E0B" />
-        </div>
-
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
       {/* Conteúdo */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
@@ -295,7 +243,7 @@ export default function CobrancasPage() {
 
         {/* Clientes */}
         {tab === 'clientes' && (
-          <ClientesTab clientes={clientes} search={clienteSearch} setSearch={setClienteSearch} sortBy={clienteSortBy} setSortBy={setClienteSortBy} theme={t} sincronizarTelefones={sincronizarTelefones} sincronizandoTelefones={sincronizandoTelefones} />
+          <ClientesTab clientes={clientes} search={clienteSearch} setSearch={setClienteSearch} sortBy={clienteSortBy} setSortBy={setClienteSortBy} theme={t} sincronizarTelefones={sincronizarTelefones} sincronizandoTelefones={sincronizandoTelefones} clienteSelecionado={clienteSelecionado} setClienteSelecionado={setClienteSelecionado} />
         )}
 
         {/* Parcelas */}
@@ -305,9 +253,24 @@ export default function CobrancasPage() {
             theme={t}
             initialClienteFilter={initialParcelasFilter}
             onClearInitialFilter={() => setInitialParcelasFilter(null)}
+            setClienteSelecionado={setClienteSelecionado}
+            setPagamentoModalCobranca={setPagamentoModalCobranca}
           />
         )}
       </div>
+
+      {clienteSelecionado && (
+        <WhatsAppSendModal
+          cliente={clienteSelecionado}
+          // Este mount é compartilhado por ParcelasTab (passa a própria parcela
+          // normalizada, que tem valorTotal) e ClientesTab (passa um Cliente cru, sem
+          // valorTotal) — heurística local só pra decidir se há 1 parcela em contexto
+          // ou nenhuma; nunca resolve valor/vencimento/PIX aqui.
+          parcelas={typeof clienteSelecionado.valorTotal === 'number' ? [clienteSelecionado] : []}
+          theme={t}
+          onClose={() => setClienteSelecionado(null)}
+        />
+      )}
 
       {pagamentoModalCobranca && (
         <PagamentoModal
@@ -404,24 +367,29 @@ function PagamentoModal({ cobranca, theme: t, onClose, onSalvo }) {
   )
 }
 
-function Card({ icon, label, value, color }) {
+const CARD_TONES = {
+  neutral: '#71717A',
+  success: '#059669',
+  warning: '#B45309',
+  danger: '#DC2626',
+}
+
+function Card({ Icon, label, value, tone = 'neutral' }) {
   const { theme: t } = useTheme()
+  const toneColor = CARD_TONES[tone]
   return (
     <div style={{
-      background: t.bgSecondary,
-      border: `1px solid ${t.border}`,
-      borderRadius: 8,
-      padding: 14,
+      padding: '12px 16px',
       display: 'flex',
-      alignItems: 'center',
-      gap: 10,
+      flexDirection: 'column',
+      gap: 6,
     }}>
-      <div style={{ fontSize: 24 }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color }}>
-          {value}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.textMuted }}>
+        {Icon && <Icon size={12} strokeWidth={2} style={{ color: toneColor }} />}
+        <span style={{ fontSize: 11, fontWeight: 500 }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: '-0.01em' }}>
+        {value}
       </div>
     </div>
   )
@@ -607,7 +575,7 @@ function FluxoCaixaCobrancas({ cobrancas, totalizadores, theme: t }) {
   )
 }
 
-function ClientesTab({ clientes, search, setSearch, sortBy, setSortBy, theme: t, sincronizarTelefones, sincronizandoTelefones }) {
+function ClientesTab({ clientes, search, setSearch, sortBy, setSortBy, theme: t, sincronizarTelefones, sincronizandoTelefones, clienteSelecionado, setClienteSelecionado }) {
   const [filterSemTelefone, setFilterSemTelefone] = useState(false)
 
   // Contar clientes sem telefone
@@ -644,177 +612,173 @@ function ClientesTab({ clientes, search, setSearch, sortBy, setSortBy, theme: t,
   }, [clientes, search, sortBy, filterSemTelefone])
 
   return (
-    <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-      {/* Botão de Sincronização */}
-      <button
-        onClick={sincronizarTelefones}
-        disabled={sincronizandoTelefones}
-        style={{
-          marginBottom: 16,
-          padding: '10px 16px',
-          background: sincronizandoTelefones ? '#9CA3AF' : '#10B981',
-          color: '#FFFFFF',
-          border: 'none',
-          borderRadius: 8,
-          cursor: sincronizandoTelefones ? 'not-allowed' : 'pointer',
-          fontWeight: 600,
-          fontSize: 13,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          transition: 'all 0.2s',
-        }}
-      >
-        {sincronizandoTelefones ? '⏳ Sincronizando...' : '🔄 Sincronizar Telefones do Base44'}
-      </button>
-
-      {/* Contador de Clientes Sem Telefone */}
-      {clientesSemTelefone > 0 && (
-        <div style={{
-          marginBottom: 16,
-          padding: 12,
-          background: '#FEF3C7',
-          border: '1px solid #FBBF24',
-          borderRadius: 8,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <div style={{ fontSize: 13, color: '#92400E', fontWeight: 600 }}>
-            ⚠️ {clientesSemTelefone} cliente{clientesSemTelefone !== 1 ? 's' : ''} sem telefone
-          </div>
-          <button
-            onClick={() => setFilterSemTelefone(!filterSemTelefone)}
-            style={{
-              padding: '4px 12px',
-              fontSize: 12,
-              background: filterSemTelefone ? '#FBBF24' : t.bgTertiary,
-              color: filterSemTelefone ? '#FFFFFF' : t.textMid,
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontWeight: 600,
-              transition: 'all 0.2s',
-            }}
-          >
-            {filterSemTelefone ? '✓ Filtrando' : 'Filtrar'}
-          </button>
-        </div>
-      )}
-
-      {/* Filtros e Busca */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+    <div style={{ padding: '24px 24px 32px', overflowY: 'auto', flex: 1 }}>
+      {/* Busca, ordenação e sincronizar — mesmo padrão da aba Clientes em Cobrança */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 280 }}>
+          <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome, telefone ou documento..."
+            placeholder="Buscar por nome, telefone ou documento"
             style={{
-              flex: 1,
-              border: `1px solid ${t.border}`,
-              borderRadius: 8,
-              padding: '8px 12px',
+              width: '100%',
+              border: 'none',
+              borderRadius: 6,
+              padding: '8px 12px 8px 32px',
               fontSize: 13,
-              background: t.inputBg,
+              background: t.bgTertiary,
               color: t.text,
               outline: 'none',
             }}
           />
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
+        </div>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{
+            border: 'none',
+            borderRadius: 6,
+            padding: '8px 12px',
+            fontSize: 13,
+            background: t.bgTertiary,
+            color: t.textMid,
+            outline: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="nome-asc">Nome (A → Z)</option>
+          <option value="nome-desc">Nome (Z → A)</option>
+          <option value="telefone">Telefone</option>
+          <option value="cidade">Cidade</option>
+        </select>
+        {clientesSemTelefone > 0 && (
+          <button
+            onClick={() => setFilterSemTelefone(!filterSemTelefone)}
             style={{
-              border: `1px solid ${t.border}`,
-              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
               padding: '8px 12px',
-              fontSize: 13,
-              background: t.inputBg,
-              color: t.text,
-              outline: 'none',
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: filterSemTelefone ? t.text : t.bgTertiary,
+              color: filterSemTelefone ? t.bg : '#B45309',
+              border: 'none',
+              borderRadius: 6,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
-            <option value="nome-asc">Nome (A → Z)</option>
-            <option value="nome-desc">Nome (Z → A)</option>
-            <option value="telefone">Telefone</option>
-            <option value="cidade">Cidade</option>
-          </select>
-        </div>
+            <AlertTriangle size={13} strokeWidth={2} />
+            {clientesSemTelefone} sem telefone
+          </button>
+        )}
+        <button
+          onClick={sincronizarTelefones}
+          disabled={sincronizandoTelefones}
+          style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            border: 'none',
+            borderRadius: 6,
+            padding: '8px 14px',
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: t.bgTertiary,
+            color: t.textMid,
+            cursor: sincronizandoTelefones ? 'not-allowed' : 'pointer',
+            opacity: sincronizandoTelefones ? 0.6 : 1,
+            transition: 'background-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { if (!sincronizandoTelefones) { e.currentTarget.style.background = t.bgSecondary; e.currentTarget.style.color = t.text } }}
+          onMouseLeave={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.textMid }}
+        >
+          <RefreshCw size={13} strokeWidth={2} style={sincronizandoTelefones ? { animation: 'spin 0.8s linear infinite' } : undefined} />
+          Sincronizar Base44
+        </button>
       </div>
 
-      {/* Lista de Clientes */}
+      <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>
+        {clientesFiltrados.length} de {clientes.length} clientes
+      </div>
+
+      {/* Lista de Clientes — mesma densidade e tipografia da aba Clientes em Cobrança */}
       {clientesFiltrados.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: t.textMuted, fontSize: 13 }}>
+        <div style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, fontSize: 14 }}>
           Nenhum cliente encontrado
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-          {clientesFiltrados.map(cliente => {
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {clientesFiltrados.map((cliente, idx) => {
             const semTelefone = !cliente.telefone || cliente.telefone === '-'
             return (
-            <div
-              key={cliente.id}
-              style={{
-                background: semTelefone ? '#F3F4F6' : t.bgSecondary,
-                border: `1px solid ${semTelefone ? '#E5E7EB' : t.border}`,
-                borderRadius: 8,
-                padding: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                opacity: semTelefone ? 0.75 : 1,
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: t.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {semTelefone && <span>⚠️</span>}
-                {cliente.nome}
+              <div
+                key={cliente.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '11px 12px',
+                  borderBottom: idx < clientesFiltrados.length - 1 ? `1px solid ${t.borderLight || t.border}` : 'none',
+                  background: t.bg,
+                  opacity: semTelefone ? 0.6 : 1,
+                  transition: 'background-color 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = t.bgSecondary}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = t.bg}
+              >
+                <div style={{ flex: '0 0 220px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 600, color: t.text }}>
+                  {cliente.nome}
+                </div>
+
+                <div style={{ flex: '0 0 150px', fontSize: 12, color: semTelefone ? '#B45309' : t.textMid, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Phone size={12} strokeWidth={2} />
+                  {semTelefone ? 'Sem telefone' : cliente.telefone}
+                </div>
+
+                <div style={{ flex: '0 0 130px', fontSize: 12, color: t.textMuted }}>
+                  {cliente.documento && cliente.documento !== '-' ? cliente.documento : '—'}
+                </div>
+
+                <div style={{ flex: '0 0 140px', fontSize: 12, color: t.textMuted }}>
+                  {(cliente.cidade || cliente.estado) ? `${cliente.cidade || ''}${cliente.estado ? ` - ${cliente.estado}` : ''}` : '—'}
+                </div>
+
+                <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: t.text }}>
+                  {cliente.limiteCredito > 0 ? formatCurrency(cliente.limiteCredito) : ''}
+                </div>
+
+                <button
+                  onClick={() => setClienteSelecionado(cliente)}
+                  disabled={semTelefone}
+                  title={semTelefone ? 'Cliente sem telefone válido' : 'Enviar mensagem'}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'transparent',
+                    color: semTelefone ? t.borderMid : t.textMid,
+                    cursor: semTelefone ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { if (!semTelefone) { e.currentTarget.style.background = '#ECFDF5'; e.currentTarget.style.color = '#059669' } }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = semTelefone ? t.borderMid : t.textMid }}
+                >
+                  <MessageCircle size={15} strokeWidth={2} />
+                </button>
               </div>
-
-              {cliente.telefone && cliente.telefone !== '-' ? (
-                <div style={{ fontSize: 11, color: t.textMuted }}>
-                  📱 {cliente.telefone}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>
-                  🚨 Sem telefone
-                </div>
-              )}
-
-              {cliente.documento && cliente.documento !== '-' && (
-                <div style={{ fontSize: 11, color: t.textMuted }}>
-                  🆔 {cliente.documento}
-                </div>
-              )}
-
-              {cliente.email && cliente.email !== '-' && (
-                <div style={{ fontSize: 11, color: t.textMuted }}>
-                  ✉️ {cliente.email}
-                </div>
-              )}
-
-              {(cliente.cidade || cliente.estado) && (
-                <div style={{ fontSize: 11, color: t.textMuted }}>
-                  📍 {cliente.cidade}{cliente.estado ? ` - ${cliente.estado}` : ''}
-                </div>
-              )}
-
-              {cliente.limiteCredito > 0 && (
-                <div style={{ fontSize: 11, color: t.primary, fontWeight: 600 }}>
-                  Limite: R$ {cliente.limiteCredito.toFixed(2)}
-                </div>
-              )}
-            </div>
             )
           })}
         </div>
       )}
-
-      {/* Info */}
-      <div style={{ marginTop: 20, padding: 12, background: t.bgTertiary, borderRadius: 6 }}>
-        <div style={{ fontSize: 11, color: t.textMuted }}>
-          ✅ <strong>Clientes sincronizados:</strong> {clientesFiltrados.length} de {clientes.length} registros do Base44
-        </div>
-      </div>
     </div>
   )
 }
@@ -857,130 +821,156 @@ function HistoricoAtividadesCobrancas({ atividades: atividadesRaw, theme: t }) {
   }, [atividades])
 
   const tipoConfig = {
-    pagamento: { icon: '✅', cor: '#10B981', label: 'Pagamento' },
-    edicao: { icon: '📝', cor: '#3B82F6', label: 'Edição' },
-    importacao: { icon: '📥', cor: '#F59E0B', label: 'Importação' },
-    exclusao: { icon: '🗑️', cor: '#DC2626', label: 'Exclusão' },
-    novo: { icon: '🆕', cor: '#8B5CF6', label: 'Novo' },
-    outro: { icon: '📋', cor: '#6B7280', label: 'Outro' },
+    pagamento: { Icon: CheckCircle2, cor: '#059669', bg: '#ECFDF5', label: 'Pagamento' },
+    edicao: { Icon: PencilLine, cor: '#52525B', bg: '#F4F4F5', label: 'Edição' },
+    importacao: { Icon: Import, cor: '#B45309', bg: '#FFFBEB', label: 'Importação' },
+    exclusao: { Icon: Trash2, cor: '#DC2626', bg: '#FEF2F2', label: 'Exclusão' },
+    novo: { Icon: PlusCircle, cor: '#52525B', bg: '#F4F4F5', label: 'Novo' },
+    outro: { Icon: FileText, cor: '#52525B', bg: '#F4F4F5', label: 'Outro' },
   }
-  const tipoFallback = { icon: '📋', cor: '#6B7280', label: 'Atividade' }
+  const tipoFallback = { Icon: FileText, cor: '#52525B', bg: '#F4F4F5', label: 'Atividade' }
+
+  const filtrosTipo = [
+    { id: 'todos', label: 'Todos' },
+    { id: 'pagamento', label: 'Pagamento' },
+    { id: 'edicao', label: 'Edição' },
+    { id: 'importacao', label: 'Importação' },
+    { id: 'exclusao', label: 'Exclusão' },
+  ]
 
   return (
-    <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-      {/* Filtros */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 9, color: t.textMuted, fontWeight: 600, marginBottom: 8 }}>TIPO DE ATIVIDADE</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-          {['todos', 'pagamento', 'edicao', 'importacao', 'exclusao'].map(tipo => (
-            <button
-              key={tipo}
-              onClick={() => setFiltroTipo(tipo)}
-              style={{
-                fontSize: 11,
-                padding: '6px 12px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                background: filtroTipo === tipo ? (t.primary || '#E8192C') : t.bgTertiary,
-                color: filtroTipo === tipo ? '#fff' : t.textMid,
-                fontWeight: filtroTipo === tipo ? 600 : 500,
-                transition: 'all 0.12s',
-              }}
-            >
-              {tipo === 'todos' ? 'Todos' : tipoConfig[tipo]?.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Busca */}
+    <div style={{ padding: '24px 24px 32px', overflowY: 'auto', flex: 1 }}>
+      {/* Busca + filtros — mesmo padrão das demais abas */}
+      <div style={{ position: 'relative', width: 300, marginBottom: 12 }}>
+        <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
         <input
           type="text"
-          placeholder="Buscar por cliente..."
+          placeholder="Buscar por cliente"
           value={busca}
           onChange={e => setBusca(e.target.value)}
           style={{
             width: '100%',
-            padding: '8px 12px',
-            fontSize: 12,
+            border: 'none',
             borderRadius: 6,
-            border: `1px solid ${t.border}`,
+            padding: '8px 12px 8px 32px',
+            fontSize: 13,
             background: t.bgTertiary,
             color: t.text,
-            boxSizing: 'border-box',
+            outline: 'none',
           }}
         />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
+        {filtrosTipo.map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFiltroTipo(f.id)}
+            style={{
+              fontSize: 12.5,
+              padding: '6px 12px',
+              borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              background: filtroTipo === f.id ? t.text : 'transparent',
+              color: filtroTipo === f.id ? t.bg : t.textMid,
+              fontWeight: 600,
+              transition: 'all 0.15s',
+            }}
+          >
+            {f.label}{f.id !== 'todos' ? ` · ${atividadesRaw.filter(a => a.tipo === f.id).length}` : ` · ${atividadesRaw.length}`}
+          </button>
+        ))}
       </div>
 
       {/* Timeline de Atividades */}
       <div>
         {Object.entries(atividadesPorData).length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: t.textMuted }}>
-            📭 Nenhuma atividade encontrada
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: t.textMuted, fontSize: 14 }}>
+            Nenhuma atividade encontrada
           </div>
         ) : (
           Object.entries(atividadesPorData).map(([dataLabel, ativs]) => (
-            <div key={dataLabel} style={{ marginBottom: 24 }}>
+            <div key={dataLabel} style={{ marginBottom: 20 }}>
               {/* Cabeçalho da data */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${t.border}` }}>
-                {dataLabel} ({ativs.length})
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 10 }}>
+                {dataLabel} · {ativs.length}
               </div>
 
-              {/* Cards de atividade */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {ativs.map(a => {
+              {/* Linhas de atividade */}
+              <div>
+                {ativs.map((a, idx) => {
                   const config = tipoConfig[a.tipo] ?? tipoFallback
+                  const { Icon } = config
                   return (
                     <div
                       key={a.id}
                       style={{
                         display: 'flex',
                         gap: 12,
-                        padding: 12,
-                        background: t.bgSecondary,
-                        border: `1px solid ${t.border}`,
-                        borderRadius: 8,
+                        padding: '10px 4px',
                         alignItems: 'flex-start',
+                        borderBottom: idx < ativs.length - 1 ? `1px solid ${t.borderLight || t.border}` : 'none',
                       }}
                     >
-                      {/* Ícone com cor */}
+                      {/* Ícone com fundo semântico sutil */}
                       <div
                         style={{
-                          fontSize: 20,
-                          minWidth: 28,
-                          textAlign: 'center',
-                          opacity: 0.8,
+                          width: 26,
+                          height: 26,
+                          borderRadius: 6,
+                          background: config.bg,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          marginTop: 1,
                         }}
                       >
-                        {config.icon}
+                        <Icon size={14} strokeWidth={2} style={{ color: config.cor }} />
                       </div>
 
-                      {/* Conteúdo */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: t.text, marginBottom: 3 }}>
-                          {a.descricao}
-                        </div>
-                        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
-                          {a.entityId || '-'}
-                        </div>
+                      {/* Conteúdo — nome do cliente em destaque (mesmo padrão das abas Clientes),
+                          descrição da ação vira legenda secundária. Só quando temos clienteNome
+                          de verdade; sem isso, cai no comportamento antigo (descrição como título). */}
+                      {(() => {
+                        const temNomeCliente = a.clienteNome && a.clienteNome !== '-'
+                        return (
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: temNomeCliente ? 14 : 13, fontWeight: temNomeCliente ? 700 : 600, color: t.text }}>
+                              {temNomeCliente ? a.clienteNome : a.descricao}
+                            </div>
+                            {temNomeCliente && (
+                              <div style={{ fontSize: 12, color: t.textMid, marginTop: 2 }}>
+                                {a.descricao}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 11.5, color: t.textMuted, marginTop: 2 }}>
+                              {a.entityId || '-'}
+                            </div>
 
-                        {/* Valores */}
-                        <div style={{ display: 'flex', gap: 16, fontSize: 11 }}>
-                          {a.valor > 0 && (
-                            <span style={{ fontWeight: 600, color: config.cor }}>
-                              R$ {a.valor.toFixed(2)}
-                            </span>
-                          )}
-                          {a.valorAnterior && (
-                            <span style={{ color: t.textMuted, textDecoration: 'line-through' }}>
-                              R$ {a.valorAnterior} → {a.valorNovo}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                            {/* Valores */}
+                            {(a.valor > 0 || a.valorAnterior) && (
+                              <div style={{ display: 'flex', gap: 16, fontSize: 12, marginTop: 4 }}>
+                                {a.valor > 0 && (
+                                  <span style={{ fontWeight: 700, color: config.cor, fontVariantNumeric: 'tabular-nums' }}>
+                                    {formatCurrency(a.valor)}
+                                  </span>
+                                )}
+                                {a.valorAnterior && (
+                                  <span style={{ color: t.textMuted, fontVariantNumeric: 'tabular-nums' }}>
+                                    {a.valorAnterior} → {a.valorNovo}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {/* Hora */}
-                      <div style={{ fontSize: 11, color: t.textMuted, textAlign: 'right', minWidth: 60 }}>
+                      <div style={{ fontSize: 11.5, color: t.textMuted, textAlign: 'right', minWidth: 60, fontVariantNumeric: 'tabular-nums', paddingTop: 1 }}>
                         {new Date(a.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
@@ -990,13 +980,6 @@ function HistoricoAtividadesCobrancas({ atividades: atividadesRaw, theme: t }) {
             </div>
           ))
         )}
-      </div>
-
-      {/* Info */}
-      <div style={{ marginTop: 20, padding: 12, background: t.bgTertiary, borderRadius: 6 }}>
-        <div style={{ fontSize: 11, color: t.textMuted }}>
-          ✅ <strong>Histórico em tempo real:</strong> Dados sincronizados da entidade ActivityLog do Base44 ({atividades.length} registros)
-        </div>
       </div>
     </div>
   )
