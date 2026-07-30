@@ -84,6 +84,14 @@
 //                           e a chamada real a enviarMensagemManualWhatsapp (Base44) com
 //                           MENSAGEM_MANUAL_SERVICE_TOKEN. Nenhuma lógica nova aqui — só
 //                           o roteamento que faltava (o proxy já existia, sem case no switch).
+// ?tool=mcp               → IGNITE PRIME MCP Lite (POC mínima, somente leitura). Implementa
+//                           só o necessário do protocolo MCP (JSON-RPC 2.0 sobre HTTP POST)
+//                           pra um cliente remoto (GPT Maker/Hermes) completar o handshake:
+//                           initialize, notifications/initialized, tools/list, tools/call.
+//                           Única ferramenta anunciada nesta fase: verificar_conexao (sem
+//                           parâmetros, não toca Supabase/Base44/Z-API). Exige header
+//                           Authorization: Bearer <MCP_LITE_SECRET> — segredo próprio,
+//                           nunca compartilhado com CRON_SECRET/LYRA_WEBHOOK_SECRET/etc.
 
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
@@ -152,6 +160,9 @@ const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
 const WHATSAPP_INTERNAL_TOKEN = process.env.WHATSAPP_INTERNAL_TOKEN
 const WHATSAPP_PROVIDER_URL = 'https://prime-vip.base44.app/functions/whatsappProvider'
 const LYRA_WEBHOOK_SECRET = process.env.LYRA_WEBHOOK_SECRET
+
+// tool=mcp — segredo próprio, independente de todos os outros deste arquivo.
+const MCP_LITE_SECRET = process.env.MCP_LITE_SECRET
 
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
 const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
@@ -1484,6 +1495,149 @@ async function ocrOpenRouter(req, res) {
   return openrouterChatProxy(req, res, new Set(curated.map(m => m.id)), 'ocr-openrouter')
 }
 
+// ============================================================================
+// tool=mcp — IGNITE PRIME MCP Lite (POC mínima). Implementa só o necessário do
+// protocolo MCP (JSON-RPC 2.0 sobre HTTP) pra provar handshake completo com um
+// cliente remoto (GPT Maker/Hermes): initialize, notifications/initialized,
+// tools/list, tools/call. Única ferramenta anunciada: verificar_conexao (sem
+// parâmetros, somente leitura, não toca Supabase/Base44/Z-API/nenhum service
+// real do projeto). Autenticação própria via MCP_LITE_SECRET, comparada só
+// aqui — nunca aceita nem concede acesso a nenhum outro `case` deste arquivo.
+// ============================================================================
+
+const MCP_PROTOCOL_VERSION = '2024-11-05'
+const MCP_SERVER_NAME = 'ignite-prime-mcp-lite'
+const MCP_SERVER_VERSION = '0.1.0-poc'
+
+const MCP_TOOLS = [
+  {
+    name: 'verificar_conexao',
+    description: 'Verifica se o IGNITE PRIME MCP Lite está conectado e respondendo corretamente.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+]
+
+function mcpJsonRpcError(id, code, message) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message } }
+}
+
+function mcpJsonRpcResult(id, result) {
+  // `?? null` pelo mesmo motivo de mcpJsonRpcError: sem isso, um `id` undefined
+  // faria o JSON.stringify omitir a chave `id` inteira da resposta.
+  return { jsonrpc: '2.0', id: id ?? null, result }
+}
+
+function mcpToolCallVerificarConexao(args) {
+  // Ferramenta não aceita parâmetros — qualquer argumento extra é rejeitado
+  // (defesa em profundidade, além do additionalProperties:false do schema).
+  if (args && typeof args === 'object' && Object.keys(args).length > 0) {
+    return { isError: true, content: [{ type: 'text', text: 'Esta ferramenta não aceita parâmetros.' }] }
+  }
+  const mensagem = 'IGNITE PRIME MCP Lite conectado com sucesso.'
+  return {
+    isError: false,
+    content: [{ type: 'text', text: mensagem }],
+    structuredContent: {
+      status: 'ok',
+      sistema: 'IGNITE PRIME MCP Lite',
+      modo: 'somente leitura',
+      mensagem,
+    },
+  }
+}
+
+// Processa 1 mensagem JSON-RPC já parseada. Retorna `null` pra notificações
+// (não devem gerar corpo de resposta) e um objeto JSON-RPC pra requests.
+function mcpHandleMessage(msg) {
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+    return mcpJsonRpcError(null, -32600, 'Invalid Request')
+  }
+  const { id, method, params } = msg
+
+  // Notificação = Request object sem o campo "id" (JSON-RPC 2.0 §4.1, herdado
+  // pelo MCP) — não é definido pelo nome do método. O servidor nunca deve
+  // responder a uma notificação, seja ela notifications/initialized ou
+  // qualquer outra (ex.: notifications/cancelled, notifications/progress).
+  if (!('id' in msg)) {
+    return null
+  }
+
+  if (method === 'initialize') {
+    return mcpJsonRpcResult(id, {
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      capabilities: { tools: {} },
+      serverInfo: { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
+    })
+  }
+
+  if (method === 'tools/list') {
+    return mcpJsonRpcResult(id, { tools: MCP_TOOLS })
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params?.name
+    if (toolName === 'verificar_conexao') {
+      return mcpJsonRpcResult(id, mcpToolCallVerificarConexao(params?.arguments))
+    }
+    // Ferramenta desconhecida — request válido, execução falhou. Padrão MCP:
+    // isError:true no result, não erro de protocolo JSON-RPC (não confundir
+    // "ferramenta não existe" com "chamada malformada").
+    return mcpJsonRpcResult(id, {
+      isError: true,
+      content: [{ type: 'text', text: `Ferramenta desconhecida: ${String(toolName || '')}` }],
+    })
+  }
+
+  if (method === 'ping') {
+    return mcpJsonRpcResult(id, {})
+  }
+
+  return mcpJsonRpcError(id, -32601, `Method not found: ${String(method || '')}`)
+}
+
+async function mcpTool(req, res) {
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+    return res.status(204).end()
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  let body = req.body
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body)
+    } catch {
+      return res.status(200).json(mcpJsonRpcError(null, -32700, 'Parse error'))
+    }
+  }
+  if (!body || typeof body !== 'object') {
+    return res.status(200).json(mcpJsonRpcError(null, -32700, 'Parse error'))
+  }
+
+  try {
+    // Batch JSON-RPC (array) suportado pelo protocolo, ainda que raramente usado
+    // por clientes MCP reais.
+    if (Array.isArray(body)) {
+      const respostas = body.map(mcpHandleMessage).filter(Boolean)
+      if (respostas.length === 0) return res.status(202).end()
+      return res.status(200).json(respostas)
+    }
+
+    const resposta = mcpHandleMessage(body)
+    if (resposta === null) return res.status(202).end() // notification, sem corpo
+    return res.status(200).json(resposta)
+  } catch (e) {
+    // Nunca stack trace nem detalhe interno pro cliente — só log seguro (sem
+    // Authorization, sem body bruto).
+    console.error('[system-tools:mcp] Erro interno:', e.message)
+    return res.status(200).json(mcpJsonRpcError(body?.id ?? null, -32603, 'Internal error'))
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -1814,7 +1968,24 @@ export default async function handler(req, res) {
       }
     }
 
+    case 'mcp': {
+      // Preflight de CORS não carrega Authorization — liberado sem checar segredo,
+      // igual ao padrão já usado em gerar-cobranca-lyra.
+      if (req.method === 'OPTIONS') {
+        return mcpTool(req, res)
+      }
+      if (!MCP_LITE_SECRET) {
+        console.error('[system-tools:mcp] Configuração ausente: MCP_LITE_SECRET não definida')
+        return res.status(500).json({ error: 'MCP_LITE_SECRET não configurado' })
+      }
+      const authHeader = req.headers.authorization
+      if (authHeader !== `Bearer ${MCP_LITE_SECRET}`) {
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+      return mcpTool(req, res)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status ou mensagem-manual)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual ou mcp)' })
   }
 }
