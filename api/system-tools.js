@@ -84,12 +84,14 @@
 //                           e a chamada real a enviarMensagemManualWhatsapp (Base44) com
 //                           MENSAGEM_MANUAL_SERVICE_TOKEN. Nenhuma lógica nova aqui — só
 //                           o roteamento que faltava (o proxy já existia, sem case no switch).
-// ?tool=mcp               → IGNITE PRIME MCP Lite (POC mínima, somente leitura). Implementa
-//                           só o necessário do protocolo MCP (JSON-RPC 2.0 sobre HTTP POST)
-//                           pra um cliente remoto (GPT Maker/Hermes) completar o handshake:
-//                           initialize, notifications/initialized, tools/list, tools/call.
-//                           Única ferramenta anunciada nesta fase: verificar_conexao (sem
-//                           parâmetros, não toca Supabase/Base44/Z-API). Exige header
+// ?tool=mcp               → IGNITE PRIME MCP Lite, somente leitura. Implementa só o
+//                           necessário do protocolo MCP (JSON-RPC 2.0 sobre HTTP POST)
+//                           pra um cliente remoto (GPT Maker/Gabriela) completar o
+//                           handshake: initialize, notifications/initialized, tools/list,
+//                           tools/call. Ferramentas anunciadas: verificar_conexao (sem
+//                           parâmetros), consultar_cobrancas (Base44 PRIME, nunca Lyra) e
+//                           consultar_cep (ViaCEP, sem segredo/autenticação externa).
+//                           Nenhuma delas escreve em nada. Exige header
 //                           Authorization: Bearer <MCP_LITE_SECRET> — segredo próprio,
 //                           nunca compartilhado com CRON_SECRET/LYRA_WEBHOOK_SECRET/etc.
 
@@ -97,6 +99,7 @@ import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
 import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
 import { consultarCobrancas } from './_consultarCobrancas.js'
+import { consultarCep } from './_consultarCep.js'
 import {
   checarRateLimitMensagemManualBestEffort,
   iniciarRequestIdSeLivre,
@@ -169,6 +172,25 @@ function checarRateLimitConsultarCobrancasBestEffort(ip) {
   historico.push(agora)
   tentativasConsultarCobrancasPorIp.set(chave, historico)
   return historico.length <= CONSULTAR_COBRANCAS_RATE_LIMIT_MAX_POR_IP
+}
+
+// Rate limit best-effort exclusivo de consultar_cep (tool=mcp) — Map próprio, mesmo
+// motivo dos outros dois acima (orçamentos de features diferentes não devem se
+// misturar). ViaCEP é público e sem custo por chamada, então o limite aqui existe só
+// pra conter um loop/bug descontrolado martelando o serviço externo, não por risco
+// de dado sensível — por isso o mesmo teto generoso de consultar_cobrancas.
+const tentativasConsultarCepPorIp = new Map()
+const CONSULTAR_CEP_RATE_LIMIT_JANELA_MS = 60 * 1000
+const CONSULTAR_CEP_RATE_LIMIT_MAX_POR_IP = 60
+
+function checarRateLimitConsultarCepBestEffort(ip) {
+  const agora = Date.now()
+  const chave = ip || 'desconhecido'
+  const historico = (tentativasConsultarCepPorIp.get(chave) || [])
+    .filter(t => agora - t < CONSULTAR_CEP_RATE_LIMIT_JANELA_MS)
+  historico.push(agora)
+  tentativasConsultarCepPorIp.set(chave, historico)
+  return historico.length <= CONSULTAR_CEP_RATE_LIMIT_MAX_POR_IP
 }
 
 const VERCEL_TOKEN = process.env.VERCEL_ACCESS_TOKEN
@@ -1521,13 +1543,13 @@ async function ocrOpenRouter(req, res) {
 }
 
 // ============================================================================
-// tool=mcp — IGNITE PRIME MCP Lite (POC mínima). Implementa só o necessário do
-// protocolo MCP (JSON-RPC 2.0 sobre HTTP) pra provar handshake completo com um
-// cliente remoto (GPT Maker/Hermes): initialize, notifications/initialized,
-// tools/list, tools/call. Única ferramenta anunciada: verificar_conexao (sem
-// parâmetros, somente leitura, não toca Supabase/Base44/Z-API/nenhum service
-// real do projeto). Autenticação própria via MCP_LITE_SECRET, comparada só
-// aqui — nunca aceita nem concede acesso a nenhum outro `case` deste arquivo.
+// tool=mcp — IGNITE PRIME MCP Lite, somente leitura. Implementa o necessário do
+// protocolo MCP (JSON-RPC 2.0 sobre HTTP) pro handshake completo com um cliente
+// remoto (GPT Maker/Gabriela): initialize, notifications/initialized, tools/list,
+// tools/call. Ferramentas anunciadas: verificar_conexao, consultar_cobrancas
+// (Base44 PRIME) e consultar_cep (ViaCEP) — nenhuma escreve em nada. Autenticação
+// própria via MCP_LITE_SECRET, comparada só aqui — nunca aceita nem concede acesso
+// a nenhum outro `case` deste arquivo.
 // ============================================================================
 
 const MCP_PROTOCOL_VERSION = '2024-11-05'
@@ -1579,6 +1601,21 @@ const MCP_TOOLS = [
       ],
     },
   },
+  {
+    name: 'consultar_cep',
+    description: 'Consulta um CEP brasileiro e retorna os dados públicos correspondentes de endereço. Use quando o cliente informar um CEP e precisar confirmar cidade, estado, bairro ou logradouro. A ferramenta não retorna número residencial e não deve ser usada para calcular frete.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cep: {
+          type: 'string',
+          description: 'CEP brasileiro com 8 dígitos, com ou sem hífen.',
+        },
+      },
+      required: ['cep'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 function mcpJsonRpcError(id, code, message) {
@@ -1627,6 +1664,21 @@ function mcpToolCallConsultarCobrancas(resultado) {
   }
 }
 
+// Monta o content/structuredContent de tools/call a partir do resultado de
+// consultarCep({httpStatus, body}) — mesmo desenho de mcpToolCallConsultarCobrancas.
+function mcpToolCallConsultarCep(resultado) {
+  const { httpStatus, body } = resultado
+  const isError = httpStatus >= 400 || body.status === 'erro'
+  const textoResumo = body.mensagem
+    || (body.status === 'encontrado' ? `CEP encontrado: ${body.endereco.cidade}/${body.endereco.estado}.` : 'Consulta processada.')
+
+  return {
+    isError,
+    content: [{ type: 'text', text: textoResumo }],
+    structuredContent: body,
+  }
+}
+
 // Despacha tools/call pra ferramenta correta. Retorna `null` se o nome não bater
 // com nenhuma ferramenta conhecida — quem chama decide o formato de "desconhecida".
 async function mcpToolCallDispatch(toolName, args, req) {
@@ -1645,6 +1697,17 @@ async function mcpToolCallDispatch(toolName, args, req) {
     console.log('[system-tools:mcp] consultar_cobrancas chamada', { ip: ipHashCurto(ip) })
     const resultado = await consultarCobrancas(args || {})
     return mcpToolCallConsultarCobrancas(resultado)
+  }
+
+  if (toolName === 'consultar_cep') {
+    const ip = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || null
+    if (!checarRateLimitConsultarCepBestEffort(ip)) {
+      console.error('[system-tools:mcp] consultar_cep rate limit excedido', { ip: ipHashCurto(ip) })
+      return { isError: true, content: [{ type: 'text', text: 'Muitas consultas em pouco tempo — aguarde e tente novamente.' }] }
+    }
+    console.log('[system-tools:mcp] consultar_cep chamada', { ip: ipHashCurto(ip) })
+    const resultado = await consultarCep(args || {})
+    return mcpToolCallConsultarCep(resultado)
   }
 
   return null

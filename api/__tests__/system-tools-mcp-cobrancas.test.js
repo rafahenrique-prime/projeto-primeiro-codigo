@@ -70,11 +70,12 @@ describe('MCP — regressão de handshake', () => {
     expect(r._json).toBeUndefined()
   })
 
-  it('3. tools/list retorna exatamente verificar_conexao e consultar_cobrancas', async () => {
+  it('3. tools/list inclui verificar_conexao e consultar_cobrancas (lista pode crescer com novas ferramentas, ex. consultar_cep)', async () => {
     const r = await call({ headers: auth, body: { jsonrpc: '2.0', id: 2, method: 'tools/list' } })
     expect(r._status).toBe(200)
-    const nomes = r._json.result.tools.map(t => t.name).sort()
-    expect(nomes).toEqual(['consultar_cobrancas', 'verificar_conexao'])
+    const nomes = r._json.result.tools.map(t => t.name)
+    expect(nomes).toContain('verificar_conexao')
+    expect(nomes).toContain('consultar_cobrancas')
   })
 
   it('4. verificar_conexao continua funcionando', async () => {
