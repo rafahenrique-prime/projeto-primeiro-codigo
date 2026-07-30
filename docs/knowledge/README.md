@@ -79,3 +79,4 @@ _(mantido manualmente — atualizar a cada novo documento)_
 | Documento | Status | Categoria | Data | Palavras-chave |
 |---|---|---|---|---|
 | [licoes-aprendidas-whatsapp-provider-zapapi.md](licoes-aprendidas-whatsapp-provider-zapapi.md) | Resolvido | WhatsApp, Base44, Integrações | 2026-07-29 | whatsapp, zap-api, z-api, provider, migração, secrets |
+| [licoes-aprendidas-gptmaker-mcp.md](licoes-aprendidas-gptmaker-mcp.md) | Resolvido | IA, Integrações, MCP, GPT Maker | 2026-07-30 | mcp, gpt maker, consultar_cep, content, structuredContent, behavior, api oficial |

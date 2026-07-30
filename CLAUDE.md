@@ -1,6 +1,6 @@
 # CLAUDE.md — PROJETO DO CLAUDECODE
 
-**Última atualização:** 2026-07-10  
+**Última atualização:** 2026-07-30  
 **Mantido por:** Rafael Henrique  
 **Objetivo:** Garantir segurança, estabilidade e qualidade em todas as alterações
 
@@ -570,6 +570,36 @@ if (nome === 'tenis adidas') { ... }  // nunca acha
 
 ---
 
+## 🔌 GPT Maker (API oficial) e MCP
+
+Regras consolidadas após a implementação do MCP `consultar_cep` e a atualização do `behavior` da Gabriela via API (2026-07-30) — detalhes completos em [`docs/integrations/GPTMAKER-API.md`](docs/integrations/GPTMAKER-API.md) e [`docs/integrations/MCP-GUIDELINES.md`](docs/integrations/MCP-GUIDELINES.md).
+
+### GPT Maker
+
+- Preferir a **API oficial** (`api.gptmaker.ai`, `VITE_GPTMAKER_TOKEN`) a automação de navegador — mais rápida, determinística e auditável.
+- Usar navegador apenas quando não houver API oficial para a tarefa.
+- Sempre fazer `GET` antes de qualquer `PUT` em um agente.
+- Sempre fazer backup do `GET` completo (com timestamp) antes de qualquer alteração.
+- **`PUT` não faz merge parcial** — sempre enviar o objeto completo do agente (todos os campos), nunca só o campo alterado. Enviar só o campo alterado apaga os demais (já aconteceu uma vez, corrigido na hora via backup).
+- Sempre validar por `GET` após qualquer alteração, comparando campo a campo com o backup.
+
+### MCP
+
+- Sempre incluir em `content` (não só em `structuredContent`) tudo que o modelo vai precisar para responder — `content` é o que o LLM efetivamente lê.
+- Usar `structuredContent` para dados estruturados/consumo programático, nunca como única fonte de informação que o modelo precisa expor ao usuário.
+- Não assumir que o cliente MCP consumidor (GPT Maker, ou qualquer outro) entrega `structuredContent` ao modelo — na prática, muitos não entregam.
+
+## 🔢 Ordem de preferência para integrações
+
+1. API oficial
+2. MCP oficial
+3. SDK oficial
+4. CLI oficial
+5. Banco de dados
+6. Interface Web (último recurso)
+
+---
+
 ## 👥 CONTATOS E SUPORTE
 
 ### Seu Email
@@ -605,6 +635,15 @@ if (nome === 'tenis adidas') { ... }  // nunca acha
 4. Avisar se contexto mudar (novo fluxo, nova regra, etc)
 
 ---
+
+**Última alteração:** 2026-07-30 por Claude Sonnet 5  
+**O que mudou nessa sessão:**
+- Terceira ferramenta MCP publicada: `consultar_cep` (ViaCEP, pública, sem autenticação externa) — commits `6df4f67`, `cdc7242`, `58ce72d`
+- Descoberta arquitetural importante: `structuredContent` do MCP não chega ao modelo LLM em várias implementações de cliente (incluindo GPT Maker) — só `content` chega. Corrigido o `content` de `consultar_cep` para incluir todos os campos do endereço, não só um resumo
+- Bug corrigido: ViaCEP retorna `erro: "true"` como string (não booleano) para CEP inexistente
+- Behavior da Gabriela atualizado via API oficial do GPT Maker com nova seção 📍 CEP — processo formal de backup/PUT/validação estabelecido (ver seção "🔌 GPT Maker (API oficial) e MCP" abaixo)
+- Novas regras permanentes: preferir API oficial a navegador; `PUT` do GPT Maker não faz merge parcial (sempre enviar objeto completo); MCP deve colocar tudo que o modelo precisa em `content`, nunca só em `structuredContent`
+- Nova documentação: `docs/integrations/GPTMAKER-API.md`, `docs/integrations/MCP-GUIDELINES.md`, `docs/knowledge/licoes-aprendidas-gptmaker-mcp.md`
 
 **Última alteração:** 2026-07-10 por Claude Sonnet 5  
 **O que mudou nessa sessão:**
