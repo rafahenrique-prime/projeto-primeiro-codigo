@@ -1664,13 +1664,24 @@ function mcpToolCallConsultarCobrancas(resultado) {
   }
 }
 
+// Constrói texto descritivo completo do endereço, omitindo campos vazios.
+function formatarTextoEnderecoCompleto(endereco) {
+  const partes = [`CEP ${endereco.cep} encontrado.`]
+  if (endereco.logradouro) partes.push(`Logradouro: ${endereco.logradouro}`)
+  if (endereco.bairro) partes.push(`Bairro: ${endereco.bairro}`)
+  partes.push(`Cidade: ${endereco.cidade}`)
+  partes.push(`Estado: ${endereco.estado}`)
+  if (endereco.complemento) partes.push(`Complemento: ${endereco.complemento}`)
+  return partes.join('. ')
+}
+
 // Monta o content/structuredContent de tools/call a partir do resultado de
 // consultarCep({httpStatus, body}) — mesmo desenho de mcpToolCallConsultarCobrancas.
 function mcpToolCallConsultarCep(resultado) {
   const { httpStatus, body } = resultado
   const isError = httpStatus >= 400 || body.status === 'erro'
   const textoResumo = body.mensagem
-    || (body.status === 'encontrado' ? `CEP encontrado: ${body.endereco.cidade}/${body.endereco.estado}.` : 'Consulta processada.')
+    || (body.status === 'encontrado' ? formatarTextoEnderecoCompleto(body.endereco) : 'Consulta processada.')
 
   return {
     isError,

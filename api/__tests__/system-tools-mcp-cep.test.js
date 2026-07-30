@@ -75,6 +75,65 @@ describe('MCP — consultar_cep registrado e roteado corretamente', () => {
     expect(r._json.id).toBe(3)
   })
 
+  it('17a. content[0].text contém todos os campos do endereço (logradouro, bairro, cidade, estado)', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ logradouro: 'Praça da Sé', bairro: 'Sé', localidade: 'São Paulo', uf: 'SP', ibge: '3550308' }),
+    }))
+    const r = await call({
+      headers: auth,
+      body: { jsonrpc: '2.0', id: 31, method: 'tools/call', params: { name: 'consultar_cep', arguments: { cep: '01001-000' } } },
+    })
+    const textoCompleto = r._json.result.content[0].text
+    expect(textoCompleto).toContain('01001-000')
+    expect(textoCompleto).toContain('Praça da Sé')
+    expect(textoCompleto).toContain('Sé')
+    expect(textoCompleto).toContain('São Paulo')
+    expect(textoCompleto).toContain('SP')
+    expect(textoCompleto).not.toContain('3550308')
+    expect(textoCompleto).not.toContain('ibge')
+  })
+
+  it('17a2. campos vazios (logradouro, bairro, complemento) são omitidos do content sem gerar undefined/null', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ logradouro: '', bairro: '', localidade: 'Uberlândia', uf: 'MG', ibge: '3170206' }),
+    }))
+    const r = await call({
+      headers: auth,
+      body: { jsonrpc: '2.0', id: 32, method: 'tools/call', params: { name: 'consultar_cep', arguments: { cep: '38400000' } } },
+    })
+    const textoCompleto = r._json.result.content[0].text
+    expect(textoCompleto).toContain('38400-000')
+    expect(textoCompleto).toContain('Uberlândia')
+    expect(textoCompleto).toContain('MG')
+    expect(textoCompleto).not.toContain('Logradouro:')
+    expect(textoCompleto).not.toContain('Bairro:')
+    expect(textoCompleto).not.toContain('undefined')
+    expect(textoCompleto).not.toContain('null')
+  })
+
+  it('17a3. structuredContent continua contendo todos os campos originais (cep, logradouro, bairro, complemento, cidade, estado, ibge, aviso)', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ logradouro: 'Praça da Sé', complemento: 'lado ímpar', bairro: 'Sé', localidade: 'São Paulo', uf: 'SP', ibge: '3550308' }),
+    }))
+    const r = await call({
+      headers: auth,
+      body: { jsonrpc: '2.0', id: 33, method: 'tools/call', params: { name: 'consultar_cep', arguments: { cep: '01001-000' } } },
+    })
+    const structured = r._json.result.structuredContent
+    expect(structured.status).toBe('encontrado')
+    expect(structured.endereco.cep).toBe('01001-000')
+    expect(structured.endereco.logradouro).toBe('Praça da Sé')
+    expect(structured.endereco.bairro).toBe('Sé')
+    expect(structured.endereco.complemento).toBe('lado ímpar')
+    expect(structured.endereco.cidade).toBe('São Paulo')
+    expect(structured.endereco.estado).toBe('SP')
+    expect(structured.endereco.ibge).toBe('3550308')
+    expect(structured.aviso).toBe('O número do imóvel e o complemento devem ser confirmados com o cliente.')
+  })
+
   it('17b. CEP inválido via tools/call -> isError:true, protocolo não quebra', async () => {
     const r = await call({
       headers: auth,
