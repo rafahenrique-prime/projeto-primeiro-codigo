@@ -94,8 +94,16 @@ describe('consultarCep — validação e normalização de entrada', () => {
 })
 
 describe('consultarCep — respostas do ViaCEP', () => {
-  it('8. CEP não encontrado (erro:true do ViaCEP) -> nao_encontrado', async () => {
+  it('8. CEP não encontrado (erro:true booleano do ViaCEP) -> nao_encontrado', async () => {
     mockFetchOnce(async () => ({ ok: true, json: async () => ({ erro: true }) }))
+    const r = await consultarCep({ cep: '00000000' })
+    expect(r.httpStatus).toBe(200)
+    expect(r.body.status).toBe('nao_encontrado')
+    expect(r.body.codigo).toBe('cep_nao_encontrado')
+  })
+
+  it('8b. CEP não encontrado (erro:"true" string do ViaCEP) -> nao_encontrado', async () => {
+    mockFetchOnce(async () => ({ ok: true, json: async () => ({ erro: 'true' }) }))
     const r = await consultarCep({ cep: '00000000' })
     expect(r.httpStatus).toBe(200)
     expect(r.body.status).toBe('nao_encontrado')

@@ -89,9 +89,9 @@ export async function consultarCep({ cep } = {}) {
       return respostaServicoIndisponivel()
     }
 
-    // ViaCEP devolve `{ erro: true }` (sem os demais campos) pra CEP inexistente —
+    // ViaCEP devolve `{ erro: "true" }` (string, não booleano) pra CEP inexistente —
     // não é uma falha de rede/serviço, é uma resposta válida de "não encontrado".
-    if (dados?.erro === true) {
+    if (dados?.erro === true || dados?.erro === 'true') {
       return respostaNaoEncontrado()
     }
 
