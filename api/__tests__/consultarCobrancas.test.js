@@ -67,16 +67,31 @@ describe('consultarCobrancas — busca por nome (nunca retorna financeiro)', () 
     expect(r.body.status).toBe('nao_encontrado')
   })
 
-  it('nome com espaços externos casa após normalização', async () => {
-    createClient.mockReturnValue(fakePrimeClient({
+  it('nome com espaços externos: valor enviado ao Cliente.filter() está sem espaços (correção validada contra o Base44 real — sem trim, o SDK não encontrava o cadastro)', async () => {
+    const client = fakePrimeClient({
       clientes: [{ id: 'c1', nome: 'Rafael Teste', telefone: '34999997499' }],
-    }))
+    })
+    createClient.mockReturnValue(client)
     const r = await consultarCobrancas({ nome_cliente: '  Rafael Teste  ' })
+    expect(client.entities.Cliente.filter).toHaveBeenCalledWith({ nome: 'Rafael Teste' })
+    expect(r.body.status).toBe('confirmacao_necessaria')
+    expect(r.body.candidatos).toHaveLength(1)
+    expect(r.body).not.toHaveProperty('parcelas')
+    expect(r.body).not.toHaveProperty('resumo')
+  })
+
+  it('nome exatamente igual ao cadastro continua funcionando (regressão do ajuste de trim)', async () => {
+    const client = fakePrimeClient({
+      clientes: [{ id: 'c1', nome: 'Rafael Teste', telefone: '34999997499' }],
+    })
+    createClient.mockReturnValue(client)
+    const r = await consultarCobrancas({ nome_cliente: 'Rafael Teste' })
+    expect(client.entities.Cliente.filter).toHaveBeenCalledWith({ nome: 'Rafael Teste' })
     expect(r.body.status).toBe('confirmacao_necessaria')
     expect(r.body.candidatos).toHaveLength(1)
   })
 
-  it('nome com diferença de caixa casa na reconfirmação local', async () => {
+  it('nome com diferença de caixa casa na reconfirmação local (comportamento do mock — validação real contra Base44 é feita à parte, fora dos testes automatizados)', async () => {
     createClient.mockReturnValue(fakePrimeClient({
       clientes: [{ id: 'c1', nome: '  Rafael Teste  ', telefone: '34999997499' }],
     }))
@@ -92,6 +107,16 @@ describe('consultarCobrancas — busca por nome (nunca retorna financeiro)', () 
     }))
     const r = await consultarCobrancas({ nome_cliente: 'Rafael Teste' })
     expect(r.body.status).toBe('nao_encontrado')
+  })
+
+  it('trim não vira busca ampla: Cliente.filter() continua sendo chamado com um nome específico, nunca vazio/wildcard', async () => {
+    const client = fakePrimeClient({ clientes: [] })
+    createClient.mockReturnValue(client)
+    await consultarCobrancas({ nome_cliente: '   Qualquer Nome   ' })
+    const argumentoEnviado = client.entities.Cliente.filter.mock.calls[0][0]
+    expect(argumentoEnviado).toEqual({ nome: 'Qualquer Nome' })
+    expect(argumentoEnviado.nome).not.toBe('')
+    expect(client.entities.Cliente.filter).toHaveBeenCalledTimes(1)
   })
 })
 

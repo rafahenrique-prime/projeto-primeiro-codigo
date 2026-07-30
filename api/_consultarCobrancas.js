@@ -122,7 +122,13 @@ function respostaErro(mensagem = 'Erro ao consultar. Tente novamente.') {
 async function consultarPorNome(prime, nomeClienteBruto) {
   try {
     const nomeNormalizado = normalizarNome(nomeClienteBruto)
-    const brutos = await prime.entities.Cliente.filter({ nome: nomeClienteBruto })
+    // Ajuste mínimo (validado contra o Base44 real): Cliente.filter({ nome }) não
+    // faz trim no lado do servidor — um valor com espaço externo não bate com o
+    // cadastro e nem chega a aparecer na lista bruta, então a reconfirmação abaixo
+    // nunca teria o que recuperar. Envia o nome já com trim (não o normalizado
+    // completo — sem alterar maiúsculas/minúsculas, sem virar busca ampla nem
+    // fuzzy) pro SDK, resolvendo só o caso de espaços externos.
+    const brutos = await prime.entities.Cliente.filter({ nome: nomeClienteBruto.trim() })
     const candidatos = (brutos || []).filter(c => normalizarNome(c.nome) === nomeNormalizado)
 
     if (candidatos.length === 0) return respostaNaoEncontrado()
