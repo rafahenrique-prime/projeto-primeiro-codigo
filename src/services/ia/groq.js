@@ -959,8 +959,6 @@ ${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}
     { role: 'user', content: userMessage },
   ]
 
-  const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_KEY || ''
-
   if (modelConfig && modelConfig.provider === 'deepseek') {
     try {
       const isReasoner = modelConfig.modelId === 'deepseek-reasoner'
@@ -976,15 +974,11 @@ ${buildLocalKnowledgeContext(localKnowledge)}${buildTrainingsContext(trainings)}
   }
 
   if (modelConfig && modelConfig.provider === 'openrouter') {
-    if (!OPENROUTER_KEY) throw new Error('Chave OpenRouter não configurada')
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Pacote 2 — chamada migrada pro server-side (api/system-tools.js?tool=codex-openrouter).
+    // Nenhuma chave no frontend, mesmo comportamento/prompt/modelo de antes.
+    const res = await fetch('/api/system-tools?tool=codex-openrouter', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://ignite-prime.app',
-        'X-Title': 'IGNITE PRIME CRM',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: modelConfig.modelId,
         messages: [{ role: 'system', content: systemPrompt }, ...msgs],

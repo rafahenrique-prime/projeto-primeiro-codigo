@@ -34,6 +34,7 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 |---|---|
 | `VITE_SUPABASE_URL` | Frontend + serverless |
 | `VITE_SUPABASE_KEY` | Frontend + serverless (anon/publishable key) |
+| `SUPABASE_SECRET_KEY` | Só serverless (`api/_profileLearning.js`, `api/system-tools.js?tool=qwen-health`) — Secret key, autentica como `service_role`, ignora RLS. Configurada na Vercel Production **e** Preview, **nunca** em `.env.local`, **nunca** com prefixo `VITE_`. Não estava documentada nesta tabela antes de 2026-07-25, apesar de já em uso desde a Fase 2C — gap pré-existente, corrigido naquela edição. |
 
 > Observação: o `CLAUDE.md` menciona `VITE_SUPABASE_ANON_KEY` em uma seção, mas o `.env` e `.env.local` reais usam `VITE_SUPABASE_KEY`. **`VITE_SUPABASE_KEY` é a chave efetiva.**
 
@@ -57,6 +58,7 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | 010 | `010_catalog_public_config_hidden_brands.sql` | (renomeia coluna `visible_brands` → `hidden_brands` na tabela acima) | idem |
 | 013 | `013_profile_learning_audit.sql` | `profile_learning_audit` | Aprendizado automático de `size` (ver §3.5) |
 | 014 | `014_profile_learning_audit_select_policy.sql` | (policy de SELECT em `profile_learning_audit`, sem tabela nova) | idem |
+| 015 | `015_qwen_health_state.sql` | `qwen_health_state` + função `claim_qwen_health_check` | Health check do QwenCloud, Operations Center (ver §3.6) |
 
 ### Detalhe de cada tabela
 
@@ -256,6 +258,36 @@ channel, applied, created_at, reverted_at
 
 ---
 
+### 3.6 Health check do QwenCloud — `qwen_health_state` + `claim_qwen_health_check` (Fase 2A.1, migration 015)
+
+**Contexto:** Fase 2A implementou um health check real do QwenCloud pro Operations Center, mas com cache/rate-limit só em memória do processo serverless — auditoria de segurança (2026-07-25) apontou que isso não é confiável nem seguro na Vercel (memória reseta a cada cold start, não é compartilhada entre instâncias/regiões, e a rota é pública sem autenticação). Fase 2A.1 substitui o cache em memória por persistência real no Supabase, com trava atômica.
+
+**`qwen_health_state`** — tabela single-row (`id` fixo = 1, `constraint chk_qwen_health_single_row check (id = 1)`):
+```sql
+id, provider, available, model, latency_ms,
+input_tokens, output_tokens, total_tokens,
+error_code, last_checked_at, next_allowed_at, updated_at
+```
+**Nunca armazena:** API key, prompt, resposta gerada pelo modelo, headers ou payload bruto do provedor — só metadados operacionais.
+
+**`claim_qwen_health_check(p_min_interval_seconds)`** — função transacional, `SECURITY INVOKER`, chamada só por `service_role`. **Atomicidade:** um único `UPDATE ... WHERE next_allowed_at <= now() RETURNING *` — o Postgres serializa duas transações concorrentes tentando esse UPDATE na mesma linha via lock de linha padrão (READ COMMITTED); a segunda só reavalia sua cláusula `WHERE` depois que a primeira já committou (com `next_allowed_at` já avançado), e por isso nunca "casa" — garantindo que só uma reivindicação vence, mesmo sob chamadas simultâneas de múltiplas instâncias/regiões da Vercel. Não depende de advisory lock nem `SERIALIZABLE`. Retorna `{claimed: boolean, state: {...}}` — quando `claimed=false`, `state` já é o último resultado persistido, pronto pra devolver ao cliente sem nenhuma consulta extra.
+
+**Fluxo do endpoint (`api/system-tools.js?tool=qwen-health` — migrado de `api/qwen-health.js` em 2026-07-27, ver nota abaixo):**
+- **GET** — só lê `qwen_health_state` (`select *`). **Nunca chama o QwenCloud.** Custo externo zero, seguro pra rodar em toda montagem de página/F5/navegação da SPA.
+- **POST** — chama `claim_qwen_health_check`. Se `claimed=false`, devolve o estado persistido (`throttled: true`), sem chamar o QwenCloud. Se `claimed=true` (a trava já foi atomicamente avançada nesse mesmo statement, antes de qualquer chamada externa), chama o QwenCloud uma vez com `enable_thinking: false` (evita gastar tokens de raciocínio num modelo híbrido — confirmado por teste: sem essa flag, uma chamada mínima gastou 394 tokens; com a flag, caiu pra ~14), grava o resultado via `PATCH` na mesma linha, e devolve o resultado atualizado.
+
+**Intervalo mínimo configurável:** `QWEN_HEALTH_MIN_INTERVAL_SECONDS` (env var opcional, fallback **1800s/30min**). Lido só dentro do endpoint (`api/system-tools.js`, funções `qwenHealth*`), passado como parâmetro pra `claim_qwen_health_check` — nenhum outro arquivo (frontend incluído) conhece ou decide esse valor.
+
+**Permissões:** `RLS` habilitada em `qwen_health_state`, **zero policy** — `anon`/`authenticated`/`public` não conseguem ler nem escrever via REST direto, mesmo com a `anon key` exposta no bundle do frontend. `service_role` ignora RLS por natureza própria da role. `REVOKE ALL`/`GRANT EXECUTE` explícitos em `claim_qwen_health_check`, restritos a `service_role`. Header usado: só `apikey` (mesmo padrão já confirmado empiricamente em `api/_profileLearning.js` — `Authorization: Bearer` não é necessário com a Secret key).
+
+**Risco residual aceito nesta fase:** o **POST continua público, sem autenticação de usuário** — o projeto não tem nenhuma camada de login hoje. A trava atômica persistida é o que impede abuso (sem ela, seria chamadas ilimitadas; com ela, o pior caso é 1 chamada real por `QWEN_HEALTH_MIN_INTERVAL_SECONDS`, de qualquer origem, para sempre). Quando o projeto ganhar autenticação de usuário, adicionar checagem de sessão/token na função `qwenHealth()` (dentro de `api/system-tools.js`) antes de chamar `qwenHealthClaim()` — a arquitetura já foi desenhada considerando esse passo futuro.
+
+**Testado (2026-07-25):** GET sem registro / com registro, POST negado pela trava (`throttled: true`, zero chamadas reais), POST autorizado (1 chamada real, `enable_thinking:false` confirmado no corpo enviado, consumo caiu de 394 para 14 tokens), duas chamadas POST concorrentes simuladas (só 1 chamada real, a outra recebeu `throttled: true`), variáveis ausentes, erro 401 do provedor, timeout — todos via mocks do Supabase (a Secret key não existe em `.env.local` neste ambiente de desenvolvimento, só em Production, por padrão do projeto) + exatamente 2 chamadas reais ao QwenCloud no total (o mínimo necessário para validar `enable_thinking` isoladamente **e** o comportamento sob concorrência, que são duas propriedades distintas). A atomicidade do `UPDATE ... RETURNING` em si é garantida por construção do Postgres (mesmo mecanismo já usado e documentado em `apply_profile_size_learning`, migration 013).
+
+**Migrado em 2026-07-27:** `api/qwen-health.js` (arquivo próprio) foi removido e a lógica movida integralmente para dentro de `api/system-tools.js` como `?tool=qwen-health` — o deploy em Preview falhou com *"No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan"* (esse era o 13º arquivo roteável em `api/`). Consolidação seguiu o mesmo padrão já usado pelas outras tools deste arquivo (`vercel-status`, `sync-lyra`, etc.) — comportamento idêntico, nenhuma mudança de lógica, só de localização. Nova URL: `/api/system-tools?tool=qwen-health` (GET e POST). `SUPABASE_URL` reaproveitada da constante já existente em `system-tools.js`; `SUPABASE_SECRET_KEY` adicionada como constante nova só para esta tool.
+
+---
+
 ## 4. RLS (Row Level Security)
 
 **Todas as 8 tabelas versionadas** seguem o mesmo padrão (literais do SQL):
@@ -270,6 +302,8 @@ create policy "allow all via service/anon key"
 ```
 
 Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer request com a `anon key` (que está no frontend) pode ler e escrever tudo. É um padrão *permissivo por design* (app cliente precisa escrever diretamente), não uma defesa real.
+
+> **Exceções (não corrigidas nesta edição, só documentadas):** `profile_learning_audit` (013/014) e `qwen_health_state` (015) **não** seguem esse padrão `allow all` — ambas têm RLS habilitada com **zero policy** (só `SELECT` liberado em `profile_learning_audit` pela 014), acessíveis exclusivamente via `service_role`/`SUPABASE_SECRET_KEY`. São as únicas duas tabelas do projeto com essa postura mais restritiva.
 
 > **Implicação de segurança:** a `VITE_SUPABASE_KEY` (anon) é exposta no bundle do frontend. A policy `allow all` significa que qualquer um com a URL+key (extraível do app) tem acesso total de leitura/escrita a essas tabelas. Não há segregação por usuário.
 

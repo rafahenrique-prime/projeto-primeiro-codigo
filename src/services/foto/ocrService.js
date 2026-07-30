@@ -87,12 +87,33 @@ Não invente informações — extraia apenas o que estiver visível.`
   throw new Error(lastError || 'Nenhum modelo de visão disponível. Tente novamente.')
 }
 
-const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_KEY || ''
-const OR_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OR_VISION_MODELS = [
-  'qwen/qwen2-vl-7b-instruct:free',
-  'meta-llama/llama-3.2-11b-vision-instruct:free',
-]
+// Pacote 2 — fallback de visão migrado pro server-side (api/system-tools.js?tool=ocr-openrouter).
+// Lista de modelos buscada do servidor (nunca hardcoded aqui) — o servidor já cura até 3
+// modelos de visão gratuitos a partir do catálogo oficial do OpenRouter (cache 12h + último
+// snapshot válido como fallback). Cache client-side (1h) só evita refetch a cada foto.
+const OR_PROXY_URL = '/api/system-tools?tool=ocr-openrouter'
+
+let orVisionModelsCache = null
+let orVisionModelsCachedAt = 0
+const OR_VISION_MODELS_CLIENT_CACHE_MS = 60 * 60 * 1000
+
+async function fetchOrVisionModels() {
+  const now = Date.now()
+  if (orVisionModelsCache && (now - orVisionModelsCachedAt) < OR_VISION_MODELS_CLIENT_CACHE_MS) {
+    return orVisionModelsCache
+  }
+  try {
+    const res = await fetch(OR_PROXY_URL)
+    if (!res.ok) return orVisionModelsCache || []
+    const { models } = await res.json()
+    orVisionModelsCache = (models || []).map(m => m.id)
+    orVisionModelsCachedAt = now
+    return orVisionModelsCache
+  } catch (e) {
+    console.error('[ocrService] Erro ao buscar modelos de visão OpenRouter:', e.message)
+    return orVisionModelsCache || []
+  }
+}
 
 export async function identifyProductFromPhoto(file, onProgress) {
   const log = msg => onProgress?.({ msg })
@@ -148,19 +169,16 @@ Se não conseguir identificar algum campo, escreva "Não identificado".`
     }
   }
 
-  // Fallback: OpenRouter Vision
-  if (!OPENROUTER_KEY) throw new Error('Nenhum modelo de visão disponível. Tente novamente.')
-  for (const model of OR_VISION_MODELS) {
+  // Fallback: OpenRouter Vision (Pacote 2 — via proxy server-side, sem chave no frontend).
+  // Lista dinâmica: se vier vazia (catálogo indisponível e sem fallback nenhum), não quebra
+  // o app — só pula direto pro erro amigável já existente abaixo.
+  const orVisionModels = await fetchOrVisionModels()
+  for (const model of orVisionModels) {
     try {
       log(`Tentando via OpenRouter (${model.split('/').pop()})...`)
-      const res = await fetch(OR_URL, {
+      const res = await fetch(OR_PROXY_URL, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://ignite-prime.app',
-          'X-Title': 'IGNITE PRIME CRM',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: [
@@ -173,7 +191,10 @@ Se não conseguir identificar algum campo, escreva "Não identificado".`
       })
       if (!res.ok) {
         const err = await res.json()
-        if (res.status === 429) continue
+        // 404/400 = modelo saiu do catálogo do OpenRouter entre o cache e esta chamada
+        // (não é garantia absoluta de disponibilidade só porque o preço é zero) — tenta o
+        // próximo da lista em vez de quebrar o fluxo inteiro, igual já fazia com 429.
+        if (res.status === 429 || res.status === 404 || res.status === 400) continue
         throw new Error(err.error?.message || `Erro ${res.status}`)
       }
       const data = await res.json()

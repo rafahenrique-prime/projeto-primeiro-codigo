@@ -58,6 +58,10 @@ function getCollapsedIcon(id) {
 }
 
 function Wrench({ size = 15 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 1 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
+function Ops({ size = 15, active = false, inactiveColor = '#E8192C', activeColor = '#E8192C' }) {
+  const c = active ? activeColor : inactiveColor
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a2 2 0 0 1 2 2v1.1a7 7 0 0 1 2.6 1.5l1-.55a2 2 0 0 1 2.73.73l1 1.73a2 2 0 0 1-.73 2.73l-.96.55a7 7 0 0 1 0 3l.96.55a2 2 0 0 1 .73 2.73l-1 1.73a2 2 0 0 1-2.73.73l-1-.55a7 7 0 0 1-2.6 1.5V20a2 2 0 0 1-4 0v-1.1a7 7 0 0 1-2.6-1.5l-1 .55a2 2 0 0 1-2.73-.73l-1-1.73a2 2 0 0 1 .73-2.73l.96-.55a7 7 0 0 1 0-3l-.96-.55a2 2 0 0 1-.73-2.73l1-1.73a2 2 0 0 1 2.73-.73l1 .55A7 7 0 0 1 10 5.1V4a2 2 0 0 1 2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+}
 
 export default function LeftNav({ page, setPage, unreadCount = 0 }) {
   const { theme: t, dark, toggle } = useTheme()
@@ -152,6 +156,23 @@ export default function LeftNav({ page, setPage, unreadCount = 0 }) {
         }}>
           <FollowUpIcon active={page === 'followup'} inactiveColor={t.textMid} activeColor={t.primary || '#E8192C'} size={collapsed ? 20 : 15} />
           {!collapsed && 'Follow-up'}
+        </button>
+        </Tooltip>
+
+        {/* Operations Center */}
+        <Tooltip text={collapsed ? 'Operations Center' : ''} block>
+        <button onClick={() => setPage('ops-center')} style={{
+          width: '100%',
+          background: page === 'ops-center' ? (t.primaryBg || '#fff5f5') : 'transparent',
+          color: page === 'ops-center' ? (t.primary || '#E8192C') : t.textSecondary,
+          borderRadius: 8, padding: collapsed ? '14px 0' : '10px 12px', fontSize: 14, fontWeight: page === 'ops-center' ? 600 : 400,
+          border: `1px solid ${page === 'ops-center' ? 'transparent' : t.border}`,
+          marginBottom: 14, textAlign: 'left', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
+          transition: 'background 0.15s',
+        }}>
+          <Ops active={page === 'ops-center'} inactiveColor={t.textMid} activeColor={t.primary || '#E8192C'} size={collapsed ? 20 : 15} />
+          {!collapsed && 'Operations Center'}
         </button>
         </Tooltip>
 

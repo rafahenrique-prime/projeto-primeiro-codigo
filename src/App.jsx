@@ -26,6 +26,7 @@ import FollowUpPage from './pages/FollowUpPage'
 import ImageExtractorPage from './pages/ImageExtractorPage'
 import BagyAuditPage from './pages/BagyAuditPage'
 import IntelligenceOpsPage from './pages/IntelligenceOpsPage'
+import OperationsCenterPage from './pages/OperationsCenterPage'
 import { listChats, assumeChat, releaseChat } from './services/chat/gptmaker'
 import { runFollowUpCheck } from './services/crm/followUpService'
 import { syncCatalogFromSupabase } from './services/catalogo/catalog'
@@ -332,6 +333,7 @@ export default function App() {
           {page === 'image-extractor' && <ImageExtractorPage />}
           {page === 'lab'     && <AgentLabPage />}
           {page === 'followup' && <FollowUpPage conversations={conversations} />}
+          {page === 'ops-center' && <OperationsCenterPage />}
           {page === 'settings' && <PlaceholderPage icon="⚙️" title="Configurações" />}
         </div>
       </div>

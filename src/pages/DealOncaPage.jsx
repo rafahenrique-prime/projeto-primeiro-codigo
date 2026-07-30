@@ -15,6 +15,32 @@ import { saveInteraction, autoCloseInactiveConversations } from '../services/cha
 import { getTodayAuditSummary } from '../services/auditoria/agentAuditService'
 import { getLatestWeeklyInsight } from '../services/plataforma/weeklyInsightService'
 
+// Modelos OpenRouter do CODEX — buscados do servidor (api/system-tools.js?tool=codex-openrouter),
+// nunca hardcoded aqui. O servidor já cura a lista (até 10 modelos + "openrouter/free" no final)
+// a partir do catálogo oficial, com cache de 12h — este cache client-side (1h) só evita
+// refetch a cada abertura do menu, nunca chama openrouter.ai diretamente.
+let openrouterModelsCache = null
+let openrouterModelsCachedAt = 0
+const OPENROUTER_MODELS_CLIENT_CACHE_MS = 60 * 60 * 1000
+
+async function fetchCodexOpenRouterModels() {
+  const now = Date.now()
+  if (openrouterModelsCache && (now - openrouterModelsCachedAt) < OPENROUTER_MODELS_CLIENT_CACHE_MS) {
+    return openrouterModelsCache
+  }
+  try {
+    const res = await fetch('/api/system-tools?tool=codex-openrouter')
+    if (!res.ok) return openrouterModelsCache || []
+    const { models } = await res.json()
+    openrouterModelsCache = models || []
+    openrouterModelsCachedAt = now
+    return openrouterModelsCache
+  } catch (e) {
+    console.error('[DealOncaPage] Erro ao buscar modelos OpenRouter:', e.message)
+    return openrouterModelsCache || []
+  }
+}
+
 const CATEGORIES = {
   PRODUTO:    { label: 'Produto',    color: '#3B82F6' },
   PRECO:      { label: 'Preço',      color: '#0EC331' },
@@ -103,7 +129,7 @@ export default function DealOncaPage({ conversations = [], setPage }) {
   const diagShownThisSessionRef = useRef(!!sessionStorage.getItem('codex_diag_shown'))
   const dailyPlanShownRef = useRef(!!sessionStorage.getItem('codex_daily_plan_shown'))
 
-  const AI_MODELS = [
+  const STATIC_AI_MODELS = [
     { id: 'groq::llama-3.3-70b-versatile',                          label: 'Llama 3.3 70B',        provider: 'groq',       badge: 'Groq',       desc: '⭐ Melhor geral — padrão recomendado' },
     { id: 'groq::openai/gpt-oss-120b',                              label: 'GPT-OSS 120B (Groq)',  provider: 'groq',       badge: 'Groq',       desc: '🔄 NOVO: substituição Groq recomendada — raciocínio muito forte' },
     { id: 'groq::qwen/qwen3.6-27b',                                 label: 'Qwen 3.6 27B (Groq)',  provider: 'groq',       badge: 'Groq',       desc: '⚡ NOVO: rápido + português excelente' },
@@ -112,13 +138,21 @@ export default function DealOncaPage({ conversations = [], setPage }) {
     { id: 'groq::qwen/qwen3-32b',                                   label: 'Qwen 3 32B',           provider: 'groq',       badge: 'Groq',       desc: 'Excelente raciocínio e instruções' },
     { id: 'deepseek::deepseek-lite',                                label: 'DeepSeek Lite (Free)',  provider: 'deepseek',   badge: 'DeepSeek',   desc: '🆕 TESTE: 1M tokens FREE/mês' },
     { id: 'deepseek::deepseek-reasoner',                           label: 'DeepSeek R1 (Pago)',    provider: 'deepseek',   badge: 'DeepSeek',   desc: '🧠 Sua conta paga — reasoning premium' },
-    { id: 'openrouter::meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (OR)',   provider: 'openrouter', badge: 'OpenRouter', desc: 'Via OpenRouter — fallback gratuito' },
-    { id: 'openrouter::meta-llama/llama-3.2-3b-instruct:free',      label: 'Llama 3.2 3B',         provider: 'openrouter', badge: 'OpenRouter', desc: 'Rápido e gratuito' },
-    { id: 'openrouter::nousresearch/hermes-3-llama-3.1-405b:free', label: 'Hermes 3 405B',        provider: 'openrouter', badge: 'OpenRouter', desc: 'Bom em conversação e instruções' },
-    { id: 'openrouter::openai/gpt-oss-120b:free',                   label: 'GPT-OSS 120B',         provider: 'openrouter', badge: 'OpenRouter', desc: 'Alternativa gratuita — raciocínio forte' },
-    { id: 'openrouter::openai/gpt-oss-20b:free',                    label: 'GPT-OSS 20B',          provider: 'openrouter', badge: 'OpenRouter', desc: '🔥 Reasoning forte, mais rápido' },
-    { id: 'openrouter::qwen/qwen3-next-80b-a3b-instruct:free',      label: 'Qwen 3 Next 80B',      provider: 'openrouter', badge: 'OpenRouter', desc: 'Alibaba — português excelente' },
-    { id: 'openrouter::google/gemma-4-31b-it:free',                 label: 'Gemma 4 31B',          provider: 'openrouter', badge: 'OpenRouter', desc: 'Google Gemma — grátis e rápido' },
+  ]
+  // Modelos "via OpenRouter" — carregados do servidor (nunca hardcoded, ver
+  // fetchCodexOpenRouterModels acima). Populado por um useEffect abaixo.
+  const [openrouterModels, setOpenrouterModels] = useState([])
+  useEffect(() => { fetchCodexOpenRouterModels().then(setOpenrouterModels) }, [])
+
+  const AI_MODELS = [
+    ...STATIC_AI_MODELS,
+    ...openrouterModels.map(m => ({
+      id: `openrouter::${m.id}`,
+      label: m.name,
+      provider: 'openrouter',
+      badge: 'OpenRouter',
+      desc: m.id === 'openrouter/free' ? 'Automático — OpenRouter escolhe um modelo grátis disponível' : 'Via OpenRouter — fallback gratuito',
+    })),
   ]
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('codex_model') || 'groq::llama-3.3-70b-versatile')
   const [showModelMenu, setShowModelMenu] = useState(false)

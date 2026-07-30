@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../theme.jsx'
+import { RefreshCw, Clock, BarChart3, Activity, Settings, PlusCircle } from 'lucide-react'
 import { runFollowUpCheck, getFollowUpSummary, getFollowUpLog, clearFollowUpState, getScheduleAsync, saveScheduleAsync, isWithinSchedule, getResponseRate, getStagesAsync, saveStagesAsync, DEFAULT_FIXED_TEXT, DEFAULT_SCHEDULE, DEFAULT_STAGES } from '../services/crm/followUpService'
 import { sendMessage } from '../services/chat/gptmaker'
 
@@ -135,25 +136,28 @@ export default function FollowUpPage({ conversations = [] }) {
     : summary.pending.filter(p => p.stage === filterStage)
 
   const card = (children, style = {}) => (
-    <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 12, padding: '16px 20px', ...style }}>
+    <div style={{ background: t.bg, borderRadius: 12, padding: '16px 18px', ...style }}>
       {children}
     </div>
   )
 
-  const sectionTitle = (txt) => (
-    <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>{txt}</div>
+  const sectionTitle = (txt, Icon) => (
+    <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+      {Icon && <Icon size={13} strokeWidth={2} style={{ color: t.textMuted }} />}
+      {txt}
+    </div>
   )
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.appBg, overflowY: 'auto', padding: '24px 28px', gap: 20 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: t.appBg, overflowY: 'auto', padding: '24px 28px', gap: 12 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: t.text, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 0.5 }}>
-            📬 Dashboard Follow-Up
+          <div style={{ fontSize: 20, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>
+            Follow-up
           </div>
-          <div style={{ fontSize: 13, color: t.textMuted, marginTop: 2 }}>
+          <div style={{ fontSize: 12.5, color: t.textMuted, marginTop: 4 }}>
             Motor autônomo de reengajamento · {summary.total} conversas monitoradas
           </div>
         </div>
@@ -161,53 +165,56 @@ export default function FollowUpPage({ conversations = [] }) {
           <button
             onClick={toggleEnabled}
             style={{
-              borderRadius: 8, padding: '7px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
-              background: enabled ? '#D1FAE5' : '#FEE2E2',
-              color: enabled ? '#065F46' : '#DC2626',
+              borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none',
+              background: enabled ? t.bg : '#FEF2F2',
+              color: enabled ? t.text : '#DC2626',
               display: 'flex', alignItems: 'center', gap: 8,
             }}
           >
             <div style={{
-              width: 36, height: 20, borderRadius: 10, background: enabled ? '#10B981' : '#F87171',
+              width: 32, height: 18, borderRadius: 10, background: enabled ? '#10B981' : '#DC2626',
               position: 'relative', transition: 'background 0.2s', flexShrink: 0,
             }}>
               <div style={{
-                position: 'absolute', top: 3, left: enabled ? 18 : 3,
+                position: 'absolute', top: 2, left: enabled ? 16 : 2,
                 width: 14, height: 14, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
               }} />
             </div>
             {enabled ? 'Follow-up ON' : 'Follow-up OFF'}
           </button>
           <button
             onClick={refresh}
-            style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '7px 14px', fontSize: 12, color: t.textSecondary, cursor: 'pointer', fontWeight: 600 }}
+            style={{ background: t.bg, border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12.5, color: t.textMid, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            🔄 Atualizar
+            <RefreshCw size={13} strokeWidth={2} />
+            Atualizar
           </button>
         </div>
       </div>
 
       {!enabled && (
-        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🔴</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', borderLeft: '3px solid #DC2626' }}>
           <div>
-            <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 13 }}>Follow-up DESLIGADO</div>
-            <div style={{ color: '#991B1B', fontSize: 12 }}>Nenhuma mensagem será enviada automaticamente. Ligue quando terminar os testes.</div>
+            <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 13 }}>Follow-up desligado</div>
+            <div style={{ color: t.textMid, fontSize: 12, marginTop: 1 }}>Nenhuma mensagem será enviada automaticamente. Ligue quando terminar os testes.</div>
           </div>
         </div>
       )}
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1,
+        background: t.borderLight || t.border, borderRadius: 10, overflow: 'hidden',
+      }}>
         {[
-          { label: 'Pendentes', value: summary.pending.length, bg: '#FEF3C7', color: '#92400E', icon: '⏳' },
-          { label: 'Enviados', value: summary.sent.length, bg: '#D1FAE5', color: '#065F46', icon: '✅' },
-          { label: 'Inativos +24h', value: summary.inactive.length, bg: '#F3F4F6', color: '#374151', icon: '😴' },
+          { label: 'Pendentes', value: summary.pending.length, color: t.text },
+          { label: 'Enviados', value: summary.sent.length, color: '#059669' },
+          { label: 'Inativos +24h', value: summary.inactive.length, color: t.text },
         ].map(kpi => (
-          <div key={kpi.label} style={{ background: kpi.bg, borderRadius: 12, padding: '16px 20px' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
-            <div style={{ fontSize: 12, color: kpi.color, fontWeight: 600, marginTop: 2 }}>{kpi.icon} {kpi.label}</div>
+          <div key={kpi.label} style={{ background: t.bg, padding: '14px 18px' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: t.textMid, marginBottom: 6 }}>{kpi.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: kpi.color, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{kpi.value}</div>
           </div>
         ))}
       </div>
@@ -237,20 +244,20 @@ export default function FollowUpPage({ conversations = [] }) {
         const total = conversations.length || 1
         return card(
           <>
-            {sectionTitle('📊 Distribuição de Inatividade')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sectionTitle('Distribuição de inatividade', BarChart3)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {buckets.map((b, i) => (
                 <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{b.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: b.color }}>{b.count} conv.</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: t.text }}>{b.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: b.color, fontVariantNumeric: 'tabular-nums' }}>{b.count} conv.</span>
                   </div>
-                  <div style={{ height: 10, background: t.appBg, border: `1px solid ${t.border}`, borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ height: 6, background: t.bgTertiary, borderRadius: 3, overflow: 'hidden' }}>
                     <div style={{
                       height: '100%',
                       width: `${Math.round((b.count / total) * 100)}%`,
                       background: b.color,
-                      borderRadius: 6,
+                      borderRadius: 3,
                       transition: 'width 0.5s ease',
                       minWidth: b.count > 0 ? 4 : 0,
                     }} />
@@ -265,22 +272,21 @@ export default function FollowUpPage({ conversations = [] }) {
       {/* Taxa de resposta */}
       {responseRate.total > 0 && card(
         <>
-          {sectionTitle('🔔 Taxa de Resposta Pós Follow-up')}
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          {sectionTitle('Taxa de resposta pós follow-up', Activity)}
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
 
             {/* Círculo de taxa geral */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
               <div style={{
-                width: 72, height: 72, borderRadius: '50%',
-                background: `conic-gradient(#059669 ${responseRate.rate * 3.6}deg, #E5E7EB ${responseRate.rate * 3.6}deg)`,
+                width: 68, height: 68, borderRadius: '50%',
+                background: `conic-gradient(#059669 ${responseRate.rate * 3.6}deg, ${t.bgTertiary} ${responseRate.rate * 3.6}deg)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative',
               }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: '#059669' }}>{responseRate.rate}%</span>
+                <div style={{ width: 50, height: 50, borderRadius: '50%', background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: '#059669', fontVariantNumeric: 'tabular-nums' }}>{responseRate.rate}%</span>
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6, textAlign: 'center' }}>
+              <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 6, textAlign: 'center' }}>
                 {responseRate.responded}/{responseRate.total} responderam
               </div>
             </div>
@@ -293,10 +299,10 @@ export default function FollowUpPage({ conversations = [] }) {
                   <div key={stage}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{stage}</span>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{data.responded}/{data.total} · {pct}%</span>
+                      <span style={{ fontSize: 11, color: t.textMuted, fontVariantNumeric: 'tabular-nums' }}>{data.responded}/{data.total} · {pct}%</span>
                     </div>
-                    <div style={{ height: 6, background: '#E5E7EB', borderRadius: 4 }}>
-                      <div style={{ height: 6, width: `${pct}%`, background: pct >= 50 ? '#059669' : pct >= 20 ? '#F59E0B' : '#EF4444', borderRadius: 4, transition: 'width 0.4s' }} />
+                    <div style={{ height: 4, background: t.bgTertiary, borderRadius: 2 }}>
+                      <div style={{ height: 4, width: `${pct}%`, background: pct >= 50 ? '#10B981' : '#F59E0B', borderRadius: 2, transition: 'width 0.4s' }} />
                     </div>
                   </div>
                 )
@@ -312,51 +318,51 @@ export default function FollowUpPage({ conversations = [] }) {
         {card(
           <>
             {/* Abas */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: `1px solid ${t.border}`, paddingBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
               <button onClick={() => setActiveTab('pending')} style={{
-                background: activeTab === 'pending' ? '#7C3AED' : 'transparent',
-                color: activeTab === 'pending' ? '#fff' : t.textMuted,
-                border: `1px solid ${activeTab === 'pending' ? '#7C3AED' : t.border}`,
-                borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                background: activeTab === 'pending' ? t.text : 'transparent',
+                color: activeTab === 'pending' ? t.bg : t.textMid,
+                border: 'none',
+                borderRadius: 6, padding: '6px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
               }}>
-                ⏳ Pendentes ({summary.pending.length})
+                Pendentes · {summary.pending.length}
               </button>
               <button onClick={() => setActiveTab('sent')} style={{
-                background: activeTab === 'sent' ? '#059669' : 'transparent',
-                color: activeTab === 'sent' ? '#fff' : t.textMuted,
-                border: `1px solid ${activeTab === 'sent' ? '#059669' : t.border}`,
-                borderRadius: 8, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                background: activeTab === 'sent' ? t.text : 'transparent',
+                color: activeTab === 'sent' ? t.bg : t.textMid,
+                border: 'none',
+                borderRadius: 6, padding: '6px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
               }}>
-                ✅ Enviados ({log.length})
+                Enviados · {log.length}
               </button>
             </div>
 
             {/* Aba Pendentes */}
             {activeTab === 'pending' && (
               <>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
                   {['all', '30min', '23h45', '24h'].map(s => (
                     <button key={s} onClick={() => setFilterStage(s)} style={{
-                      background: filterStage === s ? '#7C3AED' : t.appBg,
-                      color: filterStage === s ? '#fff' : t.textSecondary,
-                      border: `1px solid ${filterStage === s ? '#7C3AED' : t.border}`,
-                      borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      background: filterStage === s ? t.text : t.bgTertiary,
+                      color: filterStage === s ? t.bg : t.textMid,
+                      border: 'none',
+                      borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                     }}>
                       {s === 'all' ? 'Todos' : s}
                     </button>
                   ))}
                 </div>
                 {pendingFiltered.length === 0 ? (
-                  <div style={{ color: t.textMuted, fontSize: 13, padding: '8px 0' }}>Nenhum pendente neste filtro.</div>
+                  <div style={{ color: t.textMuted, fontSize: 12.5, padding: '8px 4px' }}>Nenhum pendente neste filtro.</div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 280, overflowY: 'auto' }}>
                     {pendingFiltered.map((p, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: t.appBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 12px' }}>
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 4px', borderBottom: i < pendingFiltered.length - 1 ? `1px solid ${t.borderLight || t.border}` : 'none' }}>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{p.name}</div>
-                          <div style={{ fontSize: 11, color: t.textMuted }}>{p.inactiveMin}min inativo</div>
+                          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>{p.inactiveMin}min inativo</div>
                         </div>
-                        <span style={{ background: '#F0EBFF', color: '#7C3AED', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{p.stage}</span>
+                        <span style={{ background: t.bgTertiary, color: t.textMid, borderRadius: 6, padding: '3px 9px', fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{p.stage}</span>
                       </div>
                     ))}
                   </div>
@@ -368,25 +374,26 @@ export default function FollowUpPage({ conversations = [] }) {
             {activeTab === 'sent' && (
               <>
                 {log.length === 0 ? (
-                  <div style={{ color: t.textMuted, fontSize: 13, padding: '8px 0' }}>Nenhum envio registrado ainda.</div>
+                  <div style={{ color: t.textMuted, fontSize: 12.5, padding: '8px 4px' }}>Nenhum envio registrado ainda.</div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
-                    {log.map((entry, i) => (
-                      <div key={i} style={{ background: t.appBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{entry.conv}</span>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-                            background: entry.status === 'sent' ? '#D1FAE5' : entry.status === 'finalized' ? '#FEF3C7' : entry.status === 'simulated' ? '#F0EBFF' : '#FEE2E2',
-                            color: entry.status === 'sent' ? '#065F46' : entry.status === 'finalized' ? '#92400E' : entry.status === 'simulated' ? '#5B21B6' : '#DC2626',
-                          }}>
-                            {entry.status === 'sent' ? '✅' : entry.status === 'finalized' ? '🔚' : entry.status === 'simulated' ? '🧪' : '❌'} {entry.stage}
-                          </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 280, overflowY: 'auto' }}>
+                    {log.map((entry, i) => {
+                      const statusCor = entry.status === 'sent' ? '#10B981' : entry.status === 'finalized' ? '#F59E0B' : entry.status === 'simulated' ? t.textMuted : '#DC2626'
+                      const statusLabel = entry.status === 'sent' ? 'enviado' : entry.status === 'finalized' ? 'finalizado' : entry.status === 'simulated' ? 'simulado' : 'erro'
+                      return (
+                        <div key={i} style={{ padding: '10px 4px', borderBottom: i < log.length - 1 ? `1px solid ${t.borderLight || t.border}` : 'none' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 700, color: t.text }}>{entry.conv}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 600, color: t.textMid, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCor, display: 'inline-block' }} />
+                              {statusLabel} · {entry.stage}
+                            </span>
+                          </div>
+                          {entry.text && <div style={{ fontSize: 11.5, color: t.textMid, marginBottom: 2, fontStyle: 'italic' }}>"{entry.text}"</div>}
+                          <div style={{ fontSize: 10.5, color: t.textMuted }}>{entry.at ? new Date(entry.at).toLocaleString('pt-BR') : ''}</div>
                         </div>
-                        {entry.text && <div style={{ fontSize: 12, color: t.textSecondary, marginBottom: 4, fontStyle: 'italic' }}>"{entry.text}"</div>}
-                        <div style={{ fontSize: 10, color: t.textMuted }}>{entry.at ? new Date(entry.at).toLocaleString('pt-BR') : ''}</div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </>
@@ -397,17 +404,18 @@ export default function FollowUpPage({ conversations = [] }) {
         {/* Horário inteligente */}
         {card(
           <>
-            {sectionTitle('⏰ Horário de Envio')}
+            {sectionTitle('Horário de envio', Clock)}
 
             {/* Status atual */}
             <div style={{
-              background: withinSchedule ? '#D1FAE5' : '#FEF3C7',
-              border: `1px solid ${withinSchedule ? '#A7F3D0' : '#FDE68A'}`,
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: withinSchedule ? '#ECFDF5' : '#FFFBEB',
               borderRadius: 8, padding: '8px 12px', marginBottom: 14,
               fontSize: 12, fontWeight: 600,
-              color: withinSchedule ? '#065F46' : '#92400E',
+              color: withinSchedule ? '#059669' : '#B45309',
             }}>
-              {withinSchedule ? '🟢 Dentro da janela — envios permitidos agora' : '🟡 Fora da janela — envios bloqueados agora'}
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: withinSchedule ? '#10B981' : '#F59E0B', display: 'inline-block', flexShrink: 0 }} />
+              {withinSchedule ? 'Dentro da janela — envios permitidos agora' : 'Fora da janela — envios bloqueados agora'}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -416,7 +424,7 @@ export default function FollowUpPage({ conversations = [] }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Início</div>
                   <select value={schedule.startHour} onChange={e => updateSchedule({ startHour: +e.target.value })}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13 }}>
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: 'none', background: t.bgTertiary, color: t.text, fontSize: 13 }}>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{String(i).padStart(2,'0')}:00</option>
                     ))}
@@ -425,7 +433,7 @@ export default function FollowUpPage({ conversations = [] }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Fim</div>
                   <select value={schedule.endHour} onChange={e => updateSchedule({ endHour: +e.target.value })}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13 }}>
+                    style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: 'none', background: t.bgTertiary, color: t.text, fontSize: 13 }}>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{String(i).padStart(2,'0')}:00</option>
                     ))}
@@ -442,12 +450,11 @@ export default function FollowUpPage({ conversations = [] }) {
                     { label: 'Domingo', key: 'blockSunday' },
                   ].map(({ label, key }) => (
                     <button key={key} onClick={() => updateSchedule({ [key]: !schedule[key] })} style={{
-                      flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      background: schedule[key] ? '#FEE2E2' : t.appBg,
-                      color: schedule[key] ? '#DC2626' : t.textMuted,
-                      border: `1px solid ${schedule[key] ? '#FECACA' : t.border}`,
+                      flex: 1, padding: '8px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                      background: schedule[key] ? '#FEF2F2' : t.bgTertiary,
+                      color: schedule[key] ? '#DC2626' : t.textMid,
                     }}>
-                      {schedule[key] ? '🚫' : '✅'} {label}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -456,14 +463,14 @@ export default function FollowUpPage({ conversations = [] }) {
           </>
         )}
 
-        {/* Editor de Estágios — estilo GPT Maker */}
+        {/* Editor de Estágios */}
         {card(
           <>
-            {sectionTitle('⚙️ Ações de Inatividade')}
-            <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 14 }}>
+            {sectionTitle('Ações de inatividade', Settings)}
+            <div style={{ fontSize: 12.5, color: t.textMuted, marginBottom: 14 }}>
               Configure o que o agente faz quando o cliente para de responder.
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {stages.map((stage, i) => {
                 const TIME_OPTIONS = [
                   { label: '5 minutos',   min: 5,    max: 29 },
@@ -480,13 +487,13 @@ export default function FollowUpPage({ conversations = [] }) {
                 const selectedTime = TIME_OPTIONS.find(o => o.min === stage.min) || TIME_OPTIONS[1]
                 return (
                   <div key={stage.id} style={{
-                    border: `1px solid ${stage.enabled ? t.border : '#FECACA'}`,
-                    borderRadius: 12, overflow: 'hidden',
+                    border: `1px solid ${t.borderLight || t.border}`,
+                    borderRadius: 10, overflow: 'hidden',
                     opacity: stage.enabled ? 1 : 0.55,
                   }}>
                     {/* Linha do tempo */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', background: t.appBg, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'nowrap' }}>⏱ Se não responder em</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', background: t.bgSecondary, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12.5, color: t.textMid, whiteSpace: 'nowrap' }}>Se não responder em</span>
                       <select
                         value={selectedTime.label}
                         onChange={e => {
@@ -494,23 +501,23 @@ export default function FollowUpPage({ conversations = [] }) {
                           const next = stages.map((s, j) => j === i ? { ...s, min: opt.min, max: opt.max, label: opt.label } : s)
                           setStages(next); saveStagesAsync(next)
                         }}
-                        style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                        style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: t.bgTertiary, color: t.text, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
                       >
                         {TIME_OPTIONS.map(o => <option key={o.label} value={o.label}>{o.label}</option>)}
                       </select>
-                      <span style={{ fontSize: 13, color: t.textSecondary, whiteSpace: 'nowrap' }}>o agente deve</span>
+                      <span style={{ fontSize: 12.5, color: t.textMid, whiteSpace: 'nowrap' }}>o agente deve</span>
                       <select
                         value={stage.action}
                         onChange={e => {
                           const next = stages.map((s, j) => j === i ? { ...s, action: e.target.value } : s)
                           setStages(next); saveStagesAsync(next)
                         }}
-                        style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                        style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: t.bgTertiary, color: t.text, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
                       >
-                        <option value="message">💬 Interagir com cliente (IA)</option>
-                        <option value="fixed">📝 Mensagem fixa</option>
-                        <option value="fixed_and_finalize">📝 Mensagem + Finalizar</option>
-                        <option value="finalize">🔚 Finalizar atendimento</option>
+                        <option value="message">Interagir com cliente (IA)</option>
+                        <option value="fixed">Mensagem fixa</option>
+                        <option value="fixed_and_finalize">Mensagem + Finalizar</option>
+                        <option value="finalize">Finalizar atendimento</option>
                       </select>
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                         <button
@@ -518,16 +525,16 @@ export default function FollowUpPage({ conversations = [] }) {
                             const next = stages.map((s, j) => j === i ? { ...s, enabled: !s.enabled } : s)
                             setStages(next); saveStagesAsync(next)
                           }}
-                          style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                            background: stage.enabled ? '#D1FAE5' : '#FEE2E2',
-                            color: stage.enabled ? '#065F46' : '#DC2626' }}
+                          style={{ fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                            background: stage.enabled ? '#ECFDF5' : t.bgTertiary,
+                            color: stage.enabled ? '#059669' : t.textMuted }}
                         >
                           {stage.enabled ? '● Ativo' : '○ Inativo'}
                         </button>
                         {stages.length > 1 && (
                           <button
                             onClick={() => { const next = stages.filter((_, j) => j !== i); setStages(next); saveStagesAsync(next) }}
-                            style={{ fontSize: 13, padding: '4px 9px', borderRadius: 6, border: `1px solid #FECACA`, background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', fontWeight: 700 }}
+                            style={{ fontSize: 13, padding: '4px 9px', borderRadius: 6, border: 'none', background: 'transparent', color: t.textMuted, cursor: 'pointer', fontWeight: 700 }}
                           >✕</button>
                         )}
                       </div>
@@ -535,17 +542,17 @@ export default function FollowUpPage({ conversations = [] }) {
 
                     {/* Descrição da ação */}
                     {stage.action === 'message' && (
-                      <div style={{ padding: '10px 14px', background: t.bg, borderTop: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ padding: '9px 14px', background: t.bg, borderTop: `1px solid ${t.borderLight || t.border}`, display: 'flex', alignItems: 'center', gap: 7 }}>
                         <span style={{ fontSize: 11, color: t.textMuted }}>↳</span>
-                        <span style={{ fontSize: 12, color: t.textSecondary, fontStyle: 'italic' }}>
+                        <span style={{ fontSize: 11.5, color: t.textMid, fontStyle: 'italic' }}>
                           Mensagem gerada por IA (Groq) com base no histórico da conversa
                         </span>
                       </div>
                     )}
                     {(stage.action === 'fixed' || stage.action === 'fixed_and_finalize') && (
-                      <div style={{ borderTop: `1px solid ${t.border}`, background: t.bg }}>
+                      <div style={{ borderTop: `1px solid ${t.borderLight || t.border}`, background: t.bg }}>
                         {stage.action === 'fixed_and_finalize' && (
-                          <div style={{ padding: '6px 14px', background: '#FFFBEB', borderBottom: `1px solid #FDE68A`, fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                          <div style={{ padding: '6px 14px', background: '#FFFBEB', fontSize: 11, color: '#B45309', fontWeight: 600 }}>
                             ↳ Envia esta mensagem e em seguida finaliza a conversa automaticamente
                           </div>
                         )}
@@ -558,37 +565,37 @@ export default function FollowUpPage({ conversations = [] }) {
                                 setStages(next); saveStagesAsync(next)
                               }}
                               rows={8}
-                              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${t.border}`, fontSize: 13, color: t.text, background: t.appBg, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.6 }}
+                              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: 'none', fontSize: 13, color: t.text, background: t.bgTertiary, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.6, outline: 'none' }}
                             />
                             <button
                               onClick={() => setEditingFixed(p => ({ ...p, [stage.id]: false }))}
-                              style={{ marginTop: 8, padding: '6px 16px', borderRadius: 7, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                              style={{ marginTop: 8, padding: '6px 16px', borderRadius: 7, border: 'none', background: t.text, color: t.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                             >
-                              ✓ Confirmar
+                              Confirmar
                             </button>
                           </div>
                         ) : (
                           <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                             <div style={{ flex: 1 }}>
                               <span style={{ fontSize: 11, color: t.textMuted }}>↳ </span>
-                              <span style={{ fontSize: 12, color: t.textSecondary, whiteSpace: 'pre-line' }}>
+                              <span style={{ fontSize: 12, color: t.textMid, whiteSpace: 'pre-line' }}>
                                 {(stage.fixedText ?? DEFAULT_FIXED_TEXT).split('\n')[0]}…
                               </span>
                             </div>
                             <button
                               onClick={() => setEditingFixed(p => ({ ...p, [stage.id]: true }))}
-                              style={{ flexShrink: 0, padding: '4px 12px', borderRadius: 7, border: `1px solid ${t.border}`, background: t.appBg, color: t.textSecondary, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                              style={{ flexShrink: 0, padding: '4px 12px', borderRadius: 7, border: 'none', background: t.bgTertiary, color: t.textMid, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                             >
-                              ✏️ Editar
+                              Editar
                             </button>
                           </div>
                         )}
                       </div>
                     )}
                     {stage.action === 'finalize' && (
-                      <div style={{ padding: '10px 14px', background: '#FFFBEB', borderTop: `1px solid #FDE68A`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 11, color: '#92400E' }}>↳</span>
-                        <span style={{ fontSize: 12, color: '#92400E' }}>
+                      <div style={{ padding: '9px 14px', background: '#FFFBEB', borderTop: `1px solid ${t.borderLight || t.border}`, display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{ fontSize: 11, color: '#B45309' }}>↳</span>
+                        <span style={{ fontSize: 11.5, color: '#B45309' }}>
                           Conversa será marcada como finalizada automaticamente
                         </span>
                       </div>
@@ -602,9 +609,10 @@ export default function FollowUpPage({ conversations = [] }) {
                   const next = [...stages, { id: `stage_${Date.now()}`, label: '1 hora', min: 60, max: 119, action: 'message', enabled: true, fixedText: DEFAULT_FIXED_TEXT }]
                   setStages(next); saveStagesAsync(next)
                 }}
-                style={{ background: 'transparent', border: `1px dashed ${t.border}`, color: t.textMuted, borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginTop: 2 }}
+                style={{ background: 'transparent', border: `1px dashed ${t.borderLight || t.border}`, color: t.textMuted, borderRadius: 10, padding: '11px', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
-                + Adicionar ação
+                <PlusCircle size={14} strokeWidth={2} />
+                Adicionar ação
               </button>
             </div>
           </>
@@ -621,18 +629,17 @@ export default function FollowUpPage({ conversations = [] }) {
                 <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6 }}>Canais incluídos:</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[
-                    { key: 'whatsapp', label: 'WhatsApp', icon: '💬', activeColor: '#25D366', activeBg: '#DCFCE7', activeBorder: '#86EFAC' },
-                    { key: 'instagram', label: 'Instagram', icon: '📷', activeColor: '#E1306C', activeBg: '#FCE7F3', activeBorder: '#F9A8D4' },
-                  ].map(({ key, label, icon, activeColor, activeBg, activeBorder }) => {
+                    { key: 'whatsapp', label: 'WhatsApp', activeColor: '#059669', activeBg: '#ECFDF5' },
+                    { key: 'instagram', label: 'Instagram', activeColor: t.text, activeBg: t.bgTertiary },
+                  ].map(({ key, label, activeColor, activeBg }) => {
                     const active = channelFilter[key]
                     return (
                       <button key={key} onClick={() => setChannelFilter(p => ({ ...p, [key]: !p[key] }))} style={{
-                        flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        background: active ? activeBg : t.appBg,
+                        flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
+                        background: active ? activeBg : t.bgTertiary,
                         color: active ? activeColor : t.textMuted,
-                        border: `1px solid ${active ? activeBorder : t.border}`,
                       }}>
-                        {icon} {label}
+                        {label}
                       </button>
                     )
                   })}
@@ -642,9 +649,9 @@ export default function FollowUpPage({ conversations = [] }) {
               <button
                 onClick={() => run(true)}
                 disabled={running}
-                style={{ background: '#F0EBFF', border: '1px solid #7C3AED', color: '#7C3AED', borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.6 : 1, textAlign: 'left' }}
+                style={{ background: t.bgTertiary, border: 'none', color: t.textMid, borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.6 : 1, textAlign: 'left' }}
               >
-                {running ? '⏳ Processando...' : '🧪 Simular Follow-ups'}
+                {running ? 'Processando...' : 'Simular follow-ups'}
                 <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, opacity: 0.8 }}>Gera as mensagens sem enviar nada</div>
               </button>
 
@@ -652,48 +659,48 @@ export default function FollowUpPage({ conversations = [] }) {
                 <button
                   onClick={() => setConfirmSend(true)}
                   disabled={running || summary.pending.length === 0 || !withinSchedule}
-                  style={{ background: withinSchedule ? '#7C3AED' : '#9CA3AF', border: 'none', color: '#fff', borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, cursor: (running || summary.pending.length === 0 || !withinSchedule) ? 'not-allowed' : 'pointer', opacity: (running || summary.pending.length === 0 || !withinSchedule) ? 0.5 : 1, textAlign: 'left' }}
+                  style={{ background: withinSchedule ? t.text : t.bgTertiary, border: 'none', color: withinSchedule ? t.bg : t.textMuted, borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 700, cursor: (running || summary.pending.length === 0 || !withinSchedule) ? 'not-allowed' : 'pointer', opacity: (running || summary.pending.length === 0 || !withinSchedule) ? 0.5 : 1, textAlign: 'left' }}
                 >
-                  📤 Enviar Follow-ups
+                  Enviar follow-ups
                   <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, opacity: 0.85 }}>
-                    {!withinSchedule ? '🚫 Fora do horário configurado' : `${summary.pending.length} clientes serão contatados`}
+                    {!withinSchedule ? 'Fora do horário configurado' : `${summary.pending.length} clientes serão contatados`}
                   </div>
                 </button>
               ) : (
-                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#DC2626', marginBottom: 8 }}>⚠️ Confirmar envio para {summary.pending.length} clientes?</div>
+                <div style={{ background: '#FEF2F2', borderRadius: 10, padding: '12px 16px', borderLeft: '3px solid #DC2626' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#DC2626', marginBottom: 8 }}>Confirmar envio para {summary.pending.length} clientes?</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => run(false)} style={{ flex: 1, background: '#DC2626', border: 'none', color: '#fff', borderRadius: 8, padding: '8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Sim, enviar</button>
-                    <button onClick={() => setConfirmSend(false)} style={{ flex: 1, background: '#fff', border: '1px solid #E5E5E5', color: '#374151', borderRadius: 8, padding: '8px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={() => setConfirmSend(false)} style={{ flex: 1, background: t.bg, border: 'none', color: t.textMid, borderRadius: 8, padding: '8px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
                   </div>
                 </div>
               )}
 
               <button
                 onClick={async () => { await clearFollowUpState(); await refresh(); setResult(null) }}
-                style={{ background: 'none', border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 10, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: t.textMuted, borderRadius: 10, padding: '10px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
               >
-                🗑 Resetar histórico de envios
+                Resetar histórico de envios
               </button>
             </div>
 
             {/* Resultado da simulação — editável */}
             {result && result.dryRun && editedMessages.length > 0 && (
-              <div style={{ marginTop: 16, background: '#F0EBFF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5B21B6', marginBottom: 4 }}>✏️ Revise e edite antes de enviar</div>
-                <div style={{ fontSize: 11, color: '#7C3AED', marginBottom: 12 }}>Verificadas: {result.checked} · {editedMessages.length} mensagens geradas</div>
+              <div style={{ marginTop: 16, background: t.bgSecondary, borderRadius: 10, padding: '14px 16px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4 }}>Revise e edite antes de enviar</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 12 }}>Verificadas: {result.checked} · {editedMessages.length} mensagens geradas</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {editedMessages.map((msg, i) => (
-                    <div key={i} style={{ background: '#fff', border: '1px solid #DDD6FE', borderRadius: 8, padding: '10px 12px' }}>
+                    <div key={i} style={{ background: t.bg, borderRadius: 8, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#0A0A0A' }}>{msg.conv}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, background: '#EDE9FE', color: '#5B21B6', borderRadius: 5, padding: '2px 7px' }}>{msg.stage}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{msg.conv}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, background: t.bgTertiary, color: t.textMid, borderRadius: 5, padding: '2px 7px' }}>{msg.stage}</span>
                       </div>
                       <textarea
                         value={msg.text}
                         onChange={e => setEditedMessages(prev => prev.map((m, j) => j === i ? { ...m, text: e.target.value } : m))}
                         rows={2}
-                        style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid #DDD6FE', fontSize: 12, color: '#374151', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
+                        style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: 'none', background: t.bgTertiary, fontSize: 12, color: t.text, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
                       />
                     </div>
                   ))}
@@ -701,18 +708,18 @@ export default function FollowUpPage({ conversations = [] }) {
                 <button
                   onClick={sendEdited}
                   disabled={sendingEdited || !withinSchedule}
-                  style={{ marginTop: 12, width: '100%', background: withinSchedule ? '#7C3AED' : '#9CA3AF', border: 'none', color: '#fff', borderRadius: 9, padding: '10px', fontSize: 13, fontWeight: 700, cursor: (sendingEdited || !withinSchedule) ? 'not-allowed' : 'pointer', opacity: (sendingEdited || !withinSchedule) ? 0.6 : 1 }}
+                  style={{ marginTop: 12, width: '100%', background: withinSchedule ? t.text : t.bgTertiary, border: 'none', color: withinSchedule ? t.bg : t.textMuted, borderRadius: 9, padding: '10px', fontSize: 13, fontWeight: 700, cursor: (sendingEdited || !withinSchedule) ? 'not-allowed' : 'pointer', opacity: (sendingEdited || !withinSchedule) ? 0.6 : 1 }}
                 >
-                  {sendingEdited ? '⏳ Enviando...' : `📤 Enviar ${editedMessages.length} mensagens editadas`}
+                  {sendingEdited ? 'Enviando...' : `Enviar ${editedMessages.length} mensagens editadas`}
                 </button>
               </div>
             )}
 
             {/* Resultado de envio real */}
             {result && !result.dryRun && (
-              <div style={{ marginTop: 16, background: '#D1FAE5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 16px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46', marginBottom: 4 }}>✅ Envios realizados</div>
-                <div style={{ fontSize: 12, color: '#064E3B' }}>
+              <div style={{ marginTop: 16, background: '#ECFDF5', borderRadius: 10, padding: '12px 16px', borderLeft: '3px solid #10B981' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#059669', marginBottom: 4 }}>Envios realizados</div>
+                <div style={{ fontSize: 12, color: t.textMid }}>
                   Enviadas: {result.sent?.length || 0}{result.errors?.length > 0 && ` · Erros: ${result.errors.length}`}
                 </div>
               </div>
@@ -724,27 +731,28 @@ export default function FollowUpPage({ conversations = [] }) {
       {/* Log */}
       {card(
         <>
-          {sectionTitle('Histórico de Envios')}
+          {sectionTitle('Histórico de envios')}
           {log.length === 0 ? (
-            <div style={{ color: t.textMuted, fontSize: 13 }}>Nenhum envio registrado ainda.</div>
+            <div style={{ color: t.textMuted, fontSize: 12.5 }}>Nenhum envio registrado ainda.</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
-              {log.map((entry, i) => (
-                <div key={i} style={{ background: t.appBg, border: `1px solid ${t.border}`, borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{entry.conv}</span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
-                      background: entry.status === 'sent' ? '#D1FAE5' : entry.status === 'finalized' ? '#FEF3C7' : entry.status === 'simulated' ? '#F0EBFF' : '#FEE2E2',
-                      color: entry.status === 'sent' ? '#065F46' : entry.status === 'finalized' ? '#92400E' : entry.status === 'simulated' ? '#5B21B6' : '#DC2626',
-                    }}>
-                      {entry.status === 'sent' ? '✅ enviado' : entry.status === 'finalized' ? '🔚 finalizado' : entry.status === 'simulated' ? '🧪 simulado' : '❌ erro'} · {entry.stage}
-                    </span>
+              {log.map((entry, i) => {
+                const statusCor = entry.status === 'sent' ? '#10B981' : entry.status === 'finalized' ? '#F59E0B' : entry.status === 'simulated' ? t.textMuted : '#DC2626'
+                const statusLabel = entry.status === 'sent' ? 'enviado' : entry.status === 'finalized' ? 'finalizado' : entry.status === 'simulated' ? 'simulado' : 'erro'
+                return (
+                  <div key={i} style={{ background: t.bgSecondary, borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{entry.conv}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: t.textMid, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCor, display: 'inline-block' }} />
+                        {statusLabel} · {entry.stage}
+                      </span>
+                    </div>
+                    {entry.text && <div style={{ fontSize: 11, color: t.textMid, marginBottom: 4 }}>"{entry.text}"</div>}
+                    <div style={{ fontSize: 10, color: t.textMuted }}>{entry.at ? new Date(entry.at).toLocaleString('pt-BR') : ''}</div>
                   </div>
-                  {entry.text && <div style={{ fontSize: 11, color: t.textSecondary, marginBottom: 4 }}>"{entry.text}"</div>}
-                  <div style={{ fontSize: 10, color: t.textMuted }}>{entry.at ? new Date(entry.at).toLocaleString('pt-BR') : ''}</div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
