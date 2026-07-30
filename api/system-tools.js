@@ -96,6 +96,7 @@
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
 import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
+import { consultarCobrancas } from './_consultarCobrancas.js'
 import {
   checarRateLimitMensagemManualBestEffort,
   iniciarRequestIdSeLivre,
@@ -144,6 +145,30 @@ function checarRateLimitPorParcelaBestEffort(parcelaId) {
 // Hash curto do IP pra log — nunca o IP completo, nunca token/Authorization.
 function ipHashCurto(ip) {
   return ip ? crypto.createHash('sha256').update(ip).digest('hex').slice(0, 8) : null
+}
+
+// Rate limit best-effort exclusivo de consultar_cobrancas (tool=mcp) — Map próprio,
+// não compartilhado com nenhum outro limitador deste arquivo (mesmo motivo do bloco
+// "frontend" acima: orçamentos de features diferentes não devem se misturar). Mesma
+// ressalva de sempre: em memória do processo, reseta a cada cold start, não é
+// compartilhado entre instâncias/regiões — não substitui autenticação real (que já é
+// o Bearer MCP_LITE_SECRET), só reduz abuso trivial repetido na mesma instância quente.
+// 60/min (não 10/min) porque o IP que chega aqui é o da infraestrutura do GPT Maker
+// fazendo a chamada MCP, não o IP individual de cada conversa/cliente — esse orçamento
+// pode ser compartilhado por várias conversas simultâneas da Gabriela; um limite baixo
+// bloquearia atendimento legítimo por volume, não abuso real.
+const tentativasConsultarCobrancasPorIp = new Map()
+const CONSULTAR_COBRANCAS_RATE_LIMIT_JANELA_MS = 60 * 1000
+const CONSULTAR_COBRANCAS_RATE_LIMIT_MAX_POR_IP = 60
+
+function checarRateLimitConsultarCobrancasBestEffort(ip) {
+  const agora = Date.now()
+  const chave = ip || 'desconhecido'
+  const historico = (tentativasConsultarCobrancasPorIp.get(chave) || [])
+    .filter(t => agora - t < CONSULTAR_COBRANCAS_RATE_LIMIT_JANELA_MS)
+  historico.push(agora)
+  tentativasConsultarCobrancasPorIp.set(chave, historico)
+  return historico.length <= CONSULTAR_COBRANCAS_RATE_LIMIT_MAX_POR_IP
 }
 
 const VERCEL_TOKEN = process.env.VERCEL_ACCESS_TOKEN
@@ -1515,6 +1540,45 @@ const MCP_TOOLS = [
     description: 'Verifica se o IGNITE PRIME MCP Lite está conectado e respondendo corretamente.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
+  {
+    name: 'consultar_cobrancas',
+    description: 'Consulta cobranças e parcelas do PRIME Cobranças, sempre somente leitura. A busca por nome localiza candidatos sem revelar dados financeiros. Somente uma busca por telefone completo pode retornar cobranças e parcelas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nome_cliente: {
+          type: 'string',
+          description: 'Nome completo do cliente. Usado somente para localizar candidatos, por comparação normalizada e exata. Nunca retorna dados financeiros.',
+          minLength: 3,
+          maxLength: 120,
+        },
+        telefone: {
+          type: 'string',
+          description: 'Telefone completo do cliente, com ou sem formatação. Será normalizado para dígitos. É o único parâmetro que pode liberar dados de cobranças e parcelas.',
+          minLength: 10,
+          maxLength: 20,
+        },
+        status: {
+          type: 'string',
+          enum: ['aberta', 'vencida', 'paga', 'todas'],
+          default: 'todas',
+          description: 'Filtro calculado das parcelas. Só é aplicado quando telefone é informado.',
+        },
+        limite: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 10,
+          default: 5,
+          description: 'Quantidade máxima de parcelas retornadas.',
+        },
+      },
+      additionalProperties: false,
+      anyOf: [
+        { required: ['nome_cliente'] },
+        { required: ['telefone'] },
+      ],
+    },
+  },
 ]
 
 function mcpJsonRpcError(id, code, message) {
@@ -1546,9 +1610,49 @@ function mcpToolCallVerificarConexao(args) {
   }
 }
 
+// Monta o content/structuredContent de tools/call a partir do resultado de
+// consultarCobrancas({httpStatus, body}). isError:true pra qualquer status !== 200
+// ou body.status === 'erro' — nunca vaza detalhe interno, `body.mensagem` já é
+// texto curado dentro de _consultarCobrancas.js, nunca erro bruto do SDK/Base44.
+function mcpToolCallConsultarCobrancas(resultado) {
+  const { httpStatus, body } = resultado
+  const isError = httpStatus >= 400 || body.status === 'erro'
+  const textoResumo = body.mensagem
+    || (body.status === 'ok' ? `Consulta realizada — ${body.parcelas.length} parcela(s) retornada(s).` : 'Consulta processada.')
+
+  return {
+    isError,
+    content: [{ type: 'text', text: textoResumo }],
+    structuredContent: body,
+  }
+}
+
+// Despacha tools/call pra ferramenta correta. Retorna `null` se o nome não bater
+// com nenhuma ferramenta conhecida — quem chama decide o formato de "desconhecida".
+async function mcpToolCallDispatch(toolName, args, req) {
+  if (toolName === 'verificar_conexao') {
+    return mcpToolCallVerificarConexao(args)
+  }
+
+  if (toolName === 'consultar_cobrancas') {
+    const ip = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || null
+    if (!checarRateLimitConsultarCobrancasBestEffort(ip)) {
+      console.error('[system-tools:mcp] consultar_cobrancas rate limit excedido', { ip: ipHashCurto(ip) })
+      return { isError: true, content: [{ type: 'text', text: 'Muitas consultas em pouco tempo — aguarde e tente novamente.' }] }
+    }
+    // Log só de metadado técnico — nunca nome/telefone/valor completo (regra do
+    // arquivo inteiro, reforçada aqui de propósito por lidar com dado financeiro).
+    console.log('[system-tools:mcp] consultar_cobrancas chamada', { ip: ipHashCurto(ip) })
+    const resultado = await consultarCobrancas(args || {})
+    return mcpToolCallConsultarCobrancas(resultado)
+  }
+
+  return null
+}
+
 // Processa 1 mensagem JSON-RPC já parseada. Retorna `null` pra notificações
 // (não devem gerar corpo de resposta) e um objeto JSON-RPC pra requests.
-function mcpHandleMessage(msg) {
+async function mcpHandleMessage(msg, req) {
   if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
     return mcpJsonRpcError(null, -32600, 'Invalid Request')
   }
@@ -1576,8 +1680,9 @@ function mcpHandleMessage(msg) {
 
   if (method === 'tools/call') {
     const toolName = params?.name
-    if (toolName === 'verificar_conexao') {
-      return mcpJsonRpcResult(id, mcpToolCallVerificarConexao(params?.arguments))
+    const resultado = await mcpToolCallDispatch(toolName, params?.arguments, req)
+    if (resultado) {
+      return mcpJsonRpcResult(id, resultado)
     }
     // Ferramenta desconhecida — request válido, execução falhou. Padrão MCP:
     // isError:true no result, não erro de protocolo JSON-RPC (não confundir
@@ -1622,12 +1727,12 @@ async function mcpTool(req, res) {
     // Batch JSON-RPC (array) suportado pelo protocolo, ainda que raramente usado
     // por clientes MCP reais.
     if (Array.isArray(body)) {
-      const respostas = body.map(mcpHandleMessage).filter(Boolean)
+      const respostas = (await Promise.all(body.map(msg => mcpHandleMessage(msg, req)))).filter(Boolean)
       if (respostas.length === 0) return res.status(202).end()
       return res.status(200).json(respostas)
     }
 
-    const resposta = mcpHandleMessage(body)
+    const resposta = await mcpHandleMessage(body, req)
     if (resposta === null) return res.status(202).end() // notification, sem corpo
     return res.status(200).json(resposta)
   } catch (e) {
