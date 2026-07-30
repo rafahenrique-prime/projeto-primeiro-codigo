@@ -78,6 +78,11 @@ async function handleIncoming(payload) {
   const { messageId, phone: phoneField, from, type, body: text } = data || {}
   const phone = phoneField || from
 
+  if (!phone) {
+    log('⏭️  Ignorado (payload sem telefone — sem data.phone nem data.from)', { messageId })
+    return
+  }
+
   if (data?.fromMe === true) {
     log('⏭️  Ignorado (fromMe=true — mensagem própria)', { messageId, phone })
     return
