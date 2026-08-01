@@ -107,6 +107,18 @@
 //                           Nenhuma delas escreve em nada. Exige header
 //                           Authorization: Bearer <MCP_LITE_SECRET> — segredo próprio,
 //                           nunca compartilhado com CRON_SECRET/LYRA_WEBHOOK_SECRET/etc.
+// ?tool=prime-bridge-webhook → Webhook real da PRIME Bridge Serverless (ver
+//                           docs/integrations/PRIME-BRIDGE-POC.md e
+//                           poc/zap-gptmaker-bridge/README.md). Substitui as POCs
+//                           1/2A/2B.1/2B.2 (já removidas) — handler definitivo, usado pela
+//                           ZAP-API como destino do evento message.received. Só aceita
+//                           POST; exige ?secret=<WEBHOOK_PATH_SECRET> comparado com
+//                           timingSafeEqual; qualquer método/segredo incorreto responde 404
+//                           idêntico (nunca revela o motivo). Responde 200 imediatamente e
+//                           processa via waitUntil(handleIncoming(payload)) — handleIncoming
+//                           importado de poc/zap-gptmaker-bridge/bridgeCore.js (núcleo
+//                           extraído na POC 2A), com getBridgeConfig(process.env) lida no
+//                           momento da requisição. Nenhum segredo/token/config é logado.
 
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
@@ -130,6 +142,7 @@ import {
 } from './_mensagemManualProxy.js'
 import { processarLote, obterClienteComEventos, obterAgregados } from './_nexClientes.js'
 import { consultarProduto } from './_toolConsultarProduto.js'
+import { runPrimeBridgeWebhook } from './_primeBridgeWebhook.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -2564,7 +2577,10 @@ export default async function handler(req, res) {
       return res.status(resultado.httpStatus).json(resultado.body)
     }
 
+    case 'prime-bridge-webhook':
+      return runPrimeBridgeWebhook(req, res)
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health ou consultar-produto)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto ou prime-bridge-webhook)' })
   }
 }

@@ -1,23 +1,47 @@
 # POC 2 — Ponte ZAP-API Trial ↔ GPTMaker Conversation API
 
-POC isolada e descartável. Nenhuma dependência nova, nenhum arquivo do projeto principal tocado.
+**Status atual: fluxo completo validado ponta a ponta, em produção de teste (Vercel Preview), com hospedagem definitiva decidida.**
 
-**Status atual (Fase 3 publicada em Production, commit `fd3e660`):** o fluxo
-de enriquecimento de contexto (Gatekeeper → Tool Router → Tool API → Context
-Builder) está implementado, integrado ao `server.mjs`, coberto por 131 testes
-automatizados locais, e **commitado, publicado e com o deployment
-correspondente validado como Ready em Production**.
+**Decisão arquitetural de hospedagem (2026-08-01):** a Bridge roda como
+**Vercel Serverless Function**, usando `waitUntil()` (`@vercel/functions`)
+para processar o webhook em segundo plano após responder `200` imediatamente
+à ZAP-API. Essa abordagem foi auditada, comparada tecnicamente e validada
+através de uma sequência de POCs (ver `docs/integrations/PRIME-BRIDGE-POC.md`
+para o histórico completo). **Railway, Render, Fly.io, VPS e Base44 Builder
+foram avaliados e ficam registrados como alternativas de reserva — nenhum
+foi contratado.** A escolha por serverless evita administrar infraestrutura
+nova, reaproveita a conta Vercel já existente (`ignite-webhook`), e manteve
+o projeto dentro do limite de 12 Serverless Functions do plano Hobby (a
+Bridge inteira vive como um `case` a mais dentro do dispatcher já existente
+`api/system-tools.js`, não como Function própria).
 
-A **IGNITE PRIME Tool API** (`?tool=consultar-produto`) já está publicada em
-Production e foi validada com três testes reais contra o catálogo real do
-Supabase (ver "Validação Real da Tool API" abaixo). `BRIDGE_TOOLS_SECRET`
-existe, está configurada como `Sensitive` na Vercel e guardada no Apple
-Passwords.
+**Handler definitivo:** [`api/_primeBridgeWebhook.js`](../../api/_primeBridgeWebhook.js)
+— roteado via `POST /api/system-tools?tool=prime-bridge-webhook&secret=<WEBHOOK_PATH_SECRET>`.
+Importa `handleIncoming`/`getBridgeConfig` de
+[`bridgeCore.js`](./bridgeCore.js) (núcleo extraído da Bridge, sem nenhum
+efeito colateral no import — seguro para rodar tanto localmente quanto numa
+Function). `server.mjs` continua existindo, mas **só para uso e teste
+local** (processo `http.createServer` standalone) — não é mais o caminho de
+produção.
 
-O que **continua pendente** é somente o fluxo completo da Bridge rodando de
-ponta a ponta — Gatekeeper → Tool Router → Context Builder → GPTMaker →
-ZAP-API → WhatsApp — em um teste supervisionado real (ver "Pendência Atual"
-abaixo).
+**Teste funcional final aprovado (2026-08-01, deployment Preview
+`fd6l52jby`):** uma mensagem real via WhatsApp → ZAP-API → webhook Preview →
+`bridgeCore.js` → Gatekeeper → Tool Router → Tool API → Context Builder →
+GPT Maker → ZAP-API → WhatsApp, fechou o ciclo completo com sucesso:
+- Dedupe: `check_or_start` → `process` → `mark_completed` → **`completed`**
+- Gatekeeper: `CONTINUE`
+- GPT Maker: respondeu corretamente
+- ZAP-API `/send`: aceitou o envio (`provider_accepted`)
+- Resposta chegou ao WhatsApp
+- `message.sent`/`message.status` corretamente ignorados (a Bridge só
+  processa `message.received`)
+- **Zero duplicidade, zero exceção não tratada**
+- **Latência total: 4971 ms**
+
+A **IGNITE PRIME Tool API** (`?tool=consultar-produto`) segue publicada em
+Production, validada com três testes reais contra o catálogo real do
+Supabase (ver "Validação Real da Tool API" abaixo), e agora também exercida
+como parte do fluxo completo (não mais só isolada).
 
 ## Visão geral e fluxo atual
 
@@ -252,24 +276,33 @@ catálogo tem mais de 3 produtos correspondentes ao termo).
 | Componente | Status |
 |------------|--------|
 | Tool API consultar-produto | ✅ Validada em Production |
-| BRIDGE_TOOLS_SECRET | ✅ Configurada |
+| BRIDGE_TOOLS_SECRET | ✅ Configurada (Production e Preview) |
 | Contrato da Tool API | ✅ Validado |
-| Gatekeeper | ⏳ Pendente |
-| Tool Router | ⏳ Pendente |
-| Context Builder | ⏳ Pendente |
-| GPTMaker | ⏳ Pendente |
-| ZAP-API | ⏳ Pendente |
-| Fluxo WhatsApp ponta a ponta | ⏳ Pendente |
+| Gatekeeper | ✅ Validado em Preview real (`CONTINUE`) |
+| Tool Router | ✅ Validado em Preview real (`consultar_produto` executada com sucesso em testes) |
+| Context Builder | ✅ Validado em Preview real |
+| GPTMaker | ✅ Validado em Preview real |
+| ZAP-API | ✅ Validado em Preview real (`provider_accepted`) |
+| Fluxo WhatsApp ponta a ponta | ✅ **Validado em Preview real — teste funcional final aprovado** |
+| Hospedagem serverless (Vercel + waitUntil) | ✅ Aprovada e definitiva |
+| Dedupe persistente (Supabase) | ✅ Validado (`completed`, sem linha presa em `received`) |
 
-## Pendência Atual
+## Variáveis de ambiente necessárias (Preview) — só nomes, nunca valores
 
-A única pendência funcional restante desta fase é a **validação
-supervisionada do fluxo completo da Bridge via WhatsApp** — uma mensagem de
-teste percorrendo Gatekeeper → Tool Router → Context Builder → GPTMaker →
-ZAP-API → WhatsApp, usando o telefone de teste, com os logs conferidos em
-tempo real. A Tool API (peça já validada isoladamente acima) será chamada
-como parte desse fluxo, não isolada.
+`AGENT_ID`, `GPT_TOKEN`, `ZAPI_INSTANCE_ID`, `ZAPI_TOKEN`, `WEBHOOK_PATH_SECRET`,
+`IGNITE_PRIME_URL`, `BRIDGE_TOOLS_SECRET`, `LIVE_MODE`, `SUPABASE_SECRET_KEY`
+(ou `VITE_SUPABASE_URL`/`SUPABASE_URL` como fallback). Cadastradas via
+`vercel env add <NOME> preview` — nunca em Production através desta POC, e
+os valores nunca aparecem em nenhum log (confirmado por testes automatizados
+dedicados) nem em nenhum documento deste projeto.
 
-## Encerrar a POC
+## Pendências reais restantes (fora do escopo desta fase)
 
-`Ctrl+C` nos dois terminais (server e túnel). Nada fica rodando, nada foi instalado no projeto, nada foi commitado.
+- Rotação do `WEBHOOK_PATH_SECRET` de teste antes de qualquer uso contínuo/produção (decisão já registrada anteriormente).
+- Definição de URL/webhook estável e permanente na ZAP-API (o webhook de teste é desativado manualmente após cada validação).
+- Regras reais no Gatekeeper (hoje 100% permissivo, por decisão consciente).
+- Etapa futura "GPT Tuning" — alinhar a Gabriela usando os recursos nativos do GPT Maker, comparando o canal oficial com o canal ZAP-API+Bridge.
+
+## Encerrar a POC / uso local
+
+`Ctrl+C` no terminal do `server.mjs` (uso local/desenvolvimento). Em Preview/produção, o handler roda como Vercel Function (`api/_primeBridgeWebhook.js`) — não há processo para encerrar manualmente; desativar o webhook no painel da ZAP-API é suficiente para parar o recebimento de eventos.

@@ -23,6 +23,7 @@
   "homepage": "https://github.com/rafahenrique-prime/projeto-primeiro-codigo#readme",
   "dependencies": {
     "@base44/sdk": "^0.8.32",
+    "@vercel/functions": "3.7.6",
     "aws-sdk": "^2.1693.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

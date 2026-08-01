@@ -289,16 +289,75 @@ Esta fase não está incluída neste documento; decisão de priorização fica p
 
 ---
 
+## 11. Fase Serverless — decisão de hospedagem, POCs e Teste Funcional Final (2026-08-01)
+
+**Contexto:** depois de Fases 2/3 (dedupe/log persistente, Gatekeeper/Tool Router/Tool API/Context Builder) e da Fase 4 (teste supervisionado real via terminal local + Cloudflare Quick Tunnel, aprovado), a pendência restante era decidir a **hospedagem definitiva** da Bridge — até então dependente de um processo manual em terminal.
+
+### 11.1 Auditoria de hospedagem: Railway vs. Serverless (Vercel)
+
+Auditoria técnica comparou hospedar `server.mjs` como processo persistente (Railway/Render/Fly.io/VPS) contra adaptar a Bridge para rodar como Vercel Serverless Function. Conclusão: `server.mjs` era 100% portável — toda a lógica de negócio (`handleIncoming` e dependências) já estava desacoplada de `http.createServer()`/`.listen()`. **Decisão: não contratar nenhuma hospedagem nova — adaptar para serverless na Vercel**, reaproveitando a infraestrutura já paga e administrada (projeto `ignite-webhook`). Railway, Render, Fly.io, VPS e Base44 Builder ficaram registrados como **alternativas de reserva**, só a considerar se uma limitação técnica concreta aparecesse.
+
+### 11.2 POC 1 — casca serverless (`waitUntil`)
+
+Validou, isoladamente (sleep artificial, sem tocar `handleIncoming`), que uma Vercel Function consegue responder `200` imediatamente e continuar processando em segundo plano via `waitUntil()` (`@vercel/functions`) — confirmado em Preview real, 5,002s de janela observada, zero chamada externa.
+
+### 11.3 POC 2A — extração de `bridgeCore.js`
+
+Auditoria identificou que importar `server.mjs` diretamente numa Function seria perigoso: o arquivo executa `process.exit(1)` (validação fatal de env no boot) e `http.createServer().listen()` no nível superior do módulo — ambos incompatíveis com import em ambiente serverless. Extraído `poc/zap-gptmaker-bridge/bridgeCore.js`: todo o núcleo (`handleIncoming` e dependências) movido para lá, com `getBridgeConfig(env)` e `validateRequiredEnv(config)` como funções puras, **nunca capturando env nem validando de forma fatal no import** — cada consumidor decide (o `server.mjs` local continua validando e encerrando o processo no boot; a Function decide via resposta HTTP). `server.mjs` virou só a casca HTTP local, reexportando de `bridgeCore.js`. 131 testes existentes passaram sem nenhuma edição; 8 testes novos comprovaram import seguro.
+
+### 11.4 POC 2B.1 — `handleIncoming` real numa Function
+
+Provou, com `LIVE_MODE=false` e dependências espiãs, que `bridgeCore.js` roda dentro de uma Vercel Function real sem tocar GPT Maker/ZAP-API/Supabase/WhatsApp — validado em Preview.
+
+### 11.5 POC 2B.2 — Supabase controlado
+
+Provou, via `POST` autenticado por confirmação explícita no corpo (`{"confirm":"RUN_POC_SUPABASE"}`) e validação do project ref do Supabase antes de qualquer chamada, que `processBridgeMessage`/`confirmCompletion` funcionam a partir de uma Function real: `check_or_start` → `process` → `mark_completed` → `completed`, sem nenhuma linha presa em `received`.
+
+### 11.6 Handler definitivo e bloqueios encontrados/resolvidos
+
+Implementado `api/_primeBridgeWebhook.js` (rota `POST /api/system-tools?tool=prime-bridge-webhook&secret=<WEBHOOK_PATH_SECRET>` — segredo via query string, não path segment, para não exigir uma 13ª Function; comparação `timingSafeEqual`; `404` uniforme para qualquer rejeição). Três problemas reais surgiram e foram diagnosticados/corrigidos em sequência, cada um com evidência de log:
+
+1. **`401` da Vercel Deployment Protection** — bloqueava a requisição antes mesmo de chegar à Function (nenhum log de runtime, nenhuma exceção — evidência decisiva foi a ausência total de log). Corrigido usando o mecanismo oficial "Protection Bypass for Automation" (token existente recuperado via `vercel api` — não regenerado).
+2. **`404` do próprio handler (`secretMatch: false`)** — diagnosticado com logs temporários seguros (`DIAG-TEMP`: método, presença/tipo/comprimento do secret recebido vs. esperado, nomes de query params, presença/tipo do body — nunca o valor) e, num segundo momento, hashes SHA-256 comparativos (nunca os valores). Causa: `WEBHOOK_PATH_SECRET` colado incorretamente na URL da ZAP-API. Corrigido recolando o valor certo.
+3. **`401` da própria ZAP-API no envio (`replyOnWhatsApp`)** — GPT Maker respondia com sucesso, mas o envio de volta ao WhatsApp falhava. Causa: `ZAPI_TOKEN` desatualizado em Preview. Corrigido rotacionando só essa variável (escopo Preview, nunca Production) e reimplantando.
+
+Todo o diagnóstico temporário (`DIAG-TEMP`, hashes SHA-256) foi removido do código definitivo após a causa raiz de cada problema ser confirmada — nunca ficou no código final, nunca apareceu em nenhum log de forma que expusesse um segredo (confirmado por testes automatizados dedicados que varrem os logs capturados).
+
+### 11.7 Teste Funcional Final — aprovado
+
+Deployment Preview `fd6l52jby`, mensagem real via WhatsApp, `messageId` real, sequência completa:
+
+```
+POST recebido → secretMatch=true, bodyValid=true
+  → dedupe check_or_start = 'process'
+  → Gatekeeper = CONTINUE
+  → Tool Router / Tool API (quando aplicável, testado em mensagens subsequentes na mesma sessão)
+  → Context Builder
+  → GPT Maker respondeu
+  → ZAP-API /send aceitou (provider_accepted)
+  → resposta chegou ao WhatsApp
+  → message.sent / message.status corretamente ignorados
+  → mark_completed confirmado → completed
+  → zero duplicidade, zero exceção
+  → latência total: 4971 ms
+```
+
+**Estado final:** PRIME Bridge operacional de ponta a ponta em Vercel Serverless (Preview). Pendências reais remanescentes: rotação do `WEBHOOK_PATH_SECRET` de teste antes de uso contínuo, definição de URL/webhook estável, regras reais no Gatekeeper (hoje permissivo por decisão), e a etapa futura "GPT Tuning".
+
+---
+
 ## Fontes de referência
 
-- Código da bridge: `poc/zap-gptmaker-bridge/server.mjs` (153 linhas após Fase 1B)
+- Código da bridge (núcleo): `poc/zap-gptmaker-bridge/bridgeCore.js`
+- Código da bridge (casca local): `poc/zap-gptmaker-bridge/server.mjs`
+- Handler serverless definitivo: `api/_primeBridgeWebhook.js` (via `api/system-tools.js`, `?tool=prime-bridge-webhook`)
 - README da POC: `poc/zap-gptmaker-bridge/README.md`
 - Documentação anterior: `docs/integrations/GPTMAKER-ZAPAPI-POC.md`
-- Commit da correção: `183f35e` ("fix: adiciona guard clause para payload sem telefone na PRIME Bridge POC")
+- Commit da correção (Fase 1B): `183f35e` ("fix: adiciona guard clause para payload sem telefone na PRIME Bridge POC")
 - Padrões de produção: `base44/functions/whatsappProvider/main.ts` (referência de práticas recomendadas)
 
 ---
 
 **Fim do documento**  
-**Status:** ✅ Pronto para revisão  
-**Próximo passo:** Aprovação do Rafael para arquivar como referência permanente
+**Status:** ✅ Fase Serverless concluída — Teste Funcional Final aprovado (2026-08-01)  
+**Próximo passo:** commit/push no encerramento formal da fase (aguardando aprovação do Rafael)
