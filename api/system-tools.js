@@ -115,6 +115,7 @@ import {
   construirRespostaSeguraListarTemplates,
   construirRespostaSeguraPrevisualizar,
 } from './_mensagemManualProxy.js'
+import { processarLote } from './_nexClientes.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -211,6 +212,10 @@ const LYRA_WEBHOOK_SECRET = process.env.LYRA_WEBHOOK_SECRET
 // tool=mcp — segredo próprio, independente de todos os outros deste arquivo.
 const MCP_LITE_SECRET = process.env.MCP_LITE_SECRET
 
+// tool=nex-sync-clientes, nex-cliente — segredo dedicado para sincronização NEX,
+// isolado de CRON_SECRET, LYRA_WEBHOOK_SECRET e MCP_LITE_SECRET. Nunca exposto ao frontend.
+const NEX_SYNC_SECRET = process.env.NEX_SYNC_SECRET
+
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
 const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
@@ -239,6 +244,28 @@ const PERPLEXITY_REQUEST_TIMEOUT_MS = 15000
 const STUCK_THRESHOLD_MS = 3 * 60 * 1000   // sem resposta por mais de 3min = suspeito
 const STUCK_MAX_AGE_MS = 30 * 60 * 1000    // ignora chats com última msg há mais de 30min
 const STUCK_DEDUPE_WINDOW_MS = 10 * 60 * 1000 // não alerta o mesmo chat de novo por 10min
+
+// Rate limit simples para nex-sync-clientes — best-effort em memória (reseta a cada
+// cold start, não compartilhado entre instâncias). Não substitui autenticação real (que
+// é NEX_SYNC_SECRET), só reduz abuso trivial de requisições repetidas.
+const tentativasNexPorIp = new Map()
+const NEX_RATE_LIMIT_JANELA_MS = 60 * 1000
+const NEX_RATE_LIMIT_MAX_POR_IP = 20
+
+function checarRateLimitNexBestEffort(ip) {
+  const agora = Date.now()
+  const chave = ip || 'desconhecido'
+  const historico = (tentativasNexPorIp.get(chave) || [])
+    .filter(t => agora - t < NEX_RATE_LIMIT_JANELA_MS)
+  historico.push(agora)
+  tentativasNexPorIp.set(chave, historico)
+  return historico.length <= NEX_RATE_LIMIT_MAX_POR_IP
+}
+
+// Cache em memória para nex-health (agregados sem PII) — reseta a cada cold start
+let nexHealthCache = null
+let nexHealthCacheTimestamp = 0
+const NEX_HEALTH_CACHE_TTL_MS = 3 * 60 * 1000
 
 function normalizePhone(phone) {
   return (phone || '').replace(/\D/g, '')
@@ -1817,6 +1844,278 @@ async function mcpTool(req, res) {
   }
 }
 
+// ============================================================================
+// HANDLERS PARA NEX (Fase 6C.4)
+// ============================================================================
+
+async function nexSyncClientes(req, res) {
+  // Validação de método
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Use POST' })
+  }
+
+  // Validação de Content-Type
+  const contentType = req.headers['content-type'] || ''
+  if (!contentType.includes('application/json')) {
+    return res.status(400).json({ error: 'Content-Type deve ser application/json' })
+  }
+
+  // Validação de rate limit
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'desconhecido'
+  if (!checarRateLimitNexBestEffort(ip)) {
+    console.error('[system-tools:nex-sync-clientes] Rate limit excedido', { ip: ipHashCurto(ip) })
+    return res.status(429).json({ error: 'Muitas tentativas — aguarde' })
+  }
+
+  // Validação de body
+  let body
+  try {
+    body = req.body
+  } catch (e) {
+    return res.status(400).json({ error: 'Body inválido' })
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return res.status(400).json({ error: 'Body inválido' })
+  }
+
+  // Validação de clientes
+  if (!Array.isArray(body.clientes)) {
+    return res.status(400).json({ error: 'clientes deve ser array' })
+  }
+
+  if (body.clientes.length === 0) {
+    return res.status(400).json({ error: 'clientes não pode estar vazio' })
+  }
+
+  if (body.clientes.length > 500) {
+    return res.status(400).json({ error: `Lote excede limite de 500 registros (enviado: ${body.clientes.length})` })
+  }
+
+  // Validação de loteId
+  if (typeof body.loteId !== 'string' || !body.loteId.trim()) {
+    return res.status(400).json({ error: 'loteId obrigatório e deve ser string não-vazia' })
+  }
+
+  // Validação de correlationId (opcional)
+  const correlationId = body.correlationId ? String(body.correlationId).trim() : null
+
+  // Log de entrada (sem payload completo, sem PII)
+  console.log('[system-tools:nex-sync-clientes] Requisição recebida', {
+    ip: ipHashCurto(ip),
+    loteId: body.loteId,
+    correlationId,
+    totalClientes: body.clientes.length,
+  })
+
+  // Criar Supabase client com service_role pra acesso RLS
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+
+  // Delegar totalmente para _nexClientes.js
+  try {
+    const resultado = await processarLote(supabase, body.clientes, {
+      loteId: body.loteId,
+      correlationId,
+      maxRegistros: 500,
+    })
+
+    console.log('[system-tools:nex-sync-clientes] Lote processado com sucesso', {
+      ip: ipHashCurto(ip),
+      loteId: body.loteId,
+      totalProcessados: resultado.totalProcessados,
+      totalSucesso: resultado.totalSucesso,
+      totalErro: resultado.totalErro,
+    })
+
+    return res.status(200).json(resultado)
+  } catch (err) {
+    console.error('[system-tools:nex-sync-clientes] Erro ao processar lote', {
+      ip: ipHashCurto(ip),
+      loteId: body.loteId,
+      erro: err.message,
+    })
+    return res.status(500).json({ error: 'Erro ao sincronizar clientes' })
+  }
+}
+
+async function nexCliente(req, res) {
+  // Validação de método
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Use GET' })
+  }
+
+  // Extrair parâmetros de query
+  const origem = req.query.origem ? String(req.query.origem).trim() : ''
+  const codigo = req.query.codigo ? String(req.query.codigo).trim() : ''
+
+  // Validação de parâmetros
+  if (!origem || !codigo) {
+    return res.status(400).json({ error: 'Parâmetros ?origem= e ?codigo= obrigatórios' })
+  }
+
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'desconhecido'
+  console.log('[system-tools:nex-cliente] Consulta recebida', {
+    ip: ipHashCurto(ip),
+    origem,
+    codigo,
+  })
+
+  // Criar Supabase client com service_role pra acesso RLS
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+
+  try {
+    // Buscar cliente
+    const { data: cliente, error: erroCliente } = await supabase
+      .from('nex_clientes')
+      .select('id, origem_loja, nex_codigo, nome, created_at, updated_at, ausente_desde')
+      .eq('origem_loja', origem)
+      .eq('nex_codigo', codigo)
+      .single()
+
+    if (erroCliente) {
+      if (erroCliente.code === 'PGRST116') {
+        // Não encontrado — sem detalhes
+        return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' })
+      }
+      throw erroCliente
+    }
+
+    if (!cliente) {
+      return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' })
+    }
+
+    // Buscar últimos 5 eventos
+    const { data: eventos, error: erroEventos } = await supabase
+      .from('nex_sync_eventos')
+      .select('tipo, created_at, lote_id')
+      .eq('origem_loja', origem)
+      .eq('nex_codigo', codigo)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    if (erroEventos && erroEventos.code !== 'PGRST116') {
+      throw erroEventos
+    }
+
+    return res.status(200).json({
+      sucesso: true,
+      cliente: {
+        id: cliente.id,
+        origem_loja: cliente.origem_loja,
+        nex_codigo: cliente.nex_codigo,
+        nome: cliente.nome,
+        created_at: cliente.created_at,
+        updated_at: cliente.updated_at,
+        ausente_desde: cliente.ausente_desde,
+        ultimos_eventos: eventos || [],
+      },
+    })
+  } catch (err) {
+    console.error('[system-tools:nex-cliente] Erro ao consultar', {
+      ip: ipHashCurto(ip),
+      origem,
+      codigo,
+      erro: err.message,
+    })
+    return res.status(500).json({ error: 'Erro ao consultar cliente' })
+  }
+}
+
+async function nexHealth(req, res) {
+  // Validação de método
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Use GET' })
+  }
+
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'desconhecido'
+  const force = req.query.force === 'true'
+
+  // ?force=true requer autenticação
+  if (force) {
+    if (!NEX_SYNC_SECRET) {
+      return res.status(500).json({ error: 'NEX_SYNC_SECRET não configurada' })
+    }
+    const authHeader = req.headers.authorization
+    if (authHeader !== `Bearer ${NEX_SYNC_SECRET}`) {
+      console.warn('[system-tools:nex-health] Tentativa de ?force=true sem auth', { ip: ipHashCurto(ip) })
+      return res.status(401).json({ error: 'Não autorizado' })
+    }
+  }
+
+  // Verificar cache (público, sem force)
+  if (!force && nexHealthCache && Date.now() - nexHealthCacheTimestamp < NEX_HEALTH_CACHE_TTL_MS) {
+    return res.status(200).json({
+      sucesso: true,
+      ...nexHealthCache,
+      cache_segundos: Math.round((Date.now() - nexHealthCacheTimestamp) / 1000),
+    })
+  }
+
+  console.log('[system-tools:nex-health] Consultando agregados do NEX', { ip: ipHashCurto(ip), force })
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+
+  try {
+    // Consultas de contagem (SEM PII — apenas agregados)
+    const [
+      { count: totalClientes, error: erroClientes },
+      { count: totalEventos, error: erroEventos },
+      { count: eventosHoje, error: erroHoje },
+      { count: eventosHora, error: erroHora },
+      { count: clientesAusentes, error: erroAusentes },
+    ] = await Promise.all([
+      supabase.from('nex_clientes').select('id', { count: 'exact', head: true }),
+      supabase.from('nex_sync_eventos').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('nex_sync_eventos')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      supabase
+        .from('nex_sync_eventos')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
+      supabase.from('nex_clientes').select('id', { count: 'exact', head: true }).not('ausente_desde', 'is', null),
+    ])
+
+    if (erroClientes || erroEventos || erroHoje || erroHora || erroAusentes) {
+      throw new Error('Erro ao consultar estatísticas')
+    }
+
+    const stats = {
+      timestamp: new Date().toISOString(),
+      stats: {
+        total_clientes: totalClientes || 0,
+        total_eventos: totalEventos || 0,
+        eventos_hoje: eventosHoje || 0,
+        eventos_ultima_hora: eventosHora || 0,
+        clientes_ausentes: clientesAusentes || 0,
+        sync_status: 'ok',
+      },
+      ultima_atualizacao: new Date().toISOString(),
+    }
+
+    // Armazenar no cache
+    nexHealthCache = stats
+    nexHealthCacheTimestamp = Date.now()
+
+    return res.status(200).json({
+      sucesso: true,
+      ...stats,
+      cache_segundos: 0,
+    })
+  } catch (err) {
+    console.error('[system-tools:nex-health] Erro ao consultar agregados', {
+      ip: ipHashCurto(ip),
+      erro: err.message,
+    })
+    return res.status(500).json({
+      sucesso: false,
+      erro: 'Falha ao consultar Supabase',
+      timestamp: new Date().toISOString(),
+    })
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -2164,7 +2463,41 @@ export default async function handler(req, res) {
       return mcpTool(req, res)
     }
 
+    case 'nex-sync-clientes': {
+      // Sincronização de clientes NEX (Fase 6C.4) — autenticação obrigatória,
+      // rate limit best-effort, delegação completa pra _nexClientes.js.
+      if (!NEX_SYNC_SECRET) {
+        console.error('[system-tools:nex-sync-clientes] Configuração ausente: NEX_SYNC_SECRET não definida')
+        return res.status(500).json({ error: 'NEX_SYNC_SECRET não configurada' })
+      }
+      const authHeader = req.headers.authorization
+      if (authHeader !== `Bearer ${NEX_SYNC_SECRET}`) {
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+      return nexSyncClientes(req, res)
+    }
+
+    case 'nex-cliente': {
+      // Consulta de cliente NEX específico (Fase 6C.4) — autenticação obrigatória,
+      // retorna agregados sem PII sensível (sem content_hash, sem metadados internos).
+      if (!NEX_SYNC_SECRET) {
+        console.error('[system-tools:nex-cliente] Configuração ausente: NEX_SYNC_SECRET não definida')
+        return res.status(500).json({ error: 'NEX_SYNC_SECRET não configurada' })
+      }
+      const authHeader = req.headers.authorization
+      if (authHeader !== `Bearer ${NEX_SYNC_SECRET}`) {
+        return res.status(401).json({ error: 'Não autorizado' })
+      }
+      return nexCliente(req, res)
+    }
+
+    case 'nex-health': {
+      // Health check agregado do NEX (Fase 6C.4) — público, mas com cache riguroso.
+      // ?force=true exige autenticação (NEX_SYNC_SECRET) pra forçar refresh do cache.
+      return nexHealth(req, res)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual ou mcp)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente ou nex-health)' })
   }
 }

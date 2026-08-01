@@ -35,12 +35,15 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | `VITE_SUPABASE_URL` | Frontend + serverless |
 | `VITE_SUPABASE_KEY` | Frontend + serverless (anon/publishable key) |
 | `SUPABASE_SECRET_KEY` | Só serverless (`api/_profileLearning.js`, `api/system-tools.js?tool=qwen-health`) — Secret key, autentica como `service_role`, ignora RLS. Configurada na Vercel Production **e** Preview, **nunca** em `.env.local`, **nunca** com prefixo `VITE_`. Não estava documentada nesta tabela antes de 2026-07-25, apesar de já em uso desde a Fase 2C — gap pré-existente, corrigido naquela edição. |
+| `NEX_SYNC_SECRET` | Só serverless (`api/system-tools.js?tool=nex-sync-clientes`/`nex-cliente`/`nex-health`) — segredo dedicado à integração NEX (Fase 6C), isolado de todos os outros segredos do projeto. Configurado **somente** em Vercel Production (não em Preview, não em `.env.local`, sem prefixo `VITE_`), marcado Sensitive/Encrypted. Cópia de recuperação em cofre local protegido do macOS. Ver `docs/integrations/NEX-INTEGRATION.md §3`. |
 
 > Observação: o `CLAUDE.md` menciona `VITE_SUPABASE_ANON_KEY` em uma seção, mas o `.env` e `.env.local` reais usam `VITE_SUPABASE_KEY`. **`VITE_SUPABASE_KEY` é a chave efetiva.**
 
 ---
 
-## 3. Tabelas — Migrations versionadas (10 arquivos)
+## 3. Tabelas — Migrations versionadas (14 documentadas nesta seção — cabeçalho corrigido nesta edição; contagem anterior de "10" já estava desatualizada antes da 016, gap pré-existente não relacionado à Fase 6C)
+
+**Contagem real verificada por filesystem (2026-07-31):** `supabase/migrations/` contém **18 arquivos**, numerados `001` a `018`, **sem lacunas** na sequência. As 14 linhas da tabela abaixo cobrem `001`–`016` (escopo CRM/NEX deste documento). `017_bridge_message_processing.sql` e `018_bridge_operation_logs.sql` **existem no filesystem, mas são da PRIME Bridge** (`poc/zap-gptmaker-bridge/`, Fase 2B.2) — fora do escopo deste documento, **ainda não commitadas** no momento desta edição, não listadas na tabela abaixo.
 
 ### 3.1 Tabelas definidas em `supabase/migrations/`
 
@@ -59,6 +62,7 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | 013 | `013_profile_learning_audit.sql` | `profile_learning_audit` | Aprendizado automático de `size` (ver §3.5) |
 | 014 | `014_profile_learning_audit_select_policy.sql` | (policy de SELECT em `profile_learning_audit`, sem tabela nova) | idem |
 | 015 | `015_qwen_health_state.sql` | `qwen_health_state` + função `claim_qwen_health_check` | Health check do QwenCloud, Operations Center (ver §3.6) |
+| 016 | `016_nex_clientes.sql` | `nex_clientes` + `nex_sync_eventos` | Staging de clientes NEX, isolado do Base44 (ver §3.7). **Versionada e aplicada manualmente no Supabase Production em 2026-07-31** (código do endpoint na Vercel ainda pendente de deploy — ver `docs/integrations/NEX-INTEGRATION.md`). |
 
 ### Detalhe de cada tabela
 
@@ -288,6 +292,55 @@ error_code, last_checked_at, next_allowed_at, updated_at
 
 ---
 
+### 3.7 `nex_clientes` + `nex_sync_eventos` — staging de clientes NEX (Fase 6C, migration 016)
+
+**Contexto:** importação de clientes do sistema NEX (loja física) para o Supabase, em tabelas de staging isoladas, sem nunca escrever no Base44 (`Cliente`/`Venda`/`Parcela`/`HistoricoAtividade`). Origem dos dados: sistema Windows externo (`PrimeIntegracaoNex`, fora deste repositório), autenticado via `NEX_SYNC_SECRET`. Detalhe completo da arquitetura, segurança e endpoints em [`docs/integrations/NEX-INTEGRATION.md`](integrations/NEX-INTEGRATION.md).
+
+**`nex_clientes`** — chave natural composta `(origem_loja, nex_codigo)`, `UNIQUE`:
+```sql
+id                  uuid pk default gen_random_uuid()
+origem_loja         text not null    -- parte da chave natural
+nex_codigo          text not null    -- parte da chave natural
+nome                text not null
+cpf_cnpj            text
+telefone            text
+celular             text
+email               text
+endereco            text
+saldo_debito_nex    numeric(12,2)
+saldo_credito_nex   numeric(12,2)
+valor_liquido_nex   numeric(12,2)
+data_snapshot       date
+observacao_original varchar(500)     -- truncado no banco, validado em código
+metadados           jsonb default '{}'
+content_hash        text not null    -- hash do payload normalizado (idempotência)
+ausente_desde       timestamptz      -- soft-delete: NULL = presente na última exportação
+created_at          timestamptz not null default now()
+updated_at          timestamptz not null default now()
+-- Constraint: unique (origem_loja, nex_codigo)
+```
+
+**`nex_sync_eventos`** — histórico de auditoria, uma linha por evento por cliente por lote:
+```sql
+id              uuid pk default gen_random_uuid()
+lote_id         text not null
+correlation_id  text
+origem_loja     text not null
+nex_codigo      text not null
+tipo            text not null   -- 'criado'|'atualizado'|'sem_alteracao'|'ausente_na_exportacao'
+valor_anterior  jsonb
+valor_novo      jsonb
+created_at      timestamptz not null default now()
+```
+
+**Idempotência:** `content_hash` (SHA256 do payload normalizado, exclui a chave natural) evita comparação campo a campo — hash igual ao já armazenado classifica como `sem_alteracao` e **não escreve evento novo** em `nex_sync_eventos`.
+
+**Soft-delete:** `ausente_desde` nullable — nunca há `DELETE` automático de um cliente vindo do NEX, apenas marcação de ausência.
+
+**Migration status:** versionada em `supabase/migrations/016_nex_clientes.sql`, **aplicada manualmente no Supabase Production em 2026-07-31** via SQL Editor (`Success. No rows returned`) — projeto não usa CLI de migrations automatizada, mesmo padrão de `017`/`018`. Tabelas criadas vazias, RLS habilitada, validação estrutural feita antes de avançar. **Isso é diferente do deploy do código:** os handlers de `api/system-tools.js` (`nex-sync-clientes`/`nex-cliente`/`nex-health`) ainda não foram publicados na Vercel.
+
+---
+
 ## 4. RLS (Row Level Security)
 
 **Todas as 8 tabelas versionadas** seguem o mesmo padrão (literais do SQL):
@@ -303,7 +356,11 @@ create policy "allow all via service/anon key"
 
 Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer request com a `anon key` (que está no frontend) pode ler e escrever tudo. É um padrão *permissivo por design* (app cliente precisa escrever diretamente), não uma defesa real.
 
-> **Exceções (não corrigidas nesta edição, só documentadas):** `profile_learning_audit` (013/014) e `qwen_health_state` (015) **não** seguem esse padrão `allow all` — ambas têm RLS habilitada com **zero policy** (só `SELECT` liberado em `profile_learning_audit` pela 014), acessíveis exclusivamente via `service_role`/`SUPABASE_SECRET_KEY`. São as únicas duas tabelas do projeto com essa postura mais restritiva.
+> **Exceções (não corrigidas nesta edição, só documentadas):** quatro tabelas do projeto não seguem o padrão `allow all` acima — mas não são homogêneas entre si:
+> - **`profile_learning_audit`** (013/014) — RLS habilitada **com uma policy**: `SELECT` liberado para `anon`/`authenticated` (migration 014). `INSERT`/`UPDATE`/`DELETE` continuam exclusivos de `service_role`. **Não é zero-policy.**
+> - **`qwen_health_state`** (015), **`nex_clientes`** e **`nex_sync_eventos`** (016, Fase 6C) — RLS habilitada com **zero policies** (nenhuma, nem `SELECT`). Qualquer operação sem `service_role`/`SUPABASE_SECRET_KEY` retorna `permission_denied`. **Estas três são literalmente zero-policy.**
+>
+> São, portanto, quatro tabelas com postura mais restritiva que `allow all`, das quais três são zero-policy (correção desta edição: a nota anterior dizia "as únicas duas tabelas... zero-policy", o que já estava impreciso mesmo antes da 016, porque agrupava `profile_learning_audit` — que tem policy de SELECT — junto com `qwen_health_state` — que não tem policy nenhuma).
 
 > **Implicação de segurança:** a `VITE_SUPABASE_KEY` (anon) é exposta no bundle do frontend. A policy `allow all` significa que qualquer um com a URL+key (extraível do app) tem acesso total de leitura/escrita a essas tabelas. Não há segregação por usuário.
 
@@ -328,6 +385,8 @@ Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer requ
 | `objections` | `(category, created_at desc)`, `(created_at desc)` |
 | `system_health_runs` | `(run_id)`, `(check_id, created_at desc)` |
 | `*_audit_findings` (5 tabelas) | `(run_id)`, `(type, created_at desc)` |
+| `nex_clientes` | `unique (origem_loja, nex_codigo)` — índice automático da constraint, nenhum outro necessário nesta fase |
+| `nex_sync_eventos` | `(lote_id)`, `(origem_loja, nex_codigo, created_at desc)`, `(origem_loja, created_at desc)` |
 
 Todas as tabelas de auditoria seguem o padrão de índice em `run_id` (para listar a rodada) + `(type, created_at desc)` (para filtrar por tipo de achado).
 
