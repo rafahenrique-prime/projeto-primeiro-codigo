@@ -2,13 +2,22 @@
 
 POC isolada e descartável. Nenhuma dependência nova, nenhum arquivo do projeto principal tocado.
 
-**Status atual (Fase 3, Etapas 3.1-3.6 concluídas localmente):** o fluxo de
-enriquecimento de contexto (Gatekeeper → Tool Router → Tool API → Context
-Builder) está implementado, integrado ao `server.mjs` e coberto por 131
-testes automatizados (100% locais, com mocks — nenhum passou por
-GPTMaker/ZAP-API/Supabase/Tool API reais). **Ainda não foi validado contra
-produção** — ver "Limitações atuais" e "Próximos passos" abaixo antes de
-assumir que qualquer parte da Fase 3 já roda de verdade.
+**Status atual (Fase 3 publicada em Production, commit `fd3e660`):** o fluxo
+de enriquecimento de contexto (Gatekeeper → Tool Router → Tool API → Context
+Builder) está implementado, integrado ao `server.mjs`, coberto por 131 testes
+automatizados locais, e **commitado, publicado e com o deployment
+correspondente validado como Ready em Production**.
+
+A **IGNITE PRIME Tool API** (`?tool=consultar-produto`) já está publicada em
+Production e foi validada com três testes reais contra o catálogo real do
+Supabase (ver "Validação Real da Tool API" abaixo). `BRIDGE_TOOLS_SECRET`
+existe, está configurada como `Sensitive` na Vercel e guardada no Apple
+Passwords.
+
+O que **continua pendente** é somente o fluxo completo da Bridge rodando de
+ponta a ponta — Gatekeeper → Tool Router → Context Builder → GPTMaker →
+ZAP-API → WhatsApp — em um teste supervisionado real (ver "Pendência Atual"
+abaixo).
 
 ## Visão geral e fluxo atual
 
@@ -81,23 +90,18 @@ chama `mark_failed` depois que o provedor (ZAP-API) já aceitou o envio.
 
 ## Passo 1 — Subir o servidor local
 
-```bash
-AGENT_ID="..." \
-GPT_TOKEN="..." \
-ZAPI_INSTANCE_ID="..." \
-ZAPI_TOKEN="..." \
-node poc/zap-gptmaker-bridge/server.mjs
-```
-
 Onde:
 - `AGENT_ID` / `GPT_TOKEN` → mesmos da POC 1 (Gabi teste)
 - `ZAPI_INSTANCE_ID` → ID da instância ZAP-API Trial
 - `ZAPI_TOKEN` → token `tk_...` da instância (usado como `Authorization: Bearer`)
-- `WEBHOOK_PATH_SECRET` → **obrigatória** (Fase 2B.1). Segredo usado como segmento privado da rota do webhook. Sem ela o servidor não inicia.
+- `WEBHOOK_PATH_SECRET` → **obrigatória**. Segredo usado como segmento privado da rota do webhook. Sem ela o servidor não inicia.
 
 Não há Client-Token nesse provedor — a doc oficial (zap-api.tech) usa só `Authorization: Bearer tk_...`.
 
-### Proteção do webhook (Fase 2B.1)
+O comando completo de inicialização (com todas as variáveis, incluindo as da
+Fase 3) está no final desta seção, em "Comando oficial de inicialização".
+
+### Proteção do webhook
 
 A rota `POST /webhook` (sem segredo) não processa mais nada — sempre responde `404`. A única rota válida é:
 
@@ -109,13 +113,13 @@ Onde `<WEBHOOK_PATH_SECRET>` é o valor exato da variável de ambiente `WEBHOOK_
 
 Esta é uma proteção temporária — o suporte a header customizado ou assinatura HMAC no painel da ZAP-API ainda não foi confirmado; quando for, pode ser somado como camada adicional.
 
-### Variáveis opcionais (Fase 2A)
+### Variáveis opcionais
 
 - `LIVE_MODE` — **seguro por padrão**. Se ausente, vazio, ou diferente de exatamente `"true"` (após trim + lowercase), o servidor roda em modo seguro: recebe e valida os webhooks, mas NUNCA chama o GPTMaker nem envia mensagem real pela ZAP-API, nem acessa o Supabase, nem o Gatekeeper/Tool Router/Tool API/Context Builder são acionados. Só `LIVE_MODE=true` ativa o fluxo real completo (dedupe persistente + logging persistente + Fase 3 incluídos).
   - Substitui o antigo `DRY_RUN` (que tinha o comportamento inverso e inseguro: ausência da variável = modo real).
 - `EXTERNAL_TIMEOUT_MS` — tempo máximo (em milissegundos) para cada chamada externa ao GPTMaker e à ZAP-API antes de abortar. Padrão: `10000` (10s). Valores ausentes, inválidos, negativos ou zero caem no padrão, com aviso no console.
 
-### Variáveis do dedupe e logging persistentes (Fase 2B.2-2B.4)
+### Variáveis do dedupe e logging persistentes
 
 Só exigidas quando `LIVE_MODE=true` — com `LIVE_MODE=false` (ou ausente), nenhuma delas é lida nem validada, e o Supabase nunca é contatado.
 
@@ -133,16 +137,25 @@ exigidas no boot do processo — a ausência de qualquer uma delas nunca
 derruba o servidor; a ferramenta correspondente só fica indisponível
 (`tool_not_configured`), sem impedir GPTMaker/ZAP-API de funcionarem.
 
-- `IGNITE_PRIME_URL` — URL base do projeto principal (IGNITE PRIME) onde a Tool API está publicada. Tem fallback só para `NEXT_PUBLIC_VERCEL_URL` (convenção já usada no projeto principal) — nunca um domínio inventado.
-- `BRIDGE_TOOLS_SECRET` — **exclusiva da PRIME Bridge.** Autentica as chamadas da Bridge à Tool API (`Authorization: Bearer`). **Nunca reutilizar `NEX_SYNC_SECRET`, `WEBHOOK_PATH_SECRET`, `SUPABASE_SECRET_KEY`, nem tokens de GPTMaker/ZAP-API** — são consumidores/integrações sem relação funcional entre si (ver `docs/SECURITY/SECRETS.md` para a análise completa de isolamento de credenciais).
+- `IGNITE_PRIME_URL` — URL base do projeto principal (IGNITE PRIME) onde a Tool API está publicada. Em Production: `https://ignite-webhook.vercel.app`. Tem fallback só para `NEXT_PUBLIC_VERCEL_URL` (convenção já usada no projeto principal) — nunca um domínio inventado.
+- `BRIDGE_TOOLS_SECRET` — **exclusiva da PRIME Bridge.** Autentica as chamadas da Bridge à Tool API (`Authorization: Bearer`). Já existe, está configurada como `Sensitive` em Production na Vercel e guardada no Apple Passwords. **Nunca reutilizar `NEX_SYNC_SECRET`, `WEBHOOK_PATH_SECRET`, `SUPABASE_SECRET_KEY`, nem tokens de GPTMaker/ZAP-API** — são consumidores/integrações sem relação funcional entre si (ver `docs/SECURITY/SECRETS.md` para a análise completa de isolamento de credenciais).
 - `IGNITE_TOOLS_TIMEOUT_MS` — timeout dedicado para a chamada à Tool API. Padrão: `8000` (8s).
 
 **Segurança:** os valores reais dessas variáveis nunca devem aparecer neste
-README (nem em nenhum outro arquivo commitado). O fluxo correto é: gerar
-localmente → salvar imediatamente no **Apple Passwords** (fonte de verdade
-do operador) → configurar no ambiente de execução como **Sensitive** → nunca
-tentar recuperar o valor de volta depois disso (ver `docs/SECURITY/SECRETS.md §6`
-para o processo completo).
+README (nem em nenhum outro arquivo commitado). Para uso local, copiar cada
+valor do Apple Passwords diretamente na linha de comando (ver "Comando
+oficial de inicialização" abaixo) — nunca colar em arquivo, nunca commitar.
+
+### Variável só para testes locais
+
+- `GPTMAKER_BASE_URL` — **opcional, só para testabilidade local.** Se ausente, o comportamento é idêntico ao anterior: `https://api.gptmaker.ai`. Permite apontar `askGabi()` para um mock local durante testes, sem tocar o domínio real. Nunca deve ser configurada em uso normal/produção.
+- `ZAPI_BASE_URL` — mesmo princípio, para `replyOnWhatsApp()`. Padrão: `https://api.zap-api.tech/v1`.
+
+### Comando oficial de inicialização
+
+Único comando de referência para subir a Bridge — cada valor deve ser
+colado diretamente na linha (do Apple Passwords ou do gerenciador em uso),
+nunca salvo em arquivo:
 
 ```bash
 AGENT_ID="..." \
@@ -155,24 +168,32 @@ EXTERNAL_TIMEOUT_MS=10000 \
 SUPABASE_URL="..." \
 SUPABASE_SECRET_KEY="..." \
 SUPABASE_TIMEOUT_MS=3000 \
-IGNITE_PRIME_URL="..." \
+IGNITE_PRIME_URL="https://ignite-webhook.vercel.app" \
 BRIDGE_TOOLS_SECRET="..." \
 IGNITE_TOOLS_TIMEOUT_MS=8000 \
 node poc/zap-gptmaker-bridge/server.mjs
 ```
 
-### Variável só para testes locais (Fase 2B.5)
-
-- `GPTMAKER_BASE_URL` — **opcional, só para testabilidade local.** Se ausente, o comportamento é idêntico ao anterior: `https://api.gptmaker.ai`. Permite apontar `askGabi()` para um mock local durante testes, sem tocar o domínio real. Nunca deve ser configurada em uso normal/produção.
-- `ZAPI_BASE_URL` — mesmo princípio, para `replyOnWhatsApp()`. Padrão: `https://api.zap-api.tech/v1`.
-
 ## Passo 2 — Abrir túnel público (em outro terminal)
+
+**Cloudflare Quick Tunnel é a opção recomendada** — mais estável que
+LocalTunnel (que sofre com erros 408 intermitentes):
+
+```bash
+cloudflared tunnel --url http://localhost:3344
+```
+
+Isso imprime uma URL tipo `https://palavra-aleatoria.trycloudflare.com`. A URL do webhook será:
+
+```
+https://palavra-aleatoria.trycloudflare.com/webhook/<WEBHOOK_PATH_SECRET>
+```
+
+**Alternativa (LocalTunnel)** — funcional, mas menos estável:
 
 ```bash
 npx localtunnel --port 3344
 ```
-
-Isso imprime uma URL tipo `https://algo-aleatorio.loca.lt`. A URL do webhook será:
 
 ```
 https://algo-aleatorio.loca.lt/webhook/<WEBHOOK_PATH_SECRET>
@@ -199,23 +220,55 @@ Acompanhar os logs no terminal do `server.mjs` — cada etapa é impressa (receb
 - `contextBuilder.test.js` — 33 testes
 - `server.integration.test.js` — 25 testes (integração real do `server.mjs`, todo I/O externo mockado)
 
-## Limitações atuais
+## Validação Real da Tool API
 
-- O Gatekeeper não tem nenhuma regra real ainda — só o modo permissivo/observação.
-- A IGNITE PRIME Tool API (`?tool=consultar-produto`) **ainda não está publicada em Production** — o código existe localmente (`api/_toolConsultarProduto.js`, `api/system-tools.js`), mas não foi commitado/enviado ao GitHub, então a Vercel não o builda ainda.
-- `BRIDGE_TOOLS_SECRET` **ainda não foi criada em nenhum ambiente** — não existe hoje nem em Production nem em nenhum gerenciador de senhas.
-- **Nenhum teste real da Fase 3 foi executado ainda** — nem contra a Tool API real, nem contra o catálogo real do Supabase, nem via WhatsApp de verdade. Tudo até aqui é validação local com mocks.
+A IGNITE PRIME Tool API (`?tool=consultar-produto`) foi validada em
+Production contra o catálogo real do Supabase, com três chamadas isoladas
+(Bridge/cliente local → Tool API real → Supabase real), sem passar por
+GPTMaker, ZAP-API ou WhatsApp em nenhum momento.
 
-## Próximos passos (fora do escopo desta documentação)
+**Teste A — produto encontrado** (`query: "Nike Dunk"`)
+`foundInCatalog: true`, 3 resultados (`truncated: true`, `ambiguous: true` —
+catálogo tem mais de 3 produtos correspondentes ao termo).
 
-1. Revisão final consolidada de toda a Fase 3.
-2. Commit.
-3. Push.
-4. Deploy (build da Vercel a partir do código publicado).
-5. Gerar `BRIDGE_TOOLS_SECRET` e salvar imediatamente no Apple Passwords.
-6. Configurar a variável como `Sensitive` na Vercel.
-7. Teste real somente leitura (Bridge local → Tool API real → catálogo real do Supabase, sem GPTMaker/ZAP-API/WhatsApp).
-8. Teste supervisionado ponta a ponta via WhatsApp.
+**Teste B — produto inexistente** (`query: "ProdutoInexistenteXYZ987654321"`)
+`foundInCatalog: false`, `results: []`.
+
+**Teste C — tamanho solicitado** (`query: "Nike Dunk Cacau"`, `requestedSize: "41"`)
+`requestedSize` preservado na resposta; `sizeConfirmed` permanece `false`.
+
+**Fatos confirmados empiricamente nos três testes, sem exceção:**
+- `availabilityStatus` sempre `"unknown"` — a Tool API nunca afirma disponibilidade real.
+- `sizeConfirmed` sempre `false`.
+- `colorConfirmed` sempre `false`.
+- Allowlist de campos respeitada em todo resultado: somente `nome`, `preco`, `link`, `imagem` — nenhum campo extra.
+- Somente leitura — nenhuma escrita no Supabase em nenhum dos três testes.
+- Nenhum acionamento de GPTMaker.
+- Nenhum acionamento da ZAP-API.
+- Nenhum acionamento do WhatsApp.
+
+## Estado Atual da Validação
+
+| Componente | Status |
+|------------|--------|
+| Tool API consultar-produto | ✅ Validada em Production |
+| BRIDGE_TOOLS_SECRET | ✅ Configurada |
+| Contrato da Tool API | ✅ Validado |
+| Gatekeeper | ⏳ Pendente |
+| Tool Router | ⏳ Pendente |
+| Context Builder | ⏳ Pendente |
+| GPTMaker | ⏳ Pendente |
+| ZAP-API | ⏳ Pendente |
+| Fluxo WhatsApp ponta a ponta | ⏳ Pendente |
+
+## Pendência Atual
+
+A única pendência funcional restante desta fase é a **validação
+supervisionada do fluxo completo da Bridge via WhatsApp** — uma mensagem de
+teste percorrendo Gatekeeper → Tool Router → Context Builder → GPTMaker →
+ZAP-API → WhatsApp, usando o telefone de teste, com os logs conferidos em
+tempo real. A Tool API (peça já validada isoladamente acima) será chamada
+como parte desse fluxo, não isolada.
 
 ## Encerrar a POC
 
