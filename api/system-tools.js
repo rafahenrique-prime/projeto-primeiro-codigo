@@ -84,6 +84,19 @@
 //                           e a chamada real a enviarMensagemManualWhatsapp (Base44) com
 //                           MENSAGEM_MANUAL_SERVICE_TOKEN. Nenhuma lógica nova aqui — só
 //                           o roteamento que faltava (o proxy já existia, sem case no switch).
+// ?tool=consultar-produto → IGNITE PRIME Tool API central e neutra de canal (Fase 3,
+//                           Etapa 3.3 da PRIME Bridge). Busca produtos em `products`
+//                           (allowlist nome/preco/link/imagem, nunca select=*) por
+//                           palavra-chave, com scoring determinístico local — nunca
+//                           afirma disponibilidade/estoque/tamanho/cor confirmados
+//                           (a tabela não tem essas colunas; ver docs/SUPABASE.md).
+//                           Agnóstica de canal por desenho: nesta fase só aceita o
+//                           consumidor Bridge via BRIDGE_TOOLS_SECRET (identifica o
+//                           caller como "prime_bridge" pelo segredo, nunca por campo
+//                           autodeclarado no body) — preparada para um segredo novo
+//                           e independente por consumidor futuro (GPTMaker/Instagram),
+//                           sem exigi-lo agora. Ainda não integrada à PRIME Bridge nem
+//                           a nenhum outro consumidor real.
 // ?tool=mcp               → IGNITE PRIME MCP Lite, somente leitura. Implementa só o
 //                           necessário do protocolo MCP (JSON-RPC 2.0 sobre HTTP POST)
 //                           pra um cliente remoto (GPT Maker/Gabriela) completar o
@@ -116,6 +129,7 @@ import {
   construirRespostaSeguraPrevisualizar,
 } from './_mensagemManualProxy.js'
 import { processarLote, obterClienteComEventos, obterAgregados } from './_nexClientes.js'
+import { consultarProduto } from './_toolConsultarProduto.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -215,6 +229,48 @@ const MCP_LITE_SECRET = process.env.MCP_LITE_SECRET
 // tool=nex-sync-clientes, nex-cliente — segredo dedicado para sincronização NEX,
 // isolado de CRON_SECRET, LYRA_WEBHOOK_SECRET e MCP_LITE_SECRET. Nunca exposto ao frontend.
 const NEX_SYNC_SECRET = process.env.NEX_SYNC_SECRET
+
+// tool=consultar-produto — segredo dedicado e isolado do consumidor PRIME Bridge
+// (Fase 3, Etapa 3.3). Nunca reutiliza WEBHOOK_PATH_SECRET (path secreto da própria
+// Bridge), NEX_SYNC_SECRET, SUPABASE_SECRET_KEY, nem tokens de GPTMaker/ZAP-API — um
+// consumidor futuro (ex.: GPTMaker/Instagram) ganhará seu próprio segredo novo,
+// nunca este.
+const BRIDGE_TOOLS_SECRET = process.env.BRIDGE_TOOLS_SECRET
+
+// Comparação resistente a timing attack para segredos recebidos via
+// `Authorization: Bearer <token>` — mesmo princípio já usado na PRIME Bridge
+// (crypto.timingSafeEqual, ver poc/zap-gptmaker-bridge/server.mjs), agora
+// reutilizável por qualquer `case` deste dispatcher que precise dela (hoje só
+// consultar-produto, mas isolada o suficiente pra um consumidor futuro usar
+// sem duplicar a lógica). Sem dependência externa — só `crypto`, já importado
+// no topo deste arquivo.
+//
+// extrairBearerToken: só aceita exatamente o esquema "Bearer <token>", nunca
+// vazio. Qualquer desvio (header ausente, esquema diferente, sem valor)
+// devolve null — o chamador trata null exatamente igual a "segredo errado",
+// nunca com um erro diferenciado.
+function extrairBearerToken(req) {
+  const authHeader = req.headers?.authorization
+  if (typeof authHeader !== 'string') return null
+  const match = /^Bearer (.+)$/.exec(authHeader)
+  if (!match) return null
+  const token = match[1].trim()
+  return token.length > 0 ? token : null
+}
+
+// compararSegredoSeguro: timingSafeEqual exige buffers do MESMO comprimento —
+// por isso o comprimento é checado ANTES de chamar timingSafeEqual (nunca
+// dentro de um try/catch pra "engolir" a exceção; comparar comprimento antes
+// evita a exceção por completo, de propósito). Buffers de comprimento
+// diferente retornam `false` diretamente, sem lançar e sem vazar quanto do
+// token bateu.
+function compararSegredoSeguro(fornecido, esperado) {
+  if (typeof fornecido !== 'string' || typeof esperado !== 'string') return false
+  const bufferFornecido = Buffer.from(fornecido)
+  const bufferEsperado = Buffer.from(esperado)
+  if (bufferFornecido.length !== bufferEsperado.length) return false
+  return crypto.timingSafeEqual(bufferFornecido, bufferEsperado)
+}
 
 const GPTMAKER_TOKEN = process.env.VITE_GPTMAKER_TOKEN
 const GPTMAKER_WS = process.env.VITE_GPTMAKER_WORKSPACE
@@ -2464,7 +2520,51 @@ export default async function handler(req, res) {
       return nexHealth(req, res)
     }
 
+    case 'consultar-produto': {
+      // IGNITE PRIME Tool API central e neutra de canal (Fase 3, Etapa 3.3) — ainda
+      // não integrada a nenhum consumidor real (PRIME Bridge/GPTMaker/Instagram).
+      // Só POST. Caller identificado pelo segredo que bateu (comparação resistente
+      // a timing attack — ver extrairBearerToken/compararSegredoSeguro acima),
+      // nunca por campo autodeclarado no body — nesta fase só o consumidor Bridge
+      // é aceito.
+      if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, error_code: 'method_not_allowed' })
+      }
+      if (!BRIDGE_TOOLS_SECRET) {
+        // Configuração ausente no servidor — não é o cliente que errou a
+        // credencial, é a integração que não está pronta. 503, não 500/401,
+        // e nunca menciona o nome/valor do segredo.
+        console.error('[system-tools:consultar-produto] Configuração ausente: BRIDGE_TOOLS_SECRET não definida')
+        return res.status(503).json({ success: false, error_code: 'integration_not_configured' })
+      }
+
+      // Um único código de erro (401/unauthorized) para TODO cenário de falha de
+      // autenticação — header ausente, esquema diferente de Bearer, token vazio,
+      // token de comprimento diferente ou token de mesmo comprimento mas errado.
+      // Nunca revela qual desses foi o motivo real.
+      const tokenRecebido = extrairBearerToken(req)
+      let caller = null
+      if (tokenRecebido && compararSegredoSeguro(tokenRecebido, BRIDGE_TOOLS_SECRET)) {
+        caller = 'prime_bridge'
+      }
+      // Espaço reservado para um segredo/caller novo e independente no futuro
+      // (ex.: GPTMaker/Instagram) — basta um novo `else if` aqui, com o mesmo
+      // mecanismo seguro (compararSegredoSeguro), sem alterar mais nada deste
+      // case nem o contrato de consultar-produto.
+      if (!caller) {
+        return res.status(401).json({ success: false, error_code: 'unauthorized' })
+      }
+
+      const resultado = await consultarProduto(req.body, { caller }, {
+        supabaseConfig: {
+          baseUrl: SUPABASE_URL,
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        },
+      })
+      return res.status(resultado.httpStatus).json(resultado.body)
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente ou nex-health)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health ou consultar-produto)' })
   }
 }

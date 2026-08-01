@@ -34,16 +34,16 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 |---|---|
 | `VITE_SUPABASE_URL` | Frontend + serverless |
 | `VITE_SUPABASE_KEY` | Frontend + serverless (anon/publishable key) |
-| `SUPABASE_SECRET_KEY` | Só serverless (`api/_profileLearning.js`, `api/system-tools.js?tool=qwen-health`) — Secret key, autentica como `service_role`, ignora RLS. Configurada na Vercel Production **e** Preview, **nunca** em `.env.local`, **nunca** com prefixo `VITE_`. Não estava documentada nesta tabela antes de 2026-07-25, apesar de já em uso desde a Fase 2C — gap pré-existente, corrigido naquela edição. |
+| `SUPABASE_SECRET_KEY` | Serverless (`api/_profileLearning.js`, `api/system-tools.js?tool=qwen-health`) **e**, desde a Fase 2B.2-2B.4, o processo standalone `poc/zap-gptmaker-bridge/server.mjs` (PRIME Bridge, ver §3.8) — Secret key, autentica como `service_role`, ignora RLS. Configurada na Vercel Production **e** Preview, **nunca** em `.env.local`, **nunca** com prefixo `VITE_`. Não estava documentada nesta tabela antes de 2026-07-25, apesar de já em uso desde a Fase 2C — gap pré-existente, corrigido naquela edição. Para a PRIME Bridge, o valor é o mesmo do projeto (não é um segredo por serviço), só precisa estar disponível no ambiente onde a bridge roda — ela não é hospedada na Vercel. |
 | `NEX_SYNC_SECRET` | Só serverless (`api/system-tools.js?tool=nex-sync-clientes`/`nex-cliente`/`nex-health`) — segredo dedicado à integração NEX (Fase 6C), isolado de todos os outros segredos do projeto. Configurado **somente** em Vercel Production (não em Preview, não em `.env.local`, sem prefixo `VITE_`), marcado Sensitive/Encrypted. Cópia de recuperação em cofre local protegido do macOS. Ver `docs/integrations/NEX-INTEGRATION.md §3`. |
 
 > Observação: o `CLAUDE.md` menciona `VITE_SUPABASE_ANON_KEY` em uma seção, mas o `.env` e `.env.local` reais usam `VITE_SUPABASE_KEY`. **`VITE_SUPABASE_KEY` é a chave efetiva.**
 
 ---
 
-## 3. Tabelas — Migrations versionadas (14 documentadas nesta seção — cabeçalho corrigido nesta edição; contagem anterior de "10" já estava desatualizada antes da 016, gap pré-existente não relacionado à Fase 6C)
+## 3. Tabelas — Migrations versionadas (16 documentadas nesta seção)
 
-**Contagem real verificada por filesystem (2026-07-31):** `supabase/migrations/` contém **18 arquivos**, numerados `001` a `018`, **sem lacunas** na sequência. As 14 linhas da tabela abaixo cobrem `001`–`016` (escopo CRM/NEX deste documento). `017_bridge_message_processing.sql` e `018_bridge_operation_logs.sql` **existem no filesystem, mas são da PRIME Bridge** (`poc/zap-gptmaker-bridge/`, Fase 2B.2) — fora do escopo deste documento, **ainda não commitadas** no momento desta edição, não listadas na tabela abaixo.
+**Contagem real verificada por filesystem (2026-07-31):** `supabase/migrations/` contém **18 arquivos**, numerados `001` a `018`, **sem lacunas** na sequência. As 16 linhas da tabela abaixo cobrem `001`–`018`. `017_bridge_message_processing.sql` e `018_bridge_operation_logs.sql` pertencem à **PRIME Bridge** (`poc/zap-gptmaker-bridge/`, Fase 2B.2-2B.4) — um processo standalone fora do app principal, mas que compartilha o mesmo projeto Supabase; documentadas em §3.8. Aplicadas manualmente no Supabase Production (validadas via SQL Editor, ver `docs/integrations/PRIME-BRIDGE-FASE2.md`), ainda não commitadas no repositório no momento desta edição.
 
 ### 3.1 Tabelas definidas em `supabase/migrations/`
 
@@ -63,6 +63,8 @@ Headers: { apikey: VITE_SUPABASE_KEY, Authorization: 'Bearer ' + VITE_SUPABASE_K
 | 014 | `014_profile_learning_audit_select_policy.sql` | (policy de SELECT em `profile_learning_audit`, sem tabela nova) | idem |
 | 015 | `015_qwen_health_state.sql` | `qwen_health_state` + função `claim_qwen_health_check` | Health check do QwenCloud, Operations Center (ver §3.6) |
 | 016 | `016_nex_clientes.sql` | `nex_clientes` + `nex_sync_eventos` | Staging de clientes NEX, isolado do Base44 (ver §3.7). **Versionada e aplicada manualmente no Supabase Production em 2026-07-31** (código do endpoint na Vercel ainda pendente de deploy — ver `docs/integrations/NEX-INTEGRATION.md`). |
+| 017 | `017_bridge_message_processing.sql` | `bridge_message_processing` + função `process_bridge_message` | Dedupe persistente da PRIME Bridge (ver §3.8) |
+| 018 | `018_bridge_operation_logs.sql` | `bridge_operation_logs` | Log operacional persistente da PRIME Bridge (ver §3.8) |
 
 ### Detalhe de cada tabela
 
@@ -343,6 +345,54 @@ created_at      timestamptz not null default now()
 
 ---
 
+### 3.8 `bridge_message_processing` + `bridge_operation_logs` — dedupe e log persistentes da PRIME Bridge (Fase 2B.2-2B.4, migrations 017/018)
+
+**Contexto:** `poc/zap-gptmaker-bridge/server.mjs` é um processo Node **standalone**, fora do app principal (`src/`/`api/`) — uma ponte experimental entre WhatsApp (via ZAP-API) e GPTMaker, avaliando substituir o canal nativo do GPTMaker (R$97/mês). Não é hospedado na Vercel; roda localmente atrás de um túnel Cloudflare. Compartilha o mesmo projeto Supabase do resto do sistema, mas com tabelas próprias, isoladas. Detalhe completo da arquitetura, decisões e testes em [`docs/integrations/PRIME-BRIDGE-FASE2.md`](integrations/PRIME-BRIDGE-FASE2.md).
+
+**Arquitetura escolhida (Opção B simplificada):** avaliada e descartada uma arquitetura completa com posse por tentativa (`claim_token`) e lease temporizado — decisão registrada em detalhe no documento da Fase 2, seção de arquitetura. A bridge roda como processo único (sem múltiplas instâncias concorrentes), então essa complexidade não se justifica nesta fase; o desenho atual preserva um caminho de evolução aditivo caso a topologia mude no futuro.
+
+**`bridge_message_processing`** — dedupe por `message_id`, três estados:
+```sql
+message_id             text primary key
+status                 text not null default 'received'  -- 'received'|'completed'|'failed'
+attempts               integer not null default 1
+error_code             text
+processing_started_at  timestamptz not null default now()
+failed_at              timestamptz
+completed_at           timestamptz
+created_at             timestamptz not null default now()
+updated_at             timestamptz not null default now()
+-- constraint chk_bridge_message_status check (status in ('received','completed','failed'))
+```
+
+**`process_bridge_message(p_action, p_message_id, p_error_code)`** — única função RPC, `SECURITY INVOKER`, chamada só por `service_role`. `p_action` aceita `check_or_start`/`mark_completed`/`mark_failed`:
+- `check_or_start`: linha inexistente → cria `received` (`process`); `completed` → `duplicate_completed` (nunca reaberta); `failed` → reabre imediatamente (`retry_failed`, `attempts+1`, limpa `failed_at`/`error_code`/`completed_at`); `received` com `processing_started_at` **dentro** da janela de 60s (constante interna, não parâmetro) → `already_processing`; `received` **fora** da janela → considera a tentativa anterior abandonada por crash, reabre (`retry_stale`, `attempts+1`) — garante que nenhuma mensagem fica presa em `received` para sempre.
+- `mark_completed`/`mark_failed`: só alteram linha `status='received'` — nunca tocam uma linha já `completed` (garantia estrutural via `WHERE`, não lógica condicional).
+- Concorrência: `INSERT ... ON CONFLICT DO NOTHING` para mensagem nova (garantia nativa do Postgres); `SELECT ... FOR UPDATE` para linha existente, antes de decidir — mesmo padrão de `apply_profile_size_learning` (migration 013).
+
+**`completed` não significa entregue ao aparelho do cliente** — significa apenas que a bridge concluiu seu próprio ciclo interno, depois que a ZAP-API já confirmou (`2xx`) o aceite da requisição de envio. Confirmação real de entrega (`message.status` do webhook) não é correlacionada nesta fase.
+
+**`bridge_operation_logs`** — log operacional, vocabulário fechado (sem `jsonb` de metadata livre):
+```sql
+id, level ('info'|'warning'|'error'), event (15 valores fechos via CHECK),
+error_code, source ('bridge'|'gptmaker'|'zap_api'|null),
+http_status, duration_ms, message_id, created_at
+-- Index: (created_at desc), (level, created_at desc)
+```
+Nunca grava telefone, texto de conversa, resposta da IA, prompt, token, IDs de agente/instância, `Authorization`, segredo do webhook ou payload bruto — confirmado por 22 gravações de teste inspecionadas sem nenhuma violação (Fase 2B.5). Gravação **fire-and-forget**: nunca aguardada no caminho crítico, teto de 5 gravações simultâneas, aviso local limitado a 1x/60s em caso de indisponibilidade, sem retry automático.
+
+**Permissões:** `RLS` habilitada em ambas, **zero policy** (mesmo padrão de `qwen_health_state`, 015, e `nex_clientes`/`nex_sync_eventos`, 016) — `revoke all` explícito em nível de tabela e de função, além da RLS, como camada extra. Só `service_role`/`SUPABASE_SECRET_KEY` acessa.
+
+**Credencial:** `SUPABASE_SECRET_KEY`, mesma variável já documentada em §2 — a bridge, como processo standalone fora da Vercel, precisa dela disponível no próprio ambiente onde roda (nunca a anon key). Header usado: só `apikey` (mesmo padrão empírico já confirmado em `api/_profileLearning.js`, ver §3.5).
+
+**Validação (Fase 2B.5, 2026-07-31):** 13 blocos de teste integrado executados contra o `server.mjs` real, com GPTMaker, ZAP-API e Supabase **totalmente mockados localmente** (nenhuma chamada externa real) — fluxo de sucesso, duplicidade pós-`completed` (com e sem restart simulado), concorrência, retry após falha de GPTMaker/ZAP-API, `retry_stale` após crash simulado, falha de `mark_completed` (recuperável e persistente), indisponibilidade do Supabase (RPC e só logs), `LIVE_MODE=false`, segurança do webhook, segurança dos dados, e regressão geral — todos aprovados. Detalhe completo em `docs/integrations/PRIME-BRIDGE-FASE2.md`.
+
+**Risco residual conhecido e aceito:** se o Supabase ficar indisponível durante toda a janela de retry de `mark_completed` **e** o processo reiniciar antes do Supabase voltar, uma nova entrega do mesmo webhook pode reprocessar (duplicidade) — cenário raro (exige duas falhas simultâneas), testado explicitamente e não eliminado nesta fase por decisão de escopo (ver Opção B acima).
+
+**Ainda não realizado:** teste real de WhatsApp após as mudanças da Fase 2 (2A, 2B.1-2B.5) — toda a validação até aqui usou mocks locais ou, na Fase 1, um teste real anterior a estas mudanças.
+
+---
+
 ## 4. RLS (Row Level Security)
 
 **Todas as 8 tabelas versionadas** seguem o mesmo padrão (literais do SQL):
@@ -358,11 +408,11 @@ create policy "allow all via service/anon key"
 
 Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer request com a `anon key` (que está no frontend) pode ler e escrever tudo. É um padrão *permissivo por design* (app cliente precisa escrever diretamente), não uma defesa real.
 
-> **Exceções (não corrigidas nesta edição, só documentadas):** quatro tabelas do projeto não seguem o padrão `allow all` acima — mas não são homogêneas entre si:
+> **Exceções (não corrigidas nesta edição, só documentadas):** seis tabelas do projeto não seguem o padrão `allow all` acima — mas não são homogêneas entre si:
 > - **`profile_learning_audit`** (013/014) — RLS habilitada **com uma policy**: `SELECT` liberado para `anon`/`authenticated` (migration 014). `INSERT`/`UPDATE`/`DELETE` continuam exclusivos de `service_role`. **Não é zero-policy.**
-> - **`qwen_health_state`** (015), **`nex_clientes`** e **`nex_sync_eventos`** (016, Fase 6C) — RLS habilitada com **zero policies** (nenhuma, nem `SELECT`). Qualquer operação sem `service_role`/`SUPABASE_SECRET_KEY` retorna `permission_denied`. **Estas três são literalmente zero-policy.**
+> - **`qwen_health_state`** (015), **`nex_clientes`** e **`nex_sync_eventos`** (016, Fase 6C), **`bridge_message_processing`** e **`bridge_operation_logs`** (017/018, PRIME Bridge, ver §3.8) — RLS habilitada com **zero policies** (nenhuma, nem `SELECT`), mais `revoke all` explícito em nível de tabela como camada extra nas duas últimas. Qualquer operação sem `service_role`/`SUPABASE_SECRET_KEY` retorna `permission_denied`. **Estas cinco são literalmente zero-policy.**
 >
-> São, portanto, quatro tabelas com postura mais restritiva que `allow all`, das quais três são zero-policy (correção desta edição: a nota anterior dizia "as únicas duas tabelas... zero-policy", o que já estava impreciso mesmo antes da 016, porque agrupava `profile_learning_audit` — que tem policy de SELECT — junto com `qwen_health_state` — que não tem policy nenhuma).
+> São, portanto, seis tabelas com postura mais restritiva que `allow all`, das quais cinco são zero-policy.
 
 > **Implicação de segurança:** a `VITE_SUPABASE_KEY` (anon) é exposta no bundle do frontend. A policy `allow all` significa que qualquer um com a URL+key (extraível do app) tem acesso total de leitura/escrita a essas tabelas. Não há segregação por usuário.
 
@@ -389,6 +439,8 @@ Ou seja: **RLS está habilitada, mas a policy é `allow all`** — qualquer requ
 | `*_audit_findings` (5 tabelas) | `(run_id)`, `(type, created_at desc)` |
 | `nex_clientes` | `unique (origem_loja, nex_codigo)` — índice automático da constraint, nenhum outro necessário nesta fase |
 | `nex_sync_eventos` | `(lote_id)`, `(origem_loja, nex_codigo, created_at desc)`, `(origem_loja, created_at desc)` |
+| `bridge_message_processing` | `message_id` já é chave primária, nenhum índice adicional necessário nesta fase |
+| `bridge_operation_logs` | `(created_at desc)`, `(level, created_at desc)` |
 
 Todas as tabelas de auditoria seguem o padrão de índice em `run_id` (para listar a rodada) + `(type, created_at desc)` (para filtrar por tipo de achado).
 
