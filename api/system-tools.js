@@ -115,7 +115,7 @@ import {
   construirRespostaSeguraListarTemplates,
   construirRespostaSeguraPrevisualizar,
 } from './_mensagemManualProxy.js'
-import { processarLote } from './_nexClientes.js'
+import { processarLote, obterClienteComEventos, obterAgregados } from './_nexClientes.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -1908,12 +1908,16 @@ async function nexSyncClientes(req, res) {
     totalClientes: body.clientes.length,
   })
 
-  // Criar Supabase client com service_role pra acesso RLS
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+  // Config REST do Supabase (service_role, RLS zero-policy) — nunca client de
+  // SDK; mesmo padrão de _profileLearning.js/qwenHealthSupabaseHeaders()
+  const supabaseConfig = {
+    baseUrl: SUPABASE_URL,
+    headers: { 'apikey': SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' },
+  }
 
   // Delegar totalmente para _nexClientes.js
   try {
-    const resultado = await processarLote(supabase, body.clientes, {
+    const resultado = await processarLote(supabaseConfig, body.clientes, {
       loteId: body.loteId,
       correlationId,
       maxRegistros: 500,
@@ -1960,42 +1964,22 @@ async function nexCliente(req, res) {
     codigo,
   })
 
-  // Criar Supabase client com service_role pra acesso RLS
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+  // Config REST do Supabase (service_role, RLS zero-policy) — nunca client de
+  // SDK; mesmo padrão de _profileLearning.js/qwenHealthSupabaseHeaders()
+  const supabaseConfig = {
+    baseUrl: SUPABASE_URL,
+    headers: { 'apikey': SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' },
+  }
 
   try {
-    // Buscar cliente
-    const { data: cliente, error: erroCliente } = await supabase
-      .from('nex_clientes')
-      .select('id, origem_loja, nex_codigo, nome, created_at, updated_at, ausente_desde')
-      .eq('origem_loja', origem)
-      .eq('nex_codigo', codigo)
-      .single()
+    const resultado = await obterClienteComEventos(supabaseConfig, origem, codigo)
 
-    if (erroCliente) {
-      if (erroCliente.code === 'PGRST116') {
-        // Não encontrado — sem detalhes
-        return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' })
-      }
-      throw erroCliente
-    }
-
-    if (!cliente) {
+    if (!resultado) {
+      // Não encontrado — sem detalhes
       return res.status(404).json({ sucesso: false, erro: 'Cliente não encontrado' })
     }
 
-    // Buscar últimos 5 eventos
-    const { data: eventos, error: erroEventos } = await supabase
-      .from('nex_sync_eventos')
-      .select('tipo, created_at, lote_id')
-      .eq('origem_loja', origem)
-      .eq('nex_codigo', codigo)
-      .order('created_at', { ascending: false })
-      .limit(5)
-
-    if (erroEventos && erroEventos.code !== 'PGRST116') {
-      throw erroEventos
-    }
+    const { cliente, eventos } = resultado
 
     return res.status(200).json({
       sucesso: true,
@@ -2053,42 +2037,25 @@ async function nexHealth(req, res) {
 
   console.log('[system-tools:nex-health] Consultando agregados do NEX', { ip: ipHashCurto(ip), force })
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+  // Config REST do Supabase (service_role, RLS zero-policy) — nunca client de
+  // SDK; mesmo padrão de _profileLearning.js/qwenHealthSupabaseHeaders()
+  const supabaseConfig = {
+    baseUrl: SUPABASE_URL,
+    headers: { 'apikey': SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' },
+  }
 
   try {
-    // Consultas de contagem (SEM PII — apenas agregados)
-    const [
-      { count: totalClientes, error: erroClientes },
-      { count: totalEventos, error: erroEventos },
-      { count: eventosHoje, error: erroHoje },
-      { count: eventosHora, error: erroHora },
-      { count: clientesAusentes, error: erroAusentes },
-    ] = await Promise.all([
-      supabase.from('nex_clientes').select('id', { count: 'exact', head: true }),
-      supabase.from('nex_sync_eventos').select('id', { count: 'exact', head: true }),
-      supabase
-        .from('nex_sync_eventos')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-      supabase
-        .from('nex_sync_eventos')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
-      supabase.from('nex_clientes').select('id', { count: 'exact', head: true }).not('ausente_desde', 'is', null),
-    ])
-
-    if (erroClientes || erroEventos || erroHoje || erroHora || erroAusentes) {
-      throw new Error('Erro ao consultar estatísticas')
-    }
+    // Contagens agregadas (SEM PII), delegadas 100% ao helper
+    const agregados = await obterAgregados(supabaseConfig)
 
     const stats = {
       timestamp: new Date().toISOString(),
       stats: {
-        total_clientes: totalClientes || 0,
-        total_eventos: totalEventos || 0,
-        eventos_hoje: eventosHoje || 0,
-        eventos_ultima_hora: eventosHora || 0,
-        clientes_ausentes: clientesAusentes || 0,
+        total_clientes: agregados.total_clientes,
+        total_eventos: agregados.total_eventos,
+        eventos_hoje: agregados.eventos_hoje,
+        eventos_ultima_hora: agregados.eventos_ultima_hora,
+        clientes_ausentes: agregados.clientes_ausentes,
         sync_status: 'ok',
       },
       ultima_atualizacao: new Date().toISOString(),

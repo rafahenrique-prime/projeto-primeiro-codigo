@@ -5,14 +5,28 @@
  * Implementa idempotência via content_hash, rastreabilidade via nex_sync_eventos,
  * e isolamento total de Base44.
  *
+ * ===== ACESSO AO SUPABASE =====
+ * REST direto via fetch (mesmo padrão de api/_profileLearning.js e
+ * qwenHealthSupabaseHeaders() em system-tools.js) — nunca @supabase/supabase-js,
+ * nunca createClient do @base44/sdk. Header usado: só `apikey` (Authorization
+ * Bearer não é necessário com a Secret key, já confirmado empiricamente nesses
+ * dois pontos de referência). `supabaseConfig` é um objeto simples
+ * `{ baseUrl, headers }` — nunca um client de SDK.
+ *
  * ===== EXPORTS (PÚBLICOS) =====
- * - processarLote(supabase, clientes, options)
+ * - processarLote(supabaseConfig, clientes, options)
  *   Processa array de clientes NEX, retorna array de resultados.
  *   Respeita limite de maxRegistros (default 500), não-bloqueante (erros por item).
  *
- * - upsertNexCliente(supabase, clienteNormalizado, metadata)
+ * - upsertNexCliente(supabaseConfig, clienteNormalizado, metadata)
  *   Upsert atômico de um cliente (origin_loja + nex_codigo).
  *   Escreve nex_sync_eventos se tipo != 'sem_alteracao'.
+ *
+ * - obterClienteComEventos(supabaseConfig, origem_loja, nex_codigo)
+ *   Busca um cliente + últimos 5 eventos. Retorna null se não encontrado.
+ *
+ * - obterAgregados(supabaseConfig)
+ *   Contagens agregadas (sem PII) para o endpoint nex-health.
  *
  * ===== FUNÇÕES INTERNAS (PRIVADAS) =====
  * - validarLinha(cliente)
@@ -20,10 +34,12 @@
  * - calcularContentHash(cliente)
  * - classificarTipo(hashAnterior, hashNovo)
  * - normalizarCliente(clienteRaw)
- * - obterClienteExistente(supabase, origem_loja, nex_codigo)
+ * - obterClienteExistente(supabaseConfig, origem_loja, nex_codigo)
+ * - montarUrl / restRequest / parseContagem (helpers REST genéricos)
  *
- * Todas as funções são puras (sem side-effects além de DB em upsertNexCliente).
- * Usa SUPABASE_SECRET_KEY para acesso service_role (RLS zero-policy).
+ * Todas as funções de validação/normalização são puras (sem side-effects).
+ * Usa SUPABASE_SECRET_KEY (via supabaseConfig.headers) para acesso service_role
+ * (RLS zero-policy nas tabelas nex_clientes/nex_sync_eventos).
  * Nunca loga PII; apenas nex_codigo, origem_loja, tipo.
  */
 
@@ -71,7 +87,6 @@ function truncarObservacao(texto, maxChars = 500) {
  * Inclui todos os outros campos, normalizados (trim, lowercase pra strings).
  */
 function calcularContentHash(cliente) {
-  // Payload a hashear: tudo menos chave natural
   const payload = {
     nome: (cliente.nome || '').trim().toLowerCase(),
     cpf_cnpj: (cliente.cpf_cnpj || '').trim().toLowerCase(),
@@ -129,23 +144,70 @@ function normalizarCliente(clienteRaw) {
 }
 
 /**
- * INTERNALS: Busca cliente existente no Supabase
+ * INTERNALS: monta URL do REST do Supabase com query params
  */
-async function obterClienteExistente(supabase, origem_loja, nex_codigo) {
-  try {
-    const { data, error } = await supabase
-      .from('nex_clientes')
-      .select('id, content_hash')
-      .eq('origem_loja', origem_loja)
-      .eq('nex_codigo', nex_codigo)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 = "not found" (esperado)
-      throw error;
+function montarUrl(supabaseConfig, tabela, queryParams = {}) {
+  const url = new URL(`${supabaseConfig.baseUrl}/rest/v1/${tabela}`);
+  for (const [key, val] of Object.entries(queryParams)) {
+    if (val !== undefined && val !== null) {
+      url.searchParams.set(key, val);
     }
+  }
+  return url.toString();
+}
 
-    return data || null;
+/**
+ * INTERNALS: executa fetch contra o REST do Supabase, com tratamento de erro
+ * uniforme (rede + resposta não-ok), igual ao restante do projeto.
+ */
+async function restRequest(supabaseConfig, url, options = {}) {
+  let res;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: { ...supabaseConfig.headers, ...(options.headers || {}) },
+    });
+  } catch (err) {
+    throw new Error(`Falha de rede ao acessar Supabase: ${err.message}`);
+  }
+
+  if (!res.ok) {
+    let detalhe = '';
+    try {
+      detalhe = await res.text();
+    } catch {
+      // ignora — segue só com o status
+    }
+    throw new Error(`Supabase REST retornou ${res.status}${detalhe ? `: ${detalhe}` : ''}`);
+  }
+
+  return res;
+}
+
+/**
+ * INTERNALS: extrai contagem total do header Content-Range (Prefer: count=exact)
+ */
+function parseContagem(res) {
+  const contentRange = res.headers.get('content-range');
+  const total = parseInt(contentRange?.split('/')[1] || '0', 10);
+  return Number.isFinite(total) ? total : 0;
+}
+
+/**
+ * INTERNALS: Busca cliente existente no Supabase via REST (GET com filtros)
+ */
+async function obterClienteExistente(supabaseConfig, origem_loja, nex_codigo) {
+  const url = montarUrl(supabaseConfig, 'nex_clientes', {
+    origem_loja: `eq.${origem_loja}`,
+    nex_codigo: `eq.${nex_codigo}`,
+    select: 'id,content_hash',
+    limit: '1',
+  });
+
+  try {
+    const res = await restRequest(supabaseConfig, url, { method: 'GET' });
+    const data = await res.json();
+    return data[0] || null;
   } catch (err) {
     console.error('[obterClienteExistente] Erro ao buscar cliente', {
       nex_codigo,
@@ -157,16 +219,16 @@ async function obterClienteExistente(supabase, origem_loja, nex_codigo) {
 }
 
 /**
- * PUBLIC EXPORT: Upsert atômico de cliente + evento
+ * PUBLIC EXPORT: Upsert atômico de cliente + evento, via REST
  * Escreve nex_sync_eventos se tipo != 'sem_alteracao'
  */
-async function upsertNexCliente(supabase, clienteNormalizado, metadata = {}) {
+async function upsertNexCliente(supabaseConfig, clienteNormalizado, metadata = {}) {
   const { loteId, correlationId } = metadata;
 
   try {
     // 1. Obter cliente existente
     const existente = await obterClienteExistente(
-      supabase,
+      supabaseConfig,
       clienteNormalizado.origem_loja,
       clienteNormalizado.nex_codigo
     );
@@ -178,35 +240,41 @@ async function upsertNexCliente(supabase, clienteNormalizado, metadata = {}) {
     // 3. Classificar tipo
     const tipo = classificarTipo(hashAnterior, hashNovo);
 
-    // 4. Upsert cliente
-    const { data: clienteData, error: upsertError } = await supabase
-      .from('nex_clientes')
-      .upsert(
-        {
-          origem_loja: clienteNormalizado.origem_loja,
-          nex_codigo: clienteNormalizado.nex_codigo,
-          nome: clienteNormalizado.nome,
-          cpf_cnpj: clienteNormalizado.cpf_cnpj,
-          telefone: clienteNormalizado.telefone,
-          celular: clienteNormalizado.celular,
-          email: clienteNormalizado.email,
-          endereco: clienteNormalizado.endereco,
-          saldo_debito_nex: clienteNormalizado.saldo_debito_nex,
-          saldo_credito_nex: clienteNormalizado.saldo_credito_nex,
-          valor_liquido_nex: clienteNormalizado.valor_liquido_nex,
-          data_snapshot: clienteNormalizado.data_snapshot,
-          observacao_original: clienteNormalizado.observacao_original,
-          metadados: clienteNormalizado.metadados,
-          content_hash: hashNovo,
-        },
-        { onConflict: 'origem_loja,nex_codigo' }
-      )
-      .select('id')
-      .single();
+    // 4. Upsert cliente (POST + Prefer: resolution=merge-duplicates, on_conflict
+    //    na chave natural — a PK é `id` uuid, não origem_loja+nex_codigo)
+    const payloadCliente = {
+      origem_loja: clienteNormalizado.origem_loja,
+      nex_codigo: clienteNormalizado.nex_codigo,
+      nome: clienteNormalizado.nome,
+      cpf_cnpj: clienteNormalizado.cpf_cnpj,
+      telefone: clienteNormalizado.telefone,
+      celular: clienteNormalizado.celular,
+      email: clienteNormalizado.email,
+      endereco: clienteNormalizado.endereco,
+      saldo_debito_nex: clienteNormalizado.saldo_debito_nex,
+      saldo_credito_nex: clienteNormalizado.saldo_credito_nex,
+      valor_liquido_nex: clienteNormalizado.valor_liquido_nex,
+      data_snapshot: clienteNormalizado.data_snapshot,
+      observacao_original: clienteNormalizado.observacao_original,
+      metadados: clienteNormalizado.metadados,
+      content_hash: hashNovo,
+    };
 
-    if (upsertError) {
-      throw upsertError;
+    const urlUpsert = montarUrl(supabaseConfig, 'nex_clientes', {
+      on_conflict: 'origem_loja,nex_codigo',
+    });
+
+    const resUpsert = await restRequest(supabaseConfig, urlUpsert, {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(payloadCliente),
+    });
+
+    const linhasUpsert = await resUpsert.json();
+    if (!Array.isArray(linhasUpsert) || linhasUpsert.length === 0) {
+      throw new Error('Upsert não retornou nenhuma linha (Prefer: return=representation esperado)');
     }
+    const clienteData = linhasUpsert[0];
 
     // 5. Escrever evento (apenas se mudança)
     if (tipo !== 'sem_alteracao') {
@@ -220,13 +288,12 @@ async function upsertNexCliente(supabase, clienteNormalizado, metadata = {}) {
         valor_novo: { content_hash: hashNovo },
       };
 
-      const resultado = await supabase.from('nex_sync_eventos').insert(eventoData);
-
-      // Handle both real Supabase response and mocked response
-      const { error: eventoError } = resultado || {};
-      if (eventoError) {
-        throw eventoError;
-      }
+      const urlEvento = montarUrl(supabaseConfig, 'nex_sync_eventos');
+      await restRequest(supabaseConfig, urlEvento, {
+        method: 'POST',
+        headers: { 'Prefer': 'return=minimal' },
+        body: JSON.stringify(eventoData),
+      });
     }
 
     return {
@@ -250,7 +317,7 @@ async function upsertNexCliente(supabase, clienteNormalizado, metadata = {}) {
  * PUBLIC EXPORT: Processa lote de clientes
  * Respeita maxRegistros, não-bloqueante (erros por item)
  */
-async function processarLote(supabase, clientes, options = {}) {
+async function processarLote(supabaseConfig, clientes, options = {}) {
   const { loteId, correlationId, maxRegistros = 500 } = options;
 
   // Validar limite
@@ -282,7 +349,7 @@ async function processarLote(supabase, clientes, options = {}) {
       const clienteNormalizado = normalizarCliente(clienteRaw);
 
       // 3. Upsert
-      const resultado = await upsertNexCliente(supabase, clienteNormalizado, {
+      const resultado = await upsertNexCliente(supabaseConfig, clienteNormalizado, {
         loteId,
         correlationId,
       });
@@ -307,8 +374,106 @@ async function processarLote(supabase, clientes, options = {}) {
   };
 }
 
+/**
+ * PUBLIC EXPORT: Busca cliente + últimos 5 eventos via REST.
+ * Retorna null se o cliente não existir (sem distinguir erro de "não encontrado",
+ * já que uma consulta REST filtrada simplesmente devolve array vazio).
+ */
+async function obterClienteComEventos(supabaseConfig, origem_loja, nex_codigo) {
+  try {
+    const urlCliente = montarUrl(supabaseConfig, 'nex_clientes', {
+      origem_loja: `eq.${origem_loja}`,
+      nex_codigo: `eq.${nex_codigo}`,
+      select: 'id,origem_loja,nex_codigo,nome,created_at,updated_at,ausente_desde',
+      limit: '1',
+    });
+
+    const resCliente = await restRequest(supabaseConfig, urlCliente, { method: 'GET' });
+    const clientesEncontrados = await resCliente.json();
+    const cliente = Array.isArray(clientesEncontrados) ? clientesEncontrados[0] || null : null;
+
+    if (!cliente) {
+      return null;
+    }
+
+    const urlEventos = montarUrl(supabaseConfig, 'nex_sync_eventos', {
+      origem_loja: `eq.${origem_loja}`,
+      nex_codigo: `eq.${nex_codigo}`,
+      select: 'tipo,created_at,lote_id',
+      order: 'created_at.desc',
+      limit: '5',
+    });
+
+    const resEventos = await restRequest(supabaseConfig, urlEventos, { method: 'GET' });
+    const eventos = await resEventos.json();
+
+    return { cliente, eventos: Array.isArray(eventos) ? eventos : [] };
+  } catch (err) {
+    console.error('[obterClienteComEventos] Erro ao buscar cliente com eventos', {
+      nex_codigo,
+      origem_loja,
+      message: err.message,
+    });
+    throw err;
+  }
+}
+
+/**
+ * PUBLIC EXPORT: Agregados (contagens, sem PII) para o endpoint nex-health.
+ * 5 consultas REST paralelas com Prefer: count=exact, mesmo padrão já usado em
+ * cron-diagnosis.js/imageReviewService.js/messageHistoryService.js.
+ */
+async function obterAgregados(supabaseConfig) {
+  try {
+    const agora = Date.now();
+    const desde24h = new Date(agora - 24 * 60 * 60 * 1000).toISOString();
+    const desde1h = new Date(agora - 60 * 60 * 1000).toISOString();
+
+    const countHeaders = { 'Prefer': 'count=exact' };
+
+    const [resClientes, resEventos, resHoje, resHora, resAusentes] = await Promise.all([
+      restRequest(supabaseConfig, montarUrl(supabaseConfig, 'nex_clientes', { select: 'id' }), {
+        method: 'GET',
+        headers: countHeaders,
+      }),
+      restRequest(supabaseConfig, montarUrl(supabaseConfig, 'nex_sync_eventos', { select: 'id' }), {
+        method: 'GET',
+        headers: countHeaders,
+      }),
+      restRequest(
+        supabaseConfig,
+        montarUrl(supabaseConfig, 'nex_sync_eventos', { select: 'id', created_at: `gte.${desde24h}` }),
+        { method: 'GET', headers: countHeaders }
+      ),
+      restRequest(
+        supabaseConfig,
+        montarUrl(supabaseConfig, 'nex_sync_eventos', { select: 'id', created_at: `gte.${desde1h}` }),
+        { method: 'GET', headers: countHeaders }
+      ),
+      restRequest(
+        supabaseConfig,
+        montarUrl(supabaseConfig, 'nex_clientes', { select: 'id', ausente_desde: 'not.is.null' }),
+        { method: 'GET', headers: countHeaders }
+      ),
+    ]);
+
+    return {
+      total_clientes: parseContagem(resClientes),
+      total_eventos: parseContagem(resEventos),
+      eventos_hoje: parseContagem(resHoje),
+      eventos_ultima_hora: parseContagem(resHora),
+      clientes_ausentes: parseContagem(resAusentes),
+    };
+  } catch (err) {
+    console.error('[obterAgregados] Erro ao consultar agregados NEX', { message: err.message });
+    throw err;
+  }
+}
+
 // Exports: apenas funções públicas
 export {
   processarLote,
   upsertNexCliente,
+  obterClienteComEventos,
+  obterAgregados,
 };

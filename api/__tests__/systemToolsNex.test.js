@@ -7,7 +7,40 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * - nexSyncClientes (POST, autenticado)
  * - nexCliente (GET, autenticado)
  * - nexHealth (GET, público + ?force=true autenticado)
+ *
+ * + Regressão comportamental (Fase 6C.6, correção) — o bug real de Production
+ * estava em system-tools.js (createClient(SUPABASE_URL, SUPABASE_SECRET_KEY),
+ * usando por engano o createClient do @base44/sdk já importado no topo do
+ * arquivo). _nexClientes.js nunca foi o local do bug — por isso este arquivo
+ * precisa exercer os handlers REAIS (o default export de system-tools.js),
+ * não só simular formato de request/response.
  */
+
+// vi.mock é hoisted — precisa vir antes de qualquer import de system-tools.js.
+// Substituímos @base44/sdk (spyOn no export real falha com "Cannot redefine
+// property", pois não é configurável) e _nexClientes.js (isolamos o teste do
+// handler da lógica REST, que já tem sua própria suíte em nexClientes.test.js).
+vi.mock('@base44/sdk', () => ({
+  createClient: vi.fn(() => ({ entities: {} })),
+}));
+
+vi.mock('../_nexClientes.js', () => ({
+  processarLote: vi.fn(async () => ({
+    sucesso: true,
+    totalProcessados: 0,
+    totalSucesso: 0,
+    totalErro: 0,
+    resultados: [],
+  })),
+  obterClienteComEventos: vi.fn(async () => null),
+  obterAgregados: vi.fn(async () => ({
+    total_clientes: 0,
+    total_eventos: 0,
+    eventos_hoje: 0,
+    eventos_ultima_hora: 0,
+    clientes_ausentes: 0,
+  })),
+}));
 
 // Mock de request e response
 function criarMockRequest(opcoes = {}) {
@@ -298,3 +331,156 @@ describe('Segurança de autenticação', () => {
     expect(req.headers.authorization).toBeUndefined()
   })
 })
+
+/**
+ * REGRESSÃO COMPORTAMENTAL — handlers reais de system-tools.js (Fase 6C.6)
+ *
+ * Exercita o default export real de system-tools.js (não uma simulação de
+ * forma) contra os 3 tools NEX, com @base44/sdk e _nexClientes.js mockados.
+ * Cada teste importa o módulo FRESCO (vi.resetModules + import dinâmico)
+ * porque SUPABASE_URL/SUPABASE_SECRET_KEY/NEX_SYNC_SECRET são lidos de
+ * process.env uma única vez, no topo do arquivo, na primeira avaliação.
+ */
+describe('Handlers reais de system-tools.js — regressão createClient (comportamental)', () => {
+  const TEST_NEX_SECRET = 'test-nex-secret-123';
+  const TEST_SUPABASE_URL = 'https://mock-project.supabase.co';
+  const TEST_SUPABASE_SECRET_KEY = 'mock-supabase-secret-key';
+
+  let handler;
+  let base44CreateClient;
+  let processarLoteMock;
+  let obterClienteComEventosMock;
+  let obterAgregadosMock;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    process.env.NEX_SYNC_SECRET = TEST_NEX_SECRET;
+    process.env.VITE_SUPABASE_URL = TEST_SUPABASE_URL;
+    process.env.SUPABASE_SECRET_KEY = TEST_SUPABASE_SECRET_KEY;
+
+    const base44Module = await import('@base44/sdk');
+    base44CreateClient = base44Module.createClient;
+    base44CreateClient.mockClear();
+
+    const nexModule = await import('../_nexClientes.js');
+    processarLoteMock = nexModule.processarLote;
+    obterClienteComEventosMock = nexModule.obterClienteComEventos;
+    obterAgregadosMock = nexModule.obterAgregados;
+    processarLoteMock.mockClear();
+    obterClienteComEventosMock.mockClear();
+    obterAgregadosMock.mockClear();
+
+    const systemTools = await import('../system-tools.js');
+    handler = systemTools.default;
+  });
+
+  function criarReqReal(overrides = {}) {
+    return {
+      method: 'GET',
+      headers: {},
+      query: {},
+      body: {},
+      socket: { remoteAddress: '192.168.1.1' },
+      ...overrides,
+    };
+  }
+
+  function criarResReal() {
+    return {
+      statusCode: 200,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+      setHeader() {
+        return this;
+      },
+    };
+  }
+
+  it('nex-sync-clientes monta supabaseConfig REST e delega a processarLote, sem createClient da Base44', async () => {
+    const req = criarReqReal({
+      method: 'POST',
+      query: { tool: 'nex-sync-clientes' },
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TEST_NEX_SECRET}`,
+      },
+      body: {
+        clientes: [{ origem_loja: 'loja-1', nex_codigo: '001', nome: 'Cliente' }],
+        loteId: 'lote-teste',
+      },
+    });
+    const res = criarResReal();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(processarLoteMock).toHaveBeenCalledTimes(1);
+
+    const [supabaseConfigArg] = processarLoteMock.mock.calls[0];
+    expect(supabaseConfigArg.baseUrl).toBe(TEST_SUPABASE_URL);
+    expect(supabaseConfigArg.headers.apikey).toBe(TEST_SUPABASE_SECRET_KEY);
+    expect(base44CreateClient).not.toHaveBeenCalled();
+  });
+
+  it('nex-cliente monta supabaseConfig REST e delega a obterClienteComEventos, sem createClient da Base44', async () => {
+    const req = criarReqReal({
+      method: 'GET',
+      query: { tool: 'nex-cliente', origem: 'loja-1', codigo: '001' },
+      headers: { authorization: `Bearer ${TEST_NEX_SECRET}` },
+    });
+    const res = criarResReal();
+
+    await handler(req, res);
+
+    expect(obterClienteComEventosMock).toHaveBeenCalledTimes(1);
+
+    const [supabaseConfigArg, origem, codigo] = obterClienteComEventosMock.mock.calls[0];
+    expect(supabaseConfigArg.baseUrl).toBe(TEST_SUPABASE_URL);
+    expect(supabaseConfigArg.headers.apikey).toBe(TEST_SUPABASE_SECRET_KEY);
+    expect(origem).toBe('loja-1');
+    expect(codigo).toBe('001');
+    expect(base44CreateClient).not.toHaveBeenCalled();
+  });
+
+  it('nex-health monta supabaseConfig REST e delega a obterAgregados, sem createClient da Base44', async () => {
+    const req = criarReqReal({
+      method: 'GET',
+      query: { tool: 'nex-health' },
+      headers: {},
+    });
+    const res = criarResReal();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(obterAgregadosMock).toHaveBeenCalledTimes(1);
+
+    const [supabaseConfigArg] = obterAgregadosMock.mock.calls[0];
+    expect(supabaseConfigArg.baseUrl).toBe(TEST_SUPABASE_URL);
+    expect(supabaseConfigArg.headers.apikey).toBe(TEST_SUPABASE_SECRET_KEY);
+    expect(base44CreateClient).not.toHaveBeenCalled();
+  });
+
+  it('nex-sync-clientes sem Authorization não chega a chamar processarLote', async () => {
+    const req = criarReqReal({
+      method: 'POST',
+      query: { tool: 'nex-sync-clientes' },
+      headers: { 'content-type': 'application/json' },
+      body: { clientes: [{ origem_loja: 'loja-1', nex_codigo: '001', nome: 'Cliente' }], loteId: 'x' },
+    });
+    const res = criarResReal();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(processarLoteMock).not.toHaveBeenCalled();
+    expect(base44CreateClient).not.toHaveBeenCalled();
+  });
+});

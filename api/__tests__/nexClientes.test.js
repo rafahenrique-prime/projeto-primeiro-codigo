@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { processarLote, upsertNexCliente } from '../_nexClientes.js';
+
+// vi.mock é hoisted pelo Vitest — precisa vir antes do import de _nexClientes.js
+// para substituir @base44/sdk no registro de módulos (spyOn direto no export real
+// falha com "Cannot redefine property", pois o export não é configurável).
+vi.mock('@base44/sdk', () => ({
+  createClient: vi.fn(() => ({ entities: {} })),
+}));
+
+import { processarLote, upsertNexCliente, obterClienteComEventos, obterAgregados } from '../_nexClientes.js';
+import { createClient as base44CreateClient } from '@base44/sdk';
 
 /**
  * api/__tests__/nexClientes.test.js
@@ -8,12 +17,15 @@ import { processarLote, upsertNexCliente } from '../_nexClientes.js';
  * Suite de testes para _nexClientes.js
  * - ~20 testes unitários para cada função
  * - 1 teste E2E ponta-a-ponta com 4 cenários (novo, atualizado, sem-alteracao, erro)
- * - Determinístico: sem Date, sem serviços externos, Supabase 100% mockado
+ * - Determinístico: sem Date, sem serviços externos, Supabase acessado via
+ *   REST (fetch mockado), nunca client de SDK
  */
 
 const nexClientes = {
   processarLote,
   upsertNexCliente,
+  obterClienteComEventos,
+  obterAgregados,
 };
 
 /**
@@ -677,85 +689,261 @@ describe('Integração ponta-a-ponta (E2E)', () => {
 });
 
 /**
- * HELPERS: Mock Supabase determinístico
+ * REGRESSÃO: bug createClient (Base44 vs Supabase) — Fase 6C.6 (correção)
+ *
+ * Este bloco existe porque o bug real em produção foi: o código usou
+ * createClient(SUPABASE_URL, SUPABASE_SECRET_KEY) — mas createClient já
+ * estava importado de @base44/sdk em system-tools.js, então .from() não
+ * existia no objeto retornado. Os 55 testes originais nunca pegaram isso
+ * porque mockavam uma API chainable Supabase-JS que não existe de verdade
+ * neste projeto (que usa REST via fetch em todo o resto do código).
+ */
+describe('Regressão — fluxo NEX nunca usa createClient da Base44', () => {
+  beforeEach(() => {
+    base44CreateClient.mockClear();
+  });
+
+  it('processarLote nunca chama createClient do @base44/sdk', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-001', nome: 'Cliente' },
+    ]);
+    expect(base44CreateClient).not.toHaveBeenCalled();
+  });
+
+  it('processarLote usa fetch (REST), não um client de SDK', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-002', nome: 'Cliente' },
+    ]);
+    expect(global.fetch).toHaveBeenCalled();
+    const primeiraChamada = global.fetch.mock.calls[0][0];
+    expect(primeiraChamada).toContain('/rest/v1/nex_clientes');
+  });
+
+  it('GET REST válido retorna cliente existente (obterClienteExistente via upsert)', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-003', nome: 'Cliente' },
+    ]);
+    const resultado = await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-003', nome: 'Cliente Atualizado' },
+    ]);
+    expect(resultado.resultados[0].tipo).toBe('atualizado');
+  });
+
+  it('upsert REST válido cria o cliente no storage simulado', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-004', nome: 'Cliente' },
+    ]);
+    expect(mockSupabase.clientes.length).toBe(1);
+    expect(mockSupabase.clientes[0].nex_codigo).toBe('REG-004');
+  });
+
+  it('insert de evento REST válido grava o evento no storage simulado', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-005', nome: 'Cliente' },
+    ]);
+    expect(mockSupabase.eventos.length).toBe(1);
+    expect(mockSupabase.eventos[0].tipo).toBe('criado');
+  });
+
+  it('resposta REST com ok:false gera erro estruturado (não exceção não tratada)', async () => {
+    const mockSupabase = criarMockSupabase();
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: 'erro simulado' }),
+      text: async () => 'erro simulado',
+      headers: { get: () => null },
+    }));
+
+    const resultado = await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-006', nome: 'Cliente' },
+    ]);
+
+    expect(resultado.sucesso).toBe(true); // processarLote nunca lança, erros ficam por item
+    expect(resultado.resultados[0].sucesso).toBe(false);
+    expect(resultado.resultados[0].erro).toContain('500');
+  });
+
+  it('erro de rede (fetch rejeitado) gera erro estruturado', async () => {
+    const mockSupabase = criarMockSupabase();
+    global.fetch = vi.fn(async () => {
+      throw new Error('network down');
+    });
+
+    const resultado = await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-007', nome: 'Cliente' },
+    ]);
+
+    expect(resultado.resultados[0].sucesso).toBe(false);
+    expect(resultado.resultados[0].erro).toContain('network down');
+  });
+
+  it('contagens via content-range são interpretadas corretamente (obterAgregados)', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-008', nome: 'Cliente 1' },
+      { origem_loja: 'loja-1', nex_codigo: 'REG-009', nome: 'Cliente 2' },
+    ]);
+
+    const agregados = await nexClientes.obterAgregados(mockSupabase);
+    expect(agregados.total_clientes).toBe(2);
+    expect(agregados.total_eventos).toBe(2);
+    expect(agregados.clientes_ausentes).toBe(0);
+  });
+
+  it('obterClienteComEventos retorna cliente + últimos 5 eventos', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-010', nome: 'Cliente v1' },
+    ]);
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-010', nome: 'Cliente v2' },
+    ]);
+
+    const resultado = await nexClientes.obterClienteComEventos(mockSupabase, 'loja-1', 'REG-010');
+    expect(resultado).not.toBeNull();
+    expect(resultado.cliente.nex_codigo).toBe('REG-010');
+    expect(resultado.eventos.length).toBe(2);
+    expect(resultado.eventos.length).toBeLessThanOrEqual(5);
+  });
+
+  it('obterClienteComEventos retorna null se cliente não existe', async () => {
+    const mockSupabase = criarMockSupabase();
+    const resultado = await nexClientes.obterClienteComEventos(mockSupabase, 'loja-x', 'inexistente');
+    expect(resultado).toBeNull();
+  });
+
+  it('obterAgregados retorna estatísticas sem PII (nenhum nome/telefone/email nas chaves)', async () => {
+    const mockSupabase = criarMockSupabase();
+    await nexClientes.processarLote(mockSupabase, [
+      { origem_loja: 'loja-1', nex_codigo: 'REG-011', nome: 'Cliente PII', telefone: '11999998888' },
+    ]);
+
+    const agregados = await nexClientes.obterAgregados(mockSupabase);
+    const chaves = Object.keys(agregados);
+    expect(chaves).not.toContain('nome');
+    expect(chaves).not.toContain('telefone');
+    expect(chaves).not.toContain('email');
+    expect(chaves).toEqual(
+      expect.arrayContaining(['total_clientes', 'total_eventos', 'eventos_hoje', 'eventos_ultima_hora', 'clientes_ausentes'])
+    );
+  });
+});
+
+/**
+ * HELPERS: Mock de fetch determinístico simulando o REST do Supabase
+ * (PostgREST) — nunca um client de SDK. `criarMockSupabase()` devolve um
+ * `supabaseConfig` ({ baseUrl, headers }) válido, e instala um `global.fetch`
+ * que responde de acordo com uma tabela/verbo/filtros, apoiado num storage
+ * em memória isolado por chamada (cada teste cria o seu).
  */
 
-function criarMockSupabase() {
-  const storage = {
-    clientes: [],
-    eventos: [],
+function extrairFiltroEq(valor) {
+  return valor && valor.startsWith('eq.') ? valor.slice(3) : undefined;
+}
+
+function jsonResponse(body, { status = 200, headers = {} } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+    headers: { get: (nome) => headers[nome.toLowerCase()] ?? null },
   };
+}
+
+function criarMockSupabase() {
+  const storage = { clientes: [], eventos: [] };
+  const baseUrl = 'https://mock-project.supabase.co';
+  const headers = { apikey: 'mock-secret-key', 'Content-Type': 'application/json' };
+
+  global.fetch = vi.fn(async (urlStr, options = {}) => {
+    const url = new URL(urlStr);
+    const tabela = url.pathname.split('/').pop();
+    const metodo = (options.method || 'GET').toUpperCase();
+    const params = url.searchParams;
+    const ehContagem = options.headers?.['Prefer'] === 'count=exact';
+
+    if (tabela === 'nex_clientes') {
+      if (metodo === 'GET') {
+        let linhas = storage.clientes.slice();
+        const origem = extrairFiltroEq(params.get('origem_loja'));
+        const codigo = extrairFiltroEq(params.get('nex_codigo'));
+        if (origem !== undefined) linhas = linhas.filter((c) => c.origem_loja === origem);
+        if (codigo !== undefined) linhas = linhas.filter((c) => c.nex_codigo === codigo);
+        if (params.get('ausente_desde') === 'not.is.null') {
+          linhas = linhas.filter((c) => c.ausente_desde != null);
+        }
+        if (ehContagem) {
+          return jsonResponse([], { headers: { 'content-range': `0-0/${linhas.length}` } });
+        }
+        const limit = params.get('limit');
+        if (limit) linhas = linhas.slice(0, Number(limit));
+        return jsonResponse(linhas);
+      }
+      if (metodo === 'POST') {
+        const dados = JSON.parse(options.body);
+        const idx = storage.clientes.findIndex(
+          (c) => c.origem_loja === dados.origem_loja && c.nex_codigo === dados.nex_codigo
+        );
+        let linha;
+        if (idx >= 0) {
+          linha = { ...storage.clientes[idx], ...dados };
+          storage.clientes[idx] = linha;
+        } else {
+          linha = { id: `uuid-${storage.clientes.length}-${Math.random().toString(36).slice(2, 8)}`, ...dados };
+          storage.clientes.push(linha);
+        }
+        return jsonResponse([linha]);
+      }
+    }
+
+    if (tabela === 'nex_sync_eventos') {
+      if (metodo === 'GET') {
+        let linhas = storage.eventos.slice();
+        const origem = extrairFiltroEq(params.get('origem_loja'));
+        const codigo = extrairFiltroEq(params.get('nex_codigo'));
+        if (origem !== undefined) linhas = linhas.filter((e) => e.origem_loja === origem);
+        if (codigo !== undefined) linhas = linhas.filter((e) => e.nex_codigo === codigo);
+        const createdAtFiltro = params.get('created_at');
+        if (createdAtFiltro && createdAtFiltro.startsWith('gte.')) {
+          const desde = createdAtFiltro.slice(4);
+          linhas = linhas.filter((e) => e.created_at >= desde);
+        }
+        if (ehContagem) {
+          return jsonResponse([], { headers: { 'content-range': `0-0/${linhas.length}` } });
+        }
+        const order = params.get('order');
+        if (order && order.includes('desc')) {
+          linhas = linhas.slice().reverse();
+        }
+        const limit = params.get('limit');
+        if (limit) linhas = linhas.slice(0, Number(limit));
+        return jsonResponse(linhas);
+      }
+      if (metodo === 'POST') {
+        const dados = JSON.parse(options.body);
+        storage.eventos.push({ ...dados, created_at: new Date().toISOString() });
+        return jsonResponse([]);
+      }
+    }
+
+    return jsonResponse([]);
+  });
 
   return {
-    clientes: storage.clientes,
-    eventos: storage.eventos,
-    from(table) {
-      if (table === 'nex_clientes') {
-        const self = this;
-        return {
-          select(cols) {
-            return {
-              eq(col, val) {
-                return {
-                  eq(col2, val2) {
-                    return {
-                      single: async () => {
-                        const cliente = storage.clientes.find(
-                          (c) => c.origem_loja === val && c.nex_codigo === val2
-                        );
-                        return { data: cliente || null, error: null };
-                      },
-                    };
-                  },
-                };
-              },
-            };
-          },
-          upsert(dados, opts) {
-            return {
-              select(cols) {
-                return {
-                  single: async () => {
-                    const existente = storage.clientes.findIndex(
-                      (c) =>
-                        c.origem_loja === dados.origem_loja &&
-                        c.nex_codigo === dados.nex_codigo
-                    );
-
-                    const id = `uuid-${Math.random().toString(36).substr(2, 9)}`;
-
-                    if (existente >= 0) {
-                      storage.clientes[existente] = {
-                        ...storage.clientes[existente],
-                        ...dados,
-                        id: storage.clientes[existente].id,
-                      };
-                      return { data: { id: storage.clientes[existente].id }, error: null };
-                    } else {
-                      storage.clientes.push({
-                        id,
-                        ...dados,
-                      });
-                      return { data: { id }, error: null };
-                    }
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-
-      if (table === 'nex_sync_eventos') {
-        return {
-          async insert(evento) {
-            storage.eventos.push(evento);
-            return { data: [evento], error: null };
-          },
-        };
-      }
-
-      return {};
+    baseUrl,
+    headers,
+    get clientes() {
+      return storage.clientes;
+    },
+    get eventos() {
+      return storage.eventos;
     },
   };
 }
