@@ -337,7 +337,9 @@ created_at      timestamptz not null default now()
 
 **Soft-delete:** `ausente_desde` nullable — nunca há `DELETE` automático de um cliente vindo do NEX, apenas marcação de ausência.
 
-**Migration status:** versionada em `supabase/migrations/016_nex_clientes.sql`, **aplicada manualmente no Supabase Production em 2026-07-31** via SQL Editor (`Success. No rows returned`) — projeto não usa CLI de migrations automatizada, mesmo padrão de `017`/`018`. Tabelas criadas vazias, RLS habilitada, validação estrutural feita antes de avançar. **Isso é diferente do deploy do código:** os handlers de `api/system-tools.js` (`nex-sync-clientes`/`nex-cliente`/`nex-health`) ainda não foram publicados na Vercel.
+**Migration status:** versionada em `supabase/migrations/016_nex_clientes.sql`, **aplicada manualmente no Supabase Production em 2026-07-31** via SQL Editor (`Success. No rows returned`) — projeto não usa CLI de migrations automatizada, mesmo padrão de `017`/`018`. Tabelas criadas vazias, RLS habilitada, validação estrutural feita antes de avançar.
+
+**Acesso via REST, não via client de SDK:** o código do endpoint (`api/system-tools.js` + `api/_nexClientes.js`) foi publicado em duas etapas — o deploy inicial (commit `faffb99`) chegou com um bug (`createClient` do `@base44/sdk` reaproveitado por engano no lugar do acesso ao Supabase, `.from is not a function` em Production), corrigido no commit `a595ab5` migrando para REST direto via `fetch` (mesmo padrão do restante deste documento, §1). Detalhe completo do bug, correção e da POC validada em Production em [`docs/integrations/NEX-INTEGRATION.md`](integrations/NEX-INTEGRATION.md).
 
 ---
 
