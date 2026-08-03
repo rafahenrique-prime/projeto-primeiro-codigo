@@ -19,7 +19,7 @@
 
 import { timingSafeEqual } from 'node:crypto'
 import { waitUntil } from '@vercel/functions'
-import { getBridgeConfig, handleIncoming } from '../poc/zap-gptmaker-bridge/bridgeCore.js'
+import { getBridgeConfig, validateBridgeMode, handleIncoming } from '../poc/zap-gptmaker-bridge/bridgeCore.js'
 
 /**
  * Comparação de tempo constante — mesma lógica de isValidWebhookSecret já
@@ -57,13 +57,26 @@ export async function runPrimeBridgeWebhook(req, res) {
     return res.status(404).end()
   }
 
+  // getBridgeConfig(process.env) é chamada aqui, no momento da requisição —
+  // nunca capturada no topo do módulo (ver bridgeCore.js).
+  const config = getBridgeConfig(process.env)
+
+  // BRIDGE_MODE (FLUXO SIMPLES / FLUXO COMPLICADO) — validado antes de
+  // aceitar o processamento. Nunca cai silenciosamente em "complicated" por
+  // ausência/erro de configuração; responde 404 (mesmo contrato de erro já
+  // usado nesta rota — nunca revela o motivo exato ao chamador externo) e
+  // loga localmente o motivo real.
+  const bridgeModeCheck = validateBridgeMode(config)
+  if (!bridgeModeCheck.ok) {
+    console.error('[prime-bridge-webhook] ❌ BRIDGE_MODE inválido — recusando processamento', { message: bridgeModeCheck.message })
+    return res.status(404).end()
+  }
+
   // Responde 200 imediatamente — não deixa a ZAP-API esperando o processamento.
   res.status(200).json({ ok: true })
 
-  // getBridgeConfig(process.env) é chamada aqui, no momento da requisição —
-  // nunca capturada no topo do módulo (ver bridgeCore.js). handleIncoming
-  // roda em segundo plano via waitUntil, sobrevivendo à resposta já enviada.
-  const config = getBridgeConfig(process.env)
+  // handleIncoming roda em segundo plano via waitUntil, sobrevivendo à
+  // resposta já enviada.
   waitUntil(
     handleIncoming(payload, { config }).catch((err) => {
       console.error('[prime-bridge-webhook] ❌ Erro não tratado', { message: err?.message })

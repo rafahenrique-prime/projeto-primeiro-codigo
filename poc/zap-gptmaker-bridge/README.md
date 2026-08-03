@@ -97,6 +97,31 @@ fechado de forma diferente para cada uma — ver abaixo), mas **nenhuma regra
 real ainda decide bloquear, ignorar, ou responder localmente** — isso fica
 para uma etapa futura.
 
+## BRIDGE_MODE — FLUXO SIMPLES vs FLUXO COMPLICADO
+
+**`BRIDGE_MODE` é obrigatória.** Valores aceitos: `simple` ou `complicated`
+— qualquer outra coisa (ausente, vazio, typo) faz `handleIncoming` recusar o
+processamento com segurança (nunca assume `complicated` por padrão). No boot
+local (`server.mjs`), um `BRIDGE_MODE` inválido encerra o processo (mesmo
+padrão de `validateRequiredEnv`); na Function real
+(`api/_primeBridgeWebhook.js`), a requisição é recusada (`404`) antes de
+qualquer chamada externa.
+
+A divergência entre os dois modos acontece **depois** de tudo que é comum
+(parse do evento, filtro `fromMe`, filtro de tipo, normalização de telefone,
+deduplicação) e **antes** do Gatekeeper — de propósito, porque o Gatekeeper
+pode decidir `BLOCK`/`IGNORE`/`ANSWER_WITHOUT_GPTMAKER`, o que violaria a
+garantia do FLUXO SIMPLES de "toda mensagem original vai direto pra Gaby
+Teste".
+
+- **`BRIDGE_MODE=complicated`** — comportamento já documentado neste README
+  (Gatekeeper → Tool Router → Tool API → Context Builder → GPT Maker →
+  ZAP-API). Inalterado por esta divisão.
+- **`BRIDGE_MODE=simple`** — transporte mínimo: `texto original → askGabi()
+  → resposta da Gaby → ZAP-API /send`. Nunca passa por Gatekeeper, Tool
+  Router, ou `buildContext`. v1 deliberadamente mínima (provar o fluxo ponta
+  a ponta primeiro).
+
 ## Dedupe e encerramento dos quatro caminhos
 
 O dedupe persistente (Supabase, `process_bridge_message`) é fechado de forma
@@ -119,6 +144,7 @@ Onde:
 - `ZAPI_INSTANCE_ID` → ID da instância ZAP-API Trial
 - `ZAPI_TOKEN` → token `tk_...` da instância (usado como `Authorization: Bearer`)
 - `WEBHOOK_PATH_SECRET` → **obrigatória**. Segredo usado como segmento privado da rota do webhook. Sem ela o servidor não inicia.
+- `BRIDGE_MODE` → **obrigatória**. `simple` ou `complicated` — ver seção "BRIDGE_MODE — FLUXO SIMPLES vs FLUXO COMPLICADO" acima. Sem ela (ou com valor inválido) o servidor não inicia.
 
 Não há Client-Token nesse provedor — a doc oficial (zap-api.tech) usa só `Authorization: Bearer tk_...`.
 

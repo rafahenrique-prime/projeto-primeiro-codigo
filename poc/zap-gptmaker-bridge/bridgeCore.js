@@ -76,6 +76,11 @@ export function getBridgeConfig(env = process.env) {
     IGNITE_PRIME_URL: env.IGNITE_PRIME_URL || env.NEXT_PUBLIC_VERCEL_URL || null,
     BRIDGE_TOOLS_SECRET: env.BRIDGE_TOOLS_SECRET,
     IGNITE_TOOLS_TIMEOUT_MS: parseTimeoutEnv(env.IGNITE_TOOLS_TIMEOUT_MS, DEFAULT_IGNITE_TOOLS_TIMEOUT_MS, 'IGNITE_TOOLS_TIMEOUT_MS'),
+    // FLUXO SIMPLES vs FLUXO COMPLICADO — leitura pura, sem normalizar nem
+    // validar aqui (mesma disciplina do resto desta função). Valor cru do
+    // env, inclusive se ausente (undefined) ou inválido — validateBridgeMode()
+    // é quem decide se está aceitável, nunca esta função.
+    BRIDGE_MODE: env.BRIDGE_MODE,
   })
 }
 
@@ -117,6 +122,26 @@ export function validateRequiredEnv(config) {
   }
 
   return { ok: missing.length === 0, missing }
+}
+
+/**
+ * Validação pura (nunca lança, nunca chama process.exit) de BRIDGE_MODE —
+ * mesmo espírito de validateRequiredEnv. Vocabulário fechado: só "simple" ou
+ * "complicated" são aceitos. Ausente, vazio, ou qualquer outro valor (typo,
+ * maiúscula errada, etc.) é inválido — nunca assume "complicated" por
+ * padrão, para nunca cair silenciosamente no fluxo antigo por engano.
+ *
+ * @param {ReturnType<typeof getBridgeConfig>} config
+ * @returns {{ ok: boolean, message?: string }}
+ */
+export function validateBridgeMode(config) {
+  if (config.BRIDGE_MODE === 'simple' || config.BRIDGE_MODE === 'complicated') {
+    return { ok: true }
+  }
+  return {
+    ok: false,
+    message: `❌ BRIDGE_MODE inválido ou ausente: ${JSON.stringify(config.BRIDGE_MODE)} — valores aceitos: "simple" ou "complicated"`,
+  }
 }
 
 // Dedupe em memória — some quando o processo é encerrado (POC descartável).
@@ -547,6 +572,79 @@ export async function handleIncoming(payload, deps = {}) {
       seenMessageIds.add(messageId)
     }
   }
+
+  // --- Divergência FLUXO SIMPLES / FLUXO COMPLICADO ---
+  // Ponto deliberadamente ANTES do Gatekeeper: o Gatekeeper não é transporte
+  // (pode gerar BLOCK/IGNORE/ANSWER_WITHOUT_GPTMAKER), o que violaria a
+  // garantia do FLUXO SIMPLES de "toda mensagem original vai direto pra Gaby
+  // Teste". Tudo acima desta linha (parse do evento, filtros fromMe/tipo,
+  // normalização de telefone, dedupe) é comum aos dois modos.
+  const modeCheck = validateBridgeMode(config)
+  if (!modeCheck.ok) {
+    log('❌ BRIDGE_MODE inválido — abortando com segurança', { messageId, BRIDGE_MODE: config.BRIDGE_MODE })
+    logToSupabase(config, 'error', 'invalid_bridge_mode', { messageId })
+    await markFailedAndCleanup(config, messageId, bridgeError('internal_error', 'bridge', { message: modeCheck.message }))
+    return
+  }
+
+  if (config.BRIDGE_MODE === 'simple') {
+    return simplePipeline(config, { phone, text, messageId, start })
+  }
+
+  return complicatedPipeline(config, deps, { phone, text, messageId, start })
+}
+
+// --- FLUXO SIMPLES ----------------------------------------------------------
+// Transporte mínimo: mensagem original -> Gaby Teste -> resposta original.
+// Nunca passa pelo Gatekeeper, Tool Router, consultarProduto,
+// continuationDetector, bridge_product_context ou buildContext. v1
+// deliberadamente mínima (regra combinada: provar o fluxo ponta a ponta
+// primeiro, melhorar depois) — formatarParaWhatsApp fica fora desta versão,
+// não é pré-requisito técnico para o envio funcionar.
+async function simplePipeline(config, { phone, text, messageId, start }) {
+  log('PIPELINE=SIMPLE', { messageId })
+
+  let reply
+  try {
+    logToSupabase(config, 'info', 'gptmaker_called', { messageId })
+    reply = await askGabi(config, phone, text)
+    log('✅ Gabi respondeu (simple)', { reply })
+
+    log('▶️  Enviando resposta via ZAP-API /send (simple)...')
+    await replyOnWhatsApp(config, phone, reply)
+    log('✅ Resposta enviada ao WhatsApp — provider aceitou (provider_accepted)')
+    logToSupabase(config, 'info', 'provider_accepted', { messageId })
+  } catch (err) {
+    const errInfo = err && err.errorCode
+      ? { errorCode: err.errorCode, source: err.source, status: err.status, message: err.message }
+      : bridgeError('internal_error', 'bridge', { message: err.message })
+    log('❌ Erro no processamento (simple)', errInfo)
+
+    if (errInfo.source === 'gptmaker') {
+      logToSupabase(config, 'error', 'gptmaker_error', { messageId, errorCode: errInfo.errorCode, source: 'gptmaker', httpStatus: errInfo.status })
+    } else if (errInfo.source === 'zap_api') {
+      logToSupabase(config, 'error', 'provider_accept_error', { messageId, errorCode: errInfo.errorCode, source: 'zap_api', httpStatus: errInfo.status })
+    }
+
+    await markFailedAndCleanup(config, messageId, errInfo)
+    return
+  }
+
+  if (messageId) {
+    await confirmCompletion(config, messageId)
+  }
+
+  const elapsedMs = Math.round(performance.now() - start)
+  log('🏁 Fluxo completo (simple)', { latenciaTotalMs: elapsedMs })
+}
+
+// --- FLUXO COMPLICADO --------------------------------------------------------
+// Comportamento idêntico ao handleIncoming original do HEAD — só extraído
+// para uma função própria, sem NENHUMA mudança de lógica, sem nenhuma
+// melhoria de outra fase (sem formatter, sem memória, sem knowledge, sem
+// continuidade nova, sem lista determinística, sem product context).
+async function complicatedPipeline(config, deps, { phone, text, messageId, start }) {
+  log('PIPELINE=COMPLICATED', { messageId })
 
   // --- PRIME Gatekeeper (Fase 3, Etapa 3.1) ---
   // 100% permissivo nesta fase — só CONTINUE ocorre em uso normal — mas os

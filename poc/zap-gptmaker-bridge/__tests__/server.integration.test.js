@@ -18,6 +18,10 @@ process.env.SUPABASE_URL = 'https://mock-supabase.test'
 process.env.SUPABASE_SECRET_KEY = 'mock-supabase-secret'
 process.env.GPTMAKER_BASE_URL = 'https://mock-gptmaker.test'
 process.env.ZAPI_BASE_URL = 'https://mock-zapi.test'
+// Esta suíte inteira exercita o FLUXO COMPLICADO (Gatekeeper, Tool Router)
+// — precisa do modo explícito desde a divergência por BRIDGE_MODE
+// (isolamento de FLUXO SIMPLES coberto em bridgeMode.test.js).
+process.env.BRIDGE_MODE = 'complicated'
 // IGNITE_PRIME_URL/BRIDGE_TOOLS_SECRET propositalmente NÃO configuradas —
 // todo teste que precisa da Tool API injeta deps.requestToolApi diretamente.
 

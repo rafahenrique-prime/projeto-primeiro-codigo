@@ -11,7 +11,7 @@
 
 import http from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
-import { getBridgeConfig, validateRequiredEnv, handleIncoming, log, redactPayloadForLog, logToSupabase } from './bridgeCore.js'
+import { getBridgeConfig, validateRequiredEnv, validateBridgeMode, handleIncoming, log, redactPayloadForLog, logToSupabase } from './bridgeCore.js'
 
 const PORT = process.env.PORT || 3344
 
@@ -46,6 +46,15 @@ if (!validation.ok) {
   for (const missing of validation.missing) {
     console.error(missing.message)
   }
+  process.exit(1)
+}
+
+// BRIDGE_MODE (FLUXO SIMPLES / FLUXO COMPLICADO) — mesma disciplina de
+// validateRequiredEnv acima: falha explícita no boot, nunca assume um modo
+// por padrão.
+const bridgeModeCheck = validateBridgeMode(config)
+if (!bridgeModeCheck.ok) {
+  console.error(bridgeModeCheck.message)
   process.exit(1)
 }
 

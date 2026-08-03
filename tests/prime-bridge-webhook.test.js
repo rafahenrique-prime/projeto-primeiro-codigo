@@ -49,6 +49,12 @@ describe('api/_primeBridgeWebhook.js — handler real do webhook', () => {
 
   beforeEach(() => {
     process.env.WEBHOOK_PATH_SECRET = WEBHOOK_SECRET
+    // BRIDGE_MODE precisa ser válido para o handler aceitar o request (ver
+    // validateBridgeMode em bridgeCore.js) — 'complicated' aqui só porque é
+    // o modo já em uso hoje; os testes existentes não dependem de qual modo,
+    // já que testam camadas anteriores a essa divergência (secret, 404, etc.)
+    // ou eventos que são ignorados nos dois modos (message.sent).
+    process.env.BRIDGE_MODE = 'complicated'
     // Config real da Bridge (AGENT_ID etc.) fica ausente de propósito na
     // maioria dos testes — LIVE_MODE também ausente (default false), então
     // handleIncoming nunca tenta rede real mesmo que o secret bata.
@@ -214,6 +220,39 @@ describe('api/_primeBridgeWebhook.js — handler real do webhook', () => {
     const res = makeRes()
     await runPrimeBridgeWebhook(makeReq({ secret: 'errado' }), res)
 
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('10. BRIDGE_MODE ausente recusa o processamento com segurança (404, sem waitUntil, sem 200)', async () => {
+    delete process.env.BRIDGE_MODE
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { runPrimeBridgeWebhook } = await import('../api/_primeBridgeWebhook.js')
+
+    const res = makeRes()
+    await runPrimeBridgeWebhook(
+      makeReq({ secret: WEBHOOK_SECRET, body: { event: 'message.sent', data: {} } }),
+      res
+    )
+
+    expect(res.statusCode).toBe(404)
+    expect(res.body).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('11. BRIDGE_MODE com valor inválido (typo) recusa o processamento com segurança, nunca assume "complicated"', async () => {
+    process.env.BRIDGE_MODE = 'Simple' // maiúscula errada — nunca aceito
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { runPrimeBridgeWebhook } = await import('../api/_primeBridgeWebhook.js')
+
+    const res = makeRes()
+    await runPrimeBridgeWebhook(
+      makeReq({ secret: WEBHOOK_SECRET, body: { event: 'message.sent', data: {} } }),
+      res
+    )
+
+    expect(res.statusCode).toBe(404)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
