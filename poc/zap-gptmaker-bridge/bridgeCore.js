@@ -24,6 +24,7 @@ import { decide as gatekeeperDecide } from './gatekeeper.js'
 import { routeTools } from './toolRouter.js'
 import { createToolRegistry } from './tools/index.js'
 import { buildContext } from './contextBuilder.js'
+import { formatarParaWhatsApp } from './whatsappFormatter.js'
 
 // --- Defaults de timeout (constantes puras, sem env) -----------------------
 const DEFAULT_EXTERNAL_TIMEOUT_MS = 10000
@@ -610,8 +611,17 @@ async function simplePipeline(config, { phone, text, messageId, start }) {
     reply = await askGabi(config, phone, text)
     log('✅ Gabi respondeu (simple)', { reply })
 
+    // UX-2 v1 (simple) — última etapa antes do envio: só espaçamento entre
+    // linhas, nunca decide conteúdo. Nunca loga o texto em si.
+    const replyFormatada = formatarParaWhatsApp(reply)
+    log('🎨 whatsappFormatter aplicado (simple)', {
+      messageId,
+      originalLength: reply.length,
+      formattedLength: replyFormatada.length,
+    })
+
     log('▶️  Enviando resposta via ZAP-API /send (simple)...')
-    await replyOnWhatsApp(config, phone, reply)
+    await replyOnWhatsApp(config, phone, replyFormatada)
     log('✅ Resposta enviada ao WhatsApp — provider aceitou (provider_accepted)')
     logToSupabase(config, 'info', 'provider_accepted', { messageId })
   } catch (err) {

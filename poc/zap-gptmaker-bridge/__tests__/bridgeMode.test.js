@@ -152,7 +152,7 @@ describe('BRIDGE_MODE=simple — isolamento estrutural', () => {
     expect(contextIds[0]).toBe('5534988887777')
   })
 
-  it('5. a resposta crua do GPT Maker é enviada à ZAP-API sem transformação', async () => {
+  it('5. resposta de uma linha (sem transição) passa pelo formatter como no-op, chega intacta na ZAP-API', async () => {
     originalFetch = global.fetch
     const respostaCrua = 'Resposta crua, sem nenhuma formatação — deve ir exatamente assim.'
     const fetchMock = makeFetchMock({ gptmakerReply: respostaCrua })
@@ -164,6 +164,50 @@ describe('BRIDGE_MODE=simple — isolamento estrutural', () => {
     expect(chamadaZap).toBeDefined()
     const corpo = JSON.parse(chamadaZap[1].body)
     expect(corpo.body).toBe(respostaCrua)
+  })
+
+  it('5b. formatarParaWhatsApp() é aplicado antes do envio — ZAP-API recebe o texto FORMATADO, não o cru do GPT Maker', async () => {
+    originalFetch = global.fetch
+    // Multi-linha com uma transição reconhecida (TEXT→PRODUCT_TITLE) —
+    // prova que o formatter de fato roda no caminho simples, não só que
+    // ele existe. Se o formatter não estivesse conectado, a ZAP-API
+    // receberia esta string sem a linha em branco entre as duas linhas.
+    const respostaCrua = ['Aqui está! 😊', '*Cinto Montblanc de Couro Marrom*'].join('\n')
+    const respostaEsperadaFormatada = ['Aqui está! 😊', '', '*Cinto Montblanc de Couro Marrom*'].join('\n')
+    const fetchMock = makeFetchMock({ gptmakerReply: respostaCrua })
+    global.fetch = fetchMock
+
+    await handleIncoming(makePayload('Você tem cinto Montblanc?'), { config: simpleConfig() })
+
+    const chamadaZap = fetchMock.mock.calls.find(([url]) => String(url).startsWith('https://mock-zapi.test/'))
+    expect(chamadaZap).toBeDefined()
+    const corpo = JSON.parse(chamadaZap[1].body)
+    expect(corpo.body).toBe(respostaEsperadaFormatada)
+    expect(corpo.body).not.toBe(respostaCrua)
+  })
+
+  it('5c. exatamente 1 envio à ZAP-API, com todas as palavras/preço/link/emoji preservados — só espaçamento muda', async () => {
+    originalFetch = global.fetch
+    const respostaCrua = [
+      'Aqui está! 😊',
+      '*Cinto Montblanc de Couro Marrom*',
+      '💳 Cartão: R$ 136,00 em até 6x',
+      '💰 PIX: R$ 136,00',
+      '🔗 Link: https://www.primestoremen.com.br/cinto-montblanc-de-couro-marrom',
+      'Gostou? 😊',
+    ].join('\n')
+    const fetchMock = makeFetchMock({ gptmakerReply: respostaCrua })
+    global.fetch = fetchMock
+
+    await handleIncoming(makePayload('Você tem cinto Montblanc?'), { config: simpleConfig() })
+
+    const chamadasZap = fetchMock.mock.calls.filter(([url]) => String(url).startsWith('https://mock-zapi.test/'))
+    expect(chamadasZap).toHaveLength(1)
+
+    const corpo = JSON.parse(chamadasZap[0][1].body)
+    const palavrasOriginais = respostaCrua.split(/\s+/).filter(Boolean)
+    const palavrasEnviadas = corpo.body.split(/\s+/).filter(Boolean)
+    expect(palavrasEnviadas).toEqual(palavrasOriginais)
   })
 
   it('6. nenhuma chamada real de rede — toda URL passa pelo mock (senão o mock lança)', async () => {
