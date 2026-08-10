@@ -86,7 +86,7 @@ const TABS = [
   },
 ]
 
-export default function IntelligenceOpsPage({ initialTab = 'bagy' }) {
+export default function IntelligenceOpsPage({ initialTab = 'bagy', onNavigateToCatalogProduct }) {
   const { theme: t } = useTheme()
   const [activeTab, setActiveTab] = useState(TABS.some(x => x.id === initialTab) ? initialTab : 'bagy')
   const [health, setHealth] = useState(null)
@@ -117,7 +117,7 @@ export default function IntelligenceOpsPage({ initialTab = 'bagy' }) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {tab.id === 'bagy' && <BagyAuditPage />}
+        {tab.id === 'bagy' && <BagyAuditPage onNavigateToCatalogProduct={onNavigateToCatalogProduct} />}
         {tab.id === 'sistema' && <SystemHealthTab t={t} />}
         {tab.id === 'conhecimento' && <KnowledgeAuditTab t={t} />}
         {tab.id === 'aprendizagem' && <LearningsAuditTab t={t} />}

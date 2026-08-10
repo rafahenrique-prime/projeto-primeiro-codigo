@@ -107,6 +107,16 @@
 //                           Nenhuma delas escreve em nada. Exige header
 //                           Authorization: Bearer <MCP_LITE_SECRET> — segredo próprio,
 //                           nunca compartilhado com CRON_SECRET/LYRA_WEBHOOK_SECRET/etc.
+// ?tool=bagy-exception-status → Auditoria Bagy V2, Fase 5: alterna o status de 1
+//                           exceção em bagy_sync_exceptions (aberto <-> ignorado).
+//                           Rota própria porque a tabela revoga INSERT/UPDATE/DELETE
+//                           de anon/authenticated (migration 021) — só service_role
+//                           escreve, nunca PATCH direto do frontend. Escopo estrito:
+//                           só a coluna `status`, só 2 valores (aberto/ignorado —
+//                           `resolvido` não é implementado nesta fase, não é aceito
+//                           por este endpoint). Sem autenticação de usuário (mesmo
+//                           risco residual das demais tools de painel interno sem
+//                           login, ex. o antigo api/bagy-audit-ignore.js).
 // ?tool=prime-bridge-webhook → Webhook real da PRIME Bridge Serverless (ver
 //                           docs/integrations/PRIME-BRIDGE-POC.md e
 //                           poc/zap-gptmaker-bridge/README.md). Substitui as POCs
@@ -249,6 +259,31 @@ const NEX_SYNC_SECRET = process.env.NEX_SYNC_SECRET
 // consumidor futuro (ex.: GPTMaker/Instagram) ganhará seu próprio segredo novo,
 // nunca este.
 const BRIDGE_TOOLS_SECRET = process.env.BRIDGE_TOOLS_SECRET
+
+// BAGY_UI_ACTION_SECRET — protege as ações de escrita do painel da Auditoria
+// Bagy V2 (Verificar/Sincronizar agora, Ignorar/Reativar exceção). Isolado de
+// BAGY_SYNC_SECRET (esse continua exclusivo da rota externa/GitHub Actions,
+// nunca tocado aqui) e de todos os outros secrets acima. Nunca em VITE_*,
+// nunca no frontend — recebido no body a cada clique, comparado só aqui.
+const BAGY_UI_ACTION_SECRET = process.env.BAGY_UI_ACTION_SECRET
+
+// validarBagyUiActionSecret: falha fechado — se a env var não estiver
+// configurada, nenhuma ação é liberada (nunca "sem proteção configurada =
+// libera geral"). Usa compararSegredoSeguro (timingSafeEqual) — mesmo padrão
+// já usado por MCP_LITE_SECRET/BRIDGE_TOOLS_SECRET acima.
+function validarBagyUiActionSecret(req, res) {
+  if (!BAGY_UI_ACTION_SECRET) {
+    console.error('[system-tools:bagy-ui-action] Configuração ausente: BAGY_UI_ACTION_SECRET não definida')
+    res.status(503).json({ error: 'ação indisponível: BAGY_UI_ACTION_SECRET não configurado no servidor' })
+    return false
+  }
+  const fornecido = req.body?.actionSecret
+  if (!compararSegredoSeguro(fornecido, BAGY_UI_ACTION_SECRET)) {
+    res.status(401).json({ error: 'não autorizado' })
+    return false
+  }
+  return true
+}
 
 // Comparação resistente a timing attack para segredos recebidos via
 // `Authorization: Bearer <token>` — mesmo princípio já usado na PRIME Bridge
@@ -1029,6 +1064,51 @@ async function qwenHealth(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' })
+}
+
+// ============================================================================
+// tool=bagy-exception-status — Auditoria Bagy V2, Fase 5. Ver comentário no
+// topo do arquivo. Mesma SUPABASE_SECRET_KEY já usada por qwen-health acima.
+// Protegida por BAGY_UI_ACTION_SECRET (validarBagyUiActionSecret acima).
+// ============================================================================
+
+const BAGY_EXCEPTION_ALLOWED_STATUS = new Set(['aberto', 'ignorado'])
+
+async function bagyExceptionStatus(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!validarBagyUiActionSecret(req, res)) return
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Supabase (service_role) não configurado' })
+  }
+
+  const { id, status } = req.body || {}
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'id é obrigatório' })
+  }
+  if (!BAGY_EXCEPTION_ALLOWED_STATUS.has(status)) {
+    return res.status(400).json({ error: `status inválido — permitido apenas: ${[...BAGY_EXCEPTION_ALLOWED_STATUS].join(', ')}` })
+  }
+
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/bagy_sync_exceptions?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...qwenHealthSupabaseHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify({ status }),
+    })
+    if (!resp.ok) {
+      return res.status(500).json({ error: `Supabase ${resp.status}: ${await resp.text()}` })
+    }
+    const rows = await resp.json()
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'exceção não encontrada' })
+    }
+    return res.status(200).json({ success: true, exception: rows[0] })
+  } catch (err) {
+    console.error('[system-tools:bagy-exception-status] Erro:', err.message)
+    return res.status(500).json({ error: err.message })
+  }
 }
 
 // ============================================================================
@@ -2152,10 +2232,305 @@ async function nexHealth(req, res) {
   }
 }
 
+// Lógica compartilhada entre bagySyncRun (rota protegida por
+// BAGY_SYNC_SECRET, uso externo — GitHub Actions/futuro cron) e
+// bagySyncRunUI (Fase 7 — botões "Verificar agora"/"Sincronizar agora" da
+// Auditoria Bagy V2, sem secret no frontend). Nunca duplicada entre as duas.
+async function montarLinksParaSyncBagy(q) {
+  const storeUrl = process.env.BAGY_STORE_URL || 'https://www.primestoremen.com.br'
+  if (q.links) {
+    return String(q.links).split(',').map((s) => s.trim()).filter(Boolean)
+  }
+  const res2 = await fetch(`${SUPABASE_URL}/rest/v1/products?select=link&link=not.is.null`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  })
+  if (!res2.ok) throw new Error(`listagem de links ${res2.status}: ${await res2.text()}`)
+  const rows = await res2.json()
+  const prefixo = storeUrl.replace(/\/$/, '')
+  let links = [...new Set(rows.map((r) => r.link).filter((l) => l && l.startsWith(prefixo)))]
+  const limit = q.limit ? parseInt(q.limit, 10) : null
+  if (limit) links = links.slice(0, limit)
+  return links
+}
+
+async function executarBagySyncBatch(modeSolicitado, links) {
+  const { syncBatch } = await import('./_bagySyncService.js')
+  const runId = `manual-${modeSolicitado}-${Date.now()}`
+  const { resumo, runId: finalRunId, persistencia } = await syncBatch(
+    links.map((link) => ({ link })),
+    { mode: modeSolicitado, runId, trigger: 'manual' }
+  )
+  return { runId: finalRunId, mode: modeSolicitado, totalLinks: links.length, resumo, persistencia }
+}
+
+// Auditoria Bagy V2 — Etapa A ("Verificar agora" descobre produtos novos).
+// montarLinksParaSyncBagy (acima) continua entregando TODOS os links de
+// `products` pro syncBatch — isso NÃO muda. Esta função roda em paralelo,
+// nunca filtra nem substitui a lista usada pelo fluxo de verificação atual
+// (404/pagina_invalida/duplicate_conflict/alterações continuam vendo os
+// mesmos ~532-534 produtos de sempre). Só LEITURA — nenhum INSERT em
+// products/product_variations acontece aqui (Etapa B, não implementada).
+async function descobrirProdutosNovos(linksSupabase) {
+  const { descobrirCatalogoBagy, normalizeLink, fetchBagyProductByLink } = await import('./_bagySyncClient.js')
+  const { getProductByBagyId } = await import('./_bagySyncSupabase.js')
+
+  const { links: linksBagy, paginasLidas } = await descobrirCatalogoBagy()
+  const linksSupabaseNorm = new Set(linksSupabase.map((l) => normalizeLink(l)))
+  const candidatosBrutos = linksBagy.filter((l) => !linksSupabaseNorm.has(l))
+
+  const produtosNovos = []
+  const descartados = []
+  for (const link of candidatosBrutos) {
+    let leitura
+    try {
+      leitura = await fetchBagyProductByLink(link)
+    } catch (e) {
+      descartados.push({ link, motivo: `falha ao ler: ${e.message}` })
+      continue
+    }
+    if (!leitura.ok) {
+      descartados.push({ link, motivo: leitura.reason || `HTTP ${leitura.httpStatus}` })
+      continue
+    }
+    const bagyProductId = leitura.product?.id ?? null
+    if (!bagyProductId) {
+      descartados.push({ link, motivo: 'bagy_product_id não encontrado no produto lido' })
+      continue
+    }
+    let existente
+    try {
+      existente = await getProductByBagyId(bagyProductId)
+    } catch (e) {
+      descartados.push({ link, motivo: `falha ao checar duplicidade: ${e.message}` })
+      continue
+    }
+    if (existente) {
+      descartados.push({ link, motivo: `bagy_product_id ${bagyProductId} já existe em products (id ${existente.id})` })
+      continue
+    }
+    produtosNovos.push({
+      link,
+      nome: leitura.product?.name ?? null,
+      preco: leitura.product?.price ?? null,
+      bagyProductId,
+    })
+  }
+
+  return {
+    totalPaginasBagy: paginasLidas,
+    totalLinksBagy: linksBagy.length,
+    candidatosBrutos: candidatosBrutos.length,
+    produtosNovos,
+    descartados,
+  }
+}
+
+// Auditoria Bagy V2 — Etapa C: INSERT dos produtos novos já validados pela
+// descoberta (descobrirProdutosNovos), só chamada em mode=write. Cada item é
+// isolado (try/catch por produto) — falha de 1 nunca derruba os outros nem
+// aborta o restante do lote, mesmo padrão de isolamento já usado pra
+// produtos existentes em syncBatch. Nunca faz INSERT REST direto — sempre
+// via syncNewProduct → RPC transacional (migrations 022/023).
+//
+// "Não confiar cegamente na lista produtosNovos de um dry_run anterior":
+// aqui não existe dry_run anterior — descobrirProdutosNovos roda DE NOVO
+// dentro da MESMA requisição de write (ver bagySyncRunUI), então já é uma
+// leitura fresca. Mesmo assim, antes de cada INSERT, esta função relê o
+// produto direto da Bagy (fetchBagyProductByLink) e confirma de novo que o
+// bagy_product_id ainda não existe (getProductByBagyId) — camada extra
+// contra qualquer mudança entre a descoberta e a escrita. Se já existir
+// (outra execução concorrente inseriu primeiro, por exemplo), trata como
+// idempotente — não insere de novo, não é erro.
+async function processarProdutosNovosWrite(candidatosValidados) {
+  const { fetchBagyProductByLink } = await import('./_bagySyncClient.js')
+  const { getProductByBagyId } = await import('./_bagySyncSupabase.js')
+  const { syncNewProduct } = await import('./_bagySyncService.js')
+
+  const inseridos = []
+  const falhas = []
+
+  for (const candidato of candidatosValidados) {
+    try {
+      const leitura = await fetchBagyProductByLink(candidato.link)
+      if (!leitura.ok) {
+        falhas.push({ link: candidato.link, motivo: leitura.reason || `HTTP ${leitura.httpStatus}` })
+        continue
+      }
+      const bagyProductId = leitura.product?.id ?? null
+      if (!bagyProductId) {
+        falhas.push({ link: candidato.link, motivo: 'bagy_product_id não encontrado na releitura' })
+        continue
+      }
+      const existente = await getProductByBagyId(bagyProductId)
+      if (existente) {
+        // Idempotente — já existe (provavelmente inserido em execução
+        // anterior/concorrente). Não é falha, só não insere de novo.
+        continue
+      }
+      const resultado = await syncNewProduct(leitura.product)
+      if (resultado.ok) {
+        inseridos.push({
+          link: candidato.link,
+          nome: leitura.product.name ?? null,
+          bagyProductId,
+          productUuid: resultado.productUuid,
+          variacoesInseridas: resultado.rpcResult?.variations_processed ?? 0,
+        })
+      } else {
+        falhas.push({ link: candidato.link, bagyProductId, motivo: resultado.erro })
+      }
+    } catch (e) {
+      falhas.push({ link: candidato.link, motivo: e.message })
+    }
+  }
+
+  return { inseridos, falhas }
+}
+
+// ?tool=bagy-sync-run — "Sincronizar agora" manual do sincronizador Bagy →
+// Supabase (api/_bagySyncService.js). Sem cron associado — chamada manual
+// enquanto a operacionalização automática não é aprovada (ver plano em
+// modo-planejar-cheerful-castle.md, seção "OPERACIONALIZAÇÃO FINAL BAGY →
+// SUPABASE"). Exige Authorization: Bearer <BAGY_SYNC_SECRET> (segredo
+// próprio, mesmo padrão de sync-lyra/stuck-check/lyra-webhook acima) — uso
+// externo (GitHub Actions/futuro cron), nunca chamada direta do frontend.
+// mode=write só executa se TAMBÉM vier confirm=SIM — duas partes de
+// intenção explícita, não uma só, contra disparo por engano (bookmark,
+// prefetch, retry automático de cliente HTTP).
+async function bagySyncRun(req, res) {
+  const secret = process.env.BAGY_SYNC_SECRET
+  const authHeader = req.headers.authorization
+  if (!secret || authHeader !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Não autorizado' })
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return res.status(500).json({ error: 'Supabase não configurado (VITE_SUPABASE_URL/VITE_SUPABASE_KEY ausentes)' })
+  }
+
+  const q = req.method === 'POST' ? { ...req.query, ...(req.body || {}) } : req.query
+  const modeSolicitado = q.mode === 'write' ? 'write' : 'dry_run'
+  if (modeSolicitado === 'write' && q.confirm !== 'SIM') {
+    return res.status(400).json({
+      error: 'mode=write exige também confirm=SIM (intenção explícita em duas partes) — sem isso, nada é escrito.',
+    })
+  }
+
+  let links
+  try {
+    links = await montarLinksParaSyncBagy(q)
+  } catch (e) {
+    console.error('[system-tools:bagy-sync-run] falha ao montar lista de links:', e.message)
+    return res.status(500).json({ error: `falha ao montar lista de links: ${e.message}` })
+  }
+
+  if (links.length === 0) {
+    return res.status(400).json({ error: 'nenhum link para sincronizar (lista vazia)' })
+  }
+
+  try {
+    const resultado = await executarBagySyncBatch(modeSolicitado, links)
+    return res.status(200).json(resultado)
+  } catch (e) {
+    console.error('[system-tools:bagy-sync-run] falha no lote:', e.message)
+    return res.status(500).json({ error: `falha no lote: ${e.message}` })
+  }
+}
+
+// ?tool=bagy-sync-run-ui — Auditoria Bagy V2, Fase 7: "Verificar agora"
+// (mode=dry_run) e "Sincronizar agora" (mode=write, exige confirm=SIM no
+// body — mesma regra de duas partes da rota protegida acima). Mesma lógica
+// de bagySyncRun (montarLinksParaSyncBagy/executarBagySyncBatch — zero
+// duplicação), mas SEM exigir BAGY_SYNC_SECRET: esse segredo nunca pode
+// existir no frontend. Protegida por BAGY_UI_ACTION_SECRET (validarBagyUiAction
+// Secret acima) — mesmo em mode=dry_run, já que uma varredura completa da
+// Bagy consome recursos mesmo sem escrever. trigger continua 'manual' — quem
+// dispara é sempre uma pessoa digitando a senha de ação, nunca uma automação.
+async function bagySyncRunUI(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!validarBagyUiActionSecret(req, res)) return
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return res.status(500).json({ error: 'Supabase não configurado (VITE_SUPABASE_URL/VITE_SUPABASE_KEY ausentes)' })
+  }
+
+  const modeSolicitado = req.body?.mode === 'write' ? 'write' : 'dry_run'
+  if (modeSolicitado === 'write' && req.body?.confirm !== 'SIM') {
+    return res.status(400).json({
+      error: 'mode=write exige também confirm=SIM (intenção explícita em duas partes) — sem isso, nada é escrito.',
+    })
+  }
+
+  let links
+  try {
+    links = await montarLinksParaSyncBagy({})
+  } catch (e) {
+    console.error('[system-tools:bagy-sync-run-ui] falha ao montar lista de links:', e.message)
+    return res.status(500).json({ error: `falha ao montar lista de links: ${e.message}` })
+  }
+
+  if (links.length === 0) {
+    return res.status(400).json({ error: 'nenhum link para sincronizar (lista vazia)' })
+  }
+
+  let resultado
+  try {
+    resultado = await executarBagySyncBatch(modeSolicitado, links)
+  } catch (e) {
+    console.error('[system-tools:bagy-sync-run-ui] falha no lote:', e.message)
+    return res.status(500).json({ error: `falha no lote: ${e.message}` })
+  }
+
+  // Descoberta de produtos novos (Etapa A) — leitura à parte, nunca altera
+  // `resultado.resumo`/`resultado.persistencia` acima. Falha aqui não deve
+  // esconder o resultado real da verificação/sincronização de produtos
+  // conhecidos — se a descoberta falhar, devolve o resultado normal + erro
+  // isolado em `descobertaErro`, nunca derruba a resposta inteira.
+  let descoberta = null
+  try {
+    descoberta = await descobrirProdutosNovos(links)
+    resultado.totalPaginasBagy = descoberta.totalPaginasBagy
+    resultado.totalLinksBagy = descoberta.totalLinksBagy
+    resultado.candidatosBrutos = descoberta.candidatosBrutos
+    resultado.produtosNovos = descoberta.produtosNovos
+    resultado.descartados = descoberta.descartados
+  } catch (e) {
+    console.error('[system-tools:bagy-sync-run-ui] falha na descoberta de produtos novos:', e.message)
+    resultado.descobertaErro = e.message
+  }
+
+  // Etapa C — em mode=write, insere os produtos novos já validados pela
+  // descoberta acima (mesma requisição, leitura fresca — ver comentário de
+  // processarProdutosNovosWrite). Em dry_run, produtosNovos fica só
+  // "detectado", nenhum INSERT é tentado. Falha na inserção de novos nunca
+  // esconde o resultado real do lote de produtos existentes acima — isolado
+  // em resultado.produtosNovosInseridos/produtosNovosFalhas.
+  if (modeSolicitado === 'write' && descoberta && descoberta.produtosNovos.length > 0) {
+    try {
+      const { inseridos, falhas } = await processarProdutosNovosWrite(descoberta.produtosNovos)
+      resultado.produtosNovosInseridos = inseridos
+      resultado.produtosNovosFalhas = falhas
+    } catch (e) {
+      console.error('[system-tools:bagy-sync-run-ui] falha ao inserir produtos novos:', e.message)
+      resultado.produtosNovosErro = e.message
+    }
+  }
+
+  return res.status(200).json(resultado)
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
   switch (req.query.tool) {
+    case 'bagy-sync-run':
+      return bagySyncRun(req, res)
+
+    case 'bagy-sync-run-ui':
+      // Auditoria Bagy V2, Fase 7 — ver comentário no topo do arquivo.
+      return bagySyncRunUI(req, res)
+
     case 'vercel-status':
       // Sem autenticação — consumido diretamente pelo Dashboard no navegador.
       return vercelStatus(req, res)
@@ -2580,7 +2955,11 @@ export default async function handler(req, res) {
     case 'prime-bridge-webhook':
       return runPrimeBridgeWebhook(req, res)
 
+    case 'bagy-exception-status':
+      // Auditoria Bagy V2, Fase 5 — ver comentário no topo do arquivo.
+      return bagyExceptionStatus(req, res)
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto ou prime-bridge-webhook)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status ou bagy-sync-run-ui)' })
   }
 }

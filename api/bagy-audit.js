@@ -7,10 +7,29 @@
 //   GET /api/bagy-audit?runId=xxx&offset=0&limit=25&finalize=1 → depois do último lote,
 //     calcula os "sumidos" (existem no catálogo mas não apareceram na Bagy)
 
+import crypto from 'node:crypto'
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const STORE_URL = process.env.BAGY_STORE_URL || 'https://www.primestoremen.com.br'
 const SITEMAP_URL = `${STORE_URL}/sitemap.xml`
+
+// Correção de segurança (fechamento Auditoria Bagy V2) — rota legada, mas
+// ainda escreve em bagy_audit_log via scraping real; reutiliza o mesmo
+// BAGY_UI_ACTION_SECRET já criado pra Verificar/Sincronizar/Ignorar/Reativar
+// (system-tools.js) em vez de inventar um secret novo. Mesma comparação
+// segura (timingSafeEqual), mesmo padrão "falha fechado" se a env var não
+// estiver configurada. GET-based (query string), não POST — secret vem em
+// ?actionSecret=.
+const BAGY_UI_ACTION_SECRET = process.env.BAGY_UI_ACTION_SECRET
+
+function compararSegredoSeguro(fornecido, esperado) {
+  if (typeof fornecido !== 'string' || typeof esperado !== 'string') return false
+  const bufferFornecido = Buffer.from(fornecido)
+  const bufferEsperado = Buffer.from(esperado)
+  if (bufferFornecido.length !== bufferEsperado.length) return false
+  return crypto.timingSafeEqual(bufferFornecido, bufferEsperado)
+}
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -114,6 +133,13 @@ async function logRows(rows) {
 }
 
 export default async function handler(req, res) {
+  if (!BAGY_UI_ACTION_SECRET) {
+    console.error('[bagy-audit] Configuração ausente: BAGY_UI_ACTION_SECRET não definida')
+    return res.status(503).json({ error: 'ação indisponível: BAGY_UI_ACTION_SECRET não configurado no servidor' })
+  }
+  if (!compararSegredoSeguro(req.query?.actionSecret, BAGY_UI_ACTION_SECRET)) {
+    return res.status(401).json({ error: 'não autorizado' })
+  }
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return res.status(500).json({ error: 'Supabase não configurado' })
   }

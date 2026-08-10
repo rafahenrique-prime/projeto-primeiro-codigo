@@ -102,6 +102,15 @@ export default function App() {
   const [botSleep, setBotSleep] = useState(() => localStorage.getItem('bot_sleep') === 'true')
   const [sleepLoading, setSleepLoading] = useState(false)
   const [profilesMap, setProfilesMap] = useState({})
+  // Auditoria Bagy V2 — Fase 6: "Ver no Catálogo" pede pra abrir 1 produto
+  // específico ao trocar de página. `page` já é state simples (sem URL/router
+  // nesta app), então isso segue o mesmo padrão de prop já usado por
+  // onNavigate={setPage} — sem introduzir roteamento novo.
+  const [catalogInitialProductId, setCatalogInitialProductId] = useState(null)
+  const navigateToCatalogProduct = useCallback((productId) => {
+    setCatalogInitialProductId(productId)
+    setPage('catalogo')
+  }, [])
   const chatRef = useRef(null)
   const convsRef = useRef([])
   const initialLoadDone = useRef(false)
@@ -315,15 +324,21 @@ export default function App() {
           {page === 'dealonca' && <DealOncaPage conversations={conversations} setPage={setPage} />}
           {page === 'contacts' && <ContactsPage conversations={conversations} setPage={setPage} activeConv={activeConv} setActiveConv={setActiveConv} />}
           {page === 'contacts-new' && <ContactsNewPage conversations={conversations} />}
-          {page === 'bagy-audit' && <IntelligenceOpsPage initialTab="bagy" />}
-          {page === 'intelligence-ops' && <IntelligenceOpsPage />}
+          {page === 'bagy-audit' && <IntelligenceOpsPage initialTab="bagy" onNavigateToCatalogProduct={navigateToCatalogProduct} />}
+          {page === 'intelligence-ops' && <IntelligenceOpsPage onNavigateToCatalogProduct={navigateToCatalogProduct} />}
           {page === 'dashboard' && <DashboardNewPage conversations={conversations} />}
           {page === 'reports'    && <DashboardPage conversations={conversations} />}
           {page === 'relatorios' && <RelatoriosPage />}
           {page === 'agents'   && <AgentsPage />}
           {page === 'knowledge'&& <KnowledgePage />}
           {page === 'simulador' && <SimuladorClientePage />}
-          {page === 'catalogo' && <CatalogPage onNavigate={setPage} />}
+          {page === 'catalogo' && (
+            <CatalogPage
+              onNavigate={setPage}
+              initialOpenProductId={catalogInitialProductId}
+              onInitialProductConsumed={() => setCatalogInitialProductId(null)}
+            />
+          )}
           {page === 'catalogo-rascunho' && <DraftCatalogPage />}
           {page === 'cobrancas' && <CobrancasPage />}
           {page === 'importar' && <ImportCatalogPage />}
