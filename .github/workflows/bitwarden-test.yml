@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Buscar secret de teste no Bitwarden
-        uses: bitwarden/sm-action@v3
+        uses: bitwarden/sm-action@v3.0.1
         with:
           access_token: ${{ secrets.BWS_ACCESS_TOKEN_GITHUB }}
           secrets: |
