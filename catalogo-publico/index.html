@@ -64,6 +64,7 @@
     .drawer-item:hover, .drawer-item.active { color: var(--fg); background: var(--s2); }
     .drawer-item.active { color: var(--red-text); }
     .drawer-item-count { font-size: 11px; color: var(--fg-s); font-weight: 500; }
+    .drawer-refine { display: none; }
     .search-wrap { width: 100%; position: relative; }
     .search-input { width: 100%; background: #202020; border: 1px solid var(--line-s); color: var(--fg);
       font-family: var(--fb); font-size: 14px; padding: 12px 46px 12px 42px; border-radius: 10px; outline: none;
@@ -76,6 +77,9 @@
       color: var(--fg-s); font: 600 14px var(--fb); cursor: pointer; transition: color var(--dur) var(--ease), background var(--dur) var(--ease); }
     .search-clear:hover, .search-clear:focus-visible { color: var(--fg); background: var(--s3); outline: none; }
     .search-clear[hidden] { display: none; }
+
+    .category-hint { display: none; }
+    .category-hint[hidden] { display: none !important; }
 
     .brand-chips { display: flex; gap: 9px; flex-wrap: nowrap; width: 100%; overflow-x: auto;
       padding: 10px var(--page-pad); scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
@@ -279,8 +283,10 @@
       background: #25D366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,.4);
       z-index: 200; text-decoration: none; transition: transform var(--dur) var(--ease); }
     .whatsapp-float:hover { transform: scale(1.08); }
+    .mobile-bottom-nav { display: none; }
 
     .menu-btn:focus-visible, .logo-img:focus-visible, .drawer-close:focus-visible, .drawer-item:focus-visible,
+    .category-hint-action:focus-visible, .category-hint-close:focus-visible, .mobile-nav-item:focus-visible,
     .search-clear:focus-visible, .brand-chip:focus-visible, .refresh-catalog:focus-visible,
     .sort-select:focus-visible, .gallery-select:focus-visible, .recent-card:focus-visible,
     .card:focus-visible, .favorite-button:focus-visible, .card-view:focus-visible, .card-share:focus-visible,
@@ -292,33 +298,49 @@
     .drawer-close { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-control); }
 
     @media (max-width: 720px) {
-      header { grid-template-columns: 40px minmax(0, 1fr); padding: 10px 16px 12px; gap: 10px; }
-      .logo-img { height: 28px; justify-self: start; }
+      #catalogPage { display: flex; flex-direction: column; min-height: 100vh; padding-bottom: calc(82px + env(safe-area-inset-bottom)); }
+      header { order: 1; grid-template-columns: 40px minmax(0, 1fr) 40px; padding: 8px 16px 10px; gap: 8px 10px; }
+      .logo-img { height: 36px; max-width: min(205px, 100%); justify-self: center; object-fit: contain; object-position: center; }
       .search-wrap { grid-column: 1 / -1; }
       .search-clear { right: 1px; width: 40px; height: 40px; }
-      .brand-chips { gap: 8px; padding: 9px 16px; }
-      .brand-chip { min-height: 40px; padding: 9px 13px; }
-      .stats-bar { padding: 10px 16px; align-items: stretch; flex-wrap: wrap; gap: 8px; }
-      .stats-meta { width: 100%; flex-direction: column; align-items: flex-start; gap: 3px; }
+      .category-hint { order: 2; min-height: 50px; margin: 6px 10px 4px; display: flex; align-items: center; gap: 5px;
+        padding: 6px; border: 1px solid rgba(225,18,18,.34); border-radius: 11px;
+        background: linear-gradient(90deg, rgba(204,0,0,.12), #171717 42%); }
+      .category-hint-icon { width: 20px; height: 22px; flex: 0 0 20px; display: inline-flex; align-items: center; justify-content: center; color: #EE3838; }
+      .category-hint-icon svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+      .category-hint-text { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10.5px; font-weight: 600; }
+      .category-hint-action, .category-hint-close { border: 0; background: transparent; white-space: nowrap; cursor: pointer; }
+      .category-hint-action { min-height: 36px; padding: 0 1px; color: #F06464; font: 600 9.5px var(--fb); }
+      .category-hint-close { width: 34px; height: 36px; flex: 0 0 34px; padding: 0; color: #999; font: 500 18px var(--fb); }
+      .brand-chips { display: none; }
+      .stats-bar { order: 3; min-height: 36px; padding: 5px 16px; align-items: center; flex-wrap: nowrap; gap: 8px; }
+      .stats-meta { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
       .stats-dot { display: none; }
-      .stats-update { gap: 3px; }
-      .refresh-catalog { width: 40px; height: 40px; flex-basis: 40px; margin: -6px 0 -6px -6px; }
-      .stats-controls { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+      .stats-update { gap: 2px; }
+      .updated-at { font-size: 10px; }
+      .refresh-catalog { width: 20px; height: 28px; flex: 0 0 20px; margin: 0 -5px 0 0; }
+      .refresh-catalog svg { display: none; }
+      .refresh-catalog::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--red-text); box-shadow: 0 0 0 3px rgba(204,0,0,.12); }
+      .stats-controls { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
       .sort-select, .gallery-select { width: 100%; min-width: 0; min-height: 40px; }
-      .recent-section { padding: 17px 16px 0; }
+      .drawer-refine { display: block; padding: 15px 14px 18px; border-top: 1px solid var(--line); }
+      .drawer-refine-title { margin-bottom: 9px; color: var(--fg-s); font: 700 10px var(--fd); letter-spacing: .06em; text-transform: uppercase; }
+      .drawer-refine .stats-controls { display: grid; }
+      .recent-section { order: 6; padding: 17px 16px 0; }
       .recent-card { flex-basis: 172px; grid-template-columns: 58px minmax(0,1fr); }
       .recent-card img { width: 58px; height: 58px; }
-      .grid-wrap { padding: 16px 16px 56px; }
+      .grid-wrap { order: 5; padding: 8px 16px 12px; }
       .loading-panel { padding: 22px 18px; }
       .loading-panel.compact { padding: 15px 16px; }
       .loading-progress-row { align-items: stretch; flex-direction: column; gap: 8px; }
       .loading-meta { min-width: 0; text-align: left; }
       .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
-      .card-body { padding: 10px; }
-      .card-name { font-size: 12px; }
-      .card-actions { gap: 6px; padding-top: 10px; }
-      .card-view { min-height: 44px; font-size: 10px; padding: 8px 7px; }
-      .card-share { width: 44px; min-width: 44px; height: 44px; min-height: 44px; flex: 0 0 44px; }
+      .card-body { position: relative; min-height: 31px; padding: 8px 9px 7px; }
+      .card-cat, .card-view { display: none; }
+      .card-name { min-height: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.28; }
+      .card-actions { display: contents; }
+      .card-share { position: absolute; top: -51px; right: 7px; z-index: 2; width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+        border-radius: 50%; background: rgba(10,10,10,.76); color: #fff; border-color: rgba(255,255,255,.2); backdrop-filter: blur(6px); }
       .lb-bg { padding: 18px 10px; }
       .lb-stage { width: 96vw; height: 48vh; min-height: 210px; }
       .lb-info { max-height: 44vh; }
@@ -333,7 +355,19 @@
       .related-grid::-webkit-scrollbar { display: none; }
       .related-card { flex: 0 0 172px; }
       .favorite-button { width: 44px; height: 44px; }
-      .whatsapp-float { bottom: 16px; right: 16px; width: 50px; height: 50px; }
+      .whatsapp-float { bottom: calc(92px + env(safe-area-inset-bottom)); right: 16px; width: 50px; height: 50px; }
+      .copy-toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
+      .mobile-bottom-nav { position: fixed; left: 10px; right: 10px; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 250;
+        height: 70px; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); align-items: end; padding: 7px 5px 8px;
+        border: 1px solid #333; border-radius: 22px; background: rgba(10,10,10,.97); box-shadow: 0 14px 34px rgba(0,0,0,.58); }
+      .mobile-nav-item { min-width: 0; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+        gap: 3px; padding: 0 1px; border: 0; background: transparent; color: #777; cursor: pointer; font: 600 9px var(--fb); }
+      .mobile-nav-item > svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+      .mobile-nav-item.active { color: #EF3636; }
+      .mobile-nav-item:disabled { opacity: .38; cursor: default; }
+      .mobile-nav-search-icon { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; margin-top: -17px;
+        border: 3px solid #111; border-radius: 50%; background: #D5121B; color: #fff; box-shadow: 0 7px 17px rgba(204,0,0,.35); }
+      .mobile-nav-search-icon svg { width: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
     }
     @media (hover: none) {
       .card:active { transform: scale(.992); border-color: var(--line-s); }
@@ -364,6 +398,15 @@
   </div>
 </header>
 
+<aside class="category-hint" id="categoryHint" aria-label="Atalho para categorias" hidden>
+  <span class="category-hint-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M20 12 12 20 4 12V4h8l8 8Z"/><circle cx="9" cy="9" r="1.4"/></svg>
+  </span>
+  <span class="category-hint-text">Procurando uma marca específica?</span>
+  <button class="category-hint-action" id="categoryHintAction" type="button">Ver categorias →</button>
+  <button class="category-hint-close" id="categoryHintClose" type="button" aria-label="Fechar aviso de categorias">×</button>
+</aside>
+
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <nav class="side-drawer" id="sideDrawer" aria-labelledby="drawerTitle" aria-hidden="true" inert>
   <div class="drawer-header">
@@ -371,6 +414,10 @@
     <button class="drawer-close" id="drawerClose" type="button" aria-label="Fechar menu">✕</button>
   </div>
   <div id="drawerItems"></div>
+  <div class="drawer-refine" id="drawerRefine">
+    <div class="drawer-refine-title">Refinar catálogo</div>
+    <div id="drawerRefineSlot"></div>
+  </div>
 </nav>
 
 <div class="brand-chips" id="brandChips"></div>
@@ -409,6 +456,29 @@
 <a class="whatsapp-float" href="https://wa.me/5534997257499?text=Ol%C3%A1!%20Vi%20o%20cat%C3%A1logo%20e%20queria%20saber%20mais" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
   <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2zm0 18.14h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.37c0-4.54 3.7-8.24 8.25-8.24a8.2 8.2 0 0 1 5.83 2.42 8.19 8.19 0 0 1 2.41 5.82c0 4.55-3.7 8.24-8.25 8.24zm4.52-6.17c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43-.14-.01-.31-.01-.48-.01-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.23.89 2.41 1.02 2.58.12.17 1.75 2.67 4.24 3.75.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
 </a>
+
+<nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Navegação principal do catálogo">
+  <button class="mobile-nav-item active" type="button" data-mobile-action="todos" data-brand="todos" aria-label="Mostrar todos os produtos">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h8"/></svg>
+    <span>Todos</span>
+  </button>
+  <button class="mobile-nav-item" type="button" data-mobile-action="categorias" aria-label="Abrir categorias">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z"/></svg>
+    <span>Categorias</span>
+  </button>
+  <button class="mobile-nav-item mobile-nav-search" type="button" data-mobile-action="buscar" aria-label="Ir para a busca">
+    <span class="mobile-nav-search-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m19 19-4.2-4.2"/></svg></span>
+    <span>Buscar</span>
+  </button>
+  <button class="mobile-nav-item" type="button" data-mobile-action="favoritos" data-filter="favorites" aria-label="Mostrar produtos favoritos">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8.5c0 5-8 10-8 10s-8-5-8-10a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 8.5Z"/></svg>
+    <span>Favoritos</span>
+  </button>
+  <button class="mobile-nav-item" type="button" data-mobile-action="recentes" aria-label="Ir para produtos visualizados recentemente">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+    <span>Recentes</span>
+  </button>
+</nav>
 
 <div class="grid-wrap">
   <div class="catalog-notice hidden" id="catalogNotice" role="status" aria-live="polite"></div>
@@ -518,6 +588,7 @@
   let lightboxTriggerProductId = null;
   let isLoading = false;
   let searchDebounceTimer = null;
+  let mobileNavView = null;
 
   // Cache local — evita reconstruir o catálogo inteiro (dezenas de chamadas ao Drive) a cada visita.
   // Clicar na logo força ignorar o cache e buscar tudo de novo.
@@ -525,6 +596,7 @@
   const CACHE_TTL_MS = 15 * 60 * 1000;
   const FAVORITES_KEY = 'catalogo_publico_favorites_v1';
   const RECENT_KEY = 'catalogo_publico_recent_v1';
+  const CATEGORY_HINT_KEY = 'catalogo_category_hint_dismissed_v1';
 
   function readStoredIds(storageKey) {
     try {
@@ -543,6 +615,28 @@
     } catch (error) {
       console.warn(`[localStorage] Não foi possível salvar ${storageKey}:`, error.message);
     }
+  }
+
+  function readCategoryHintDismissed() {
+    try {
+      return localStorage.getItem(CATEGORY_HINT_KEY) === 'true';
+    } catch (error) {
+      console.warn('[localStorage] Não foi possível ler o aviso de categorias:', error.message);
+      return false;
+    }
+  }
+
+  function dismissCategoryHint() {
+    document.getElementById('categoryHint').hidden = true;
+    try {
+      localStorage.setItem(CATEGORY_HINT_KEY, 'true');
+    } catch (error) {
+      console.warn('[localStorage] Não foi possível salvar o aviso de categorias:', error.message);
+    }
+  }
+
+  function initializeCategoryHint() {
+    document.getElementById('categoryHint').hidden = readCategoryHintDismissed();
   }
 
   favoriteIds = new Set(readStoredIds(FAVORITES_KEY));
@@ -724,6 +818,7 @@
           <span class="recent-card-brand">${esc(displayLabel(product.brand))}</span>
         </span>
       </button>`).join('');
+    syncMobileNavigationState();
   }
 
   async function listChildren(folderId) {
@@ -956,11 +1051,15 @@
   function clearSearch() {
     clearTimeout(searchDebounceTimer);
     searchTerm = '';
+    mobileNavView = null;
     const input = document.getElementById('searchInput');
     input.value = '';
     document.getElementById('clearSearchBtn').hidden = true;
     renderCatalogView();
-    requestAnimationFrame(() => input.focus());
+    requestAnimationFrame(() => {
+      input.focus();
+      syncMobileNavigationState();
+    });
   }
 
   function bindEmptyAction() {
@@ -1016,6 +1115,47 @@
     });
     const icon = document.querySelector('.favorite-filter-icon');
     if (icon) icon.textContent = favoritesOnly ? '♥' : '♡';
+    syncMobileNavigationState();
+  }
+
+  function syncMobileNavigationState() {
+    const navigation = document.getElementById('mobileBottomNav');
+    const recentSection = document.getElementById('recentSection');
+    const recentButton = navigation.querySelector('[data-mobile-action="recentes"]');
+    const recentUnavailable = recentSection.classList.contains('hidden');
+
+    recentButton.disabled = recentUnavailable;
+    recentButton.setAttribute('aria-disabled', String(recentUnavailable));
+    if (recentUnavailable && mobileNavView === 'recentes') mobileNavView = null;
+
+    let activeAction = 'todos';
+    if (document.getElementById('sideDrawer').classList.contains('open')) activeAction = 'categorias';
+    else if (mobileNavView === 'buscar' || mobileNavView === 'recentes') activeAction = mobileNavView;
+    else if (favoritesOnly) activeAction = 'favoritos';
+    else if (activeBrand !== 'todos') activeAction = 'categorias';
+
+    navigation.querySelectorAll('.mobile-nav-item').forEach(button => {
+      const active = button.dataset.mobileAction === activeAction;
+      button.classList.toggle('active', active);
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
+  }
+
+  function placeResponsiveControls() {
+    const controls = document.querySelector('.stats-controls');
+    const mobileSlot = document.getElementById('drawerRefineSlot');
+    const desktopSlot = document.querySelector('.stats-bar');
+    const destination = window.matchMedia('(max-width: 720px)').matches ? mobileSlot : desktopSlot;
+    if (controls.parentElement !== destination) destination.appendChild(controls);
+  }
+
+  function scrollToCatalogSection(element) {
+    if (!element) return;
+    element.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
   }
 
   function updateFavoriteControls(productId) {
@@ -1418,6 +1558,7 @@
   }
 
   function activateCatalogFilter(control) {
+    mobileNavView = null;
     if (control.dataset.filter === 'favorites') {
       favoritesOnly = !favoritesOnly;
       activeBrand = 'todos';
@@ -1436,9 +1577,15 @@
 
   document.getElementById('searchInput').addEventListener('input', event => {
     searchTerm = event.target.value;
+    mobileNavView = 'buscar';
     document.getElementById('clearSearchBtn').hidden = searchTerm.length === 0;
     clearTimeout(searchDebounceTimer);
+    syncMobileNavigationState();
     searchDebounceTimer = setTimeout(renderCatalogView, 150);
+  });
+  document.getElementById('searchInput').addEventListener('focus', () => {
+    mobileNavView = 'buscar';
+    syncMobileNavigationState();
   });
   document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
   document.getElementById('sortSelect').addEventListener('change', event => { sortMode = event.target.value; renderCatalogView(); });
@@ -1471,6 +1618,8 @@
   });
 
   function openDrawer() {
+    dismissCategoryHint();
+    mobileNavView = null;
     const drawer = document.getElementById('sideDrawer');
     drawer.inert = false;
     drawer.removeAttribute('inert');
@@ -1479,6 +1628,7 @@
     document.getElementById('menuBtn').setAttribute('aria-expanded', 'true');
     drawer.setAttribute('aria-hidden', 'false');
     document.getElementById('drawerClose').focus();
+    syncMobileNavigationState();
   }
   function closeDrawer() {
     const drawer = document.getElementById('sideDrawer');
@@ -1490,6 +1640,7 @@
     document.getElementById('menuBtn').setAttribute('aria-expanded', 'false');
     drawer.setAttribute('aria-hidden', 'true');
     if (shouldRestoreFocus) document.getElementById('menuBtn').focus();
+    syncMobileNavigationState();
   }
   document.getElementById('menuBtn').addEventListener('click', openDrawer);
   document.getElementById('menuBtn').addEventListener('keydown', event => {
@@ -1513,13 +1664,46 @@
   });
   document.getElementById('sideDrawer').addEventListener('keydown', event => {
     if (event.key !== 'Tab') return;
-    const focusable = [document.getElementById('drawerClose'), ...document.querySelectorAll('#drawerItems .drawer-item')];
+    const focusable = [...document.querySelectorAll('#sideDrawer button:not([disabled]), #sideDrawer select:not([disabled])')]
+      .filter(element => element.getClientRects().length > 0);
+    if (focusable.length === 0) return;
     const currentIndex = focusable.indexOf(document.activeElement);
     const nextIndex = event.shiftKey
       ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
       : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
     event.preventDefault();
     focusable[nextIndex].focus();
+  });
+
+  document.getElementById('categoryHintAction').addEventListener('click', openDrawer);
+  document.getElementById('categoryHintClose').addEventListener('click', dismissCategoryHint);
+
+  document.getElementById('mobileBottomNav').addEventListener('click', event => {
+    const button = event.target.closest('.mobile-nav-item');
+    if (!button || button.disabled) return;
+    const action = button.dataset.mobileAction;
+
+    if (action === 'categorias') {
+      openDrawer();
+      return;
+    }
+    if (action === 'buscar') {
+      mobileNavView = 'buscar';
+      const input = document.getElementById('searchInput');
+      input.focus({ preventScroll: true });
+      scrollToCatalogSection(input);
+      syncMobileNavigationState();
+      return;
+    }
+    if (action === 'recentes') {
+      mobileNavView = 'recentes';
+      scrollToCatalogSection(document.getElementById('recentSection'));
+      syncMobileNavigationState();
+      return;
+    }
+
+    activateCatalogFilter(button);
+    scrollToCatalogSection(document.querySelector('.grid-wrap'));
   });
 
   document.getElementById('lbPrev').addEventListener('click', () => setLightboxImage(lbIndex - 1));
@@ -1664,6 +1848,7 @@
     searchTerm = '';
     favoritesOnly = false;
     galleryFilter = 'all';
+    mobileNavView = null;
     document.getElementById('searchInput').value = '';
     document.getElementById('galleryFilter').value = 'all';
     if (allProducts.length > 0) renderCatalogView();
@@ -1676,6 +1861,16 @@
     refreshCatalog();
   });
   document.getElementById('refreshCatalogBtn').addEventListener('click', refreshCatalog);
+
+  initializeCategoryHint();
+  placeResponsiveControls();
+  const responsiveControlsQuery = window.matchMedia('(max-width: 720px)');
+  const handleResponsiveControlsChange = () => {
+    placeResponsiveControls();
+    syncMobileNavigationState();
+  };
+  if (responsiveControlsQuery.addEventListener) responsiveControlsQuery.addEventListener('change', handleResponsiveControlsChange);
+  else responsiveControlsQuery.addListener(handleResponsiveControlsChange);
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
