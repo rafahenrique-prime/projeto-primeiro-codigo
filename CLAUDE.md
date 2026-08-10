@@ -256,6 +256,12 @@ Só começar a implementação depois dessa análise **e** da aprovação explí
 
 **Por quê:** complementa a Regra 12 — evita que o projeto volte a crescer de forma desorganizada, tomando a decisão de onde/como encaixar algo novo só depois de já ter sido escrito.
 
+### 14. **Secrets técnicos: Bitwarden primeiro, nunca pedir/vasculhar direto**
+
+Antes de pedir ao Rafael uma API key/token/secret real, ou de procurar uma credencial em `.env`/`.env.local`, ler e seguir `.claude/skills/prime-secrets/SKILL.md`.
+
+**Por quê:** desde 2026-08-10 o Bitwarden Secrets Manager é o cofre oficial dos secrets técnicos do IGNITE PRIME (ver `docs/SECURITY/BITWARDEN-SECRETS-MANAGER.md`) — evita ficar pedindo pra Rafael copiar/colar credencial toda vez que uma integração precisa de uma.
+
 ---
 
 ## 🏗️ ARQUITETURA DO SISTEMA
