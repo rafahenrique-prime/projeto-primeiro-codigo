@@ -4,9 +4,21 @@
 // lados. Só compara se o valor de cada secret já migrado bate entre as duas
 // fontes — nunca imprime o valor, tamanho, prefixo, hash ou qualquer derivado.
 //
+// IMPORTANTE: `vercel env run` mistura .env/.env.local do diretório de
+// trabalho com o que baixa da nuvem (comportamento real observado, diverge
+// da documentação oficial) — por isso toda leitura roda isolada, num
+// diretório temporário do sistema (fora do repositório) contendo só uma
+// cópia de .vercel/project.json, nunca os .env* reais. Além disso, secrets
+// marcados "sensitive" na Vercel nunca são entregues a nenhuma CLI local
+// (nem isolada) — o comparador checa o campo `type` antes de tentar ler e
+// nunca tenta contornar isso.
+//
 // Uso: node scripts/security/compare-bitwarden-vercel.mjs
 
 import { spawnSync } from 'node:child_process'
+import { mkdtempSync, copyFileSync, mkdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const BITWARDEN_PROJECT_ID = '2e125f4c-bb8c-4b20-955b-b4a200966806'
 
@@ -78,8 +90,19 @@ function buscarValorBitwarden(token, secretId) {
   return typeof obj.value === 'string' ? obj.value : null
 }
 
-function listarEnvVercel() {
-  const res = run('vercel', ['env', 'ls', '-F', 'json'])
+// Cria um diretório temporário do sistema (fora do repositório), contendo
+// só uma CÓPIA de .vercel/project.json — o suficiente pra CLI da Vercel
+// identificar o projeto, sem nenhum .env/.env.local por perto pra
+// contaminar `vercel env run`.
+function criarDiretorioIsolado() {
+  const dir = mkdtempSync(join(tmpdir(), 'bw-vercel-compare-'))
+  mkdirSync(join(dir, '.vercel'))
+  copyFileSync(join(process.cwd(), '.vercel', 'project.json'), join(dir, '.vercel', 'project.json'))
+  return dir
+}
+
+function listarEnvVercel(cwdIsolado) {
+  const res = run('vercel', ['env', 'ls', '-F', 'json'], { cwd: cwdIsolado })
   if (res.status !== 0) {
     throw new Error(`Falha ao listar env vars da Vercel: ${res.stderr}`)
   }
@@ -100,10 +123,15 @@ function listarEnvVercel() {
 }
 
 // Compara o valor do Bitwarden contra o valor real injetado pela Vercel
-// naquele ambiente, sem nunca imprimir nenhum dos dois. Usa `vercel env run`
-// (nunca `vercel env pull`) — injeta a env var no processo filho, que só
-// devolve um código de saída indicando igual/diferente/ausente.
-function compararComVercel(valorBitwarden, nomeVar, ambiente) {
+// naquele ambiente, sem nunca imprimir nenhum dos dois. Roda isolado (cwd
+// sem .env/.env.local) e nunca tenta ler um ambiente marcado "sensitive" —
+// esse tipo nunca é entregue a nenhuma CLI local, isolada ou não, por
+// desenho da própria Vercel.
+function compararComVercel(valorBitwarden, nomeVar, ambiente, tipo, cwdIsolado) {
+  if (tipo === 'sensitive') {
+    return 'NÃO COMPARÁVEL — VERCEL SENSITIVE/WRITE-ONLY'
+  }
+
   const scriptInline = `
     const a = process.env.__BW_COMPARE_VALUE__
     const b = process.env.${nomeVar}
@@ -112,6 +140,7 @@ function compararComVercel(valorBitwarden, nomeVar, ambiente) {
     else process.exit(1)
   `
   const res = run('vercel', ['env', 'run', '-e', ambiente, '--', 'node', '-e', scriptInline], {
+    cwd: cwdIsolado,
     env: { ...process.env, __BW_COMPARE_VALUE__: valorBitwarden },
   })
   switch (res.status) {
@@ -124,71 +153,84 @@ function compararComVercel(valorBitwarden, nomeVar, ambiente) {
 
 function main() {
   console.log('Comparador READ-ONLY — Bitwarden × Vercel (IGNITE PRIME)\n')
-  console.log('Nenhum valor será exibido. Nenhuma escrita será feita em nenhum dos dois lados.\n')
+  console.log('Nenhum valor será exibido. Nenhuma escrita será feita em nenhum dos dois lados.')
+  console.log('Leituras da Vercel rodam isoladas (sem .env/.env.local) e nunca tentam ler valores "sensitive".\n')
 
   const token = carregarTokenBitwarden()
   const bitwardenPorNome = listarSecretsBitwarden(token)
-  const vercelPorNome = listarEnvVercel()
 
-  const linhas = []
-  const contagem = { IGUAL: 0, DIFERENTE: 0, AUSENTE: 0, 'NÃO COMPARÁVEL': 0 }
+  const cwdIsolado = criarDiretorioIsolado()
+  let vercelPorNome
+  try {
+    vercelPorNome = listarEnvVercel(cwdIsolado)
 
-  for (const nome of SECRETS_ESCOPO) {
-    const bwId = bitwardenPorNome.get(nome)
-    const bitwardenExiste = Boolean(bwId)
-    const vercelInfo = vercelPorNome.get(nome)
-    const vercelExiste = Boolean(vercelInfo)
+    const linhas = []
+    const contagem = { IGUAL: 0, DIFERENTE: 0, AUSENTE: 0, 'NÃO COMPARÁVEL': 0 }
 
-    let ambienteEscolhido = null
-    let ambientesTexto = '-'
-    let comparacao = 'AUSENTE'
+    for (const nome of SECRETS_ESCOPO) {
+      const bwId = bitwardenPorNome.get(nome)
+      const bitwardenExiste = Boolean(bwId)
+      const vercelInfo = vercelPorNome.get(nome)
+      const vercelExiste = Boolean(vercelInfo)
 
-    if (vercelExiste) {
-      const ambientesDisponiveis = [...vercelInfo.targets]
-      ambientesTexto = ambientesDisponiveis.join(', ')
-      ambienteEscolhido = PRIORIDADE_AMBIENTE.find((a) => vercelInfo.targets.has(a)) || ambientesDisponiveis[0]
-    }
+      let ambienteEscolhido = null
+      let tipoEscolhido = null
+      let ambientesTexto = '-'
+      let comparacao = 'AUSENTE'
 
-    if (!bitwardenExiste || !vercelExiste) {
-      comparacao = 'AUSENTE'
-    } else {
-      const valorBw = buscarValorBitwarden(token, bwId)
-      if (valorBw === null) {
-        comparacao = 'NÃO COMPARÁVEL'
-      } else {
-        comparacao = compararComVercel(valorBw, nome, ambienteEscolhido)
+      if (vercelExiste) {
+        const ambientesDisponiveis = [...vercelInfo.targets]
+        ambientesTexto = ambientesDisponiveis.join(', ')
+        ambienteEscolhido = PRIORIDADE_AMBIENTE.find((a) => vercelInfo.targets.has(a)) || ambientesDisponiveis[0]
+        tipoEscolhido = vercelInfo.tipoPorTarget.get(ambienteEscolhido)
       }
+
+      if (!bitwardenExiste || !vercelExiste) {
+        comparacao = 'AUSENTE'
+      } else {
+        const valorBw = buscarValorBitwarden(token, bwId)
+        if (valorBw === null) {
+          comparacao = 'NÃO COMPARÁVEL'
+        } else {
+          comparacao = compararComVercel(valorBw, nome, ambienteEscolhido, tipoEscolhido, cwdIsolado)
+        }
+      }
+
+      if (comparacao.startsWith('NÃO COMPARÁVEL')) contagem['NÃO COMPARÁVEL']++
+      else contagem[comparacao] = (contagem[comparacao] || 0) + 1
+
+      linhas.push({
+        nome,
+        bitwarden: bitwardenExiste ? 'EXISTE' : 'AUSENTE',
+        vercel: vercelExiste ? 'EXISTE' : 'AUSENTE',
+        ambiente: ambientesTexto,
+        ambienteComparado: ambienteEscolhido || '-',
+        tipo: tipoEscolhido || '-',
+        comparacao,
+      })
     }
 
-    if (comparacao.startsWith('NÃO COMPARÁVEL')) contagem['NÃO COMPARÁVEL']++
-    else contagem[comparacao] = (contagem[comparacao] || 0) + 1
+    for (const l of linhas) {
+      console.log(l.nome)
+      console.log(`  Bitwarden: ${l.bitwarden}`)
+      console.log(`  Vercel: ${l.vercel}`)
+      console.log(`  Ambiente Vercel: ${l.ambiente}`)
+      console.log(`  Ambiente comparado: ${l.ambienteComparado} (type: ${l.tipo})`)
+      console.log(`  Comparação: ${l.comparacao}`)
+      console.log('')
+    }
 
-    linhas.push({
-      nome,
-      bitwarden: bitwardenExiste ? 'EXISTE' : 'AUSENTE',
-      vercel: vercelExiste ? 'EXISTE' : 'AUSENTE',
-      ambiente: ambientesTexto,
-      comparacao,
-    })
-  }
+    console.log('--- Resumo ---')
+    console.log(`IGUAIS: ${contagem.IGUAL || 0}`)
+    console.log(`DIFERENTES: ${contagem.DIFERENTE || 0}`)
+    console.log(`AUSENTES: ${contagem.AUSENTE || 0}`)
+    console.log(`NÃO COMPARÁVEIS: ${contagem['NÃO COMPARÁVEL'] || 0}`)
 
-  for (const l of linhas) {
-    console.log(l.nome)
-    console.log(`  Bitwarden: ${l.bitwarden}`)
-    console.log(`  Vercel: ${l.vercel}`)
-    console.log(`  Ambiente Vercel: ${l.ambiente}`)
-    console.log(`  Comparação: ${l.comparacao}`)
-    console.log('')
-  }
-
-  console.log('--- Resumo ---')
-  console.log(`IGUAIS: ${contagem.IGUAL || 0}`)
-  console.log(`DIFERENTES: ${contagem.DIFERENTE || 0}`)
-  console.log(`AUSENTES: ${contagem.AUSENTE || 0}`)
-  console.log(`NÃO COMPARÁVEIS: ${contagem['NÃO COMPARÁVEL'] || 0}`)
-
-  if (contagem.DIFERENTE > 0) {
-    console.log('\n⚠️  Foram encontradas divergências. Nenhuma correção foi feita — revisar manualmente.')
+    if (contagem.DIFERENTE > 0) {
+      console.log('\n⚠️  Foram encontradas divergências. Nenhuma correção foi feita — revisar manualmente.')
+    }
+  } finally {
+    rmSync(cwdIsolado, { recursive: true, force: true })
   }
 }
 
