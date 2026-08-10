@@ -11,5 +11,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Buscar CRON_SECRET no Bitwarden
+        uses: bitwarden/sm-action@v3.0.1
+        with:
+          access_token: ${{ secrets.BWS_ACCESS_TOKEN_GITHUB }}
+          secrets: |
+            8eff8cf0-7c5c-46e8-9890-b4a200aec0dc > CRON_SECRET
+
       - name: Chamar healthcheck de conversas travadas
-        run: curl -s -f -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "https://ignite-webhook.vercel.app/api/system-tools?tool=stuck-check"
+        run: curl -s -f -H "Authorization: Bearer ${CRON_SECRET}" "https://ignite-webhook.vercel.app/api/system-tools?tool=stuck-check"
