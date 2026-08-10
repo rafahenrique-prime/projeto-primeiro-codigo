@@ -1,7 +1,9 @@
 # Catálogo V1 — tela de gestão e conferência visual
 
-**Status:** 🟢 Fases 1-5 concluídas, documentadas e encerradas (V2 — histórico, correção de exceção, integração com Auditoria Bagy — NÃO implementada)
-**Última atualização:** 2026-08-08
+**Status:** 🟢 Fases 1-5 concluídas e **deployadas em produção** (V2 — histórico, correção de exceção, integração mais profunda com Auditoria Bagy — NÃO implementada)
+**Última atualização:** 2026-08-10
+**Deployment validado:** `dpl_6P8TqTqezz9CH8aiadP66Fwu1aQi`, alias `ignite-webhook.vercel.app`
+**Commit:** `b8faafc` — `feat(catalog): publish catalog v1`
 
 ## 1. Objetivo
 
@@ -78,6 +80,14 @@ Abre ao clicar na linha (ações — Zap/Foto/Link/Editar/Excluir — protegidas
 
 Os badges 🔴/⚠️/🟡 refletem só o que está gravado em `bagy_sync_exceptions` com `status='aberto'` — ou seja, dependem de o sincronizador ter rodado recentemente (manual, ver [BAGY-SYNC.md](BAGY-SYNC.md)). Se o sincronizador não rodar por um tempo, essa fila fica desatualizada e os badges também. Não é um problema desta funcionalidade — é a mesma limitação já documentada do sincronizador (sem cron ainda).
 
+## 9.1 Teste real em produção
+
+Verificado ao vivo em `ignite-webhook.vercel.app` (não simulação/preview local), depois do deploy `dpl_6P8TqTqezz9CH8aiadP66Fwu1aQi`:
+- Tela carregou **573 de 573 produtos**, filtros de situação (Todos/Sincronizados/Manuais/Com exceção/Atualizados) e pills de marca funcionando.
+- **Regata Alo Feminina Importada Preta - Anuncio Teste 002** (inserida pela Auditoria Bagy V2 — ver [`BAGY-SYNC.md §9.1`](BAGY-SYNC.md)) apareceu **automaticamente** na tabela após a sincronização, sem nenhum código novo no Catálogo — confirma que a leitura de `products` já cobre produtos recém-inseridos pelo sincronizador, sem necessidade de refresh manual de cache/rota: `R$ 95,00`, `PIX R$ 90,25`, origem `Bagy`, status `Sincronizado`, `4 variações`/`4 un.` de estoque.
+- **`ProdutoDrawer`** aberto em produção real, mostrando Preço, Preço PIX, Categoria, Breadcrumb, Marca, Estoque, Descrição e as 4 variações com `bagy_variation_id` cada uma.
+- Navegação "Ver no Catálogo" (Auditoria Bagy V2 → Catálogo → abre o drawer do produto direto) confirmada funcional em produção — depende de `App.jsx`/`CatalogPage.jsx` (deployados no mesmo commit que trouxe o restante da V2 e do Catálogo V1).
+
 ## 10. Nenhuma escrita nova
 
 Toda a V1 (`catalogV1Data.js`, `catalogV1Status.js`, `catalogV1Format.js`, `SyncStatusBadge`, `OrigemBadge`, `ProdutoDrawer`) é **100% leitura**. As únicas escritas que continuam existindo em `CatalogPage.jsx` são as que já existiam antes (editar/excluir produto manual, extração por URL) — nenhuma ação nova de escrita foi introduzida.
@@ -86,26 +96,28 @@ Toda a V1 (`catalogV1Data.js`, `catalogV1Status.js`, `catalogV1Format.js`, `Sync
 
 - `attributes` genérico/fallback em variações cujo nome de atributo não contém "TAMANHO"/"COR" — dado preservado, exibido honestamente, sem normalização (herda a limitação já documentada do sincronizador: 43% das variações do catálogo).
 - Badges dependem de `bagy_sync_exceptions` estar atualizada — sem cron, a atualização é sempre manual.
-- Sem confirmação visual em navegador real nesta sessão (preview interno bloqueado no ambiente) — implementação validada por execução direta da lógica contra dados reais do Supabase (ver checklists de validação de cada fase) + validação visual feita pelo Rafael em `localhost` durante a Fase 3/4.
+- Confirmação visual feita tanto em `localhost` (Fase 3/4, pelo Rafael) quanto em produção real (`ignite-webhook.vercel.app`, ver §9.1) — nenhuma lacuna de validação visual restante nesta V1.
 
 ---
 
-## ESTADO ATUAL — VALIDADO
+## ESTADO ATUAL — VALIDADO E EM PRODUÇÃO
 
-- Tabela com Foto, Produto, Categoria, Preço (+PIX), Origem, Status, Última Sync, Estoque, Ações
+- Tabela com Foto, Produto, Categoria, Preço (+PIX), Origem, Status, Última Sync, Estoque, Ações — confirmada em produção real com 573 produtos
 - 5 badges de status derivados sem inventar dado (404/conflito/exceção/sincronizado/manual)
 - Filtros rápidos de situação + "Mais filtros" (marca, variações, estoque), 100% combináveis, 100% client-side
-- `ProdutoDrawer` com dados do produto + variações completas sob demanda, exceções abertas visíveis
+- `ProdutoDrawer` com dados do produto + variações completas sob demanda, exceções abertas visíveis — testado em produção real
 - 3 queries paralelas e paginadas no carregamento (~1,07s), 1 query adicional só ao abrir drawer (~176ms), zero N+1
-- Zero escrita nova introduzida
+- Zero escrita nova introduzida por esta tela
+- Navegação "Ver no Catálogo" a partir da Auditoria Bagy V2 (abre direto no drawer do produto) — funcional em produção
+- Produtos inseridos pela Auditoria Bagy V2 (descoberta de produtos novos) aparecem automaticamente aqui, sem nenhum código extra — confirmado com teste real (ver §9.1)
 
 ## FUTURO V2 — NÃO IMPLEMENTADO
 
 - Histórico de mudanças por produto
 - Comparação antes/depois (diff visual)
 - Botão de "corrigir exceção" (mudar `status` em `bagy_sync_exceptions` pela UI)
-- Integração visual com a Auditoria Bagy (`api/bagy-audit.js`)
-- Disparo de sincronização individual de 1 produto pela UI
+- Integração visual **mais profunda** com a Auditoria Bagy além da navegação já existente (ex.: abrir a fila de exceções direto do Catálogo)
+- Disparo de sincronização individual de 1 produto pela UI do Catálogo (hoje só existe pela Auditoria Bagy V2, em lote)
 - Cron (segue não implementado, é decisão do [BAGY-SYNC.md](BAGY-SYNC.md), não desta tela)
 
 ## Referências
