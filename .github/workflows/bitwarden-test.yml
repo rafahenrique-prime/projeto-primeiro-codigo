@@ -1,0 +1,24 @@
+name: Bitwarden Secrets Manager - Teste de Integração
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test-bitwarden:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Buscar secret de teste no Bitwarden
+        uses: bitwarden/sm-action@v3
+        with:
+          access_token: ${{ secrets.BWS_ACCESS_TOKEN_GITHUB }}
+          secrets: |
+            78245182-f01e-4477-89a2-b4a200da9840 > BITWARDEN_TEST_VALUE
+
+      - name: Validar carregamento (sem expor o valor)
+        run: |
+          if [ -n "$BITWARDEN_TEST_VALUE" ]; then
+            echo "✅ Bitwarden secret loaded successfully"
+          else
+            echo "❌ Falha ao carregar secret do Bitwarden"
+            exit 1
+          fi
