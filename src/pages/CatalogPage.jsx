@@ -1,11 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTheme } from '../theme.jsx'
 import { getProductsFromSupabase, upsertProducts, uploadImageToStorage, deleteProductFromSupabase, getCatalogHistory, normalizarNomeProduto } from '../services/catalogo/catalogSyncService'
 import { extractProductData, normalizeExtractedData } from '../services/catalogo/scraperService'
 import { regenerateKnowledgeUnico } from '../services/conhecimento/knowledgeGenerator'
+import { loadCatalogV1Data } from '../services/catalogo/catalogV1Data'
+import { derivarStatusCatalogo } from '../services/catalogo/catalogV1Status'
+import { formatCatalogSyncDate, formatPixLabel, formatStockSummary } from '../services/catalogo/catalogV1Format'
 import SupabaseStorageCard from '../components/SupabaseStorageCard'
+import SyncStatusBadge from '../components/catalogo/SyncStatusBadge'
+import OrigemBadge from '../components/catalogo/OrigemBadge'
+import ProdutoDrawer from '../components/catalogo/ProdutoDrawer'
 
-export default function CatalogPage({ onNavigate }) {
+export default function CatalogPage({ onNavigate, initialOpenProductId, onInitialProductConsumed }) {
   const { theme: t } = useTheme()
   const [products, setProducts] = useState([])
   const [showModal, setShowModal] = useState(false)
@@ -48,8 +54,34 @@ export default function CatalogPage({ onNavigate }) {
     return localStorage.getItem('knowledge_status') || 'updated'
   })
   const debounceRef = useRef(null)
+  // Catálogo V1 — Fase 2: status de sincronização por produto (id → resultado
+  // de derivarStatusCatalogo). Nenhuma regra de prioridade fica inline aqui —
+  // só consome catalogV1Data + catalogV1Status.
+  const [syncStatusById, setSyncStatusById] = useState(new Map())
+  // Catálogo V1 — Fase 3: dados enriquecidos por produto (origem, PIX, última
+  // sync, resumo de estoque/variações) — id → objeto já formatado pelos
+  // helpers de catalogV1Format.js. Mesma busca da Fase 2 (catalogV1Data),
+  // sem query adicional por linha.
+  const [catalogV1RowInfoById, setCatalogV1RowInfoById] = useState(new Map())
+  // Catálogo V1 — Fase 4: filtros de situação + "mais filtros", 100%
+  // client-side sobre os dados já carregados por catalogV1Data (nenhuma
+  // query nova ao trocar filtro).
+  const [quickFilter, setQuickFilter] = useState('todos') // 'todos'|'sincronizados'|'manuais'|'com_excecao'|'atualizados'
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const [filterMarca, setFilterMarca] = useState('')
+  const [filterComVariacoes, setFilterComVariacoes] = useState(false)
+  const [filterSemEstoque, setFilterSemEstoque] = useState(false)
+  const [filterVendaSemEstoque, setFilterVendaSemEstoque] = useState(false)
+  // Catálogo V1 — Fase 5: produto selecionado pro ProdutoDrawer (null = fechado).
+  // A página só controla "qual" e "aberto/fechado" — toda a lógica de exibição
+  // e a busca de variações sob demanda vivem dentro do componente.
+  const [selectedProductForDrawer, setSelectedProductForDrawer] = useState(null)
+  // Auditoria Bagy V2 — Fase 6: "Ver no Catálogo" abre o drawer de 1 produto
+  // específico ao chegar de fora (id vem da Auditoria). Só um aviso discreto
+  // e transitório se o id não for encontrado — nunca quebra a página.
+  const [initialProductNotFound, setInitialProductNotFound] = useState(false)
 
-  // Marca knowledge como desatualizado e dispara sync com debounce de 30s
+  // Marca knowledge como desatualizado e dispara sync com debounce de 60s
   const markKnowledgeDirty = useCallback(() => {
     setKnowledgeStatus('pending')
     localStorage.setItem('knowledge_status', 'pending')
@@ -77,7 +109,7 @@ export default function CatalogPage({ onNavigate }) {
         console.error('[Knowledge] ❌ Falha no auto-sync:', err.message)
       }
       debounceRef.current = null
-    }, 30000) // 30 segundos de debounce
+    }, 60000) // 60 segundos de debounce
   }, [])
 
   const loadProducts = async () => {
@@ -104,6 +136,67 @@ export default function CatalogPage({ onNavigate }) {
   useEffect(() => {
     loadProducts()
   }, [])
+
+  // Catálogo V1 — Fases 2+3: carrega produtos+variações+exceções UMA VEZ
+  // (catalogV1Data) e deriva, por produto, tanto o status (Fase 2) quanto os
+  // dados enriquecidos de apresentação (Fase 3: origem, PIX, última sync,
+  // resumo de estoque) — guardados em dois Maps por id pra lookup O(1) na
+  // tabela, sem nenhuma query adicional por linha. Não substitui
+  // `products`/`loadProducts` — é um enriquecimento paralelo.
+  useEffect(() => {
+    loadCatalogV1Data()
+      .then((v1) => {
+        const statusMap = new Map()
+        const rowInfoMap = new Map()
+        for (const p of v1.products) {
+          const excecoes = v1.exceptionsByLink.get(p.link) || []
+          statusMap.set(p.id, derivarStatusCatalogo(p, excecoes))
+
+          const aggregate = v1.variationAggregates.get(p.id)
+          const { variationsLine, stockLine } = formatStockSummary(p.sell_without_stock, aggregate)
+          rowInfoMap.set(p.id, {
+            bagyProductId: p.bagy_product_id,
+            source: p.source,
+            pixLabel: formatPixLabel(p.preco_pix),
+            syncedLabel: formatCatalogSyncDate(p.synced_at),
+            variationsLine,
+            stockLine,
+            // Fase 4 — campos crus (não formatados) usados pelos filtros:
+            marca: p.marca || null,
+            syncedAtRaw: p.synced_at || null,
+            sellWithoutStock: p.sell_without_stock,
+            variationCount: aggregate?.variationCount || 0,
+            stockTotal: aggregate?.stockTotal ?? null,
+            hasStockData: aggregate?.hasStockData ?? false,
+            // Fase 5 (ProdutoDrawer) — campos adicionais só usados no painel:
+            precoPix: p.preco_pix,
+            categoriaBreadcrumb: p.categoria_breadcrumb || null,
+            descricao: p.descricao || null,
+            codigo: p.codigo || null,
+            exceptions: excecoes,
+          })
+        }
+        setSyncStatusById(statusMap)
+        setCatalogV1RowInfoById(rowInfoMap)
+      })
+      .catch((e) => console.error('[CatalogV1/Fase2-3] falha ao carregar dados enriquecidos:', e.message))
+  }, [])
+
+  // Auditoria Bagy V2 — Fase 6: abre o drawer automaticamente quando a página
+  // chega com um productId pedido de fora (Auditoria). Reutiliza os `products`
+  // já carregados — nenhuma query nova, zero N+1. Só dispara quando os
+  // produtos já estão disponíveis (evita corrida com loadProducts()).
+  useEffect(() => {
+    if (!initialOpenProductId || products.length === 0) return
+    const produto = products.find((p) => p.id === initialOpenProductId)
+    if (produto) {
+      setSelectedProductForDrawer(produto)
+    } else {
+      setInitialProductNotFound(true)
+      setTimeout(() => setInitialProductNotFound(false), 5000)
+    }
+    onInitialProductConsumed?.()
+  }, [initialOpenProductId, products])
 
   useEffect(() => {
     if (showModal && products.length > 0) {
@@ -186,6 +279,10 @@ export default function CatalogPage({ onNavigate }) {
   }
 
   const handleConfirmExtractedData = async () => {
+    // Sempre tratar como criação de produto novo — evita reaproveitar
+    // um editingId deixado por uma edição cancelada anteriormente
+    setEditingId(null)
+
     // Normalizar dados
     const normalized = normalizeExtractedData(extractedData)
 
@@ -276,6 +373,10 @@ export default function CatalogPage({ onNavigate }) {
 
   const handleConfirmTestData = async () => {
     if (!testExtractedData) return
+
+    // Sempre tratar como criação de produto novo — evita reaproveitar
+    // um editingId deixado por uma edição cancelada anteriormente
+    setEditingId(null)
 
     const normalized = {
       nome: testExtractedData.nome || '',
@@ -411,7 +512,7 @@ export default function CatalogPage({ onNavigate }) {
       } else if (result?.success === true) {
         console.log('✅ Sincronizado com Supabase:', result.inserted, 'inseridos,', result.updated, 'atualizados')
 
-        // Marca knowledge como desatualizado — sync automático em 30s (debounce)
+        // Marca knowledge como desatualizado — sync automático em 60s (debounce)
         markKnowledgeDirty()
       }
     } catch (err) {
@@ -420,6 +521,7 @@ export default function CatalogPage({ onNavigate }) {
     }
 
     setShowModal(false)
+    setEditingId(null)
     setFormData({ id: null, nome: '', preco: '', price_original: '', price_discount: '', imagem: '', link: '', categoria: '', status: 'active', codigo: '' })
     setImagemFile(null)
     setImagemPreview(null)
@@ -563,11 +665,62 @@ export default function CatalogPage({ onNavigate }) {
   }
 
   const normalizeAccents = (str) => (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-  const filtered = products
+
+  // Catálogo V1 — Fase 4: 7 dias em ms, usado só pelo filtro "Atualizados".
+  const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000
+
+  const passaFiltroSituacao = useCallback((product, filtro) => {
+    if (filtro === 'todos') return true
+    const status = syncStatusById.get(product.id)?.status
+    if (filtro === 'sincronizados') return status === 'synced'
+    if (filtro === 'manuais') return status === 'manual'
+    if (filtro === 'com_excecao') return status === 'not_found' || status === 'conflict' || status === 'exception'
+    if (filtro === 'atualizados') {
+      const raw = catalogV1RowInfoById.get(product.id)?.syncedAtRaw
+      if (!raw) return false
+      return Date.now() - new Date(raw).getTime() <= SETE_DIAS_MS
+    }
+    return true
+  }, [syncStatusById, catalogV1RowInfoById])
+
+  // Contadores dos filtros rápidos — derivados 1x por mudança de dados, não
+  // recalculados por clique de filtro (useMemo evita refazer a varredura
+  // dos 555 produtos a cada render).
+  const statusCounts = useMemo(() => ({
+    todos: products.length,
+    sincronizados: products.filter(p => passaFiltroSituacao(p, 'sincronizados')).length,
+    manuais: products.filter(p => passaFiltroSituacao(p, 'manuais')).length,
+    comExcecao: products.filter(p => passaFiltroSituacao(p, 'com_excecao')).length,
+    atualizados: products.filter(p => passaFiltroSituacao(p, 'atualizados')).length,
+  }), [products, passaFiltroSituacao])
+
+  // Lista de marcas únicas pro seletor de "Mais filtros".
+  const marcasList = useMemo(() => {
+    const marcas = new Set()
+    for (const info of catalogV1RowInfoById.values()) {
+      if (info.marca) marcas.add(info.marca)
+    }
+    return Array.from(marcas).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [catalogV1RowInfoById])
+
+  const maisFiltrosAtivos = [filterMarca, filterComVariacoes, filterSemEstoque, filterVendaSemEstoque].filter(Boolean).length
+
+  const filtered = useMemo(() => products
     .filter(p => {
       const matchSearch = normalizeAccents(p.nome.toLowerCase()).includes(normalizeAccents(search.toLowerCase()))
       const matchCat = activeCategory === 'Todos' || p.categoria === activeCategory
-      return matchSearch && matchCat
+      const matchSituacao = passaFiltroSituacao(p, quickFilter)
+
+      const info = catalogV1RowInfoById.get(p.id)
+      const matchMarca = !filterMarca || info?.marca === filterMarca
+      const matchComVariacoes = !filterComVariacoes || (info?.variationCount || 0) > 0
+      const matchVendaSemEstoque = !filterVendaSemEstoque || info?.sellWithoutStock === true
+      // "Sem estoque": nunca classifica produto sem variação/sem dado real
+      // de estoque como esgotado — só quando existe soma real de estoque
+      // conhecida e ela é exatamente 0 (produto com controle de estoque).
+      const matchSemEstoque = !filterSemEstoque || (info?.sellWithoutStock !== true && info?.hasStockData === true && info?.stockTotal === 0)
+
+      return matchSearch && matchCat && matchSituacao && matchMarca && matchComVariacoes && matchVendaSemEstoque && matchSemEstoque
     })
     .sort((a, b) => {
       if (sortBy === 'lastAdded') {
@@ -578,7 +731,7 @@ export default function CatalogPage({ onNavigate }) {
       if (sortBy === 'preco') return parsePreco(a.preco) - parsePreco(b.preco)
       if (sortBy === 'preco_desc') return parsePreco(b.preco) - parsePreco(a.preco)
       return 0
-    })
+    }), [products, search, activeCategory, sortBy, quickFilter, filterMarca, filterComVariacoes, filterSemEstoque, filterVendaSemEstoque, catalogV1RowInfoById, passaFiltroSituacao])
 
   // Enviar via WhatsApp
   const sendWhatsApp = (product) => {
@@ -640,6 +793,12 @@ export default function CatalogPage({ onNavigate }) {
   return (
     <div style={{ flex: 1, background: t.bg, borderRadius: 12, display: 'flex', overflow: 'hidden', flexDirection: 'column' }}>
 
+      {initialProductNotFound && (
+        <div style={{ background: '#FEF3C7', borderBottom: '1px solid #FDE68A', padding: '8px 20px', fontSize: 12, color: '#92400E', flexShrink: 0 }}>
+          ⚠️ Produto não encontrado no catálogo atual.
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.border}`, background: t.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
@@ -661,7 +820,7 @@ export default function CatalogPage({ onNavigate }) {
               <span style={{ color: '#10B981', fontWeight: 600 }}>Knowledge atualizado</span>
             )}
             {knowledgeStatus === 'pending' && (
-              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Knowledge desatualizado · sync em 30s...</span>
+              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Knowledge desatualizado · sync em 60s...</span>
             )}
             {knowledgeStatus === 'syncing' && (
               <span style={{ color: '#6366F1', fontWeight: 600 }}>Sincronizando Knowledge...</span>
@@ -748,6 +907,44 @@ export default function CatalogPage({ onNavigate }) {
         </div>
       </div>
 
+      {/* Catálogo V1 — Fase 4, LINHA 1: filtros rápidos de situação (nunca
+          misturados com as pills de categoria abaixo — hierarquia própria) */}
+      <div style={{ padding: '10px 20px 0 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {[
+          { key: 'todos', label: 'Todos', count: statusCounts.todos },
+          { key: 'sincronizados', label: 'Sincronizados', count: statusCounts.sincronizados },
+          { key: 'manuais', label: 'Manuais', count: statusCounts.manuais },
+          { key: 'com_excecao', label: 'Com exceção', count: statusCounts.comExcecao },
+          { key: 'atualizados', label: 'Atualizados', count: statusCounts.atualizados },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setQuickFilter(f.key)}
+            style={{
+              padding: '5px 10px',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: quickFilter === f.key ? 'none' : `1px solid ${t.border}`,
+              background: quickFilter === f.key ? '#667EEA' : t.bgSecondary,
+              color: quickFilter === f.key ? '#fff' : t.textMuted,
+              transition: 'all 0.15s',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            {f.label}
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              color: quickFilter === f.key ? '#fff' : t.textMuted,
+              opacity: quickFilter === f.key ? 0.9 : 0.7,
+            }}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Search + Filtro categoria */}
       <div style={{ padding: '10px 20px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
         <input
@@ -758,7 +955,7 @@ export default function CatalogPage({ onNavigate }) {
           style={{ width: '100%', borderRadius: 6, border: `1px solid ${t.border}`, padding: '8px 12px', fontSize: 12, background: t.bgSecondary, color: t.text, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
         />
 
-        {/* Pills de categoria + ordenação */}
+        {/* LINHA 2: pills de categoria + ordenação + "Mais filtros" */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {categories.map(cat => (
             <button
@@ -802,6 +999,68 @@ export default function CatalogPage({ onNavigate }) {
             <option value="preco">Menor preço</option>
             <option value="preco_desc">Maior preço</option>
           </select>
+
+          {/* "Mais filtros" — popover compacto, não é modal grande */}
+          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <button
+              onClick={() => setShowMoreFilters(v => !v)}
+              style={{
+                padding: '5px 10px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: `1px solid ${maisFiltrosAtivos > 0 ? '#667EEA' : t.border}`,
+                background: maisFiltrosAtivos > 0 ? '#EEF2FF' : t.bgSecondary,
+                color: maisFiltrosAtivos > 0 ? '#4F46E5' : t.textMuted,
+              }}
+            >
+              Mais filtros{maisFiltrosAtivos > 0 ? ` (${maisFiltrosAtivos})` : ''}
+            </button>
+
+            {showMoreFilters && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0, zIndex: 20,
+                background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8,
+                padding: 12, width: 220, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                display: 'flex', flexDirection: 'column', gap: 10,
+              }}>
+                <div>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, display: 'block', marginBottom: 4 }}>Marca</label>
+                  <select
+                    value={filterMarca}
+                    onChange={e => setFilterMarca(e.target.value)}
+                    style={{ width: '100%', fontSize: 11, padding: '5px 6px', borderRadius: 5, border: `1px solid ${t.border}`, background: t.bgSecondary, color: t.text, boxSizing: 'border-box' }}
+                  >
+                    <option value="">Todas</option>
+                    {marcasList.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.text, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={filterComVariacoes} onChange={e => setFilterComVariacoes(e.target.checked)} />
+                  Com variações
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.text, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={filterSemEstoque} onChange={e => setFilterSemEstoque(e.target.checked)} />
+                  Sem estoque
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.text, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={filterVendaSemEstoque} onChange={e => setFilterVendaSemEstoque(e.target.checked)} />
+                  Venda sem estoque
+                </label>
+
+                {maisFiltrosAtivos > 0 && (
+                  <button
+                    onClick={() => { setFilterMarca(''); setFilterComVariacoes(false); setFilterSemEstoque(false); setFilterVendaSemEstoque(false) }}
+                    style={{ fontSize: 10, fontWeight: 600, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                  >
+                    Limpar filtros complementares
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -810,33 +1069,48 @@ export default function CatalogPage({ onNavigate }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: `2px solid ${t.border}` }}>
-              <th style={{ textAlign: 'left', padding: '8px', color: t.textSecondary, fontWeight: 600 }}>Foto</th>
-              <th style={{ textAlign: 'left', padding: '8px', color: t.textSecondary, fontWeight: 600 }}>Produto</th>
-              <th style={{ textAlign: 'left', padding: '8px', color: t.textSecondary, fontWeight: 600 }}>Categoria</th>
-              <th style={{ textAlign: 'left', padding: '8px', color: t.textSecondary, fontWeight: 600 }}>Preço</th>
-              <th style={{ textAlign: 'center', padding: '8px', color: t.textSecondary, fontWeight: 600 }}>Ações</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Foto</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Produto</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Categoria</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Preço</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Origem</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Última Sync</th>
+              <th style={{ textAlign: 'left', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Estoque</th>
+              <th style={{ textAlign: 'center', padding: '6px', color: t.textSecondary, fontWeight: 600 }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(product => (
-              <tr key={product.id} style={{ borderBottom: `1px solid ${t.border}` }}>
-                <td style={{ padding: '8px' }}>
-                  <a href={product.imagem} target="_blank" rel="noreferrer">
+              <tr
+                key={product.id}
+                onClick={() => setSelectedProductForDrawer(product)}
+                style={{ borderBottom: `1px solid ${t.border}`, cursor: 'pointer' }}
+              >
+                <td style={{ padding: '6px' }}>
+                  <a href={product.imagem} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
                     <img
                       src={product.imagem}
                       alt={product.nome}
-                      style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, display: 'block' }}
+                      style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, display: 'block' }}
                       onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
                     />
-                    <span style={{ display: 'none', width: 56, height: 56, borderRadius: 6, background: t.bgSecondary, fontSize: 20, alignItems: 'center', justifyContent: 'center' }}>📷</span>
+                    <span style={{ display: 'none', width: 48, height: 48, borderRadius: 6, background: t.bgSecondary, fontSize: 18, alignItems: 'center', justifyContent: 'center' }}>📷</span>
                   </a>
                 </td>
-                <td style={{ padding: '8px', color: t.text, maxWidth: 220 }}>
-                  <a href={product.link} target="_blank" rel="noreferrer" style={{ color: t.text, textDecoration: 'none', fontWeight: 500 }}>
+                <td style={{ padding: '6px', color: t.text, maxWidth: 280 }}>
+                  <a
+                    href={product.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={product.nome}
+                    onClick={e => e.stopPropagation()}
+                    style={{ color: t.text, textDecoration: 'none', fontWeight: 500, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
                     {product.nome}
                   </a>
                 </td>
-                <td style={{ padding: '8px' }}>
+                <td style={{ padding: '6px' }}>
                   {product.categoria ? (
                     <span style={{ background: t.bgSecondary, color: t.textMuted, borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {product.categoria}
@@ -845,12 +1119,39 @@ export default function CatalogPage({ onNavigate }) {
                     <span style={{ color: t.textMuted, fontSize: 10 }}>—</span>
                   )}
                 </td>
-                <td style={{ padding: '8px', color: t.text, fontWeight: 600, whiteSpace: 'nowrap' }}>{product.preco}</td>
-                <td style={{ padding: '8px' }}>
+                <td style={{ padding: '6px', whiteSpace: 'nowrap' }}>
+                  <div style={{ color: t.text, fontWeight: 600 }}>{product.preco}</div>
+                  {catalogV1RowInfoById.get(product.id)?.pixLabel && (
+                    <div style={{ color: t.textMuted, fontSize: 10, fontWeight: 500 }}>
+                      {catalogV1RowInfoById.get(product.id).pixLabel}
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: '6px' }}>
+                  <OrigemBadge
+                    bagyProductId={catalogV1RowInfoById.get(product.id)?.bagyProductId}
+                    source={catalogV1RowInfoById.get(product.id)?.source}
+                  />
+                </td>
+                <td style={{ padding: '6px' }}>
+                  <SyncStatusBadge status={syncStatusById.get(product.id)} />
+                </td>
+                <td style={{ padding: '6px 4px', color: t.textMuted, fontSize: 10, whiteSpace: 'nowrap', maxWidth: 84 }}>
+                  {catalogV1RowInfoById.get(product.id)?.syncedLabel ?? '—'}
+                </td>
+                <td style={{ padding: '6px', whiteSpace: 'nowrap' }}>
+                  <div style={{ color: t.text, fontSize: 11, fontWeight: 500 }}>
+                    {catalogV1RowInfoById.get(product.id)?.variationsLine ?? '—'}
+                  </div>
+                  <div style={{ color: t.textMuted, fontSize: 10 }}>
+                    {catalogV1RowInfoById.get(product.id)?.stockLine ?? '—'}
+                  </div>
+                </td>
+                <td style={{ padding: '6px' }}>
                   <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {/* WhatsApp */}
                     <button
-                      onClick={() => sendWhatsApp(product)}
+                      onClick={(e) => { e.stopPropagation(); sendWhatsApp(product) }}
                       title="Enviar via WhatsApp"
                       style={{ ...btnStyle, background: '#25D366', color: '#fff' }}
                     >
@@ -859,7 +1160,7 @@ export default function CatalogPage({ onNavigate }) {
 
                     {/* Copiar foto */}
                     <button
-                      onClick={() => copyImage(product)}
+                      onClick={(e) => { e.stopPropagation(); copyImage(product) }}
                       title="Copiar imagem"
                       style={{ ...btnStyle, background: copyFeedback === product.id ? '#0EC331' : t.bgSecondary, color: copyFeedback === product.id ? '#fff' : t.text, border: `1px solid ${t.border}` }}
                     >
@@ -868,7 +1169,7 @@ export default function CatalogPage({ onNavigate }) {
 
                     {/* Copiar link */}
                     <button
-                      onClick={() => copyLink(product)}
+                      onClick={(e) => { e.stopPropagation(); copyLink(product) }}
                       title="Copiar link do produto"
                       style={{ ...btnStyle, background: copyFeedback === `link-${product.id}` ? '#0EC331' : t.bgSecondary, color: copyFeedback === `link-${product.id}` ? '#fff' : t.text, border: `1px solid ${t.border}` }}
                     >
@@ -877,7 +1178,7 @@ export default function CatalogPage({ onNavigate }) {
 
                     {/* Editar */}
                     <button
-                      onClick={() => openEditModal(product)}
+                      onClick={(e) => { e.stopPropagation(); openEditModal(product) }}
                       title="Editar"
                       style={{ ...btnStyle, background: '#3B82F6', color: '#fff' }}
                     >
@@ -886,7 +1187,7 @@ export default function CatalogPage({ onNavigate }) {
 
                     {/* Deletar */}
                     <button
-                      onClick={() => handleDelete(product.id)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(product.id) }}
                       title="Excluir"
                       style={{ ...btnStyle, background: '#EF4444', color: '#fff' }}
                     >
@@ -1027,7 +1328,7 @@ export default function CatalogPage({ onNavigate }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { setShowModal(false); setEditingId(null) }} style={{ flex: 1, background: t.bgSecondary, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleSave} style={{ flex: 1, background: '#0EC331', color: '#fff', border: 'none', borderRadius: 6, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -1327,6 +1628,17 @@ export default function CatalogPage({ onNavigate }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Catálogo V1 — Fase 5: ProdutoDrawer. A página só controla seleção/abertura/fechamento;
+          toda a exibição e a busca de variações sob demanda vivem dentro do componente. */}
+      {selectedProductForDrawer && (
+        <ProdutoDrawer
+          product={selectedProductForDrawer}
+          v1Info={catalogV1RowInfoById.get(selectedProductForDrawer.id)}
+          syncStatus={syncStatusById.get(selectedProductForDrawer.id)}
+          onClose={() => setSelectedProductForDrawer(null)}
+        />
       )}
     </div>
   )
