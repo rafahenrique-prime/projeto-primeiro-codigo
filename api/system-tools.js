@@ -2570,15 +2570,11 @@ export default async function handler(req, res) {
       return primeCobrancasStatus(req, res)
 
     case 'sync-lyra': {
-      // Autenticação obrigatória pra AMBOS dryRun=true e dryRun=false: mesmo em
-      // modo relatório, a resposta expõe nomes, valores, vencimentos e status
-      // financeiros reais — não é seguro deixar público.
-      const cronSecret = process.env.CRON_SECRET
-      const authHeader = req.headers.authorization
-      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-        return res.status(401).json({ error: 'Não autorizado' })
-      }
-      return syncLyra(req, res)
+      // Aposentado (Deploy A do cutover Free→Builder): o fluxo Lyra→PRIME foi
+      // substituído pela arquitetura Mercado Pago V2 nativa do PRIME Cobranças
+      // Builder (webhookMercadoPago). Código interno (syncLyra/processarCobranca)
+      // mantido intacto só pra rollback/auditoria — nunca mais executado por aqui.
+      return res.status(410).json({ error: 'Endpoint aposentado — substituído pela arquitetura Mercado Pago V2 do PRIME Cobranças Builder' })
     }
 
     case 'stuck-check': {
@@ -2592,187 +2588,19 @@ export default async function handler(req, res) {
     }
 
     case 'lyra-webhook': {
-      // Segredo próprio (LYRA_WEBHOOK_SECRET), diferente do CRON_SECRET — configurado
-      // manualmente dentro da Lyra, não é injetado automaticamente por nada da Vercel.
-      const webhookSecret = LYRA_WEBHOOK_SECRET
-      const authHeader = req.headers.authorization
-      if (!webhookSecret || authHeader !== `Bearer ${webhookSecret}`) {
-        return res.status(401).json({ error: 'Não autorizado' })
-      }
-      return lyraWebhook(req, res)
+      // Aposentado (Deploy A do cutover Free→Builder): mesma razão do sync-lyra
+      // acima — substituído pela arquitetura Mercado Pago V2 nativa do Builder.
+      // A Lyra ainda tenta chamar isso (fire-and-forget, ver consultarStatusCobranca),
+      // mas tolera falha silenciosamente — sem quebra do lado dela.
+      return res.status(410).json({ error: 'Endpoint aposentado — substituído pela arquitetura Mercado Pago V2 do PRIME Cobranças Builder' })
     }
 
     case 'gerar-cobranca-lyra': {
-      // CORS específico desta tool (FASE 3.2.0) — remove o "*" global (linha do topo do
-      // handler) só pra este case, pra permitir chamada direta do navegador com header
-      // Authorization/Content-Type. Comparação de Origin é por IGUALDADE EXATA (nunca
-      // startsWith/includes) — evita aceitar subdomínios ou paths forjados como
-      // "https://prime-vip.base44.app.evil.com". Reutiliza GERAR_COBRANCA_ALLOWED_ORIGINS,
-      // mesma env já usada pela checagem de Origin best-effort mais abaixo.
-      const normalizarOrigin = (valor) => String(valor || '').trim().replace(/\/+$/, '')
-      const origemRecebida = normalizarOrigin(req.headers.origin)
-      const origensPermitidas = String(process.env.GERAR_COBRANCA_ALLOWED_ORIGINS || '')
-        .split(',')
-        .map(normalizarOrigin)
-        .filter(Boolean)
-      const origemPermitida = Boolean(origemRecebida) && origensPermitidas.includes(origemRecebida)
-
-      res.removeHeader('Access-Control-Allow-Origin')
-      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-      res.setHeader('Vary', 'Origin')
-      if (origemPermitida) {
-        res.setHeader('Access-Control-Allow-Origin', origemRecebida)
-      }
-
-      if (req.method === 'OPTIONS') {
-        if (!origemPermitida) {
-          return res.status(403).json({ success: false, error: 'Origem não permitida' })
-        }
-        return res.status(204).end()
-      }
-
-      const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
-
-      // --- 1. Autenticação dupla isolada (FASE 3.3.1) ---
-      // Dois segredos completamente independentes, nunca comparados entre si, nunca
-      // aceitos como equivalentes. COBRANCA_FRONTEND_TOKEN só existe dentro deste case —
-      // nenhum outro `case` do switch abaixo lê essa variável, então ele nunca autentica
-      // sync-lyra/lyra-webhook/stuck-check, mesmo se alguém tentar usá-lo lá.
-      const gerarCobrancaSecret = process.env.GERAR_COBRANCA_SECRET
-      const frontendToken = process.env.COBRANCA_FRONTEND_TOKEN
-      const authHeader = req.headers.authorization
-
-      let modoAuth = null
-      if (gerarCobrancaSecret && authHeader === `Bearer ${gerarCobrancaSecret}`) {
-        modoAuth = 'admin'
-      } else if (frontendToken && authHeader === `Bearer ${frontendToken}`) {
-        modoAuth = 'frontend'
-      }
-
-      if (!modoAuth) {
-        console.error('[system-tools:gerar-cobranca-lyra] Tentativa não autorizada', { ip: ipHashCurto(ip) })
-        return res.status(401).json({ error: 'Não autorizado' })
-      }
-
-      // ============================================================================
-      // MODO FRONTEND (FASE 3.3.1) — token público temporário, exclusivo desta tool.
-      // Só aceita dryRun=false, body estritamente {parcela_id, dryRun}, Origin exato
-      // (não best-effort). Nunca lê valor/telefone/nome/cliente/vencimento/IDs do
-      // request — a lógica financeira (gerarCobrancaLyraReal) sempre relê tudo
-      // oficialmente do PRIME, igual ao modo admin.
-      // ============================================================================
-      if (modoAuth === 'frontend') {
-        // 2. Origin exato — reaproveita `origemPermitida` já calculado no bloco de CORS
-        // acima (igualdade exata contra GERAR_COBRANCA_ALLOWED_ORIGINS), não o
-        // checarOrigemBestEffort (que é best-effort e usado só pelo modo admin).
-        if (!origemPermitida) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: Origin não permitida', { modoAuth, ip: ipHashCurto(ip), status: 403, resultado: 'origin_invalida' })
-          return res.status(403).json({ error: 'Origem não permitida' })
-        }
-
-        // FASE 3.3.1B — rate limit por IP aplicado JÁ AQUI, logo após auth+Origin válidos,
-        // ANTES de validar método/body/campos/parcela_id. Objetivo: qualquer tentativa
-        // autenticada pelo token frontend consome o limite por IP, mesmo que o resto do
-        // request seja malformado (GET, body vazio, JSON malformado, campo extra,
-        // dryRun inválido, parcela_id inválido) — evita que alguém spamme tentativas
-        // inválidas pra sempre sem nunca esbarrar no rate limit.
-        if (!checarRateLimitFrontendBestEffort(ip)) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: rate limit por IP excedido', { modoAuth, ip: ipHashCurto(ip), status: 429, resultado: 'rate_limit_ip' })
-          return res.status(429).json({ error: 'Muitas tentativas — aguarde e tente novamente' })
-        }
-
-        // 3. Método
-        if (req.method !== 'POST') {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: método inválido', { modoAuth, ip: ipHashCurto(ip), metodo: req.method, status: 405, resultado: 'metodo_invalido' })
-          return res.status(405).json({ error: 'Use POST' })
-        }
-
-        // 4. Body estritamente {parcela_id, dryRun} — rejeita qualquer campo extra
-        // (valor, telefone, nome, cliente, vencimento, link, IDs externos) mesmo que
-        // a lógica financeira já os ignore — defesa em profundidade, não só confiança.
-        const body = req.body
-        if (!body || typeof body !== 'object' || Array.isArray(body)) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: body inválido', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'body_invalido' })
-          return res.status(400).json({ error: 'Body inválido' })
-        }
-        const chaves = Object.keys(body).sort()
-        const permitidas = ['dryRun', 'parcela_id'].sort()
-        const estruturaValida = chaves.length === permitidas.length && chaves.every((chave, index) => chave === permitidas[index])
-        if (!estruturaValida) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: campos não permitidos no body', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'campos_invalidos' })
-          return res.status(400).json({ error: 'Campos não permitidos no request' })
-        }
-
-        // 5. Extração e validação de parcela_id (só depois da validação de estrutura) —
-        // parcela_id NUNCA é usado antes deste ponto, inclusive pro rate limit por parcela.
-        if (typeof body.parcela_id !== 'string' || !body.parcela_id.trim()) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: parcela_id inválido', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'parcela_id_invalido' })
-          return res.status(400).json({ error: 'parcela_id inválido' })
-        }
-        if (body.dryRun !== false) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: dryRun deve ser false', { modoAuth, ip: ipHashCurto(ip), status: 400, resultado: 'dryrun_invalido' })
-          return res.status(400).json({ error: 'dryRun deve ser false no modo frontend' })
-        }
-        const parcelaIdFrontend = body.parcela_id
-
-        // 6. Rate limit por parcela — só depois de parcela_id validado como string não
-        // vazia (nunca antes). Mapa separado do rate limit por IP (item anterior) e do
-        // modo admin — ambos best-effort, em memória do processo (ver declaração no topo
-        // do arquivo): resetam a cada cold start, não são compartilhados entre instâncias/
-        // regiões da Vercel, não substituem autenticação real.
-        if (!checarRateLimitPorParcelaBestEffort(parcelaIdFrontend)) {
-          console.error('[system-tools:gerar-cobranca-lyra] frontend: rate limit por parcela excedido', { modoAuth, ip: ipHashCurto(ip), status: 429, resultado: 'rate_limit_parcela' })
-          return res.status(429).json({ error: 'Muitas tentativas para esta parcela — aguarde' })
-        }
-
-        // 7. Execução do helper já existente — mesma lógica financeira do modo admin,
-        // sem nenhuma alteração (Parcela/Venda/Cliente relidos oficialmente, saldo,
-        // vínculo divergente, idempotência, recuperação por prime_parcela_id).
-        console.log('[system-tools:gerar-cobranca-lyra] Requisição frontend', { modoAuth, parcela_id: parcelaIdFrontend, ip: ipHashCurto(ip) })
-        const resultado = await gerarCobrancaLyraReal({ parcelaId: parcelaIdFrontend })
-        return res.status(resultado.httpStatus).json(resultado.body)
-      }
-
-      // ============================================================================
-      // MODO ADMIN — comportamento idêntico ao já existente desde a FASE 2, sem
-      // nenhuma alteração de lógica (só o log ganhou o campo modoAuth).
-      // ============================================================================
-      const origemCheck = checarOrigemBestEffort(req)
-      if (!origemCheck.ok) {
-        console.error('[system-tools:gerar-cobranca-lyra] Origin/Referer bloqueado', { modoAuth, motivo: origemCheck.motivo })
-        return res.status(403).json({ error: 'Origem não permitida' })
-      }
-
-      if (!checarRateLimitBestEffort(ip)) {
-        console.error('[system-tools:gerar-cobranca-lyra] Rate limit best-effort excedido', { modoAuth, ip: ipHashCurto(ip) })
-        return res.status(429).json({ error: 'Muitas tentativas — aguarde e tente novamente' })
-      }
-
-      if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Use POST' })
-      }
-
-      const parcelaId = req.body?.parcela_id
-      // Default seguro: qualquer coisa diferente do booleano `false` literal mantém dryRun=true.
-      const dryRun = req.body?.dryRun !== false
-
-      if (!dryRun) {
-        // Modo real exige Origin efetivamente checada (allowlist configurada), não só
-        // "pulada por falta de configuração" — dry-run tolera a checagem best-effort,
-        // escrita real não.
-        if (!origemCheck.checado) {
-          console.error('[system-tools:gerar-cobranca-lyra] dryRun=false recusado — GERAR_COBRANCA_ALLOWED_ORIGINS não configurada')
-          return res.status(403).json({ error: 'dryRun=false exige GERAR_COBRANCA_ALLOWED_ORIGINS configurada e Origin/Referer validado' })
-        }
-        console.log('[system-tools:gerar-cobranca-lyra] Requisição REAL (dryRun=false)', { modoAuth, parcela_id: parcelaId, ip: ipHashCurto(ip) })
-        const resultado = await gerarCobrancaLyraReal({ parcelaId })
-        return res.status(resultado.httpStatus).json(resultado.body)
-      }
-
-      console.log('[system-tools:gerar-cobranca-lyra] Requisição dry-run', { modoAuth, parcela_id: parcelaId, ip: ipHashCurto(ip), origemChecada: origemCheck.checado })
-      const resultado = await gerarCobrancaLyraDryRun({ parcelaId, ip, req })
-      return res.status(resultado.httpStatus).json(resultado.body)
+      // Aposentado (Deploy A do cutover Free→Builder): substituído pela function
+      // nativa gerarLinkPagamento do PRIME Cobranças Builder (Mercado Pago V2).
+      // Código interno (gerarCobrancaLyraReal/DryRun em api/_gerarCobrancaLyra.js)
+      // mantido intacto só pra rollback/auditoria — nunca mais executado por aqui.
+      return res.status(410).json({ error: 'Endpoint aposentado — substituído pela arquitetura Mercado Pago V2 do PRIME Cobranças Builder' })
     }
 
     case 'mensagem-manual': {
