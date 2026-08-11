@@ -22,7 +22,7 @@
 import { createClient } from '@base44/sdk'
 
 const MENSAGEM_MANUAL_URL = 'https://prime-vip.base44.app/functions/enviarMensagemManualWhatsapp'
-const ENVIAR_MENSAGEM_GERAL_URL = 'https://6a728f9b46a0aea20081a11f.base44.app/api/functions/enviarMensagemGeralWhatsApp'
+const ENVIAR_MENSAGEM_GERAL_URL = 'https://6a728f9b46a0aea20081a11f.base44.app/functions/enviarMensagemGeralWhatsApp'
 const BUILDER_APP_ID = '6a728f9b46a0aea20081a11f'
 const MENSAGEM_MANUAL_TIMEOUT_MS = 12000
 // 'acao' aceito aqui só pra permitir o valor explícito 'enviar' (compatibilidade com
