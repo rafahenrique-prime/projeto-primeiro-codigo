@@ -3,17 +3,27 @@
 // _gerarCobrancaLyra.js). Exporta só funções nomeadas, importadas por api/system-tools.js.
 // Nenhum `export default`.
 //
-// Responsabilidade: ponte segura entre o CRM (navegador) e a Backend Function
-// enviarMensagemManualWhatsapp (PRIME Base44). O navegador nunca recebe nem conhece
-// MENSAGEM_MANUAL_SERVICE_TOKEN — esse token só existe aqui, lido de
-// process.env, nunca logado, nunca devolvido.
+// Responsabilidade: ponte segura entre o CRM (navegador) e a Backend Function do
+// PRIME Cobranças. O navegador nunca recebe nem conhece nenhum dos tokens de
+// serviço — eles só existem aqui, lidos de process.env, nunca logados, nunca
+// devolvidos.
 //
-// O proxy NÃO decide template, NÃO decide vendedor, NÃO decide telefone — tudo isso já
-// é responsabilidade exclusiva de enviarMensagemManualWhatsapp (PRIME). Este arquivo só
-// valida o contrato mínimo aceito do navegador, define modo_teste=true internamente, e
-// repassa apenas os campos seguros da resposta de volta ao navegador.
+// O proxy NÃO decide template, NÃO decide vendedor — isso continua responsabilidade
+// exclusiva do backend Base44. Este arquivo valida o contrato mínimo aceito do
+// navegador e repassa apenas os campos seguros da resposta de volta ao navegador.
+//
+// migração Free→Builder (envio real): o envio passou a usar a function
+// enviarMensagemGeralWhatsApp do PRIME Cobranças Builder ({cliente_id, phone,
+// message, idempotency_key}, autenticada por WHATSAPP_INTERNAL_TOKEN) — telefone
+// resolvido aqui via Cliente.get no Builder, nunca aceito do navegador. As ações
+// só-leitura (listar_templates/previsualizar) continuam no Free (MENSAGEM_MANUAL_URL/
+// MENSAGEM_MANUAL_SERVICE_TOKEN) — sem equivalente no Builder ainda.
+
+import { createClient } from '@base44/sdk'
 
 const MENSAGEM_MANUAL_URL = 'https://prime-vip.base44.app/functions/enviarMensagemManualWhatsapp'
+const ENVIAR_MENSAGEM_GERAL_URL = 'https://6a728f9b46a0aea20081a11f.base44.app/functions/enviarMensagemGeralWhatsApp'
+const BUILDER_APP_ID = '6a728f9b46a0aea20081a11f'
 const MENSAGEM_MANUAL_TIMEOUT_MS = 12000
 // 'acao' aceito aqui só pra permitir o valor explícito 'enviar' (compatibilidade com
 // quem passar a mandar `acao` sempre) — listar_templates/previsualizar são
@@ -110,30 +120,56 @@ export function validarPayloadMensagemManual(body) {
   return { valido: true, cliente_id, texto_mensagem: textoTrim, request_id }
 }
 
-// Chamada HTTP direta ao endpoint já validado (mesmo padrão de chamarCriarCobrancaLyra em
-// _gerarCobrancaLyra.js) — timeout via AbortController, uma única chamada, sem retry,
-// resposta sempre parseada defensivamente. modo_teste=true é definido aqui dentro, nunca
-// aceito do navegador.
+// Resolve o telefone do cliente direto no Builder — nunca aceito do navegador,
+// mesmo princípio de segurança já documentado no topo do arquivo. Falha aqui
+// (cliente não encontrado, telefone vazio) vira erro controlado, nunca propaga
+// exceção nem chama a Function de envio sem telefone válido.
+async function resolverTelefoneClienteBuilder(cliente_id) {
+  const apiKey = process.env.BASE44_API_KEY
+  if (!apiKey) return { ok: false, error_code: 'missing_base44_api_key' }
+  try {
+    const builder = createClient({ appId: BUILDER_APP_ID, headers: { api_key: apiKey } })
+    const cliente = await builder.entities.Cliente.get(cliente_id)
+    if (!cliente || !cliente.telefone || typeof cliente.telefone !== 'string' || cliente.telefone.trim() === '') {
+      return { ok: false, error_code: 'cliente_telefone_invalido' }
+    }
+    return { ok: true, phone: cliente.telefone }
+  } catch (err) {
+    return { ok: false, error_code: 'cliente_nao_encontrado' }
+  }
+}
+
+// Chamada HTTP direta à function enviarMensagemGeralWhatsApp (PRIME Cobranças
+// Builder) — timeout via AbortController, uma única chamada, sem retry, resposta
+// sempre parseada defensivamente. `request_id` do IGNITE é reaproveitado como
+// `idempotency_key` sem transformação (já é estável entre retries de rede, mesma
+// semântica que o Builder espera). Telefone nunca aceito do navegador — sempre
+// resolvido aqui via resolverTelefoneClienteBuilder.
 export async function chamarEnviarMensagemManualWhatsapp({ cliente_id, texto_mensagem, request_id }) {
-  const serviceToken = process.env.MENSAGEM_MANUAL_SERVICE_TOKEN
-  if (!serviceToken) {
-    return { ok: false, error_code: 'missing_service_token' }
+  const internalToken = process.env.WHATSAPP_INTERNAL_TOKEN
+  if (!internalToken) {
+    return { ok: false, error_code: 'missing_internal_token' }
+  }
+
+  const telefoneResolvido = await resolverTelefoneClienteBuilder(cliente_id)
+  if (!telefoneResolvido.ok) {
+    return { ok: false, error_code: telefoneResolvido.error_code }
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), MENSAGEM_MANUAL_TIMEOUT_MS)
   try {
-    const resp = await fetch(MENSAGEM_MANUAL_URL, {
+    const resp = await fetch(ENVIAR_MENSAGEM_GERAL_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${serviceToken}`,
+        'Authorization': `Bearer ${internalToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         cliente_id,
-        texto_mensagem,
-        request_id,
-        modo_teste: true, // nesta fase, nunca liberado a partir do proxy
+        phone: telefoneResolvido.phone,
+        message: texto_mensagem,
+        idempotency_key: request_id,
       }),
       signal: controller.signal,
     })
