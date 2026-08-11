@@ -16,7 +16,7 @@
 import { createClient } from '@base44/sdk'
 
 const BASE44_API_KEY = process.env.BASE44_API_KEY
-const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
+const PRIME_APP_ID = '6a728f9b46a0aea20081a11f' // PRIME Cobranças Builder (cutover Preview B)
 
 const MAX_CANDIDATOS_NOME = 3
 const MAX_LIMITE_PARCELAS = 10

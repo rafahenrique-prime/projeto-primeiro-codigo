@@ -237,7 +237,7 @@ const TEAM_ID = 'team_O0lVaTLcrP62cKLeTZwclgAq'
 
 const BASE44_API_KEY = process.env.BASE44_API_KEY
 const LYRA_APP_ID = '6a518d72335f3c31663dc63d'
-const PRIME_APP_ID = '6a50402b2eeb1d1114312861'
+const PRIME_APP_ID = '6a728f9b46a0aea20081a11f' // PRIME Cobranças Builder (cutover Preview B)
 
 // tool=prime-cobrancas-status (Fase C) — token interno já usado pra autenticar
 // chamadas legítimas dentro do próprio Base44 (mesmo secret que lembreteCobrancas
