@@ -344,7 +344,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('[Webhook] 📨 Requisição recebida:', req.body)
+    // Nunca logar req.body bruto: campos nomeados e truncados só.
+    const perguntaBruta = req.body?.prompt || req.body?.pergunta || req.body?.message ||
+      req.body?.text || req.body?.input || req.body?.msg || req.body?.content || req.body?.query || req.body?.body || ''
+    console.log('[Webhook] 📨 Requisição recebida:', {
+      pergunta: String(perguntaBruta).slice(0, 120),
+      cliente_id: req.body?.cliente_id || req.body?.contextId || null,
+    })
 
     // Warm-up: acorda o Supabase em background (não bloqueia a resposta)
     warmupSupabase().catch(() => {})

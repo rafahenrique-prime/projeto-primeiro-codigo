@@ -535,7 +535,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' })
 
   const body = req.body || {}
-  console.log('[auto-photo] Webhook recebido:', JSON.stringify(body).slice(0, 300))
+  // Nunca logar o objeto bruto: o GPT Maker anexa automaticamente todas as
+  // variáveis {{...}} do workspace (inclusive o token do bot Telegram) ao body
+  // dessa intenção (autoGenerateBody: true) — já vazou em texto puro nos logs
+  // do Vercel antes desta correção. Só campos nomeados e seguros abaixo.
+  console.log('[auto-photo] Webhook recebido:', {
+    chatId: body.chatId || body.chat_id || body.conversationId || body.conversation_id || null,
+    contactName: body.contact_name || null,
+    telefoneMascarado: maskPhone(extractPhoneCandidate(body)),
+    temMessage: Boolean(body.message || body.text || body.content),
+  })
 
   const requestId = genRequestId()
   diagLog('webhook_recebido', {
