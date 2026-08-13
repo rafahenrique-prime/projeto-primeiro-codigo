@@ -119,6 +119,8 @@ O backend é **serverless na Vercel** (funções em `api/`). Cada arquivo vira u
 ### `/api/telegram-alert` — **removido em 2026-07-11**
 Existiu para centralizar alertas Telegram vindos de intenções do GPT Maker, mas auditoria ao vivo (`GET /v2/agent/{id}/intentions` nos 4 agentes do workspace) confirmou que **nenhuma** intenção apontava pra essa rota — as 5 intenções de alerta (Pedido grande, Cliente Insatisfeito, Novo Lead, Venda Confirmada, Alerta rafael) sempre chamaram `api.telegram.org` **diretamente**, com o token do bot embutido na própria URL configurada no painel. `cron-diagnosis.js` e `cron-stuck-check.js` também chamam `api.telegram.org` direto, sem passar por essa rota. Órfão confirmado, removido sem impacto — alertas continuam funcionando normalmente pelos caminhos diretos.
 
+**Atualização 2026-08-13:** a intention "Alerta rafael" deixou de chamar `api.telegram.org` direto **só no agente GABY LAB** — passou a chamar `?tool=alerta-inteligente` em `api/system-tools.js` (Alerta Inteligente V1, homologado). Os outros 4 tipos de alerta e a Gabriela de produção continuam exatamente como descrito acima. Ver `docs/integrations/ALERTA-INTELIGENTE.md`.
+
 ---
 
 ### `/api/bagy-audit` — Auditoria da loja Bagy/Dooca
