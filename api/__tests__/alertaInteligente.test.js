@@ -8,7 +8,7 @@ import {
   buildDedupKey,
   FALLBACK_MESSAGE,
   processarAlertaInteligente,
-} from '../alerta-inteligente.js'
+} from '../_alertaInteligente.js'
 
 /**
  * api/__tests__/alertaInteligente.test.js
