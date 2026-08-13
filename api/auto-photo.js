@@ -83,7 +83,7 @@ async function logPhotoHistory({ produto, cliente, canal, sucesso, erro }) {
   }
 }
 
-const PALAVRAS_GENERICAS = new Set([
+export const PALAVRAS_GENERICAS = new Set([
   'tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto',
   'perfume', 'oculos', 'bone', 'blusa', 'moletom', 'masculino', 'feminino',
   // categorias que faltavam (mesmo gap encontrado e corrigido em vision-inbound.js
@@ -91,6 +91,22 @@ const PALAVRAS_GENERICAS = new Set([
   'chinelo', 'papete', 'sandalia', 'plataforma', 'cropped', 'short', 'shorts',
   'cinto', 'jaqueta', 'carteira',
   'foto', 'imagem', 'produto', 'esse', 'essa', 'este', 'esta', 'dele', 'dela'
+])
+
+// Subconjunto de PALAVRAS_GENERICAS que representa categoria REAL de produto —
+// usado só para derivar queryCategory/pCategory em findProductInText(). Palavras
+// de ação/pedido ("foto", "imagem", "produto") e pronomes ("esse", "essa"...) que
+// também estão em PALAVRAS_GENERICAS continuam sendo ignoradas na pontuação por
+// palavra específica, mas NUNCA podem virar filtro de categoria — foi isso que
+// causou o bug de foto errada (2026-08-12): "manda foto" fazia "foto" virar
+// categoria, descartando todo produto de categoria real (ex.: "tenis") e deixando
+// passar sem filtro produtos sem categoria reconhecida (ex.: "Louis Vuitton").
+// "masculino"/"feminino" também ficam de fora — são gênero, não tipo de produto.
+const CATEGORIAS_REAIS = new Set([
+  'tenis', 'camiseta', 'camisa', 'cueca', 'bermuda', 'calca', 'conjunto',
+  'perfume', 'oculos', 'bone', 'blusa', 'moletom',
+  'chinelo', 'papete', 'sandalia', 'plataforma', 'cropped', 'short', 'shorts',
+  'cinto', 'jaqueta', 'carteira',
 ])
 
 const CATALOG_FALLBACK = [
@@ -144,7 +160,7 @@ const CATALOG_FALLBACK = [
   { nome: "Camisa Brasil Amarela Nike I 2026/27 Jogador Masculina", preco: "R$ 499,00", imagem: "https://cdn.dooca.store/161486/products/img-6276-wfnbq.jpg?v=1773956685", link: "https://www.primestoremen.com.br/camisa-do-brasil-ii-2627-torcedor-pro-masculina-nike-amarela-2026-copa-1" },
 ]
 
-function isValidImageUrl(url) {
+export function isValidImageUrl(url) {
   if (!url || typeof url !== 'string') return false
   if (url.includes('primestoremen.com.br')) return false
   return url.startsWith('http') && (
@@ -155,7 +171,7 @@ function isValidImageUrl(url) {
   )
 }
 
-function detectProductRequest(msg, lastAssistantMsg) {
+export function detectProductRequest(msg, lastAssistantMsg) {
   const m = (msg || '').toLowerCase()
   const direct = [
     /mand[ae].*foto/,
@@ -175,7 +191,7 @@ function detectProductRequest(msg, lastAssistantMsg) {
   return assistantOfferedPhoto && isShortConfirmation
 }
 
-function getLastAssistantText(msgs) {
+export function getLastAssistantText(msgs) {
   const lastAssistant = [...(msgs || [])].reverse().find(m => m.role === 'assistant' || m.role === 'agent' || m.role === 'bot')
   return lastAssistant ? (lastAssistant.text || lastAssistant.content || lastAssistant.message || '') : ''
 }
@@ -229,7 +245,7 @@ function extractProductNamesFromChat(messages, count = 2) {
   return productNames.slice(0, count)
 }
 
-function extractProductName(msg) {
+export function extractProductName(msg) {
   const m = (msg || '').toLowerCase()
 
   // Pronomes e palavras que NÃO são nome de produto
@@ -263,7 +279,7 @@ function extractProductName(msg) {
   return null
 }
 
-function normalize(str) {
+export function normalize(str) {
   // eslint-disable-next-line no-misleading-character-class
   return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     // Remove pontuação/markdown (ex: "*tênis" da Gabriela usando **negrito** não batia
@@ -273,20 +289,20 @@ function normalize(str) {
     .trim()
 }
 
-function findProductInText(text, catalog) {
+export function findProductInText(text, catalog) {
   if (!text) return null
   const lowerText = normalize(text)
 
   // Se a busca contém palavra de categoria (bone, tenis, cueca...), filtra só por essa categoria
   const queryWords = new Set(lowerText.split(/\s+/))
-  const queryCategory = [...queryWords].find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+  const queryCategory = [...queryWords].find(w => CATEGORIAS_REAIS.has(w) && w.length >= 4)
   console.log('[findProductInText] Input:', text, '| Normalized:', lowerText, '| Category:', queryCategory)
 
   const sorted = [...catalog].sort((a, b) => b.nome.length - a.nome.length)
   for (const p of sorted) {
     const nomeLower = normalize(p.nome)
     const words = nomeLower.split(/\s+/).filter(w => w.length >= 3)
-    const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+    const pCategory = words.find(w => CATEGORIAS_REAIS.has(w) && w.length >= 4)
 
     if (queryCategory && pCategory && pCategory !== queryCategory) {
       console.log('[findProductInText] ⏭️  SKIP (categoria errada):', p.nome, '(category:', pCategory, '!==', queryCategory, ')')
@@ -312,7 +328,7 @@ function findProductInText(text, catalog) {
     if (specificWords.length === 0) continue
 
     if (queryCategory) {
-      const pCategory = words.find(w => PALAVRAS_GENERICAS.has(w) && w.length >= 4)
+      const pCategory = words.find(w => CATEGORIAS_REAIS.has(w) && w.length >= 4)
       if (pCategory && pCategory !== queryCategory) {
         console.log('[findProductInText] ⏭️  SKIP FASE2 (categoria errada):', p.nome)
         continue
