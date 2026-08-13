@@ -1,8 +1,17 @@
-// api/alerta-inteligente.js
+// api/_alertaInteligente.js
 //
-// Alerta inteligente de handoff humano — V1 (backend isolado, ainda NÃO ligado
-// à intention "Alerta rafael" do GPT Maker; ver docs/backups/ + CLAUDE.md §
-// GPT Maker antes de qualquer troca de URL na intention).
+// Helper privado (prefixo "_" — mesmo padrão de _toolConsultarProduto.js/
+// _consultarCep.js: nunca vira Function pública própria, nunca `export
+// default`). Implementa a lógica do Alerta Inteligente de handoff humano,
+// consumida por api/system-tools.js via ?tool=alerta-inteligente.
+//
+// Migrado de api/alerta-inteligente.js (arquivo-rota independente) porque o
+// Vercel Hobby limita a 12 Serverless Functions — como arquivo-rota próprio,
+// este era o 13º e o deploy foi rejeitado. Nenhuma lógica mudou nesta
+// migração, só onde ela roda (mesmo padrão já usado por qwen-health, ver
+// comentário no topo de system-tools.js). Ainda NÃO ligado à intention
+// "Alerta rafael" do GPT Maker; ver docs/backups/ + CLAUDE.md § GPT Maker
+// antes de qualquer troca de URL na intention.
 //
 // Objetivo: dado um `telefone` (whatsappPhone) do cliente, localizar o chat
 // real na API do GPT Maker, buscar o histórico de mensagens, gerar um resumo
@@ -29,6 +38,10 @@
 // Mesmo padrão de `api/_toolConsultarProduto.js`: toda função de I/O recebe
 // `deps` (fetchImpl injetável, credenciais explícitas) em vez de ler
 // `process.env`/`fetch` global diretamente — os testes nunca tocam rede real.
+// A entrada única `processarAlertaInteligente(params, deps)` é chamada pelo
+// `case 'alerta-inteligente'` de api/system-tools.js, que monta `deps` a
+// partir das constantes de env já declaradas ali (mesmo padrão de
+// `consultarProduto`/`case 'consultar-produto'`).
 
 import crypto from 'crypto'
 
@@ -358,42 +371,4 @@ export async function processarAlertaInteligente(params, deps) {
 
   console.log('[alerta-inteligente] Alerta enviado', { chatId: chat.id, modo })
   return { status: 'sent', modo, chatId: chat.id, dedupKey }
-}
-
-function buildDepsFromEnv() {
-  return {
-    expectedSecret: process.env.ALERTA_INTELIGENTE_SECRET,
-    gptmakerToken: process.env.VITE_GPTMAKER_TOKEN,
-    workspace: process.env.VITE_GPTMAKER_WORKSPACE,
-    groqApiKey: process.env.VITE_GROQ_API_KEY,
-    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
-    telegramChatId: process.env.TELEGRAM_CHAT_ID,
-    supabaseUrl: process.env.VITE_SUPABASE_URL,
-    supabaseKey: process.env.VITE_SUPABASE_KEY,
-  }
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ ok: false, erro: 'Método não permitido' })
-  }
-
-  // Body/query defensivos — GPT Maker chama via GET (mesmo padrão de webhook
-  // simples já usado nas outras intentions), mas POST também é aceito.
-  const params = req.method === 'GET'
-    ? (req.query && typeof req.query === 'object' ? req.query : {})
-    : (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {})
-
-  try {
-    const resultado = await processarAlertaInteligente(params, buildDepsFromEnv())
-    if (resultado.status === 'unauthorized') {
-      return res.status(401).json({ ok: false, erro: 'Não autorizado' })
-    }
-    // Sempre 200 pro GPT Maker daqui em diante — o handoff nunca deve travar
-    // por causa deste endpoint, mesmo quando o resultado interno foi um erro.
-    return res.status(200).json({ ok: true, status: resultado.status, modo: resultado.modo || null })
-  } catch (err) {
-    console.error('[alerta-inteligente] Erro interno inesperado:', err?.message)
-    return res.status(200).json({ ok: true, status: 'internal_error' })
-  }
 }

@@ -129,6 +129,21 @@
 //                           importado de poc/zap-gptmaker-bridge/bridgeCore.js (núcleo
 //                           extraído na POC 2A), com getBridgeConfig(process.env) lida no
 //                           momento da requisição. Nenhum segredo/token/config é logado.
+// ?tool=alerta-inteligente → Alerta inteligente de handoff humano — migrado de
+//                           api/alerta-inteligente.js (arquivo-rota próprio) pra caber no
+//                           limite de 12 Serverless Functions do Hobby, mesmo motivo do
+//                           qwen-health acima — nenhuma mudança de comportamento. Dado um
+//                           `telefone` (whatsappPhone), localiza o chat REAL na API do GPT
+//                           Maker (nunca usa `contextId` como `chatId` — só a listagem de
+//                           chats do workspace dá o `chat.id` verdadeiro), busca o
+//                           histórico, gera um resumo factual estruturado via Groq e envia
+//                           ao Telegram. Cai no alerta simples já existente
+//                           ("⚠️ RAFAEL, CLIENTE AGUARDANDO SEM RESPOSTA!") se qualquer
+//                           etapa do resumo falhar. Exige `secret=<ALERTA_INTELIGENTE_SECRET>`
+//                           (comparação resistente a timing attack). Toda a lógica vive em
+//                           _alertaInteligente.js — este case só monta `deps` e traduz o
+//                           resultado em HTTP. Ainda NÃO ligado à intention "Alerta rafael"
+//                           do GPT Maker (que hoje chama api.telegram.org diretamente).
 
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'
@@ -153,6 +168,7 @@ import {
 import { processarLote, obterClienteComEventos, obterAgregados } from './_nexClientes.js'
 import { consultarProduto } from './_toolConsultarProduto.js'
 import { runPrimeBridgeWebhook } from './_primeBridgeWebhook.js'
+import { processarAlertaInteligente } from './_alertaInteligente.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -327,6 +343,11 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
 const GPTMAKER_BASE = 'https://api.gptmaker.ai'
+
+// tool=alerta-inteligente — mesma chave Groq já usada em cron-diagnosis.js (VITE_GROQ_API_KEY);
+// ALERTA_INTELIGENTE_SECRET é segredo próprio, diferente de CRON_SECRET/BRIDGE_TOOLS_SECRET/etc.
+const GROQ_API_KEY = process.env.VITE_GROQ_API_KEY
+const ALERTA_INTELIGENTE_SECRET = process.env.ALERTA_INTELIGENTE_SECRET
 
 // tool=qwen-health — mesma Secret key (service_role) já usada em api/_profileLearning.js.
 // SUPABASE_URL acima é reaproveitada (não é segredo, já lida por outras tools deste arquivo).
@@ -2787,7 +2808,39 @@ export default async function handler(req, res) {
       // Auditoria Bagy V2, Fase 5 — ver comentário no topo do arquivo.
       return bagyExceptionStatus(req, res)
 
+    case 'alerta-inteligente': {
+      // Try/catch próprio e isolado — uma exceção aqui nunca pode derrubar
+      // o roteador nem afetar as outras tools deste arquivo (system-tools.js
+      // não tem try/catch global ao redor do switch).
+      try {
+        const params = req.method === 'GET'
+          ? (req.query && typeof req.query === 'object' ? req.query : {})
+          : (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {})
+
+        const resultado = await processarAlertaInteligente(params, {
+          expectedSecret: ALERTA_INTELIGENTE_SECRET,
+          gptmakerToken: GPTMAKER_TOKEN,
+          workspace: GPTMAKER_WS,
+          groqApiKey: GROQ_API_KEY,
+          telegramBotToken: TELEGRAM_BOT_TOKEN,
+          telegramChatId: TELEGRAM_CHAT_ID,
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_KEY,
+        })
+
+        if (resultado.status === 'unauthorized') {
+          return res.status(401).json({ ok: false, erro: 'Não autorizado' })
+        }
+        // Sempre 200 daqui em diante — o handoff nunca deve travar por causa
+        // deste endpoint, mesmo quando o resultado interno foi um erro.
+        return res.status(200).json({ ok: true, status: resultado.status, modo: resultado.modo || null })
+      } catch (err) {
+        console.error('[system-tools:alerta-inteligente] Erro interno inesperado:', err?.message)
+        return res.status(200).json({ ok: true, status: 'internal_error' })
+      }
+    }
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status ou bagy-sync-run-ui)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status, alerta-inteligente ou bagy-sync-run-ui)' })
   }
 }
