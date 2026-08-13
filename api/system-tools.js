@@ -140,10 +140,15 @@
 //                           ao Telegram. Cai no alerta simples já existente
 //                           ("⚠️ RAFAEL, CLIENTE AGUARDANDO SEM RESPOSTA!") se qualquer
 //                           etapa do resumo falhar. Exige `secret=<ALERTA_INTELIGENTE_SECRET>`
-//                           (comparação resistente a timing attack). Toda a lógica vive em
-//                           _alertaInteligente.js — este case só monta `deps` e traduz o
-//                           resultado em HTTP. Ainda NÃO ligado à intention "Alerta rafael"
-//                           do GPT Maker (que hoje chama api.telegram.org diretamente).
+//                           (comparação resistente a timing attack). Aceita `agentId` opcional
+//                           (recomendado) — quando presente, telefone+agentId formam a
+//                           identificação conjunta do chat (resolve o caso real de um mesmo
+//                           telefone existir em chats de agentes diferentes, ex. Gaby Lab vs
+//                           Gabriela produção); ausente, preserva o comportamento por telefone
+//                           sozinho. Toda a lógica vive em _alertaInteligente.js — este case só
+//                           monta `deps` e traduz o resultado em HTTP. Ainda NÃO ligado à
+//                           intention "Alerta rafael" do GPT Maker (que hoje chama
+//                           api.telegram.org diretamente).
 
 import { createClient } from '@base44/sdk'
 import crypto from 'node:crypto'

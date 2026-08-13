@@ -107,6 +107,20 @@ describe('dispatcher ?tool=alerta-inteligente', () => {
     expect(depsArg.supabaseKey).toBe(TEST_SUPABASE_KEY)
   })
 
+  it('agentId do req.query chega intacto ao helper (correção de desambiguação Gaby Lab)', async () => {
+    processarAlertaInteligenteMock.mockResolvedValue({ status: 'sent', modo: 'inteligente', chatId: 'chat-1' })
+    const req = criarReq({
+      query: { tool: 'alerta-inteligente', telefone: '34999998888', agentId: 'agent-gaby-lab-123', contextId: 'ctx-1', secret: TEST_ALERTA_SECRET },
+    })
+    const res = criarRes()
+
+    await handler(req, res)
+
+    const [paramsArg] = processarAlertaInteligenteMock.mock.calls[0]
+    expect(paramsArg.agentId).toBe('agent-gaby-lab-123')
+    expect(paramsArg.contextId).toBe('ctx-1')
+  })
+
   it('helper devolve status "unauthorized" (secret inválido/ausente) → HTTP 401', async () => {
     processarAlertaInteligenteMock.mockResolvedValue({ status: 'unauthorized' })
     const req = criarReq({ query: { tool: 'alerta-inteligente', telefone: '34999998888', secret: 'errado' } })
