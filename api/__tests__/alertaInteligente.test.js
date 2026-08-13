@@ -6,6 +6,7 @@ import {
   parseSummaryJson,
   buildEnrichedMessage,
   buildDedupKey,
+  buildSummaryPrompt,
   FALLBACK_MESSAGE,
   processarAlertaInteligente,
 } from '../_alertaInteligente.js'
@@ -267,6 +268,48 @@ describe('parseSummaryJson', () => {
   it('tolera bloco ```json ... ``` que alguns modelos retornam', () => {
     const raw = '```json\n{"resumo_breve": "ok"}\n```'
     expect(parseSummaryJson(raw).resumo_breve).toBe('ok')
+  })
+})
+
+describe('buildSummaryPrompt — priorização temporal', () => {
+  // O Groq é sempre mockado nesta suíte — estes testes provam que a
+  // instrução de recência está corretamente embutida no prompt enviado
+  // (o código está certo). Não provam que o Groq de fato vai obedecer —
+  // isso só é validado no teste real (fora desta suíte automatizada).
+
+  it('1) preserva integralmente a regra anti-alucinação já existente', () => {
+    const prompt = buildSummaryPrompt('Cliente: oi\nAtendente: oi')
+    expect(prompt).toContain('Use SOMENTE fatos que estão literalmente presentes na conversa abaixo.')
+    expect(prompt).toContain('NUNCA invente ou infira produto, estoque, preço, tamanho, cor, disponibilidade, motivo ou pedido do cliente.')
+    expect(prompt).toContain('Se um campo não estiver claramente presente na conversa, retorne null para ele.')
+  })
+
+  it('2) instrui que as mensagens estão em ordem cronológica', () => {
+    const prompt = buildSummaryPrompt('Cliente: oi')
+    expect(prompt).toMatch(/ordem cronológica/i)
+  })
+
+  it('3) instrui "motivo_transferencia" a priorizar o motivo MAIS RECENTE quando há múltiplos assuntos', () => {
+    const prompt = buildSummaryPrompt('Cliente: oi')
+    expect(prompt).toMatch(/motivo_transferencia.*MAIS RECENTE/s)
+    expect(prompt).toContain('nunca um assunto antigo já tratado anteriormente na mesma conversa')
+  })
+
+  it('4) instrui "ultima_pergunta_cliente" a priorizar a mensagem mais recente relevante', () => {
+    const prompt = buildSummaryPrompt('Cliente: oi')
+    expect(prompt).toMatch(/ultima_pergunta_cliente.*MAIS RECENTE/s)
+  })
+
+  it('5) permite contexto antigo em "resumo_breve", mas sem que ele substitua a pendência atual', () => {
+    const prompt = buildSummaryPrompt('Cliente: oi')
+    expect(prompt).toMatch(/resumo_breve.*pode mencionar contexto anterior/s)
+    expect(prompt).toContain('sem deixar que esse contexto antigo substitua ou ofusque a pendência atual')
+  })
+
+  it('inclui as mensagens recebidas no corpo do prompt, sem alterá-las', () => {
+    const texto = 'Cliente: pedido não chegou\nAtendente: vou verificar\nCliente: quero trocar outro produto'
+    const prompt = buildSummaryPrompt(texto)
+    expect(prompt).toContain(texto)
   })
 })
 
@@ -590,6 +633,71 @@ describe('processarAlertaInteligente — deduplicação', () => {
     const r = await processarAlertaInteligente({ secret: SECRET, telefone: '34999998888' }, baseDeps({ fetchImpl }))
     expect(r.status).toBe('sent')
     expect(r.dedupKey).toBe('chat-real-123:m4')
+  })
+})
+
+describe('processarAlertaInteligente — regressão pós-priorização temporal + observabilidade do log de sucesso', () => {
+  // Prova que a mudança de prompt (só texto) e o novo log de sucesso não
+  // afetam identificação de chat (telefone+agentId), fallback, Telegram ou
+  // dedup — nada dessas 4 áreas foi tocado por esta correção.
+
+  it('6) telefone + agentId continua funcionando exatamente igual', async () => {
+    const fetchImpl = makeFetchRouter({
+      chatsPages: [[CHAT_GABY_LAB_FIXTURE, CHAT_GABRIELA_FIXTURE]],
+      messagesByChatId: { 'chat-gaby-lab-1': MESSAGES_FIXTURE },
+      groqOk: false,
+    })
+    const r = await processarAlertaInteligente(
+      { secret: SECRET, telefone: '5534999998888', agentId: AGENT_GABY_LAB },
+      baseDeps({ fetchImpl })
+    )
+    expect(r.chatId).toBe('chat-gaby-lab-1')
+  })
+
+  it('7) fallback simples continua funcionando igual', async () => {
+    const fetchImpl = makeFetchRouter({ chatsPages: [[]] })
+    const r = await processarAlertaInteligente({ secret: SECRET, telefone: '34999998888' }, baseDeps({ fetchImpl }))
+    expect(r.status).toBe('sent')
+    expect(r.modo).toBe('fallback_simples')
+  })
+
+  it('8) Telegram sucesso/dedup continuam iguais (registra só após confirmação)', async () => {
+    const fetchImpl = makeFetchRouter({
+      chatsPages: [[CHAT_FIXTURE]],
+      messagesByChatId: { 'chat-real-123': MESSAGES_FIXTURE },
+      groqOk: false,
+      telegramOk: true,
+    })
+    const r = await processarAlertaInteligente({ secret: SECRET, telefone: '34999998888' }, baseDeps({ fetchImpl }))
+    expect(r.status).toBe('sent')
+    const dedupPost = fetchImpl.mock.calls.find(([url, opts]) => url.includes('codex_alerts') && opts?.method === 'POST')
+    expect(dedupPost).toBeTruthy()
+  })
+
+  it('10) log de sucesso agora inclui agentIdPresente/candidatosTelefone/candidatosAposAgentId sanitizados', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const fetchImpl = makeFetchRouter({
+      chatsPages: [[CHAT_GABY_LAB_FIXTURE, CHAT_GABRIELA_FIXTURE]],
+      messagesByChatId: { 'chat-gaby-lab-1': MESSAGES_FIXTURE },
+      groqOk: false,
+    })
+    await processarAlertaInteligente(
+      { secret: SECRET, telefone: '5534999998888', agentId: AGENT_GABY_LAB },
+      baseDeps({ fetchImpl })
+    )
+
+    const chamada = logSpy.mock.calls.find(([msg]) => msg === '[alerta-inteligente] Alerta enviado')
+    expect(chamada).toBeTruthy()
+    const [, meta] = chamada
+    expect(meta.agentIdPresente).toBe(true)
+    expect(meta.candidatosTelefone).toBe(2)
+    expect(meta.candidatosAposAgentId).toBe(1)
+    // nunca o valor bruto de agentId/telefone/contextId nesse log
+    expect(meta.agentId).toBeUndefined()
+    expect(meta.telefone).toBeUndefined()
+    expect(meta.contextId).toBeUndefined()
+
+    logSpy.mockRestore()
   })
 })
 

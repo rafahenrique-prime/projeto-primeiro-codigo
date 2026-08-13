@@ -216,6 +216,10 @@ REGRAS OBRIGATÓRIAS:
 - NUNCA invente ou infira produto, estoque, preço, tamanho, cor, disponibilidade, motivo ou pedido do cliente.
 - Se um campo não estiver claramente presente na conversa, retorne null para ele.
 - "resumo_breve" tem no máximo 2 frases curtas, só com fatos observados (pode ser "" se não houver nada relevante).
+- As mensagens abaixo estão em ordem cronológica (mais antiga primeiro, mais recente por último).
+- Se a conversa tiver mais de um assunto, "motivo_transferencia" deve refletir o motivo MAIS RECENTE que levou o cliente a pedir atendimento humano — nunca um assunto antigo já tratado anteriormente na mesma conversa, mesmo que também seja verdadeiro.
+- "ultima_pergunta_cliente" deve ser a pergunta/mensagem MAIS RECENTE relevante do cliente, não uma mensagem antiga.
+- "resumo_breve" pode mencionar contexto anterior relevante (ex.: um problema antigo ainda sem solução), mas sem deixar que esse contexto antigo substitua ou ofusque a pendência atual.
 
 Conversa:
 ${messagesText}`
@@ -441,6 +445,12 @@ export async function processarAlertaInteligente(params, deps) {
   // Registro do dedup só acontece aqui, DEPOIS da confirmação de sucesso acima.
   await registrarDedup(dedupKey, mensagemFinal, deps)
 
-  console.log('[alerta-inteligente] Alerta enviado', { chatId: chat.id, modo })
+  console.log('[alerta-inteligente] Alerta enviado', {
+    chatId: chat.id,
+    modo,
+    agentIdPresente: Boolean(agentId),
+    candidatosTelefone,
+    candidatosAposAgentId,
+  })
   return { status: 'sent', modo, chatId: chat.id, dedupKey }
 }
