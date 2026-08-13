@@ -89,14 +89,56 @@ export function phonesEquivalent(a, b) {
 // Localiza o chat cujo whatsappPhone é equivalente ao telefone informado.
 // Correspondência ambígua (mais de 1 candidato) NUNCA escolhe arbitrariamente
 // — retorna ambiguous:true e deixa o chamador cair no fallback.
-export function findChatByPhone(chats, telefoneNormalizado) {
-  if (!telefoneNormalizado) return { chat: null, ambiguous: false }
-  const candidatos = (Array.isArray(chats) ? chats : []).filter((c) =>
+//
+// `agentId` (opcional, 3º parâmetro): quando informado, telefone + agentId
+// passam a formar uma identificação CONJUNTA — o candidato só é aceito se,
+// depois de filtrar por telefone E por chat.agentId === agentId, sobrar
+// EXATAMENTE 1 chat. Isso vale mesmo que o telefone sozinho já tivesse
+// encontrado 1 único chat: se o agentId desse chat não bater com o agentId
+// recebido, o resultado é rejeitado (não é "aceitar porque o telefone achou
+// 1", é "aceitar porque telefone+agente juntos apontam pra 1 só"). Sem
+// `agentId`, o comportamento é idêntico ao da V1 (telefone sozinho decide).
+//
+// Nunca escolhe por `time`/mais recente, por `agentName`, nem por
+// `candidatos[0]` em caso de ambiguidade — em qualquer cenário que não feche
+// em exatamente 1 candidato, o retorno é `chat: null` e quem decidiu foi a
+// ausência de dado suficiente, nunca uma escolha arbitrária.
+export function findChatByPhone(chats, telefoneNormalizado, agentId) {
+  if (!telefoneNormalizado) {
+    return { chat: null, ambiguous: false, candidatosTelefone: 0, candidatosAposAgentId: null }
+  }
+
+  const candidatosTelefone = (Array.isArray(chats) ? chats : []).filter((c) =>
     phonesEquivalent(normalizePhoneDigits(c?.whatsappPhone), telefoneNormalizado)
   )
-  if (candidatos.length === 1) return { chat: candidatos[0], ambiguous: false }
-  if (candidatos.length > 1) return { chat: null, ambiguous: true }
-  return { chat: null, ambiguous: false }
+
+  if (!agentId) {
+    if (candidatosTelefone.length === 1) {
+      return { chat: candidatosTelefone[0], ambiguous: false, candidatosTelefone: 1, candidatosAposAgentId: null }
+    }
+    return {
+      chat: null,
+      ambiguous: candidatosTelefone.length > 1,
+      candidatosTelefone: candidatosTelefone.length,
+      candidatosAposAgentId: null,
+    }
+  }
+
+  const candidatosAposAgentId = candidatosTelefone.filter((c) => c?.agentId === agentId)
+  if (candidatosAposAgentId.length === 1) {
+    return {
+      chat: candidatosAposAgentId[0],
+      ambiguous: false,
+      candidatosTelefone: candidatosTelefone.length,
+      candidatosAposAgentId: 1,
+    }
+  }
+  return {
+    chat: null,
+    ambiguous: candidatosAposAgentId.length > 1,
+    candidatosTelefone: candidatosTelefone.length,
+    candidatosAposAgentId: candidatosAposAgentId.length,
+  }
 }
 
 // ─── GPT Maker — listagem paginada de chats + histórico de mensagens ───
@@ -315,12 +357,23 @@ export async function registrarDedup(dedupKey, mensagem, deps) {
 
 // ─── Orquestração principal (pura o suficiente para teste: só depende de `deps`) ───
 async function enviarFallback(deps, meta) {
+  // Log sanitizado — nunca contextId/agentId/telefone brutos, só motivo,
+  // chatId (quando existir) e os contadores/booleano usados pra diagnosticar
+  // desambiguação sem expor nenhum dado de identificação do cliente/agente.
+  const logMeta = {
+    motivo: meta.motivo,
+    chatId: meta.chatId || null,
+    agentIdPresente: meta.agentIdPresente ?? false,
+    candidatosTelefone: meta.candidatosTelefone ?? null,
+    candidatosAposAgentId: meta.candidatosAposAgentId ?? null,
+  }
+
   const envio = await sendTelegram(FALLBACK_MESSAGE, deps)
   if (!envio.ok) {
-    console.error('[alerta-inteligente] Falha ao enviar fallback via Telegram', { reason: envio.reason, status: envio.status, motivo: meta.motivo, chatId: meta.chatId || null })
+    console.error('[alerta-inteligente] Falha ao enviar fallback via Telegram', { reason: envio.reason, status: envio.status, ...logMeta })
     return { status: 'telegram_failed', modo: 'fallback_simples', ...meta }
   }
-  console.log('[alerta-inteligente] Fallback simples enviado', { motivo: meta.motivo, chatId: meta.chatId || null })
+  console.log('[alerta-inteligente] Fallback simples enviado', logMeta)
   return { status: 'sent', modo: 'fallback_simples', ...meta }
 }
 
@@ -330,7 +383,8 @@ export async function processarAlertaInteligente(params, deps) {
     return { status: 'unauthorized' }
   }
 
-  const contextId = typeof params?.contextId === 'string' ? params.contextId : null // só metadado auxiliar/log
+  const contextId = typeof params?.contextId === 'string' ? params.contextId : null // só metadado auxiliar/log — NUNCA usado como chatId
+  const agentId = typeof params?.agentId === 'string' && params.agentId.trim().length > 0 ? params.agentId : null
   const telefoneNormalizado = normalizePhoneDigits(params?.telefone)
 
   if (!telefoneNormalizado) {
@@ -338,10 +392,28 @@ export async function processarAlertaInteligente(params, deps) {
   }
 
   const chats = await listAllChats(deps)
-  const { chat, ambiguous } = findChatByPhone(chats, telefoneNormalizado)
+  const { chat, ambiguous, candidatosTelefone, candidatosAposAgentId } = findChatByPhone(chats, telefoneNormalizado, agentId)
 
   if (!chat) {
-    return enviarFallback(deps, { motivo: ambiguous ? 'telefone_ambiguo' : 'chat_nao_encontrado', contextId })
+    // agentId informado: telefone+agente juntos não fecharam em exatamente 1 —
+    // motivo distingue "telefone não achou nada" de "achou, mas agente não confere"
+    // de "ainda ambíguo mesmo depois de filtrar por agente" (sanitizado — nunca
+    // loga o valor de agentId/telefone, só contadores e booleanos).
+    let motivo
+    if (candidatosTelefone === 0) {
+      motivo = 'chat_nao_encontrado'
+    } else if (agentId) {
+      motivo = candidatosAposAgentId === 0 ? 'agente_nao_confere' : 'telefone_ambiguo'
+    } else {
+      motivo = ambiguous ? 'telefone_ambiguo' : 'chat_nao_encontrado'
+    }
+    return enviarFallback(deps, {
+      motivo,
+      contextId,
+      agentIdPresente: Boolean(agentId),
+      candidatosTelefone,
+      candidatosAposAgentId,
+    })
   }
 
   const messages = await getChatMessages(chat.id, deps)
