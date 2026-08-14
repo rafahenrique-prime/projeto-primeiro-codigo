@@ -20,6 +20,8 @@
 // (MENSAGEM_MANUAL_URL/MENSAGEM_MANUAL_SERVICE_TOKEN) — sem equivalente no
 // Builder ainda.
 
+import crypto from 'node:crypto'
+
 const MENSAGEM_MANUAL_URL = 'https://prime-vip.base44.app/functions/enviarMensagemManualWhatsapp'
 const ENVIAR_MENSAGEM_GERAL_URL = 'https://prime-cobrancas-bluider.base44.app/functions/enviarMensagemGeralWhatsApp'
 const MENSAGEM_MANUAL_TIMEOUT_MS = 12000
@@ -133,10 +135,21 @@ export async function chamarEnviarMensagemManualWhatsapp({ cliente_id, texto_men
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), MENSAGEM_MANUAL_TIMEOUT_MS)
   try {
+    // DIAGNÓSTICO TEMPORÁRIO (remover após o teste manual) — nunca loga o valor do
+    // token, só metadados sanitizados pra confirmar o que este proxy está enviando.
+    const authorizationHeader = `Bearer ${internalToken}`
+    console.log('[system-tools:mensagem-manual:diag]', {
+      env_present: Boolean(internalToken),
+      token_length: internalToken.length,
+      token_hash_prefix: crypto.createHash('sha256').update(internalToken).digest('hex').slice(0, 8),
+      authorization_prefix_ok: authorizationHeader.startsWith('Bearer '),
+      authorization_total_length: authorizationHeader.length,
+    })
+
     const resp = await fetch(ENVIAR_MENSAGEM_GERAL_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${internalToken}`,
+        'Authorization': authorizationHeader,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
