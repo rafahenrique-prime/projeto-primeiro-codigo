@@ -2790,7 +2790,7 @@ export default async function handler(req, res) {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${internalToken}`,
-            'X-Diag-Check': 'ignite-header-audit-2026-08-14',
+            'X-Diag-Check': 'ignite-token-compare-2026-08-14',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
