@@ -102,9 +102,12 @@
 //                           pra um cliente remoto (GPT Maker/Gabriela) completar o
 //                           handshake: initialize, notifications/initialized, tools/list,
 //                           tools/call. Ferramentas anunciadas: verificar_conexao (sem
-//                           parâmetros), consultar_cobrancas (Base44 PRIME, nunca Lyra) e
-//                           consultar_cep (ViaCEP, sem segredo/autenticação externa).
-//                           Nenhuma delas escreve em nada. Exige header
+//                           parâmetros), consultar_cobrancas (Base44 PRIME, nunca Lyra),
+//                           consultar_cep (ViaCEP, sem segredo/autenticação externa) e
+//                           consultar_frete (Frenet /shipping/quote — só cep_destino é
+//                           variável; CEP origem/peso/dimensões/valor declarado são fixos
+//                           em _consultarFrete.js, exige FRENET_TOKEN). Nenhuma delas
+//                           escreve em nada. Exige header
 //                           Authorization: Bearer <MCP_LITE_SECRET> — segredo próprio,
 //                           nunca compartilhado com CRON_SECRET/LYRA_WEBHOOK_SECRET/etc.
 // ?tool=bagy-exception-status → Auditoria Bagy V2, Fase 5: alterna o status de 1
@@ -155,6 +158,7 @@ import crypto from 'node:crypto'
 import { gerarCobrancaLyraDryRun, gerarCobrancaLyraReal, checarRateLimitBestEffort, checarOrigemBestEffort } from './_gerarCobrancaLyra.js'
 import { consultarCobrancas } from './_consultarCobrancas.js'
 import { consultarCep } from './_consultarCep.js'
+import { consultarFrete } from './_consultarFrete.js'
 import {
   checarRateLimitMensagemManualBestEffort,
   iniciarRequestIdSeLivre,
@@ -250,6 +254,23 @@ function checarRateLimitConsultarCepBestEffort(ip) {
   historico.push(agora)
   tentativasConsultarCepPorIp.set(chave, historico)
   return historico.length <= CONSULTAR_CEP_RATE_LIMIT_MAX_POR_IP
+}
+
+// Rate limit best-effort exclusivo de consultar_frete (tool=mcp) — Map próprio, mesmo
+// motivo dos limitadores acima. Ao contrário do ViaCEP, cada chamada à Frenet pode
+// ter custo/quota associado à conta — teto mais conservador que consultar_cep.
+const tentativasConsultarFretePorIp = new Map()
+const CONSULTAR_FRETE_RATE_LIMIT_JANELA_MS = 60 * 1000
+const CONSULTAR_FRETE_RATE_LIMIT_MAX_POR_IP = 30
+
+function checarRateLimitConsultarFreteBestEffort(ip) {
+  const agora = Date.now()
+  const chave = ip || 'desconhecido'
+  const historico = (tentativasConsultarFretePorIp.get(chave) || [])
+    .filter(t => agora - t < CONSULTAR_FRETE_RATE_LIMIT_JANELA_MS)
+  historico.push(agora)
+  tentativasConsultarFretePorIp.set(chave, historico)
+  return historico.length <= CONSULTAR_FRETE_RATE_LIMIT_MAX_POR_IP
 }
 
 const VERCEL_TOKEN = process.env.VERCEL_ACCESS_TOKEN
@@ -1749,9 +1770,9 @@ async function ocrOpenRouter(req, res) {
 // protocolo MCP (JSON-RPC 2.0 sobre HTTP) pro handshake completo com um cliente
 // remoto (GPT Maker/Gabriela): initialize, notifications/initialized, tools/list,
 // tools/call. Ferramentas anunciadas: verificar_conexao, consultar_cobrancas
-// (Base44 PRIME) e consultar_cep (ViaCEP) — nenhuma escreve em nada. Autenticação
-// própria via MCP_LITE_SECRET, comparada só aqui — nunca aceita nem concede acesso
-// a nenhum outro `case` deste arquivo.
+// (Base44 PRIME), consultar_cep (ViaCEP) e consultar_frete (Frenet) — nenhuma
+// escreve em nada. Autenticação própria via MCP_LITE_SECRET, comparada só aqui —
+// nunca aceita nem concede acesso a nenhum outro `case` deste arquivo.
 // ============================================================================
 
 const MCP_PROTOCOL_VERSION = '2024-11-05'
@@ -1815,6 +1836,21 @@ const MCP_TOOLS = [
         },
       },
       required: ['cep'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'consultar_frete',
+    description: 'Calcula o valor e o prazo do frete para um CEP de destino, usando peso/dimensões/CEP de origem fixos da loja. Use quando o cliente perguntar quanto custa ou quanto tempo leva o frete e já tiver informado o CEP de entrega. Nunca invente valor ou prazo de frete — se a ferramenta falhar ou não retornar opções, diga que não foi possível calcular agora.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cep_destino: {
+          type: 'string',
+          description: 'CEP brasileiro de destino (entrega) com 8 dígitos, com ou sem hífen.',
+        },
+      },
+      required: ['cep_destino'],
       additionalProperties: false,
     },
   },
@@ -1892,6 +1928,23 @@ function mcpToolCallConsultarCep(resultado) {
   }
 }
 
+// Monta o content/structuredContent de tools/call a partir do resultado de
+// consultarFrete({httpStatus, body}) — mesmo desenho de mcpToolCallConsultarCep.
+function mcpToolCallConsultarFrete(resultado) {
+  const { httpStatus, body } = resultado
+  const isError = httpStatus >= 400 || body.status === 'erro' || body.status === 'sem_opcoes'
+  const textoResumo = body.mensagem
+    || (body.status === 'ok'
+      ? `Frete para ${body.cep_destino}: ${body.opcoes.map(o => `${o.servico} R$ ${o.valor.toFixed(2)} (${o.prazo_dias} dia(s))`).join('; ')}`
+      : 'Consulta processada.')
+
+  return {
+    isError,
+    content: [{ type: 'text', text: textoResumo }],
+    structuredContent: body,
+  }
+}
+
 // Despacha tools/call pra ferramenta correta. Retorna `null` se o nome não bater
 // com nenhuma ferramenta conhecida — quem chama decide o formato de "desconhecida".
 async function mcpToolCallDispatch(toolName, args, req) {
@@ -1921,6 +1974,17 @@ async function mcpToolCallDispatch(toolName, args, req) {
     console.log('[system-tools:mcp] consultar_cep chamada', { ip: ipHashCurto(ip) })
     const resultado = await consultarCep(args || {})
     return mcpToolCallConsultarCep(resultado)
+  }
+
+  if (toolName === 'consultar_frete') {
+    const ip = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || null
+    if (!checarRateLimitConsultarFreteBestEffort(ip)) {
+      console.error('[system-tools:mcp] consultar_frete rate limit excedido', { ip: ipHashCurto(ip) })
+      return { isError: true, content: [{ type: 'text', text: 'Muitas consultas em pouco tempo — aguarde e tente novamente.' }] }
+    }
+    console.log('[system-tools:mcp] consultar_frete chamada', { ip: ipHashCurto(ip) })
+    const resultado = await consultarFrete(args || {})
+    return mcpToolCallConsultarFrete(resultado)
   }
 
   return null

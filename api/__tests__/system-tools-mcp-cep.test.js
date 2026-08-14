@@ -46,10 +46,10 @@ async function call(opts = {}) {
 const auth = { authorization: 'Bearer test-secret-nao-real' }
 
 describe('MCP — consultar_cep registrado e roteado corretamente', () => {
-  it('15. tools/list contém consultar_cep (junto das outras duas)', async () => {
+  it('15. tools/list contém consultar_cep (junto das outras já registradas)', async () => {
     const r = await call({ headers: auth, body: { jsonrpc: '2.0', id: 1, method: 'tools/list' } })
     const nomes = r._json.result.tools.map(t => t.name).sort()
-    expect(nomes).toEqual(['consultar_cep', 'consultar_cobrancas', 'verificar_conexao'])
+    expect(nomes).toEqual(['consultar_cep', 'consultar_cobrancas', 'consultar_frete', 'verificar_conexao'])
   })
 
   it('16. schema de consultar_cep exige "cep" como obrigatório', async () => {
