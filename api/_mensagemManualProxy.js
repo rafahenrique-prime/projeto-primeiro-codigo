@@ -155,6 +155,11 @@ export async function chamarEnviarMensagemManualWhatsapp({ cliente_id, texto_men
     }
 
     if (!resp.ok) {
+      console.error('[system-tools:mensagem-manual] Base44 respondeu não-2xx', {
+        httpStatus: resp.status,
+        error_code: json?.error_code,
+        status: json?.status,
+      })
       return { ok: false, error_code: 'erro_http_base44', httpStatusRecebido: resp.status, json }
     }
 
