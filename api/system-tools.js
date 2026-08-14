@@ -2711,6 +2711,37 @@ export default async function handler(req, res) {
       }
     }
 
+    // DIAGNÓSTICO TEMPORÁRIO (remover após a auditoria) — chama o sentinel de
+    // diagnóstico já publicado em enviarMensagemGeralWhatsApp (X-Diag-Check),
+    // que retorna ANTES de qualquer autenticação/lógica de negócio, nunca
+    // envia WhatsApp. Repassa só o JSON sanitizado que o Base44 devolve —
+    // nunca loga nem inclui o valor de WHATSAPP_INTERNAL_TOKEN.
+    case 'diag-auth-header': {
+      const internalToken = process.env.WHATSAPP_INTERNAL_TOKEN
+      if (!internalToken) {
+        return res.status(500).json({ error: 'WHATSAPP_INTERNAL_TOKEN ausente no runtime' })
+      }
+      try {
+        const diagResp = await fetch('https://prime-cobrancas-bluider.base44.app/functions/enviarMensagemGeralWhatsApp', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${internalToken}`,
+            'X-Diag-Check': 'ignite-header-audit-2026-08-14',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cliente_id: 'diag',
+            message: 'diag',
+            idempotency_key: 'diag-header-audit-2026-08-14',
+          }),
+        })
+        const diagJson = await diagResp.json().catch(() => null)
+        return res.status(200).json({ base44HttpStatus: diagResp.status, base44Body: diagJson })
+      } catch (e) {
+        return res.status(500).json({ error: 'Falha ao chamar diagnóstico Base44', detail: e.message })
+      }
+    }
+
     case 'mcp': {
       // Preflight de CORS não carrega Authorization — liberado sem checar segredo,
       // igual ao padrão já usado em gerar-cobranca-lyra.
