@@ -189,8 +189,17 @@ export async function chamarEnviarMensagemManualWhatsapp({ cliente_id, texto_men
 // completo, mensagem completa, stack trace, corpo bruto desconhecido, detalhes internos
 // de autenticação.
 export function construirRespostaSeguraMensagemManual(json, requestId) {
+  // O Builder (enviarMensagemGeralWhatsApp) nunca envia um campo `success`
+  // booleano — só `status: 'sucesso' | 'erro'` (contrato real confirmado por
+  // leitura direta do entry.ts). Sem isso, Boolean(undefined) virava sempre
+  // false, mostrando erro no modal mesmo em envios bem-sucedidos. Preserva
+  // compatibilidade com qualquer caminho legado que já mande success booleano.
+  const success =
+    typeof json?.success === 'boolean'
+      ? json.success
+      : json?.status === 'sucesso'
   const base = {
-    success: Boolean(json?.success),
+    success,
     status: json?.status ?? null,
     request_id: requestId,
   }
