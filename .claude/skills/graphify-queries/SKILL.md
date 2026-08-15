@@ -44,6 +44,26 @@ graphify query "<pergunta>" --budget N     # só quando não há nó conhecido d
 
 `explain`/`affected`/`path` são preferidos sempre que já existe um símbolo/nó conhecido — são determinísticos e baratos. `query` é para perguntas abertas quando não há nó de partida — usar com cautela, pode retornar muitos nós e diluir o sinal; preferir `--budget` para limitar.
 
+## Verificar freshness antes de confiar no resultado
+
+Antes de tratar o resultado de `explain`/`affected`/`path`/`query` como confiável, checar se algo relevante mudou desde a última extração — **não confiar só em `graphify check-update`** (já testado: não acusou a ausência real de um arquivo novo em `api/`).
+
+```bash
+grep -o 'commit: `[a-f0-9]*`' graphify-out/GRAPH_REPORT.md   # commit registrado na última extração
+git diff --stat <commit-acima>..HEAD -- api/ src/ supabase/migrations/   # mudanças já commitadas
+git status --short -- api/ src/ supabase/migrations/                    # mudanças locais ainda não commitadas
+```
+
+Se qualquer um dos dois comandos acima retornar arquivo em `api/`, `src/` ou `supabase/migrations/`, avisar:
+
+```
+🟡 Graphify pode estar defasado em relação ao código atual. Existem arquivos relevantes
+alterados desde a última extração. Posso atualizar o grafo antes de continuar, ou prefere
+seguir usando o código/Grep/Read como fonte de confirmação?
+```
+
+e não seguir sozinho — Grep/Glob/Read e o código real continuam disponíveis independentemente da resposta.
+
 ## Regras de interpretação
 
 1. **Mapa de navegação, não prova de runtime.** Uma função estruturalmente alcançável no grafo pode estar desativada por config/env, feature flag, ou nunca chamada no caminho real de produção. O grafo mostra "pode chegar", não "está ativo agora".
@@ -57,13 +77,7 @@ graphify query "<pergunta>" --budget N     # só quando não há nó conhecido d
 
 ## Atualização do grafo — NÃO fazer automaticamente
 
-Esta skill é só de **consulta**. Nunca rodar `graphify extract`, `graphify update`, `graphify cluster-only` ou `graphify label` a partir dela. Se o grafo parecer desatualizado (código mudou muito desde a última extração), informar:
-
-```
-⚠️ O grafo do Graphify pode estar desatualizado. Recomendo atualizar antes de confiar nesta análise.
-```
-
-e não seguir adiante sozinho — atualização continua manual, decisão do Rafael.
+Esta skill é só de **consulta**. Nunca rodar `graphify extract`, `graphify update`, `graphify cluster-only` ou `graphify label` a partir dela — mesmo que a checagem de freshness (seção acima) indique defasagem. Avisar e perguntar; atualização continua manual, decisão do Rafael.
 
 **Nota interna:** `graphify-out/.graphify_build.json` guarda os filtros `--exclude` usados na última extração documental (whitelist de docs técnicos aprovados). Isso não afeta `explain`/`affected`/`path`/`query` (só leem `graph.json` já pronto), mas é reaproveitado automaticamente em qualquer extração futura — relevante só se algum dia se decidir rodar `extract`/`update` de novo, não para o uso desta skill.
 

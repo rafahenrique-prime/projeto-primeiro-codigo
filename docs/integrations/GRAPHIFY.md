@@ -87,6 +87,10 @@ Tarefa estrutural/complexa
   → planeja/implementa a alteração
 ```
 
+## Proteção de freshness (2026-08-14)
+
+A skill [`.claude/skills/graphify-queries/SKILL.md`](../../.claude/skills/graphify-queries/SKILL.md) verifica freshness antes de tratar o resultado de uma consulta estrutural (`explain`/`affected`/`path`/`query`) como confiável. A checagem considera tanto mudanças já commitadas quanto mudanças locais ainda não commitadas, nos caminhos principais `api/`, `src/` e `supabase/migrations/`. Quando há possível defasagem, o Claude avisa antes de confiar no grafo (aviso 🟡), sem bloquear Grep/Glob/Read nem o código-fonte — que continua sendo a fonte final da verdade. Graphify permanece mapa estrutural; a atualização do grafo continua manual, não automática (ver seção "Atualização" abaixo).
+
 ## Atualização
 
 O grafo **não é atualizado automaticamente** — nem pela skill, nem por hook. Atualização continua manual, a critério do Rafael.
