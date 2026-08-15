@@ -107,7 +107,12 @@ export default function EnviarMensagemManualModal({ cliente, theme: t, onClose }
     }
 
     // Sucesso confirmado — mensagem foi enviada de verdade
-    if (json?.success === true && json?.status === 'sent') {
+    // 'sucesso' é o valor real do contrato Builder (enviarMensagemGeralWhatsApp);
+    // 'sent' preservado por compatibilidade com qualquer fluxo legado.
+    if (
+      json?.success === true &&
+      (json?.status === 'sucesso' || json?.status === 'sent')
+    ) {
       setEstado('sucesso_enviado')
       return
     }
