@@ -2768,7 +2768,13 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: false, error_code: resultado.error_code, request_id })
         }
 
-        console.log('[system-tools:mensagem-manual] Concluído', { status: resultado.json?.status, ip: ipHashCurto(ip) })
+        console.log('[system-tools:mensagem-manual] Concluído', {
+          status: resultado.json?.status,
+          error_code: resultado.json?.error_code,
+          provider_version: resultado.json?.provider_version,
+          request_id,
+          ip: ipHashCurto(ip),
+        })
         return res.status(200).json(construirRespostaSeguraMensagemManual(resultado.json, request_id))
       } finally {
         liberarRequestId(request_id)
