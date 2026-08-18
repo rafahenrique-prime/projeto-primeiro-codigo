@@ -4,6 +4,7 @@
 
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
+import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -37,7 +38,7 @@ const STOP_WORDS = new Set([
 ])
 
 // Normaliza texto para busca
-function normalizarBusca(texto) {
+export function normalizarBusca(texto) {
   if (!texto) return ''
   return texto
     .toLowerCase()
@@ -54,14 +55,14 @@ function normalizarBusca(texto) {
 }
 
 // Extrai keywords relevantes removendo stop words
-function extrairKeywords(texto) {
+export function extrairKeywords(texto) {
   const normalizado = normalizarBusca(texto)
   const palavras = normalizado.split(' ').filter(p => p.length > 1 && !STOP_WORDS.has(p))
   return palavras.length > 0 ? palavras.join(' ') : normalizado
 }
 
 // Calcula score de similaridade
-function calcularSimilaridade(texto1, texto2) {
+export function calcularSimilaridade(texto1, texto2) {
   const t1 = normalizarBusca(texto1)
   const t2 = normalizarBusca(texto2)
 
@@ -101,16 +102,15 @@ async function warmupSupabase() {
 // Retorna { produtos: top5, total: quantidade REAL de matches } — o total é usado
 // pra Gabriela informar "temos X cores, aqui estão 5, mais Y disponíveis" em vez de
 // só ver 5 e não saber que existem mais (achado em 2026-07-04 debugando lista de cores).
-async function buscarProdutos(pergunta, tentativa = 1) {
+export async function buscarProdutos(pergunta, tentativa = 1) {
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=id,nome,categoria,preco,imagem,link,codigo`,
-      { headers: sbHeaders }
-    )
+    const catalogResult = await fetchProductsCatalog({
+      supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+    })
 
-    if (!res.ok) return { produtos: [], total: 0 }
+    if (!catalogResult.ok) return { produtos: [], total: 0 }
 
-    const produtos = await res.json()
+    const produtos = catalogResult.products
 
     // Extrai keywords da pergunta para melhorar a busca
     const keywords = extrairKeywords(pergunta)
@@ -166,27 +166,15 @@ async function buscarProdutos(pergunta, tentativa = 1) {
 }
 
 // Busca knowledge no Supabase
-async function buscarKnowledge(pergunta) {
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/knowledge?title=eq.knowledge_gabriela_supabase_completo&select=title,content,category`,
-      { headers: sbHeaders }
-    )
-
-    if (!res.ok) return null
-
-    const knowledge = await res.json()
-    if (!knowledge || knowledge.length === 0) return null
-
-    return knowledge[0]
-  } catch (err) {
-    console.error('[Webhook] Erro ao buscar knowledge:', err.message)
-    return null
-  }
+export async function buscarKnowledge(pergunta) {
+  const resultado = await fetchGabrielaKnowledge({
+    supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+  })
+  return resultado.knowledge
 }
 
 // Função de busca integrada
-async function searchKnowledge(pergunta) {
+export async function searchKnowledge(pergunta) {
   try {
     if (!pergunta || pergunta.trim().length < 3) {
       return {
@@ -211,16 +199,11 @@ async function searchKnowledge(pergunta) {
       pergunta,
       timestamp: new Date().toISOString(),
       dados: {
-        produtos: produtos.map(p => ({
-          id: p.id,
-          nome: p.nome,
-          categoria: p.categoria,
-          preco: p.preco,
-          imagem: p.imagem,
-          link: p.link,
-          codigo: p.codigo,
-          score: p.score
-        })),
+        // FASE 2A: spread completo (não allowlist manual) — preserva todos os
+        // campos existentes e deixa os campos comerciais novos (preco_tabela,
+        // preco_pix, parcelamento_*) passarem intactos até formatarRespostaGPT,
+        // que é quem de fato decide o shape final entregue à Gaby.
+        produtos: produtos.map(p => ({ ...p })),
         knowledge: knowledgeBase ? {
           titulo: knowledgeBase.title,
           categoria: knowledgeBase.category,
@@ -255,7 +238,7 @@ function validarRequest(body) {
 // memoriaBlock (Fase 2B): string opcional vinda de getMemoryBlock() — contexto de
 // personalização apenas. Nunca influencia produtos/preços/regras comerciais aqui,
 // só é inserida como texto dentro de informacao_adicional (ver comentário abaixo).
-function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
+export function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
   const { produtos, knowledge, totalVariacoes, variacoesRestantes } = dadosBusca.dados || {}
 
   let resposta = {
@@ -281,6 +264,12 @@ function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
   }
 
   // Adicionar produtos encontrados
+  // FASE 2A: campos comerciais (precoTabela/precoPix/parcelamento*) vêm de
+  // formatarProdutoComercial (api/_gabrielaContextService.js) — mesma função
+  // usada por api/_toolConsultarProduto.js, pra nunca divergir entre os dois
+  // caminhos. Campo comercial sem evidência real no catálogo simplesmente não
+  // aparece na chave (nunca null/inventado/calculado) — ver a função pra regra
+  // completa. `preco` continua exatamente como já era, sem alteração.
   if (produtos && produtos.length > 0) {
     resposta.dados.produtos = produtos.map(p => ({
       nome: p.nome,
@@ -289,7 +278,8 @@ function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
       imagem: p.imagem,
       link: p.link,
       disponibilidade: 'SIM',
-      relevancia: `${p.score}%`
+      relevancia: `${p.score}%`,
+      ...formatarProdutoComercial(p),
     }))
   }
 
