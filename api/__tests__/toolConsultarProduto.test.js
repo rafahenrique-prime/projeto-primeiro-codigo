@@ -300,11 +300,16 @@ describe('consultarProduto — helper completo (fetch injetado)', () => {
     }
   })
 
-  it('R. nunca usa select=* — sempre a allowlist explícita de colunas', async () => {
+  it('R. nunca usa select=* — sempre a allowlist explícita de colunas (Etapa 3: allowlist do núcleo compartilhado, mesma de api/webhook.js)', async () => {
+    // Desde a Etapa 3 (núcleo compartilhado), a busca crua vem de
+    // fetchProductsCatalog() em api/_gabrielaContextService.js — mesma allowlist
+    // usada pelo canal oficial (id,nome,categoria,preco,imagem,link,codigo).
+    // buscarERanquearProdutos() continua projetando o resultado só nos 4 campos
+    // que a Bridge expõe (nome,preco,link,imagem — ver teste "Q." acima).
     const fetchImpl = makeFetchImpl(PRODUTOS_FIXTURE)
     await consultarProduto({ query: 'cacau' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
     const urlChamada = fetchImpl.mock.calls[0][0]
-    expect(urlChamada).toContain('select=nome,preco,link,imagem')
+    expect(urlChamada).toContain('select=id,nome,categoria,preco,imagem,link,codigo')
     expect(urlChamada).not.toContain('select=*')
   })
 
@@ -336,13 +341,18 @@ describe('consultarProduto — helper completo (fetch injetado)', () => {
     expect(r2.body.error_code).toBe(ERROR_CODES.SOURCE_INVALID_RESPONSE)
   })
 
-  it('T. erro interno inesperado nunca vaza segredo/stack na resposta', async () => {
-    // supabaseConfig ausente força um TypeError ao ler .baseUrl dentro do helper —
-    // simula uma falha interna inesperada não coberta pelos tratamentos específicos.
+  it('T. erro interno inesperado (config ausente) nunca vaza segredo/stack na resposta', async () => {
+    // supabaseConfig ausente força um TypeError ao ler .baseUrl. Desde a Etapa 3,
+    // esse TypeError é levantado DENTRO de fetchProductsCatalog() (núcleo
+    // compartilhado), que o captura e devolve { ok:false, error_code:
+    // 'source_unavailable' } — fetchProductsCatalog() nunca lança, por design,
+    // pois é consumido também por api/webhook.js. O resultado pro chamador da
+    // Tool API continua igualmente seguro (success:false, sem stack/segredo),
+    // só o error_code específico mudou de INTERNAL_ERROR pra SOURCE_UNAVAILABLE.
     const fetchImpl = vi.fn()
     const resultado = await consultarProduto({ query: 'cacau' }, { caller: 'prime_bridge' }, { supabaseConfig: undefined, fetchImpl })
     expect(resultado.body.success).toBe(false)
-    expect(resultado.body.error_code).toBe(ERROR_CODES.INTERNAL_ERROR)
+    expect(resultado.body.error_code).toBe(ERROR_CODES.SOURCE_UNAVAILABLE)
     const corpoSerializado = JSON.stringify(resultado.body)
     expect(corpoSerializado).not.toMatch(/stack/i)
     expect(corpoSerializado).not.toMatch(/supabase_secret/i)
@@ -376,5 +386,115 @@ describe('consultarProduto — helper completo (fetch injetado)', () => {
     } finally {
       consoleSpy.mockRestore()
     }
+  })
+})
+
+// ============================================================================
+// Correção do limite de busca (achado real: catálogo de 548 produtos, limit
+// antigo de 500 excluía os últimos ~48 em ordem alfabética — caso real:
+// produtos "Tênis Vans ..." nas posições 535-540, nunca alcançados pela Tool
+// API, mesmo a busca por palavra-chave estando correta). Fixture com mais de
+// 500 produtos replica o cenário real; produto relevante posicionado depois
+// da posição 500 (ordem alfabética) prova que agora é encontrado.
+// ============================================================================
+describe('consultarProduto — correção do limite de produtos carregados', () => {
+  // Gera N produtos "de enchimento" com nomes que ordenam alfabeticamente
+  // antes de "Tênis Vans ..." (prefixo "Acessório 0001", "Acessório 0002", ...
+  // — "A" vem antes de "T" em ordem alfabética), garantindo que os produtos
+  // relevantes fiquem posicionados depois do antigo corte de 500.
+  function gerarFixtureGrande(quantidadeEnchimento) {
+    const enchimento = Array.from({ length: quantidadeEnchimento }, (_, i) => ({
+      nome: `Acessório ${String(i + 1).padStart(4, '0')}`,
+      preco: 'R$ 19,90',
+      link: `https://loja/enchimento-${i + 1}`,
+      imagem: `https://loja/enchimento-${i + 1}.jpg`,
+    }))
+    const relevantes = [
+      { nome: 'Tênis Vans Ultrarange Neo | Preto', preco: 'R$ 449,90', link: 'https://loja/vans-1', imagem: 'https://loja/vans-1.jpg' },
+      { nome: 'Tênis Vans Ultrarange Vr3 Preto', preco: 'R$ 479,90', link: 'https://loja/vans-2', imagem: 'https://loja/vans-2.jpg' },
+      { nome: 'Tênis Nike Dunk Azul', preco: 'R$ 399,90', link: 'https://loja/nike-azul', imagem: 'https://loja/nike-azul.jpg' },
+    ]
+    return [...enchimento, ...relevantes]
+  }
+
+  it('fixture com mais de 500 produtos: item relevante posicionado depois da posição 500 é encontrado', async () => {
+    const fixtureGrande = gerarFixtureGrande(537) // 537 de enchimento + 3 relevantes = 540 total, réplica do catálogo real (548 produtos, Vans nas posições 535-540)
+    expect(fixtureGrande.length).toBeGreaterThan(500)
+    expect(fixtureGrande.length).toBeLessThanOrEqual(1000)
+
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    const resultado = await consultarProduto({ query: 'tenis vans' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+
+    expect(resultado.body.foundInCatalog).toBe(true)
+    expect(resultado.body.results.length).toBeGreaterThan(0)
+    expect(resultado.body.results.some((r) => r.nome.includes('Vans'))).toBe(true)
+  })
+
+  it('"tênis vans preto tem?" (query real do Tool Router) encontra produtos Vans no catálogo grande', async () => {
+    const fixtureGrande = gerarFixtureGrande(537)
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    // Mesma query que o Tool Router envia após extrair "preto" para requestedColor
+    // (ver tools/consultarProduto.js) — aqui testamos só o helper da Tool API.
+    const resultado = await consultarProduto(
+      { query: 'tênis vans', requestedColor: 'preto' },
+      { caller: 'prime_bridge' },
+      { supabaseConfig: SUPABASE_CONFIG, fetchImpl }
+    )
+
+    expect(resultado.body.foundInCatalog).toBe(true)
+    expect(resultado.body.results.length).toBeGreaterThan(0)
+    expect(resultado.body.results.every((r) => r.nome.includes('Vans'))).toBe(true)
+  })
+
+  it('"Vans preto" (query mínima) encontra os mesmos produtos Vans', async () => {
+    const fixtureGrande = gerarFixtureGrande(537)
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    const resultado = await consultarProduto({ query: 'Vans preto' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+
+    expect(resultado.body.foundInCatalog).toBe(true)
+    expect(resultado.body.results.some((r) => r.nome.includes('Vans'))).toBe(true)
+  })
+
+  it('"tênis Nike Dunk azul" continua funcionando no catálogo grande', async () => {
+    const fixtureGrande = gerarFixtureGrande(537)
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    const resultado = await consultarProduto({ query: 'tênis nike dunk azul' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+
+    expect(resultado.body.foundInCatalog).toBe(true)
+    expect(resultado.body.results.some((r) => r.nome.includes('Nike Dunk'))).toBe(true)
+  })
+
+  it('produto inexistente continua retornando vazio, mesmo no catálogo grande', async () => {
+    const fixtureGrande = gerarFixtureGrande(537)
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    const resultado = await consultarProduto({ query: 'produto que nao existe xyz123' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+
+    expect(resultado.body.foundInCatalog).toBe(false)
+    expect(resultado.body.results).toEqual([])
+  })
+
+  it('categoria genérica sem marca ("acessório") não retorna resultados aleatórios fora do esperado', async () => {
+    const fixtureGrande = gerarFixtureGrande(537)
+    const fetchImpl = makeFetchImpl(fixtureGrande)
+    const resultado = await consultarProduto({ query: 'acessorio' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+
+    // Termo único, minimumMatchesRequired(1) = 1 — todos os 537 "Acessório NNNN"
+    // batem por conterem a palavra "acessorio" no nome (comportamento já
+    // existente do algoritmo de matching, inalterado por esta correção).
+    // O que esta correção garante é que os produtos Vans (fora do escopo desta
+    // busca) não aparecem aqui — nenhum "vazamento" cruzado entre categorias.
+    expect(resultado.body.results.every((r) => !r.nome.includes('Vans') && !r.nome.includes('Nike'))).toBe(true)
+  })
+
+  it('URL da fonte não tem limit próprio (Etapa 3: fonte única em fetchProductsCatalog, sem limit=500 nem limit=1000)', async () => {
+    // A Tool API não define mais seu próprio limite — a busca crua vem do
+    // núcleo compartilhado (api/_gabrielaContextService.js), que não aplica
+    // nenhum `limit=` (mesmo comportamento que api/webhook.js sempre teve).
+    // Isso elimina de vez a classe de bug do limit=500 por construção: não há
+    // mais dois lugares com limites potencialmente divergentes.
+    const fetchImpl = makeFetchImpl(PRODUTOS_FIXTURE)
+    await consultarProduto({ query: 'cacau' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
+    const urlChamada = fetchImpl.mock.calls[0][0]
+    expect(urlChamada).not.toContain('limit=')
   })
 })
