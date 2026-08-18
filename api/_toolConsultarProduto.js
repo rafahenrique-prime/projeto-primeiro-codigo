@@ -7,14 +7,16 @@
  * API (Fase 3, Etapa 3.3), consumida por api/system-tools.js via
  * ?tool=consultar-produto.
  *
- * ===== ACESSO AO SUPABASE =====
- * REST direto via fetch — mesmo padrão de api/_nexClientes.js: `supabaseConfig`
- * é um objeto simples `{ baseUrl, headers }`, nunca @supabase/supabase-js.
- * Consulta somente a tabela `products` já auditada (Fase 3, ajuste final do
- * plano) — nunca select=*, sempre a allowlist fixa nome,preco,link,imagem.
- * `fetchImpl` é injetável separadamente (default: global fetch) para permitir
- * testes locais sem tocar global.fetch, além do já suportado mock de
- * supabaseConfig/fetch global usado no resto do projeto.
+ * ===== ACESSO AO SUPABASE (Etapa 3 — núcleo compartilhado) =====
+ * A busca crua do catálogo NÃO é mais implementada aqui — vem de
+ * fetchProductsCatalog() em api/_gabrielaContextService.js, o mesmo helper já
+ * usado pelo canal oficial (api/webhook.js). Isso elimina a duplicação que
+ * causou o bug do `limit=500` (Vans fora do catálogo): agora existe uma única
+ * fonte de verdade para "buscar produtos crus", com um único lugar pra
+ * corrigir se o limite/seleção de campos precisar mudar de novo.
+ * `fetchImpl` continua injetável (default: global fetch), repassado direto
+ * pro helper compartilhado — mesmo padrão de teste local já usado no resto do
+ * projeto, sem tocar global.fetch.
  *
  * ===== DADO CRÍTICO DA AUDITORIA (Fase 3, ajuste final do plano) =====
  * A tabela `products` não tem coluna de estoque/disponibilidade/tamanho/cor —
@@ -31,7 +33,8 @@
  * exposição sem necessidade).
  */
 
-const PRODUCTS_SELECT = 'nome,preco,link,imagem'
+import { fetchProductsCatalog, formatarProdutoComercial } from './_gabrielaContextService.js'
+
 const SOURCE_REQUEST_TIMEOUT_MS = 8000
 const MAX_RESULTS = 3
 const QUERY_MAX_LENGTH = 120
@@ -185,47 +188,19 @@ export function buscarERanquearProdutos(products, query) {
   const ambiguous = empatadosNoTopo > 1
 
   const truncated = candidatos.length > MAX_RESULTS
+  // FASE 2A: campos comerciais vêm de formatarProdutoComercial (mesma função
+  // usada por api/webhook.js) — garante que os dois caminhos nunca divirjam
+  // nos valores de PIX/tabela/parcelamento do mesmo produto. `preco` continua
+  // com o mesmo fallback '' de sempre, sem alteração.
   const results = candidatos.slice(0, MAX_RESULTS).map((c) => ({
     nome: c.produto?.nome ?? '',
     preco: c.produto?.preco ?? '',
     link: c.produto?.link ?? '',
     imagem: c.produto?.imagem ?? '',
+    ...formatarProdutoComercial(c.produto),
   }))
 
   return { results, ambiguous, truncated }
-}
-
-async function fetchProductsFromSource({ supabaseConfig, fetchImpl }) {
-  const url = `${supabaseConfig.baseUrl}/rest/v1/products?select=${PRODUCTS_SELECT}&order=nome.asc&limit=500`
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), SOURCE_REQUEST_TIMEOUT_MS)
-
-  try {
-    const response = await fetchImpl(url, { headers: supabaseConfig.headers, signal: controller.signal })
-    clearTimeout(timeout)
-
-    if (!response.ok) {
-      return { ok: false, error_code: ERROR_CODES.SOURCE_UNAVAILABLE }
-    }
-
-    let data
-    try {
-      data = await response.json()
-    } catch {
-      return { ok: false, error_code: ERROR_CODES.SOURCE_INVALID_RESPONSE }
-    }
-
-    if (!Array.isArray(data)) {
-      return { ok: false, error_code: ERROR_CODES.SOURCE_INVALID_RESPONSE }
-    }
-
-    return { ok: true, products: data }
-  } catch (e) {
-    clearTimeout(timeout)
-    const code = e.name === 'AbortError' ? ERROR_CODES.SOURCE_TIMEOUT : ERROR_CODES.SOURCE_UNAVAILABLE
-    return { ok: false, error_code: code }
-  }
 }
 
 /**
@@ -258,7 +233,11 @@ export async function consultarProduto(body, identity, deps) {
   })
 
   try {
-    const fonte = await fetchProductsFromSource({ supabaseConfig: deps?.supabaseConfig, fetchImpl })
+    const fonte = await fetchProductsCatalog({
+      supabaseConfig: deps?.supabaseConfig,
+      fetchImpl,
+      timeoutMs: SOURCE_REQUEST_TIMEOUT_MS,
+    })
     if (!fonte.ok) {
       console.warn('[toolConsultarProduto] Falha ao consultar a fonte de produtos', { caller, error_code: fonte.error_code })
       return {
@@ -307,7 +286,7 @@ export async function consultarProduto(body, identity, deps) {
   } catch (e) {
     // e.message nunca é exposto ao consumidor — só logado internamente, e
     // mesmo aqui não deve conter segredo/payload bruto (erros esperados desta
-    // função são só de parsing/rede, já tratados em fetchProductsFromSource).
+    // função são só de parsing/rede, já tratados em fetchProductsCatalog).
     console.error('[toolConsultarProduto] Erro interno inesperado:', e.message)
     return {
       httpStatus: 200,
