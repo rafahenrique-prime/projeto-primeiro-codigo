@@ -281,6 +281,13 @@ const NEX_SYNC_SECRET = process.env.NEX_SYNC_SECRET
 // nunca este.
 const BRIDGE_TOOLS_SECRET = process.env.BRIDGE_TOOLS_SECRET
 
+// tool=shadow-experimental-consultar — segredo dedicado e isolado do BANCO
+// VIRTUAL SOMBRA (Frente A, laboratório). Nunca reutiliza BRIDGE_TOOLS_SECRET,
+// BAGY_SYNC_SECRET, NEX_SYNC_SECRET nem nenhum outro acima — rota lê só
+// shadow_products/shadow_product_variations, nunca products/product_variations,
+// e não é usada por nenhum consumidor real (Gaby/GPTMaker) ainda.
+const SHADOW_EXPERIMENTAL_SECRET = process.env.SHADOW_EXPERIMENTAL_SECRET
+
 // BAGY_UI_ACTION_SECRET — protege as ações de escrita do painel da Auditoria
 // Bagy V2 (Verificar/Sincronizar agora, Ignorar/Reativar exceção). Isolado de
 // BAGY_SYNC_SECRET (esse continua exclusivo da rota externa/GitHub Actions,
@@ -2812,6 +2819,35 @@ export default async function handler(req, res) {
     case 'bagy-exception-status':
       // Auditoria Bagy V2, Fase 5 — ver comentário no topo do arquivo.
       return bagyExceptionStatus(req, res)
+
+    case 'shadow-experimental-consultar': {
+      // BANCO VIRTUAL SOMBRA (Frente A) — rota experimental e isolada, lê
+      // SOMENTE shadow_products/shadow_product_variations. Nunca toca
+      // products/product_variations, nunca escreve em nada, nunca chama a
+      // Bagy/Dooca (o shadow já foi carregado antes por scripts/shadow-sync.mjs).
+      // Ainda não usada por nenhum consumidor real — só teste HTTP manual/
+      // comparativo (ver plano modo-planejar-merry-kite.md, PARTE 22).
+      if (req.method !== 'POST') {
+        return res.status(405).json({ sucesso: false, error_code: 'method_not_allowed' })
+      }
+      if (!SHADOW_EXPERIMENTAL_SECRET) {
+        console.error('[system-tools:shadow-experimental-consultar] Configuração ausente: SHADOW_EXPERIMENTAL_SECRET não definida')
+        return res.status(503).json({ sucesso: false, error_code: 'integration_not_configured' })
+      }
+      const tokenRecebido = extrairBearerToken(req)
+      if (!tokenRecebido || !compararSegredoSeguro(tokenRecebido, SHADOW_EXPERIMENTAL_SECRET)) {
+        return res.status(401).json({ sucesso: false, error_code: 'unauthorized' })
+      }
+
+      const { consultarShadowExperimental } = await import('./_shadowContextService.js')
+      const resultado = await consultarShadowExperimental(req.body, {
+        supabaseConfig: {
+          baseUrl: SUPABASE_URL,
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        },
+      })
+      return res.status(resultado.httpStatus).json(resultado.body)
+    }
 
     case 'alerta-inteligente': {
       // Try/catch próprio e isolado — uma exceção aqui nunca pode derrubar
