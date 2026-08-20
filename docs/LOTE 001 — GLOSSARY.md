@@ -1,8 +1,8 @@
 # IGNITE PRIME — GLOSSARY
 
-**Status do glossário:** criado no LOTE 001  
-**Data:** 2026-08-20  
-**Documento de precedência:** [`IGNITE_PRIME_SOURCE_OF_TRUTH.md`](./IGNITE_PRIME_SOURCE_OF_TRUTH.md)
+**Status do glossário:** homologado e corrigido no LOTE 001
+**Data:** 2026-08-20
+**Documento de precedência:** [`LOTE 001 — SOURCE OF TRUTH.md`](./LOTE%20001%20%E2%80%94%20SOURCE%20OF%20TRUTH.md)
 
 > Este glossário define como os nomes são usados na documentação deste lote. Quando o repositório usa mais de uma grafia ou quando o estado operacional não é comprovável, a ambiguidade é registrada em vez de ser resolvida por suposição.
 
@@ -11,15 +11,16 @@
 | Termo | Definição documental | Status/limite |
 |---|---|---|
 | **IGNITE PRIME** | Nome do sistema/repositório que reúne painel, APIs serverless, catálogo, integrações, agentes, automações e documentação. | Não implica que todos os subdiretórios sejam produção. |
-| **IGNITE PRIME V1** | Conjunto operacional atual: painel React/Vite, Supabase/catalogo, webhook de conhecimento, auto-photo, diagnósticos e integrações documentadas como operacionais. | `PRODUÇÃO` aparente; deploy efetivo deve ser confirmado fora do repositório quando necessário. |
+| **IGNITE PRIME V1** | Conjunto de implementações, configurações e documentos associados ao caminho operacional atual aparente: painel React/Vite, Supabase/catalogo, webhook de conhecimento, auto-photo, diagnósticos e integrações. | `PRODUÇÃO APARENTE / NÃO CONFIRMADA` quando o runtime externo não estiver comprovado. |
 | **IGNITE PRIME V2** | Direção de evolução e migração para novas fronteiras de provider, bridge, tools e separação arquitetural. | Não é uma implementação automaticamente ativa; não implementar neste lote. |
-| **PRODUÇÃO** | Caminho com evidência de participação no fluxo operacional ou de deploy/configuração. | Código presente não prova tráfego real. |
+| **PRODUÇÃO CONFIRMADA** | Caminho com evidência operacional externa atual, suficiente e datada. | Não foi usado automaticamente neste lote. Código/documentação/configuração sozinhos não bastam. |
+| **PRODUÇÃO APARENTE / NÃO CONFIRMADA** | Código/configuração/documentação sugerem uso produtivo, mas o runtime externo atual não foi comprovado. | Classificação padrão para APIs e componentes antes chamados genericamente de `PRODUÇÃO`. |
 | **LAB** | Ambiente/página/agent destinado a experimentos e validações controladas. | Não tratar como produção. |
 | **PREVIEW** | Estado de pré-visualização, teste de cutover ou branch de validação anterior à promoção. | Não promover sem autorização. |
 | **POC** | Proof of Concept/prova de conceito de uma integração ou arquitetura. | Testes da POC não provam produção. |
 | **EXPERIMENTAL** | Caminho em experimentação, shadow ou homologação. | Consumidor e retenção devem ser confirmados. |
-| **HISTÓRICO** | Backup, investigação, snapshot, tag ou estado temporal preservado. | Preservar até política de retenção. |
-| **LEGADO** | Caminho substituído com evidência de alternativa posterior. | Não significa removível. |
+| **HISTÓRICO** | Backup, investigação, snapshot, tag ou estado temporal preservado com evidência suficiente dessa finalidade. | Preservar até política de retenção. |
+| **LEGADO** | Caminho substituído com evidência suficiente de alternativa posterior ou decisão explícita. | Não significa removível. Topologia/idade/nome isolados não bastam. |
 | **NÃO CONFIRMADO** | Estado que não pode ser concluído com as evidências disponíveis. | Classificação obrigatória quando houver lacuna. |
 | **CONSUMIDOR NÃO IDENTIFICADO** | Nenhuma referência estática suficiente foi localizada. | Não equivale a ausência de consumidor runtime. |
 
@@ -40,16 +41,16 @@
 
 | Termo | Definição documental | Status/limite |
 |---|---|---|
-| **PRIME Bridge** | Handler/arquitetura de bridge entre provider de WhatsApp e ferramentas/serviços do PRIME, com `api/_primeBridgeWebhook.js` e POC ZAP-API ↔ GPT Maker. | `POC`/`PREVIEW`, direção V2; não é substituto automático do V1. |
+| **PRIME Bridge** | Handler/arquitetura de bridge entre provider de WhatsApp e ferramentas/serviços do PRIME, com `api/_primeBridgeWebhook.js`, integração com `system-tools`, testes, contrato documentado e POC ZAP-API ↔ GPT Maker. | Origem/estrutura `POC`/`PREVIEW`; estado operacional atual `NÃO CONFIRMADO`. Não é automaticamente descartável, legado ou substituto do V1. |
 | **ZAP-API** | Provider/integração de WhatsApp usado na POC do bridge. | `POC`/experimental; status produtivo não confirmado. |
 | **WhatsApp providers** | Conjunto de providers/caminhos de mensageria que inclui fluxo GPT Maker, provider interno/Base44 e ZAP-API/Prime Bridge. | Não há um único provider canônico documentado para todos os contextos. |
-| **PRIME Cobranças** | Domínio de cobrança/leituras e integração com caminhos Lyra/Builder. | Status misto durante cutover; consultar `API_INVENTORY.md` e arquitetura. |
-| **Lyra** | Integração/caminho histórico ou de transição associado a cobranças PRIME. | Pode aparecer como legado/cutover; consumidor atual precisa de confirmação. |
-| **Builder** | Caminho/serviço de destino associado ao cutover de cobranças e previews. | `PREVIEW`/V2 em transição conforme branch e documentação. |
+| **PRIME Cobranças** | Domínio de cobrança/leituras e integração com caminhos Lyra/Builder. | `NÃO CONFIRMADO` quando o repositório não permitir determinar estado atual; decisão arquitetural externa necessária. Consultar `LOTE 001 — API INVENTORY.md` e arquitetura. |
+| **Lyra** | Integração/caminho de transição associado a cobranças PRIME. | `NÃO CONFIRMADO` quando o repositório não permitir determinar estado atual; não classificar automaticamente como legado. Decisão arquitetural externa necessária. |
+| **Builder** | Caminho/serviço associado ao cutover de cobranças e previews. | `PREVIEW`/transição documentada; runtime e papel final não confirmados sem evidência externa. |
 | **DealOnça** | Nome usado no frontend e em partes da documentação para o domínio de CRM/diagnóstico comercial. | Também aparece como `Deal Codex`, `Deal Claude` ou CODEX; equivalência semântica deve ser confirmada. |
 | **Codex** | Nome usado para auditoria, scoring, alertas, página e Skills associados ao domínio comercial/operacional. | Nem toda ocorrência de CODEX prova que é a mesma unidade de produto. |
-| **Alerta Inteligente** | Fluxo de alerta/handoff com resumo e Telegram, concentrado em `system-tools` segundo commits/documentação recentes. | Classificado como V1 homologada; Gaby Lab pode ser caminho distinto. |
-| **stuck-check** | Healthcheck de conversas travadas. | Documentação histórica cita `api/cron-stuck-check.js`; caminho atual documentado neste lote é `system-tools?tool=stuck-check`. Workflow reportado como desabilitado manualmente. |
+| **Alerta Inteligente** | Fluxo de alerta/handoff com resumo e Telegram, concentrado em `system-tools` segundo commits/documentação recentes. | Implementação/documentação confirmadas; runtime `NÃO CONFIRMADO`. Gaby Lab pode ser caminho distinto. |
+| **stuck-check** | Healthcheck de conversas travadas. | `HISTÓRICO`: `api/cron-stuck-check.js`; `ATUAL NO REPOSITÓRIO`: `system-tools?tool=stuck-check`; runtime externo não confirmado; workflow reportado como desabilitado manualmente. |
 | **system-tools** | Dispatcher de tools operacionais, MCP, NEX, cobranças, bridge, stuck-check, Bagy e alertas. | Concentra domínios heterogêneos; decomposição é lote futuro. |
 | **MCP** | Camada/ferramentas de consulta interna roteadas por `system-tools` e documentação de integração. | Auth própria; não confundir com qualquer API externa. |
 
@@ -73,4 +74,6 @@
 2. Use `PRIME Bridge` para a arquitetura/handler do bridge e `ZAP-API` para o provider da POC.
 3. Use `DealOnça/Codex` quando a equivalência entre os nomes não tiver sido formalmente resolvida.
 4. Use `NÃO CONFIRMADO` e `CONSUMIDOR NÃO IDENTIFICADO` em vez de `MORTO`, `ABANDONADO` ou `REMOVÍVEL` sem evidência suficiente.
-5. Para secrets técnicos, escreva **Bitwarden Secrets Manager — Source of Truth**; Apple Passwords permanece apenas como contexto histórico substituído.
+5. Para secrets técnicos, escreva **Bitwarden Secrets Manager — Source of Truth**; Apple Passwords permanece apenas como **HISTÓRICO / POLÍTICA SUBSTITUÍDA**.
+6. Nunca use `PRODUÇÃO CONFIRMADA` por inferência do repositório. Quando o runtime não estiver comprovado, escreva `PRODUÇÃO APARENTE / NÃO CONFIRMADA` ou `NÃO CONFIRMADO`.
+7. Para `VITE_*`, descreva `RISCO ESTRUTURAL CONFIRMADO` sem declarar secret real exposto ou credencial comprometida sem auditoria específica.

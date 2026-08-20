@@ -1,10 +1,11 @@
 # IGNITE PRIME — SECRETS MAP
 
-**Status do mapa:** criado no LOTE 001  
-**Data:** 2026-08-20  
+**Status do mapa:** homologado e corrigido no LOTE 001
+**Data:** 2026-08-20
+**Fonte primária:** [`LOTE 001 — SOURCE OF TRUTH.md`](./LOTE%20001%20%E2%80%94%20SOURCE%20OF%20TRUTH.md)
 **Regra de segurança:** este arquivo contém somente nomes e relações estruturais. Não contém tokens, senhas, chaves, valores, payloads ou conteúdo de arquivos `.env`.
 
-> **Decisão arquitetural oficial:** Bitwarden Secrets Manager é o **Source of Truth dos secrets técnicos do IGNITE PRIME**. A documentação anterior que apontava Apple Passwords ou outra fonte como autoridade foi preservada como contexto histórico, mas está **SUBSTITUÍDA pela política Bitwarden-first**. Este documento não migra, rotaciona, altera ou valida valores.
+> **Decisão arquitetural oficial homologada:** Bitwarden Secrets Manager é o **Source of Truth dos secrets técnicos do IGNITE PRIME**. A documentação anterior que apontava Apple Passwords ou outra fonte como autoridade foi preservada, quando aplicável, como **HISTÓRICO / POLÍTICA SUBSTITUÍDA**. Este documento não migra, rotaciona, altera ou valida valores.
 
 ## Mapa estrutural
 
@@ -50,7 +51,7 @@
 
 `docs/SECURITY/SECRETS.md` permanece como referência histórica de taxonomia e incidentes, mas sua indicação de Apple Passwords como Source of Truth foi substituída. `docs/SECURITY/BITWARDEN-SECRETS-MANAGER.md` é a referência especializada atual para Bitwarden-first, sync controlado e limites de comparação.
 
-O prefixo `VITE_` não deve ser usado como prova de que um valor foi exposto, mas indica que a variável pode ser incorporada ao bundle do frontend. A confirmação segura futura deve verificar apenas presença, escopo e privilégio — sem imprimir valores — e deve ocorrer antes de qualquer rotação ou alteração.
+O prefixo `VITE_` constitui **RISCO ESTRUTURAL CONFIRMADO** porque a variável pode ser incorporada ao bundle do frontend. Isso não prova `SECRET REAL EXPOSTO`, `CREDENCIAL COMPROMETIDA` ou presença de valor real no bundle. A confirmação segura futura deve verificar apenas presença, escopo e privilégio — sem imprimir valores — e deve ocorrer antes de qualquer rotação ou alteração.
 
 ## Proibições deste mapa
 
