@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../theme.jsx'
 import { loadAuditoriaV2Dashboard, getAuditRuns as getAuditRunsV2, getExceptions as getExceptionsV2, getProductsIndex, ignoreException, reactivateException, derivarStatusGeral, runBagySyncViaUI } from '../services/auditoria/auditoriaV2Data'
-
-const STATUS_GERAL_COLOR = { operacional: '#0EC331', atencao: '#F59E0B', problema: '#E8192C', desconhecido: '#D1D5DB' }
-const STATUS_GERAL_ICON = { operacional: '🟢', atencao: '🟡', problema: '🔴', desconhecido: '⚪' }
+import { getQualitySummary, runQualityAudit } from '../services/auditoria/qualidadeCatalogoData.js'
+import SyncStatusSummary from './bagyAudit/SyncStatusSummary.jsx'
+import QualitySummary from './bagyAudit/QualitySummary.jsx'
+import QualityFindingsList from './bagyAudit/QualityFindingsList.jsx'
+import QualityRunHistory from './bagyAudit/QualityRunHistory.jsx'
 
 const STATUS_FINAL_COLOR = { sucesso: '#0EC331', sucesso_com_excecoes: '#F59E0B', falha: '#E8192C' }
 const STATUS_FINAL_DEFAULT_COLOR = '#9CA3AF'
@@ -40,8 +42,18 @@ function formatDuration(ms) {
   return min > 0 ? `${min}m ${sec}s` : `${sec}s`
 }
 
+// PARTE 56 / Fase 2 — 4 abas. "Auditar Qualidade" (roxo) — real desde a
+// Fase 5, ver handleQualityAuditConfirm.
+const TABS = [
+  { key: 'visao-geral', label: 'Visão Geral' },
+  { key: 'qualidade', label: 'Qualidade do Catálogo' },
+  { key: 'sync', label: 'Exceções de Sincronização' },
+  { key: 'historico', label: 'Histórico' },
+]
+
 export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
   const { theme: t } = useTheme()
+  const [activeTab, setActiveTab] = useState('visao-geral')
 
   // Resumo superior (V2). Falha aqui nunca deve derrubar o resto da página,
   // só o próprio bloco de resumo.
@@ -82,6 +94,42 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
   const [showVerifyPasswordModal, setShowVerifyPasswordModal] = useState(false)
   const [verifyPasswordInput, setVerifyPasswordInput] = useState('')
   const [syncPasswordInput, setSyncPasswordInput] = useState('')
+
+  // PARTE 56 / Fase 2 — resumo de Qualidade do Catálogo (aba Visão Geral).
+  // Loader isolado dos 3 de sync abaixo — nunca compartilha estado/enum com
+  // eles (ver docs/integrations/SHADOW-V2-CATALOGO.md §9.6/9.7). Carrega no
+  // mount, junto com o resumo de sync — é 1 GET leve (última run), não a
+  // lista de findings (essa só carrega ao abrir a aba Qualidade, Fase 3+).
+  const [qualitySummary, setQualitySummary] = useState(null)
+  const [qualitySummaryLoading, setQualitySummaryLoading] = useState(true)
+  const [qualitySummaryError, setQualitySummaryError] = useState(null)
+
+  // PARTE 56 / Fase 5 — "Auditar Qualidade" real. Estado totalmente isolado
+  // do fluxo de sync (`runAction`/`showVerifyPasswordModal`/etc acima) —
+  // nunca reaproveitado, pra uma auditoria em andamento nunca desabilitar
+  // Verificar/Sincronizar (nem vice-versa) por semântica de "busy"
+  // compartilhada indevidamente.
+  const [qualityRunAction, setQualityRunAction] = useState('pronto') // 'pronto'|'auditando'|'sucesso'|'erro'
+  const [qualityRunActionError, setQualityRunActionError] = useState(null)
+  const [qualityRunActionResult, setQualityRunActionResult] = useState(null)
+  const [showQualityAuditPasswordModal, setShowQualityAuditPasswordModal] = useState(false)
+  const [qualityAuditPasswordInput, setQualityAuditPasswordInput] = useState('')
+  // Sinal incremental — QualityFindingsList/QualityRunHistory observam essa
+  // prop pra saber quando refazer sua própria busca (só existem, e portanto
+  // só reagem, depois de a aba correspondente ter sido aberta ao menos 1x —
+  // ver `qualidadeOpened`/`historicoOpened` abaixo).
+  const [qualityRefreshSignal, setQualityRefreshSignal] = useState(0)
+
+  // PARTE 56 / Fase 5 — cada aba de qualidade, uma vez aberta, permanece
+  // montada (só escondida via CSS ao trocar de aba) em vez de desmontar —
+  // é o que permite "findings/histórico já carregados" sobreviver a uma
+  // troca de aba, pra `refreshQualityAfterAuditRun` só atualizar o que já
+  // foi carregado, sem precisar re-buscar do zero sempre que o usuário volta
+  // pra aba. As abas Visão Geral/Exceções de Sincronização continuam com o
+  // padrão anterior (dados já vivem em estado do próprio BagyAuditPage,
+  // sempre carregados no mount, independente da aba estar visível).
+  const [qualidadeOpened, setQualidadeOpened] = useState(false)
+  const [historicoOpened, setHistoricoOpened] = useState(false)
 
   // Extraídas de useEffect pra função nomeada — chamadas no mount E de novo
   // depois de "Verificar agora"/"Sincronizar agora" bem-sucedidos (Fase 7),
@@ -124,9 +172,30 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
     return () => { cancelado = true }
   }, [])
 
+  // PARTE 56 / Fase 2 — loader isolado do resumo de qualidade, mesmo padrão
+  // `cancelado` dos 3 acima. Nunca disparado por `refreshV2AfterRun` (sync) —
+  // ganha seu próprio refresh quando a auditoria real de qualidade existir
+  // (Fase 5).
+  const loadQualitySummary = useCallback(() => {
+    let cancelado = false
+    setQualitySummaryLoading(true)
+    setQualitySummaryError(null)
+    getQualitySummary()
+      .then((run) => { if (!cancelado) setQualitySummary(run) })
+      .catch((e) => { if (!cancelado) setQualitySummaryError(e.message) })
+      .finally(() => { if (!cancelado) setQualitySummaryLoading(false) })
+    return () => { cancelado = true }
+  }, [])
+
   useEffect(loadV2Dashboard, [])
   useEffect(loadV2Runs, [])
   useEffect(loadV2Exceptions, [])
+  useEffect(loadQualitySummary, [])
+
+  useEffect(() => {
+    if (activeTab === 'qualidade') setQualidadeOpened(true)
+    if (activeTab === 'historico') setHistoricoOpened(true)
+  }, [activeTab])
 
   // Refresh dos 3 blocos V2 depois de uma execução bem-sucedida — reutiliza
   // as mesmas funções acima, nenhuma query nova inventada pra isso.
@@ -134,6 +203,43 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
     loadV2Dashboard()
     loadV2Runs()
     loadV2Exceptions()
+  }
+
+  // PARTE 56 / Fase 5 — refresh isolado depois de "Auditar Qualidade" bem-
+  // sucedido. NUNCA chama refreshV2AfterRun — a fronteira Sync × Qualidade
+  // continua estruturalmente separada. Sempre recarrega o resumo (card
+  // pequeno, sempre visível na Visão Geral); só sinaliza refetch pra
+  // findings/histórico se essas abas já foram abertas ao menos 1x (só nesse
+  // caso os componentes existem pra reagir ao sinal).
+  function refreshQualityAfterAuditRun() {
+    loadQualitySummary()
+    setQualityRefreshSignal((v) => v + 1)
+  }
+
+  async function handleQualityAuditConfirm() {
+    const senha = qualityAuditPasswordInput
+    setShowQualityAuditPasswordModal(false)
+    setQualityAuditPasswordInput('') // limpo imediatamente após a leitura — nunca persistido
+    setQualityRunAction('auditando')
+    setQualityRunActionError(null)
+    setQualityRunActionResult(null)
+    try {
+      const resultado = await runQualityAudit(senha)
+      if (resultado.ok === false) {
+        // Run persistida como 'falha' pelo próprio backend — não é uma
+        // exceção de transporte, mas também não é sucesso. Mostra o motivo
+        // real devolvido pela API, nunca inventa um genérico.
+        setQualityRunActionError(resultado.motivo || 'A auditoria não pôde ser concluída.')
+        setQualityRunAction('erro')
+        return
+      }
+      setQualityRunActionResult(resultado)
+      setQualityRunAction('sucesso')
+      refreshQualityAfterAuditRun()
+    } catch (e) {
+      setQualityRunActionError(e.message)
+      setQualityRunAction('erro')
+    }
   }
 
   async function handleVerifyNow() {
@@ -205,14 +311,14 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
         <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text, margin: 0 }}>🔍 Auditoria Bagy (Beta)</h1>
       </div>
       <p style={{ fontSize: 12, color: t.textMuted, marginTop: 0, marginBottom: 12 }}>
-        Compara os produtos sincronizados da Bagy com o catálogo interno. "Verificar agora" só lê (dry_run); "Sincronizar agora" grava no catálogo.
+        Saúde da sincronização e qualidade do catálogo.
       </p>
 
       {/* Fase 7 — ações manuais reais: chamam exclusivamente system-tools?tool=
           bagy-sync-run-ui, que por sua vez chama o sincronizador oficial
           (api/_bagySyncService.js). Nenhuma lógica de scraping/mapper/estoque/
           RPC/retry vive aqui — só orquestração de UI. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <button
           onClick={() => setShowVerifyPasswordModal(true)}
           disabled={runAction === 'verificando' || runAction === 'sincronizando'}
@@ -235,10 +341,79 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
         >
           {runAction === 'sincronizando' ? 'Sincronizando...' : 'Sincronizar agora'}
         </button>
+        {/* PARTE 56 / Fase 5 — real: dispara ?tool=catalog-quality-audit-run
+            (motor congelado, lê só o Shadow/Catálogo V2 — nunca a Bagy ao
+            vivo). Desabilita só este botão enquanto roda — Verificar/
+            Sincronizar e a navegação entre abas continuam livres. */}
+        <button
+          onClick={() => setShowQualityAuditPasswordModal(true)}
+          disabled={qualityRunAction === 'auditando'}
+          style={{
+            background: qualityRunAction === 'auditando' ? '#DDD6FE' : '#7C3AED', color: '#fff', border: 'none',
+            borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600,
+            cursor: qualityRunAction === 'auditando' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {qualityRunAction === 'auditando' ? 'Auditando...' : 'Auditar Qualidade'}
+        </button>
         <span style={{ fontSize: 11, color: t.textMuted }}>
           Verificar = só leitura (dry_run). Sincronizar = grava no catálogo (write, com confirmação).
         </span>
       </div>
+
+      {qualityRunActionError && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13, marginBottom: 16 }}>
+          ⚠️ {qualityRunActionError}
+        </div>
+      )}
+
+      {qualityRunActionResult && qualityRunAction === 'sucesso' && (
+        <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 12, color: t.text }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Auditoria de qualidade concluída</div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {qualityRunActionResult.resumo?.totalAtivosAnalisados != null && <span>{qualityRunActionResult.resumo.totalAtivosAnalisados} ativos analisados</span>}
+            {qualityRunActionResult.resumo?.semAchados != null && <span>{qualityRunActionResult.resumo.semAchados} sem problemas</span>}
+            {qualityRunActionResult.resumo?.comAchados != null && <span>{qualityRunActionResult.resumo.comAchados} com problemas</span>}
+            {qualityRunActionResult.resumo?.totalFindings != null && <span>{qualityRunActionResult.resumo.totalFindings} findings totais</span>}
+            {qualityRunActionResult.resumo?.novos != null && <span>{qualityRunActionResult.resumo.novos} novos</span>}
+            {qualityRunActionResult.resumo?.reabertos != null && <span>{qualityRunActionResult.resumo.reabertos} reabertos</span>}
+            {qualityRunActionResult.resumo?.resolvidosAutomaticamente != null && <span>{qualityRunActionResult.resumo.resolvidosAutomaticamente} resolvidos automaticamente</span>}
+          </div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
+            A auditoria analisa o Shadow/Catálogo V2 atual (não faz leitura ao vivo da Bagy).
+          </div>
+        </div>
+      )}
+
+      {showQualityAuditPasswordModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: t.bg, borderRadius: 12, padding: 24, maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: 15, fontWeight: 700, color: t.text }}>Auditar Qualidade</h3>
+            <p style={{ fontSize: 13, color: t.textMuted, marginBottom: 10 }}>
+              Executa o motor de qualidade sobre o Shadow/Catálogo V2 atual (nunca lê a Bagy ao vivo) e grava o resultado no histórico.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={qualityAuditPasswordInput}
+              onChange={(e) => setQualityAuditPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleQualityAuditConfirm()}
+              placeholder="Senha de ação"
+              style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, padding: '8px 10px', borderRadius: 8, border: `1px solid ${t.border}`, marginBottom: 16, background: t.bg, color: t.text }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => { setShowQualityAuditPasswordModal(false); setQualityAuditPasswordInput('') }}
+                style={{ fontSize: 13, color: t.text, background: 'none', border: `1px solid ${t.border}`, borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleQualityAuditConfirm}
+                style={{ fontSize: 13, color: '#fff', background: '#7C3AED', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer' }}>
+                Auditar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {runActionError && (
         <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13, marginBottom: 16 }}>
@@ -409,192 +584,170 @@ export default function BagyAuditPage({ onNavigateToCatalogProduct }) {
         </div>
       )}
 
-      {v2Loading ? (
-        <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 14, padding: 20, marginBottom: 20, fontSize: 12, color: t.textMuted }}>
-          Carregando resumo...
-        </div>
-      ) : v2Error ? (
-        <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 14, padding: '10px 14px', color: '#E8192C', fontSize: 13, marginBottom: 20 }}>
-          ⚠️ Não foi possível carregar o resumo: {v2Error}
-        </div>
-      ) : v2Dashboard ? (
-        <ExecutiveSummary t={t} dashboard={v2Dashboard} />
-      ) : null}
-
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Histórico de execuções</div>
-        {v2RunsLoading ? (
-          <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Carregando histórico...</div>
-        ) : v2RunsError ? (
-          <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13 }}>
-            ⚠️ Não foi possível carregar o histórico: {v2RunsError}
-          </div>
-        ) : v2Runs.length === 0 ? (
-          <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Nenhuma execução do sincronizador registrada ainda.</div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {(showAllV2Runs ? v2Runs : v2Runs.slice(0, 5)).map(r => {
-                const active = selectedV2RunId === r.run_id
-                const statusColor = STATUS_FINAL_COLOR[r.status_final] || STATUS_FINAL_DEFAULT_COLOR
-                return (
-                  <div key={r.run_id} onClick={() => setSelectedV2RunId(r.run_id)} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
-                    padding: '7px 12px', borderRadius: 8, flexWrap: 'wrap', gap: 6,
-                    background: active ? (t.primaryBg || '#FEF2F2') : 'transparent',
-                    border: `1px solid ${active ? (t.primary || '#E8192C') : t.border}`,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: t.text, fontWeight: active ? 600 : 400 }}>
-                        {new Date(r.finished_at || r.started_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: r.mode === 'write' ? '#DC2626' : '#6B7280', background: r.mode === 'write' ? '#FEF2F2' : '#F3F4F6', borderRadius: 6, padding: '1px 6px', textTransform: 'uppercase' }}>
-                        {r.mode === 'write' ? 'WRITE' : r.mode === 'dry_run' ? 'DRY RUN' : (r.mode || '—')}
-                      </span>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{r.trigger || '—'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{r.total_analisado ?? '—'} analisados</span>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{exceptionsTotalForRun(r)} {exceptionsTotalForRun(r) === 1 ? 'exceção' : 'exceções'}</span>
-                      <span style={{ fontSize: 11, color: t.textMuted }}>{formatDuration(r.duration_ms)}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: statusColor }}>{r.status_final || '—'}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {v2Runs.length > 5 && (
-              <button
-                onClick={() => setShowAllV2Runs(v => !v)}
-                style={{ marginTop: 8, fontSize: 11, color: t.primary || '#E8192C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                {showAllV2Runs ? 'Mostrar menos' : `Ver todas as execuções (${v2Runs.length})`}
-              </button>
-            )}
-          </>
-        )}
+      {/* PARTE 56 / Fase 2 — barra de abas. Trocar de aba nunca dispara
+          reload dos dados já carregados (tudo já foi buscado no mount,
+          igual antes) — só decide o que renderizar. */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: `1px solid ${t.border}`, marginBottom: 20 }}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              background: 'none', border: 'none',
+              borderBottom: activeTab === tab.key ? '2px solid #7C3AED' : '2px solid transparent',
+              padding: '8px 16px', fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500,
+              color: activeTab === tab.key ? '#7C3AED' : t.textMuted, cursor: 'pointer',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div>
-        <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Pendências de sincronização</div>
+      {activeTab === 'visao-geral' && (
+        <div>
+          <QualitySummary t={t} summary={qualitySummary} loading={qualitySummaryLoading} error={qualitySummaryError} />
 
-        {v2ExcLoading ? (
-          <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Carregando pendências...</div>
-        ) : v2ExcError ? (
-          <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13 }}>
-            ⚠️ Não foi possível carregar as pendências: {v2ExcError}
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-              <FilterChip active={v2ExcFilterTipo === 'all'} onClick={() => setV2ExcFilterTipo('all')} color={t.primary || '#E8192C'}
-                label={`Todos (${v2Exceptions.length})`} />
-              {Object.entries(EXCEPTION_TYPE_META).map(([tipo, meta]) => (v2ExcCountsByTipo[tipo] > 0) && (
-                <FilterChip key={tipo} active={v2ExcFilterTipo === tipo} onClick={() => setV2ExcFilterTipo(tipo)} color={meta.color}
-                  label={`${meta.label} (${v2ExcCountsByTipo[tipo]})`} />
-              ))}
+          {v2Loading ? (
+            <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 14, padding: 20, marginBottom: 20, fontSize: 12, color: t.textMuted }}>
+              Carregando resumo...
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-              <FilterChip active={v2ExcFilterStatus === 'all'} onClick={() => setV2ExcFilterStatus('all')} color="#6B7280"
-                label="Todos os status" />
-              {Object.entries(EXCEPTION_STATUS_LABEL).map(([status, label]) => (
-                <FilterChip key={status} active={v2ExcFilterStatus === status} onClick={() => setV2ExcFilterStatus(status)} color="#6B7280"
-                  label={`${label} (${v2ExcCountsByStatus[status] || 0})`} />
-              ))}
+          ) : v2Error ? (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 14, padding: '10px 14px', color: '#E8192C', fontSize: 13, marginBottom: 20 }}>
+              ⚠️ Não foi possível carregar o resumo: {v2Error}
             </div>
+          ) : v2Dashboard ? (
+            <SyncStatusSummary t={t} dashboard={v2Dashboard} />
+          ) : null}
+        </div>
+      )}
 
-            {v2ExcFiltered.length === 0 ? (
-              <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, padding: '40px 0' }}>
-                {v2Exceptions.length === 0 ? 'Nenhuma pendência registrada. 🎉' : 'Nenhum item nesse filtro.'}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {v2ExcFiltered.map(exc => (
-                  <V2ExceptionCard
-                    key={exc.id}
-                    exc={exc}
-                    t={t}
-                    product={v2ProductsByLink?.get(exc.link)}
-                    productsById={v2ProductsById}
-                    onStatusChanged={(newStatus) => handleExceptionStatusChanged(exc.id, exc.status, newStatus)}
-                    onNavigateToCatalogProduct={onNavigateToCatalogProduct}
-                  />
+      {/* PARTE 56 / Fase 5 — uma vez aberta, a aba Qualidade permanece
+          montada (só escondida via CSS) pra `refreshQualityAfterAuditRun`
+          conseguir atualizar a lista mesmo se o usuário estiver em outra
+          aba no momento em que a auditoria termina. */}
+      {(qualidadeOpened || activeTab === 'qualidade') && (
+        <div style={{ display: activeTab === 'qualidade' ? 'block' : 'none' }}>
+          <QualityFindingsList t={t} refreshSignal={qualityRefreshSignal} />
+        </div>
+      )}
+
+      {activeTab === 'sync' && (
+        <div>
+          <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Pendências de sincronização</div>
+
+          {v2ExcLoading ? (
+            <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Carregando pendências...</div>
+          ) : v2ExcError ? (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13 }}>
+              ⚠️ Não foi possível carregar as pendências: {v2ExcError}
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                <FilterChip active={v2ExcFilterTipo === 'all'} onClick={() => setV2ExcFilterTipo('all')} color={t.primary || '#E8192C'}
+                  label={`Todos (${v2Exceptions.length})`} />
+                {Object.entries(EXCEPTION_TYPE_META).map(([tipo, meta]) => (v2ExcCountsByTipo[tipo] > 0) && (
+                  <FilterChip key={tipo} active={v2ExcFilterTipo === tipo} onClick={() => setV2ExcFilterTipo(tipo)} color={meta.color}
+                    label={`${meta.label} (${v2ExcCountsByTipo[tipo]})`} />
                 ))}
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-    </div>
-  )
-}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                <FilterChip active={v2ExcFilterStatus === 'all'} onClick={() => setV2ExcFilterStatus('all')} color="#6B7280"
+                  label="Todos os status" />
+                {Object.entries(EXCEPTION_STATUS_LABEL).map(([status, label]) => (
+                  <FilterChip key={status} active={v2ExcFilterStatus === status} onClick={() => setV2ExcFilterStatus(status)} color="#6B7280"
+                    label={`${label} (${v2ExcCountsByStatus[status] || 0})`} />
+                ))}
+              </div>
 
-function ExecutiveSummary({ t, dashboard }) {
-  const { productCounts, exceptionCounts, latestRun, statusGeral } = dashboard
-
-  return (
-    <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 14, padding: 20, marginBottom: 20, display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-      <HealthRing status={statusGeral} />
-      <div style={{ flex: 1, minWidth: 240 }}>
-        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 8 }}>
-          {latestRun
-            ? <>Última execução: {new Date(latestRun.finished_at || latestRun.started_at).toLocaleString('pt-BR')} · {latestRun.mode} · {latestRun.trigger}</>
-            : 'Nenhuma execução do sincronizador registrada ainda'}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-          <SummaryLine icon="📦" label="Produtos" value={productCounts.total} color={t.text} />
-          <SummaryLine icon="🔗" label="Sincronizados" value={productCounts.sincronizados} color="#0EC331" />
-          <SummaryLine icon="✍️" label="Manuais" value={productCounts.manuais} color="#6366F1" />
-          <SummaryLine icon="⚠️" label="Exceções abertas" value={exceptionCounts.porStatus.aberto} color="#E8192C" />
-          {latestRun && (
-            <>
-              <SummaryLine icon="📊" label="Analisados" value={latestRun.total_analisado} color={t.text} />
-              <SummaryLine icon="✅" label="Sem mudança" value={latestRun.sem_mudanca} color="#0EC331" />
-              <SummaryLine icon="🔴" label="404" value={latestRun.total_404} color="#E8192C" />
-              <SummaryLine icon="🟡" label="Página inválida" value={latestRun.pagina_invalida} color="#F59E0B" />
-              <SummaryLine icon="🟠" label="Conflitos" value={latestRun.duplicate_conflict} color="#F97316" />
-              <SummaryLine icon="🌐" label="Erro de rede" value={latestRun.erro_rede} color="#6B7280" />
-              <SummaryLine icon="🔁" label="Retries" value={latestRun.retries_executados} color="#6B7280" />
-              <SummaryLine icon="➕" label="Variações inseridas" value={latestRun.variacoes_inseridas} color="#7C3AED" />
-              <SummaryLine icon="♻️" label="Variações atualizadas" value={latestRun.variacoes_atualizadas} color="#7C3AED" />
-              <SummaryLine icon="🏁" label="Status final" value={latestRun.status_final} color={t.text} />
-              <SummaryLine icon="⏱️" label="Duração" value={formatDuration(latestRun.duration_ms)} color={t.text} />
+              {v2ExcFiltered.length === 0 ? (
+                <div style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, padding: '40px 0' }}>
+                  {v2Exceptions.length === 0 ? 'Nenhuma pendência registrada. 🎉' : 'Nenhum item nesse filtro.'}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {v2ExcFiltered.map(exc => (
+                    <V2ExceptionCard
+                      key={exc.id}
+                      exc={exc}
+                      t={t}
+                      product={v2ProductsByLink?.get(exc.link)}
+                      productsById={v2ProductsById}
+                      onStatusChanged={(newStatus) => handleExceptionStatusChanged(exc.id, exc.status, newStatus)}
+                      onNavigateToCatalogProduct={onNavigateToCatalogProduct}
+                    />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
-      </div>
-    </div>
-  )
-}
+      )}
 
-function SummaryLine({ icon, label, value, color }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-      <span>{icon}</span>
-      <span style={{ color: '#6B7280' }}>{label}:</span>
-      <span style={{ fontWeight: 700, color }}>{value}</span>
-    </div>
-  )
-}
+      {(historicoOpened || activeTab === 'historico') && (
+        <div style={{ display: activeTab === 'historico' ? 'block' : 'none' }}>
+          <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Execuções de sincronização</div>
+          {v2RunsLoading ? (
+            <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Carregando histórico...</div>
+          ) : v2RunsError ? (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 10, padding: '10px 14px', color: '#E8192C', fontSize: 13 }}>
+              ⚠️ Não foi possível carregar o histórico: {v2RunsError}
+            </div>
+          ) : v2Runs.length === 0 ? (
+            <div style={{ fontSize: 12, color: t.textMuted, padding: '8px 0' }}>Nenhuma execução do sincronizador registrada ainda.</div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {(showAllV2Runs ? v2Runs : v2Runs.slice(0, 5)).map(r => {
+                  const active = selectedV2RunId === r.run_id
+                  const statusColor = STATUS_FINAL_COLOR[r.status_final] || STATUS_FINAL_DEFAULT_COLOR
+                  return (
+                    <div key={r.run_id} onClick={() => setSelectedV2RunId(r.run_id)} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+                      padding: '7px 12px', borderRadius: 8, flexWrap: 'wrap', gap: 6,
+                      background: active ? (t.primaryBg || '#FEF2F2') : 'transparent',
+                      border: `1px solid ${active ? (t.primary || '#E8192C') : t.border}`,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: t.text, fontWeight: active ? 600 : 400 }}>
+                          {new Date(r.finished_at || r.started_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: r.mode === 'write' ? '#DC2626' : '#6B7280', background: r.mode === 'write' ? '#FEF2F2' : '#F3F4F6', borderRadius: 6, padding: '1px 6px', textTransform: 'uppercase' }}>
+                          {r.mode === 'write' ? 'WRITE' : r.mode === 'dry_run' ? 'DRY RUN' : (r.mode || '—')}
+                        </span>
+                        <span style={{ fontSize: 11, color: t.textMuted }}>{r.trigger || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 11, color: t.textMuted }}>{r.total_analisado ?? '—'} analisados</span>
+                        <span style={{ fontSize: 11, color: t.textMuted }}>{exceptionsTotalForRun(r)} {exceptionsTotalForRun(r) === 1 ? 'exceção' : 'exceções'}</span>
+                        <span style={{ fontSize: 11, color: t.textMuted }}>{formatDuration(r.duration_ms)}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: statusColor }}>{r.status_final || '—'}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {v2Runs.length > 5 && (
+                <button
+                  onClick={() => setShowAllV2Runs(v => !v)}
+                  style={{ marginTop: 8, fontSize: 11, color: t.primary || '#E8192C', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {showAllV2Runs ? 'Mostrar menos' : `Ver todas as execuções (${v2Runs.length})`}
+                </button>
+              )}
+            </>
+          )}
 
-function HealthRing({ status }) {
-  const color = STATUS_GERAL_COLOR[status?.status] || '#D1D5DB'
-  const icon = STATUS_GERAL_ICON[status?.status] || '⚪'
-  return (
-    <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
-      <div style={{
-        width: 110, height: 110, borderRadius: '50%',
-        background: color,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'background 0.6s ease',
-      }}>
-        <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 4 }}>
-          <div style={{ fontSize: 22 }}>{icon}</div>
-          <div style={{ fontSize: 9, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{status?.label || 'Status'}</div>
+          {/* PARTE 56 / Fase 5 — área independente, nunca misturada com a
+              lista de execuções de sync acima. */}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${t.border}` }}>
+            <QualityRunHistory t={t} refreshSignal={qualityRefreshSignal} />
+          </div>
         </div>
-      </div>
+      )}
+    </div>
     </div>
   )
 }

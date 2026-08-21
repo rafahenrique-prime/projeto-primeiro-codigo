@@ -178,6 +178,13 @@ import { processarLote, obterClienteComEventos, obterAgregados } from './_nexCli
 import { consultarProduto } from './_toolConsultarProduto.js'
 import { runPrimeBridgeWebhook } from './_primeBridgeWebhook.js'
 import { processarAlertaInteligente } from './_alertaInteligente.js'
+import {
+  rodarAuditoriaQualidade,
+  buscarUltimaRun,
+  buscarHistoricoRuns,
+  buscarFindings,
+  atualizarStatusFindingManual,
+} from './_qualidadeCatalogoAuditoria.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -2610,6 +2617,139 @@ async function bagySyncRunUI(req, res) {
   return res.status(200).json(resultado)
 }
 
+// ============================================================================
+// tool=catalog-quality-audit-run / catalog-quality-audit-summary /
+// catalog-quality-findings / catalog-quality-finding-status — Fase 2C.
+// Toda a lógica real vive em api/_qualidadeCatalogoAuditoria.js (mesma usada
+// por scripts/qualidade-catalogo-auditoria.mjs, execução manual) — este
+// arquivo só faz a cola HTTP (secret, validação de método/parâmetros, status
+// code). Nunca consulta a Bagy ao vivo, nunca escreve em
+// shadow_products/shadow_product_variations, nunca chama
+// shadow-refresh/shadow-reconcile. O motor de qualidade
+// (src/services/auditoria/qualidadeCatalogoRules.js) é consumido, nunca
+// alterado por esta rota.
+// ============================================================================
+
+function qualidadeCatalogoConfig() {
+  return { supabaseUrl: SUPABASE_URL, secretKey: SUPABASE_SECRET_KEY }
+}
+
+// ?tool=catalog-quality-audit-run — executa 1 auditoria e persiste o
+// histórico (run + findings). Ação de escrita → protegida por
+// BAGY_UI_ACTION_SECRET (mesmo padrão de bagy-sync-run-ui/bagy-exception-
+// status). `rodarAuditoriaQualidade` já devolve {ok:false,...} sem lançar
+// quando a leitura do catálogo ou o motor falham — devolvido como 200 com
+// ok:false (o run em si já registra o status 'falha' no histórico).
+async function catalogQualityAuditRun(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!validarBagyUiActionSecret(req, res)) return
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Supabase (service_role) não configurado' })
+  }
+
+  try {
+    const resultado = await rodarAuditoriaQualidade(qualidadeCatalogoConfig())
+    return res.status(200).json(resultado)
+  } catch (e) {
+    console.error('[system-tools:catalog-quality-audit-run] Erro inesperado:', e.message)
+    return res.status(500).json({ ok: false, error: e.message })
+  }
+}
+
+// ?tool=catalog-quality-audit-summary — leitura pública (mesmo nível de
+// exposição de openrouter-usage/vercel-status: RLS já permite SELECT aberto
+// nas tabelas, esta rota só centraliza a query). GET só: última run
+// (?historico ausente) ou histórico paginado (?historico=1&limit=&offset=).
+async function catalogQualityAuditSummary(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Supabase (service_role) não configurado' })
+  }
+
+  try {
+    if (req.query?.historico === '1') {
+      const runs = await buscarHistoricoRuns(qualidadeCatalogoConfig(), {
+        limit: req.query?.limit,
+        offset: req.query?.offset,
+      })
+      return res.status(200).json({ runs })
+    }
+    const ultimaRun = await buscarUltimaRun(qualidadeCatalogoConfig())
+    return res.status(200).json({ ultimaRun })
+  } catch (e) {
+    console.error('[system-tools:catalog-quality-audit-summary] Erro inesperado:', e.message)
+    return res.status(500).json({ error: e.message })
+  }
+}
+
+// ?tool=catalog-quality-findings — leitura pública paginável/filtrável
+// (status, severidade, classe, tipo, bagyProductId, nome). Nenhum filtro
+// aceita valor livre em SQL — status/severidade/classe validam contra listas
+// fechadas dentro de buscarFindings; nome/tipo/bagyProductId vão como
+// parâmetro do PostgREST (encodeURIComponent), nunca concatenados.
+async function catalogQualityFindings(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Supabase (service_role) não configurado' })
+  }
+
+  try {
+    const findings = await buscarFindings(qualidadeCatalogoConfig(), {
+      status: req.query?.status,
+      severidade: req.query?.severidade,
+      classe: req.query?.classe,
+      tipo: req.query?.tipo,
+      bagyProductId: req.query?.bagyProductId,
+      nome: req.query?.nome,
+      limit: req.query?.limit,
+      offset: req.query?.offset,
+    })
+    return res.status(200).json({ findings })
+  } catch (e) {
+    console.error('[system-tools:catalog-quality-findings] Erro:', e.message)
+    return res.status(400).json({ error: e.message })
+  }
+}
+
+// ?tool=catalog-quality-finding-status — só aberto<->ignorado. 'resolvido'
+// nunca é aceito aqui (rejeitado por atualizarStatusFindingManual) — só a
+// auditoria automática, numa run completa, pode marcar resolvido. Ação de
+// escrita → protegida por BAGY_UI_ACTION_SECRET.
+async function catalogQualityFindingStatus(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!validarBagyUiActionSecret(req, res)) return
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Supabase (service_role) não configurado' })
+  }
+
+  const { id, status } = req.body || {}
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'id é obrigatório' })
+  }
+
+  try {
+    const finding = await atualizarStatusFindingManual(qualidadeCatalogoConfig(), id, status)
+    if (!finding) {
+      return res.status(404).json({ error: 'finding não encontrado' })
+    }
+    return res.status(200).json({ success: true, finding })
+  } catch (e) {
+    if (e.message === 'status_invalido') {
+      return res.status(400).json({ error: "status inválido — permitido apenas: aberto, ignorado (resolvido nunca é manual)" })
+    }
+    console.error('[system-tools:catalog-quality-finding-status] Erro:', e.message)
+    return res.status(500).json({ error: e.message })
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
@@ -2915,7 +3055,20 @@ export default async function handler(req, res) {
       }
     }
 
+    case 'catalog-quality-audit-run':
+      // Auditoria de Qualidade do Catálogo V2, Fase 2C — ver comentário acima.
+      return catalogQualityAuditRun(req, res)
+
+    case 'catalog-quality-audit-summary':
+      return catalogQualityAuditSummary(req, res)
+
+    case 'catalog-quality-findings':
+      return catalogQualityFindings(req, res)
+
+    case 'catalog-quality-finding-status':
+      return catalogQualityFindingStatus(req, res)
+
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status, alerta-inteligente ou bagy-sync-run-ui)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status, alerta-inteligente, bagy-sync-run-ui, catalog-quality-audit-run, catalog-quality-audit-summary, catalog-quality-findings ou catalog-quality-finding-status)' })
   }
 }

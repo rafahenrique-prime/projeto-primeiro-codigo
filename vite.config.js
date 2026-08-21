@@ -16,6 +16,16 @@ export default defineConfig({
   server: {
     port: 5176,
   },
+  // PARTE 56 / Fase 2 — sem isso, o Vitest transforma .jsx com o factory
+  // clássico (React.createElement) mesmo com o plugin React presente,
+  // quebrando qualquer teste que renderize um componente sem `import React`
+  // explícito (nenhum arquivo do projeto importa React manualmente — todos
+  // contam com o runtime automático, que só funciona de verdade em `vite
+  // dev`/`vite build` sem isto aqui). Não afeta o app em si (mesmo runtime
+  // automático que o plugin já produzia).
+  esbuild: {
+    jsx: 'automatic',
+  },
   define: {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __COMMIT_SHA__: JSON.stringify(getCommitSha()),
