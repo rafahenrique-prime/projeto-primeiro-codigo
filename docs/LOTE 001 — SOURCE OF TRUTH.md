@@ -81,7 +81,27 @@ Um agente deve começar por este arquivo e seguir os mapas relacionados. Antes d
 
 Este documento não autoriza commit, push, merge, exclusão, renomeação, migração, rotação, deploy, alteração de workflow ou alteração de integração. Qualquer ação futura depende de autorização específica e revisão do diff.
 
-## 8. Referências canônicas
+## 8. Mapas oficiais do LOTE 002 — Pacote A
+
+A investigação e classificação do LOTE 002 confirmaram estruturalmente, no snapshot da `main`, a coexistência de arquivos operacionais na raiz, famílias de scripts manuais, páginas de gerações paralelas, POCs/Previews, históricos e instruções concorrentes. Esses fatos descrevem existência, conteúdo, imports, rotas, histórico e configuração; **não confirmam runtime externo, tráfego, produção, canonicidade de produto ou necessidade de remoção**.
+
+| Documento | Função |
+|---|---|
+| [`LOTE 002 — SCRIPT AND ROOT FILE GOVERNANCE.md`](./LOTE%20002%20%E2%80%94%20SCRIPT%20AND%20ROOT%20FILE%20GOVERNANCE.md) | Classifica scripts e arquivos operacionais por leitura/escrita, risco, consumidor e recomendação futura. |
+| [`LOTE 002 — PAGE CANONICALITY MATRIX.md`](./LOTE%20002%20%E2%80%94%20PAGE%20CANONICALITY%20MATRIX.md) | Compara páginas, rotas, imports, menu, gerações e canonicidade sem escolher uma implementação arbitrariamente. |
+| [`LOTE 002 — POC PREVIEW AND HISTORY MATRIX.md`](./LOTE%20002%20%E2%80%94%20POC%20PREVIEW%20AND%20HISTORY%20MATRIX.md) | Separa POC, Preview, Experimental, Histórico, Backup e Referência V2, com regra especial para PRIME Bridge. |
+| [`LOTE 002 — PENDING DECISIONS.md`](./LOTE%20002%20%E2%80%94%20PENDING%20DECISIONS.md) | Registra decisões que exigem owner, evidência externa ou autorização posterior, incluindo governança de agentes. |
+| [`LOTE 002 — PACOTE A — RELATÓRIO DE EXECUÇÃO.md`](./LOTE%20002%20%E2%80%94%20PACOTE%20A%20%E2%80%94%20RELAT%C3%93RIO%20DE%20EXECU%C3%87%C3%83O.md) | Registra o escopo, o commit local, as validações e as restrições do Pacote A. |
+
+No snapshot consultado, os mapas registram **12 branches, 3 tags, 76 entradas na raiz, 31 páginas, 63 arquivos em `src/services/`, 33 arquivos em `api/`, 22 testes e 19 cases no dispatcher `api/system-tools.js`**. Essas contagens são evidências do snapshot, não indicadores de atividade operacional.
+
+## 9. Governança documental do Pacote A
+
+A hierarquia documental proposta é: autorização humana atual; este Source of Truth para classificação e precedência; políticas específicas de segurança; `CLAUDE.md` e `AGENTS.md` para processo; skills e documentos de domínio dentro de seu escopo; relatórios históricos como contexto. A proposta não reescreve playbooks, não altera skills e não autoriza execução.
+
+A distinção obrigatória permanece: **código existente ≠ configuração ≠ documentação ≠ runtime confirmado**. PRIME Bridge, Lyra, PRIME Cobranças, Base44, páginas paralelas, branches de Preview/Shadow e scripts de escrita remota continuam sujeitos a `NÃO CONFIRMADO`, `PRODUÇÃO APARENTE / NÃO CONFIRMADA` ou classificação equivalente quando não houver evidência operacional externa.
+
+## 10. Referências canônicas
 
 - [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md)
 - [`docs/WEBHOOKS.md`](./WEBHOOKS.md)
@@ -91,4 +111,4 @@ Este documento não autoriza commit, push, merge, exclusão, renomeação, migra
 - [`CLAUDE.md`](../CLAUDE.md)
 - [`AGENTS.md`](../AGENTS.md)
 
-**Estado deste documento:** atualizado na homologação do LOTE 001. Não representa autorização para executar o LOTE 002.
+**Estado deste documento:** atualizado no Pacote A para incorporar fatos estruturais e referências documentais homologadas do LOTE 002. Esta atualização não autoriza o Pacote B, execução de scripts, organização física, alteração funcional ou qualquer ação fora do escopo do Pacote A.
