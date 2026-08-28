@@ -181,6 +181,17 @@ export function detectProductRequest(msg, lastAssistantMsg) {
     /quero ver (a |uma )?foto/,
     /tem foto/,
     /manda (a |uma )?imagem/,
+    // Achado real (caso "Vans VR3" → "Possui mais fotos?"): a whitelist acima
+    // não cobria variações de "possui"/"mais"/"outras" foto(s)/imagem(ns) —
+    // a mensagem caía direto em "not a photo request" antes até de tentar
+    // identificar o produto. `possui.*foto(s)?` cobre a forma com verbo;
+    // `(mais|outras?) (fotos?|imagens?)` cobre a forma sem verbo ("mais
+    // fotos?", "outras imagens?"), com ou sem "tem"/"possui" na frente —
+    // ambas exigem a palavra foto/imagem adjacente a mais/outras/possui,
+    // então não disparam em menções soltas ("a foto ficou bonita", "vi a
+    // foto ontem", "essa foto é do produto?").
+    /possui.*(foto|imagem)/,
+    /(mais|outras?)\s+(fotos?|imagens?)/,
   ].some(p => p.test(m))
   if (direct) return true
 

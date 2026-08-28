@@ -244,6 +244,48 @@ describe('Casos adicionais de caracterização (sem threshold novo — só obser
     expect(detectProductRequest('quero', 'Qual tamanho você usa?')).toBe(false)
   })
 
+  // Achado real (2026-08-28): cliente já havia identificado corretamente
+  // "Tênis Vans Ultrarange VR3 Preto" (via "Vans vr3") e depois perguntou
+  // "Possui mais fotos?" — a whitelist antiga não reconhecia essa frase (nem
+  // variações equivalentes), então o handler saía em "not a photo request"
+  // antes até de tentar buscar o produto/contexto. Cobertura ampliada em
+  // detectProductRequest() para essas formas, sem tocar em identificação de
+  // produto, catálogo ou envio.
+  describe('detectProductRequest — cobertura ampliada de "mais/outras fotos/imagens" (caso real Vans VR3)', () => {
+    it.each([
+      'Possui mais fotos?',
+      'Tem mais fotos?',
+      'Tem outras fotos?',
+      'Outras fotos?',
+      'Mais fotos?',
+      'Tem mais imagens?',
+      'Possui outras imagens?',
+      'Me manda foto',
+      'Quero ver a foto',
+    ])('reconhece "%s" como pedido de foto', (msg) => {
+      expect(detectProductRequest(msg)).toBe(true)
+    })
+
+    it.each([
+      'A foto ficou bonita',
+      'Vi a foto ontem',
+      'Essa foto é do produto?',
+      'Bom dia, tudo bem?',
+    ])('NÃO reconhece "%s" como pedido de foto (evita falso positivo)', (msg) => {
+      expect(detectProductRequest(msg)).toBe(false)
+    })
+
+    it('regressão do caso real: "Possui mais fotos?" passa no gate mesmo após o produto já ter sido identificado antes na conversa', () => {
+      // Sequência conceitual: Cliente "Vans vr3" → Gaby identifica o produto →
+      // Cliente "Possui mais fotos?" — este teste cobre só o gate de detecção
+      // (detectProductRequest), que é o ponto exato onde o caso real falhava;
+      // a lógica de identificação de produto por contexto já é coberta em
+      // outros testes deste arquivo e não foi alterada nesta correção.
+      const ultimaMensagemDaGaby = 'Achei aqui! Tênis Vans Ultrarange VR3 Preto, R$ 399,90. Link: https://loja/vans-vr3'
+      expect(detectProductRequest('Possui mais fotos?', ultimaMensagemDaGaby)).toBe(true)
+    })
+  })
+
   it('normalize remove acento e markdown, mantendo o comportamento documentado no próprio código-fonte', () => {
     expect(normalize('*Tênis* New Balance')).toBe('tenis new balance')
   })
