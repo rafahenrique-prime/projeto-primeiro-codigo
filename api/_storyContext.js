@@ -22,7 +22,6 @@ export async function getStoryContext(chatId) {
   if (!chatId || typeof chatId !== 'string') return null
 
   const token = process.env.VITE_GPTMAKER_TOKEN
-  console.log('[StoryContext][TEMP-DEBUG] token presente?', !!token)
   if (!token) return null
 
   const controller = new AbortController()
@@ -34,22 +33,18 @@ export async function getStoryContext(chatId) {
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    console.log('[StoryContext][TEMP-DEBUG] status da API GPT Maker:', res.status)
 
     if (!res.ok) return null
 
     const mensagens = await res.json()
-    console.log('[StoryContext][TEMP-DEBUG] total mensagens:', Array.isArray(mensagens) ? mensagens.length : typeof mensagens)
     if (!Array.isArray(mensagens) || mensagens.length === 0) return null
 
     const mensagensDeUsuario = mensagens.filter(m => m && m.role === 'user' && typeof m.time === 'number')
-    console.log('[StoryContext][TEMP-DEBUG] mensagens de usuario:', mensagensDeUsuario.length)
     if (mensagensDeUsuario.length === 0) return null
 
     const ultima = mensagensDeUsuario.reduce((a, b) => (b.time > a.time ? b : a))
 
     const meta = ultima.metadata
-    console.log('[StoryContext][TEMP-DEBUG] metadata keys da ultima msg:', meta ? Object.keys(meta) : null)
     if (!meta || !meta.storyId || !meta.storyMediaUrl) return null
 
     return {
