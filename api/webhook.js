@@ -414,7 +414,6 @@ export default async function handler(req, res) {
     if (chat_id) {
       try {
         const contextoStory = await getStoryContext(chat_id)
-        console.log('[Webhook][TEMP-DEBUG] contextoStory encontrado?', !!contextoStory, contextoStory ? `storyId=${contextoStory.storyId}` : '')
         if (contextoStory?.storyMediaUrl) {
           const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl)
           if (descricaoVisual) {
