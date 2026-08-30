@@ -97,12 +97,22 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
 
   const base64 = midia.buffer.toString('base64')
 
+  // Em Preview, deployments ficam atrás do Vercel Deployment Protection (SSO) —
+  // até chamadas internas servidor-a-servidor são bloqueadas sem esse header.
+  // VERCEL_AUTOMATION_BYPASS_SECRET já existe como secret gerenciado pela própria
+  // Vercel (Preview); em produção essa proteção não existe, então isso nunca
+  // afeta produção (env var ausente = header simplesmente não é enviado).
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), VISION_CALL_TIMEOUT_MS)
   try {
     const res = await fetch(`${base}/api/system-tools?tool=ocr-openrouter`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {}),
+      },
       body: JSON.stringify({
         model: VISION_PROXY_MODEL,
         messages: [{
