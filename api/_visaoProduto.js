@@ -89,10 +89,13 @@ function baseUrlDoDeployment() {
 }
 
 export async function identificarProdutoPorImagem(storyMediaUrl) {
+  console.log('[VisaoProduto][TEMP-DEBUG] hostnameValido:', validarStoryMediaUrl(storyMediaUrl))
   const midia = await baixarStoryMediaSeguro(storyMediaUrl)
+  console.log('[VisaoProduto][TEMP-DEBUG] midia baixada?', !!midia, midia ? `contentType=${midia.contentType} bytes=${midia.buffer.byteLength}` : '')
   if (!midia) return null
 
   const base = baseUrlDoDeployment()
+  console.log('[VisaoProduto][TEMP-DEBUG] base do deployment:', base, '| VERCEL_URL=', process.env.VERCEL_URL)
   if (!base) return null
 
   const base64 = midia.buffer.toString('base64')
@@ -128,6 +131,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       signal: controller.signal,
     })
     clearTimeout(timeout)
+    console.log('[VisaoProduto][TEMP-DEBUG] status do self-call:', res.status, '| bypassSecretPresente:', !!bypassSecret, '| base:', base)
     if (!res.ok) return null
 
     const data = await res.json()
