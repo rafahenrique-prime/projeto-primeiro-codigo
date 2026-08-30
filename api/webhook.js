@@ -342,6 +342,12 @@ export default async function handler(req, res) {
       cliente_id: req.body?.cliente_id || req.body?.contextId || null,
     })
 
+    // TEMP DEBUG (remover após validação do elo chat_id → GET /v2/chat/{chatId}/messages):
+    // loga SOMENTE o campo debug_chat_id, nunca o body completo.
+    if (req.body?.debug_chat_id) {
+      console.log('[Webhook][TEMP-DEBUG] debug_chat_id recebido:', req.body.debug_chat_id)
+    }
+
     // Warm-up: acorda o Supabase em background (não bloqueia a resposta)
     warmupSupabase().catch(() => {})
 
