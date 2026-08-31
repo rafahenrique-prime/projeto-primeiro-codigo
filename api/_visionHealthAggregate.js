@@ -108,6 +108,16 @@ export function aggregateMonth(rows) {
   }
 }
 
+// lifetime.cost_usd — soma só cost_usd não-nulo de TODOS os eventos já
+// registrados (sem filtro de data), mesma semântica null-safe já usada em
+// aggregateEvents/aggregateMonth: nunca inventa custo pra evento
+// cost_source='unavailable' (cost_usd null ali é ignorado na soma, não
+// tratado como 0 "custo real"). Tabela vazia → 0, nunca null/erro.
+export function aggregateLifetime(rows) {
+  const costUsd = rows.reduce((acc, r) => acc + (typeof r.cost_usd === 'number' ? r.cost_usd : 0), 0)
+  return { cost_usd: costUsd }
+}
+
 export function aggregateMedia(rows) {
   return {
     images: rows.filter((r) => r.media_type === 'image').length,
@@ -206,9 +216,10 @@ export function buildStatus({ hasAnyData, providerHealth, alerts, today }) {
  * chamar depois de já ter buscado todayRows/monthRows/recentRows e resolvido
  * providerHealth.
  */
-export function buildVisionHealthContract({ todayRows, monthRows, recentRows, providerHealth, model, checkedAt }) {
+export function buildVisionHealthContract({ todayRows, monthRows, recentRows, lifetimeRows = [], providerHealth, model, checkedAt }) {
   const today = aggregateEvents(todayRows)
   const month = aggregateMonth(monthRows)
+  const lifetime = aggregateLifetime(lifetimeRows)
   const media = aggregateMedia(todayRows)
   const failures = aggregateFailures(todayRows)
   const recent = shapeRecent(recentRows)
@@ -224,6 +235,7 @@ export function buildVisionHealthContract({ todayRows, monthRows, recentRows, pr
     checked_at: checkedAt,
     today,
     month,
+    lifetime,
     media,
     failures,
     provider_health: providerHealth,

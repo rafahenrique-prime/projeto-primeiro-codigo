@@ -59,7 +59,10 @@
 //                           curados, POST faz a chamada real).
 // ?tool=vision-health     → Painel Visão IA (IGNITE PRIME V2), Passo 3. READ ONLY — agrega
 //                           public.vision_usage_events (gravada por api/_visaoProduto.js via
-//                           api/_visionTelemetry.js) em today/month/media/failures/recent/alerts.
+//                           api/_visionTelemetry.js) em today/month/lifetime/media/failures/
+//                           recent/alerts. lifetime.cost_usd soma cost_usd de todos os eventos
+//                           já registrados (sem filtro de data) — não é histórico anterior à
+//                           telemetria, é literalmente "desde o primeiro evento gravado".
 //                           Passo 5A — protegido, exige Authorization: Bearer <VISION_HEALTH_TOKEN>
 //                           (segredo dedicado, consumo server-to-server pelo Mirror do Base44 —
 //                           nunca reaproveita outro token existente). Só GET. Ver
@@ -1876,7 +1879,7 @@ async function visionHealth(req, res) {
   const todayStartUtc = computeTodayStartUtc(now).toISOString()
   const monthStartUtc = computeMonthStartUtc(now).toISOString()
 
-  const [todayRows, monthRows, recentRows] = await Promise.all([
+  const [todayRows, monthRows, recentRows, lifetimeRows] = await Promise.all([
     visionHealthSupabaseSelect(
       `select=success,latency_ms,input_tokens,output_tokens,total_tokens,cost_usd,media_type,ffmpeg_used,error_code&created_at=gte.${encodeURIComponent(todayStartUtc)}`,
     ),
@@ -1886,6 +1889,11 @@ async function visionHealth(req, res) {
     visionHealthSupabaseSelect(
       `select=created_at,source,media_type,ffmpeg_used,model,success,latency_ms,total_tokens,cost_usd,cost_source,error_code&order=created_at.desc&limit=20`,
     ),
+    // lifetime.cost_usd — soma desde o primeiro evento já registrado (sem
+    // filtro de data). Só a coluna necessária, mesmo padrão enxuto de
+    // month; nenhuma consulta por linha (sem N+1), 1 select agregado a mais
+    // dentro do mesmo Promise.all.
+    visionHealthSupabaseSelect('select=cost_usd'),
   ])
 
   const providerHealth = computeProviderHealth(recentRows)
@@ -1894,6 +1902,7 @@ async function visionHealth(req, res) {
     todayRows,
     monthRows,
     recentRows,
+    lifetimeRows,
     providerHealth,
     model: VISION_HEALTH_MODEL,
     checkedAt: now.toISOString(),

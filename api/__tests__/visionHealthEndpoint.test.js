@@ -135,6 +135,7 @@ describe('api/system-tools.js?tool=vision-health', () => {
     expect(res.body.status).toBe('no_data')
     expect(res.body.today.calls).toBe(0)
     expect(res.body.month.calls).toBe(0)
+    expect(res.body.lifetime.cost_usd).toBe(0)
     expect(res.body.recent).toEqual([])
     expect(res.body.provider).toBe('openrouter')
     expect(res.body.model).toBe('google/gemini-2.5-flash-lite')
@@ -154,8 +155,9 @@ describe('api/system-tools.js?tool=vision-health', () => {
     const { default: handler } = await import('../system-tools.js')
     await handler(makeReq('vision-health', { bearer: TOKEN_VALIDO }), makeRes())
 
+    // today, month, recent, lifetime — 4 leituras, nenhuma escrita.
     const chamadasVisionEvents = fetchMock.mock.calls.filter(([url]) => String(url).includes('vision_usage_events'))
-    expect(chamadasVisionEvents).toHaveLength(3)
+    expect(chamadasVisionEvents).toHaveLength(4)
   })
 
   it('POST (já autenticado) é rejeitado com 405 (endpoint é GET-only)', async () => {
@@ -176,9 +178,15 @@ describe('api/system-tools.js?tool=vision-health', () => {
       model: 'google/gemini-2.5-flash-lite', success: true, latency_ms: 900, total_tokens: 120,
       cost_usd: 0.0001, cost_source: 'real', error_code: null,
     }
+    // Datasets distintos por query, pra provar que lifetime é independente
+    // de today/month (não é o mesmo array reaproveitado por acidente).
     const fetchMock = vi.fn(async (url) => {
       const u = String(url)
       if (u.includes('order=created_at.desc')) return { ok: true, status: 200, json: async () => [eventoRecente] }
+      if (u.includes('select=cost_usd') && !u.includes('created_at')) {
+        // lifetime — sem filtro de data, só a coluna cost_usd
+        return { ok: true, status: 200, json: async () => [{ cost_usd: 0.001 }, { cost_usd: 0.002 }, { cost_usd: null }] }
+      }
       if (u.includes('vision_usage_events')) return { ok: true, status: 200, json: async () => [eventoHoje] }
       throw new Error(`fetch não mockado: ${u}`)
     })
@@ -192,12 +200,18 @@ describe('api/system-tools.js?tool=vision-health', () => {
     expect(res.body.status).toBe('healthy')
     expect(res.body).toHaveProperty('today')
     expect(res.body).toHaveProperty('month')
+    expect(res.body).toHaveProperty('lifetime')
     expect(res.body).toHaveProperty('media')
     expect(res.body).toHaveProperty('failures')
     expect(res.body).toHaveProperty('provider_health')
     expect(res.body).toHaveProperty('recent')
     expect(res.body).toHaveProperty('alerts')
     expect(res.body.recent[0].source).toBe('story')
+
+    // lifetime.cost_usd = 0.001 + 0.002 (o null é ignorado) — independente
+    // do cost_usd de today (0.0001), prova que a query não foi reaproveitada.
+    expect(res.body.lifetime.cost_usd).toBeCloseTo(0.003, 6)
+    expect(res.body.today.cost_usd).toBe(0.0001)
   })
 
   it('nenhum PII na resposta final serializada, mesmo com dados reais', async () => {

@@ -9,6 +9,7 @@ import {
   computeMonthStartUtc,
   aggregateEvents,
   aggregateMonth,
+  aggregateLifetime,
   aggregateMedia,
   aggregateFailures,
   shapeRecent,
@@ -64,6 +65,7 @@ describe('[A] tabela vazia', () => {
       input_tokens: 0, output_tokens: 0, total_tokens: 0, cost_usd: 0,
     })
     expect(aggregateMonth([])).toEqual({ calls: 0, success: 0, failures: 0, success_rate: 0, total_tokens: 0, cost_usd: 0 })
+    expect(aggregateLifetime([])).toEqual({ cost_usd: 0 })
     expect(aggregateMedia([])).toEqual({ images: 0, videos: 0, unknown: 0, ffmpeg_used: 0, ffmpeg_failures: 0 })
     const failures = aggregateFailures([])
     expect(Object.values(failures).every((v) => v === 0)).toBe(true)
@@ -79,8 +81,59 @@ describe('[A] tabela vazia', () => {
     expect(contract.status).toBe('no_data')
     expect(contract.today.calls).toBe(0)
     expect(contract.month.calls).toBe(0)
+    expect(contract.lifetime).toEqual({ cost_usd: 0 })
     expect(contract.recent).toEqual([])
     expect(contract.alerts).toEqual([{ level: 'info', code: 'no_data', message: expect.any(String) }])
+  })
+})
+
+describe('[lifetime] custo total desde o primeiro evento', () => {
+  it('soma cost_usd de todos os eventos passados, ignora null, sem inventar custo', () => {
+    const rows = [
+      evento({ cost_usd: 0.001, cost_source: 'real' }),
+      evento({ cost_usd: 0.002, cost_source: 'real' }),
+      evento({ cost_usd: null, cost_source: 'unavailable' }),
+    ]
+    expect(aggregateLifetime(rows)).toEqual({ cost_usd: expect.closeTo(0.003, 6) })
+  })
+
+  it('tabela vazia → cost_usd 0, nunca null/erro', () => {
+    expect(aggregateLifetime([])).toEqual({ cost_usd: 0 })
+  })
+
+  it('todos os eventos sem custo real (unavailable) → 0, nunca inventado', () => {
+    const rows = [
+      evento({ cost_usd: null, cost_source: 'unavailable' }),
+      evento({ cost_usd: null, cost_source: 'unavailable' }),
+    ]
+    expect(aggregateLifetime(rows)).toEqual({ cost_usd: 0 })
+  })
+
+  it('buildVisionHealthContract: lifetime presente e correto, today/month não afetados por lifetimeRows diferente', () => {
+    const todayRows = [evento({ cost_usd: 0.0001 })]
+    const lifetimeRows = [evento({ cost_usd: 0.001 }), evento({ cost_usd: 0.002 })]
+    const contract = buildVisionHealthContract({
+      todayRows, monthRows: todayRows, recentRows: todayRows, lifetimeRows,
+      providerHealth: { status: 'healthy', model_available: true, balance_usd: null, consumption_24h_usd: null },
+      model: 'google/gemini-2.5-flash-lite',
+      checkedAt: '2026-08-31T12:00:00.000Z',
+    })
+    expect(contract.lifetime.cost_usd).toBeCloseTo(0.003, 6)
+    expect(contract.today.cost_usd).toBeCloseTo(0.0001, 6)
+    // campos existentes continuam todos presentes — nada foi removido/renomeado
+    expect(Object.keys(contract).sort()).toEqual(
+      ['alerts', 'checked_at', 'failures', 'lifetime', 'media', 'model', 'month', 'provider', 'provider_health', 'recent', 'status', 'today'].sort(),
+    )
+  })
+
+  it('buildVisionHealthContract sem lifetimeRows (compat retroativa) → lifetime.cost_usd = 0, não quebra', () => {
+    const contract = buildVisionHealthContract({
+      todayRows: [], monthRows: [], recentRows: [],
+      providerHealth: { status: 'unknown', model_available: true, balance_usd: null, consumption_24h_usd: null },
+      model: 'google/gemini-2.5-flash-lite',
+      checkedAt: '2026-08-31T12:00:00.000Z',
+    })
+    expect(contract.lifetime).toEqual({ cost_usd: 0 })
   })
 })
 
