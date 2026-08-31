@@ -1822,9 +1822,9 @@ async function debugFfmpegFrame(req, res) {
 
     const tVisionStart = Date.now()
     const base64 = frameBuffer.toString('base64')
-    const { vision } = await getOpenRouterAllowlist()
-    const curatedVision = curateOcrModels(vision)
-    const modeloEscolhido = curatedVision[0]?.id || 'google/gemini-2.5-flash-lite'
+    // Fixo no modelo já homologado (esta branch derivou de origin/main, que
+    // ainda não tem a allowlist paga do branch feat/visao-openrouter-primaria).
+    const modeloEscolhido = 'google/gemini-2.5-flash-lite'
 
     let descricaoVisual = null
     if (OPENROUTER_API_KEY) {
