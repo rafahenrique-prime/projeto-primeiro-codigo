@@ -22,6 +22,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { writeFile, readFile, unlink } from 'node:fs/promises'
 import crypto from 'node:crypto'
+import { recordVisionUsageEvent } from './_visionTelemetry.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -35,6 +36,7 @@ const ALLOWED_STORY_MEDIA_HOSTS = new Set(['gpt-files.com']) // único domínio 
 const FFMPEG_TIMEOUT_MS = 15000
 
 const VISION_PROXY_MODEL = 'google/gemini-2.5-flash-lite'
+const VISION_PROVIDER = 'openrouter'
 
 const PROMPT_IDENTIFICACAO = `Você é um especialista em identificação de produtos para lojas.
 
@@ -140,18 +142,53 @@ function baseUrlDoDeployment() {
 }
 
 export async function identificarProdutoPorImagem(storyMediaUrl) {
+  const inicio = Date.now()
+
   const midia = await baixarStoryMediaSeguro(storyMediaUrl)
-  if (!midia) return null
+  // Falha de download acontece antes de sabermos o media_type real
+  // (image/video) — media_type='unknown' (migration 031) cobre exatamente
+  // este caso, sem precisar alterar a assinatura pública da função nem
+  // tocar webhook.js.
+  if (!midia) {
+    recordVisionUsageEvent({
+      source: 'story', mediaType: 'unknown', ffmpegUsed: false, model: VISION_PROXY_MODEL,
+      provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+      errorCode: 'download_error',
+    })
+    return null
+  }
+
+  const mediaType = ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType) ? 'video' : 'image'
 
   const base = baseUrlDoDeployment()
-  if (!base) return null
+  if (!base) {
+    recordVisionUsageEvent({
+      source: 'story', mediaType, ffmpegUsed: false, model: VISION_PROXY_MODEL,
+      provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+      errorCode: 'provider_error',
+    })
+    return null
+  }
 
   let bufferParaVisao = midia.buffer
   let contentTypeParaVisao = midia.contentType
+  let ffmpegUsed = false
+  let ffmpegMs = null
 
   if (ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType)) {
+    ffmpegUsed = true
+    const ffmpegInicio = Date.now()
     const frame = await extrairFrameDeVideo(midia.buffer)
-    if (!frame) return null // fail-safe: vídeo sem frame extraível, sem 2ª tentativa em V1
+    ffmpegMs = Date.now() - ffmpegInicio
+    if (!frame) {
+      // fail-safe: vídeo sem frame extraível, sem 2ª tentativa em V1
+      recordVisionUsageEvent({
+        source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
+        provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+        errorCode: 'ffmpeg_error',
+      })
+      return null
+    }
     bufferParaVisao = frame
     contentTypeParaVisao = 'image/jpeg'
   }
@@ -189,15 +226,41 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    if (!res.ok) return null
+    if (!res.ok) {
+      recordVisionUsageEvent({
+        source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
+        provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+        errorCode: 'provider_error',
+      })
+      return null
+    }
 
     const data = await res.json()
     const texto = data.choices?.[0]?.message?.content || ''
+
+    recordVisionUsageEvent({
+      source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
+      provider: VISION_PROVIDER, success: !!texto, latencyMs: Date.now() - inicio,
+      inputTokens: data.usage?.prompt_tokens ?? null,
+      outputTokens: data.usage?.completion_tokens ?? null,
+      totalTokens: data.usage?.total_tokens ?? null,
+      // Confirmado empiricamente em 2026-08-31: a resposta principal do
+      // OpenRouter já inclui usage.cost hoje, sem precisar de nenhum campo
+      // extra no request nem de uma 2ª chamada — ver _visionTelemetry.js.
+      costFromMainResponse: typeof data.usage?.cost === 'number' ? data.usage.cost : null,
+      generationId: data.id ?? null,
+      errorCode: texto ? null : 'vision_error',
+    })
     return texto || null
-  } catch {
+  } catch (err) {
     clearTimeout(timeout)
     // Nunca loga base64 nem storyMediaUrl.
     console.warn('[VisaoProduto] identificação indisponível, seguindo sem Story')
+    recordVisionUsageEvent({
+      source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
+      provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+      errorCode: err?.name === 'AbortError' ? 'timeout' : 'vision_error',
+    })
     return null
   }
 }

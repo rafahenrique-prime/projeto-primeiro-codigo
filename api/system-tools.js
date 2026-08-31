@@ -57,6 +57,14 @@
 // ?tool=ocr-openrouter    → Pacote 2: proxy fiel do fallback de visão do OCR (ocrService.js).
 //                           Mesmo desenho do codex-openrouter (GET lista até 3 modelos de visão
 //                           curados, POST faz a chamada real).
+// ?tool=vision-health     → Painel Visão IA (IGNITE PRIME V2), Passo 3. READ ONLY — agrega
+//                           public.vision_usage_events (gravada por api/_visaoProduto.js via
+//                           api/_visionTelemetry.js) em today/month/media/failures/recent/alerts.
+//                           Passo 5A — protegido, exige Authorization: Bearer <VISION_HEALTH_TOKEN>
+//                           (segredo dedicado, consumo server-to-server pelo Mirror do Base44 —
+//                           nunca reaproveita outro token existente). Só GET. Ver
+//                           api/_visionHealthAggregate.js pra lógica de agregação (fuso
+//                           America/Sao_Paulo, p95, status, alertas).
 // ?tool=perplexity-health → health check real da API do Perplexity pro Operations Center. A API
 //                           do Perplexity não expõe saldo/uso/requests (só o endpoint de chat) —
 //                           por isso o card mostra só o que é real: status (online/offline),
@@ -174,6 +182,7 @@ import { processarLote, obterClienteComEventos, obterAgregados } from './_nexCli
 import { consultarProduto } from './_toolConsultarProduto.js'
 import { runPrimeBridgeWebhook } from './_primeBridgeWebhook.js'
 import { processarAlertaInteligente } from './_alertaInteligente.js'
+import { computeTodayStartUtc, computeMonthStartUtc, buildVisionHealthContract } from './_visionHealthAggregate.js'
 
 // Rate limit exclusivo do modo frontend (FASE 3.3.1) — Maps separados do limitador
 // administrativo (checarRateLimitBestEffort, importado acima), pra não compartilhar
@@ -1761,6 +1770,139 @@ async function ocrOpenRouter(req, res) {
 }
 
 // ============================================================================
+// tool=vision-health — Passo 3 do Painel Visão IA (IGNITE PRIME V2). READ ONLY,
+// nunca escreve em vision_usage_events. Agrega telemetria já gravada por
+// api/_visaoProduto.js (via api/_visionTelemetry.js) + reaproveita o cache em
+// memória já existente de openrouter-usage (sem disparar chamada nova ao
+// OpenRouter). Toda a lógica de agregação (fuso horário, p95, buckets,
+// alertas, status) fica em api/_visionHealthAggregate.js — funções puras,
+// testadas isoladamente. Este handler só busca as 3 fatias de dados
+// necessárias (today/month/recent) e monta o contrato.
+//
+// Modelo hardcoded aqui de propósito (não importado de _visaoProduto.js,
+// pra não precisar alterar aquele arquivo homologado por causa disto) — deve
+// sempre bater com VISION_PROXY_MODEL em api/_visaoProduto.js.
+//
+// Passo 5A — protegido por Authorization: Bearer <VISION_HEALTH_TOKEN>,
+// segredo próprio e dedicado (nunca reaproveita OPENROUTER_API_KEY/
+// SUPABASE_SECRET_KEY/VITE_GPTMAKER_TOKEN/VERCEL_AUTOMATION_BYPASS_SECRET
+// nem nenhum outro já existente). Mesmo mecanismo de comparação segura já
+// usado por consultar-produto/bagy-ui-action neste arquivo
+// (extrairBearerToken + compararSegredoSeguro, timingSafeEqual) — falha
+// fechado: sem VISION_HEALTH_TOKEN configurado no servidor, ninguém entra
+// (503), nunca "sem proteção configurada = libera geral".
+// ============================================================================
+
+const VISION_HEALTH_MODEL = 'google/gemini-2.5-flash-lite'
+const VISION_HEALTH_TIMEOUT_MS = 5000
+const VISION_HEALTH_TOKEN = process.env.VISION_HEALTH_TOKEN
+
+function visionHealthSupabaseHeaders() {
+  return { apikey: SUPABASE_SECRET_KEY, 'Content-Type': 'application/json' }
+}
+
+async function visionHealthSupabaseSelect(query) {
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return []
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), VISION_HEALTH_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/vision_usage_events?${query}`, {
+      headers: visionHealthSupabaseHeaders(),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (!res.ok) {
+      console.warn(`[system-tools:vision-health] Supabase respondeu HTTP ${res.status}`)
+      return []
+    }
+    const rows = await res.json()
+    return Array.isArray(rows) ? rows : []
+  } catch (e) {
+    clearTimeout(timeout)
+    // Nunca derruba o endpoint por falha de leitura — devolve vazio, o
+    // contrato já sabe lidar com ausência de dados (status=no_data).
+    console.warn('[system-tools:vision-health] Falha ao consultar Supabase:', e.name === 'AbortError' ? 'timeout' : e.message)
+    return []
+  }
+}
+
+// provider_health é derivado só dos eventos já buscados (recent) — nunca
+// dispara uma nova checagem ao OpenRouter. "down" só quando as últimas
+// chamadas falharam especificamente por causa do provider (provider_error/
+// timeout) — falhas nossas (download_error, ffmpeg_error) não contam contra
+// o provider.
+function computeProviderHealth(recentRows) {
+  const balanceUsd = typeof openrouterCache?.remainingCredits === 'number' ? openrouterCache.remainingCredits : null
+
+  if (recentRows.length === 0) {
+    return { status: 'unknown', model_available: true, balance_usd: balanceUsd, consumption_24h_usd: null }
+  }
+
+  const amostra = recentRows.slice(0, 5)
+  const falhasDeProvider = amostra.filter((r) => r.success === false && (r.error_code === 'provider_error' || r.error_code === 'timeout')).length
+
+  let status = 'healthy'
+  if (falhasDeProvider === amostra.length) status = 'down'
+  else if (falhasDeProvider > 0) status = 'degraded'
+
+  return {
+    status,
+    model_available: status !== 'down',
+    balance_usd: balanceUsd,
+    consumption_24h_usd: null, // OpenRouter não expõe janela de 24h — nunca inventar
+  }
+}
+
+async function visionHealth(req, res) {
+  if (!VISION_HEALTH_TOKEN) {
+    console.error('[system-tools:vision-health] Configuração ausente: VISION_HEALTH_TOKEN não definida')
+    return res.status(503).json({ error: 'endpoint indisponível: VISION_HEALTH_TOKEN não configurado no servidor' })
+  }
+
+  // Único código de erro (401) pra qualquer cenário de falha de autenticação
+  // (header ausente, esquema diferente de Bearer, token vazio, token de
+  // comprimento diferente ou token de mesmo comprimento mas errado) — nunca
+  // revela qual desses foi o motivo real. Mesmo padrão de consultar-produto.
+  const tokenRecebido = extrairBearerToken(req)
+  if (!tokenRecebido || !compararSegredoSeguro(tokenRecebido, VISION_HEALTH_TOKEN)) {
+    return res.status(401).json({ error: 'não autorizado' })
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const now = new Date()
+  const todayStartUtc = computeTodayStartUtc(now).toISOString()
+  const monthStartUtc = computeMonthStartUtc(now).toISOString()
+
+  const [todayRows, monthRows, recentRows] = await Promise.all([
+    visionHealthSupabaseSelect(
+      `select=success,latency_ms,input_tokens,output_tokens,total_tokens,cost_usd,media_type,ffmpeg_used,error_code&created_at=gte.${encodeURIComponent(todayStartUtc)}`,
+    ),
+    visionHealthSupabaseSelect(
+      `select=success,total_tokens,cost_usd&created_at=gte.${encodeURIComponent(monthStartUtc)}`,
+    ),
+    visionHealthSupabaseSelect(
+      `select=created_at,source,media_type,ffmpeg_used,model,success,latency_ms,total_tokens,cost_usd,cost_source,error_code&order=created_at.desc&limit=20`,
+    ),
+  ])
+
+  const providerHealth = computeProviderHealth(recentRows)
+
+  const contract = buildVisionHealthContract({
+    todayRows,
+    monthRows,
+    recentRows,
+    providerHealth,
+    model: VISION_HEALTH_MODEL,
+    checkedAt: now.toISOString(),
+  })
+
+  return res.status(200).json(contract)
+}
+
+// ============================================================================
 // tool=mcp — IGNITE PRIME MCP Lite, somente leitura. Implementa o necessário do
 // protocolo MCP (JSON-RPC 2.0 sobre HTTP) pro handshake completo com um cliente
 // remoto (GPT Maker/Gabriela): initialize, notifications/initialized, tools/list,
@@ -2599,6 +2741,12 @@ export default async function handler(req, res) {
       // codex-openrouter, allowlist própria de modelos de visão.
       return ocrOpenRouter(req, res)
 
+    case 'vision-health':
+      // Painel Visão IA (IGNITE PRIME V2), Passo 3 — READ ONLY. Passo 5A:
+      // protegido por Authorization: Bearer <VISION_HEALTH_TOKEN>, checado
+      // dentro de visionHealth() (mesmo mecanismo de consultar-produto).
+      return visionHealth(req, res)
+
     case 'perplexity-health':
       // Sem autenticação de usuário — mesmo desenho do qwen-health/openrouter-usage.
       // GET só lê cache em memória (nunca chama o Perplexity), POST faz a chamada
@@ -2862,6 +3010,6 @@ export default async function handler(req, res) {
     }
 
     default:
-      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status, alerta-inteligente ou bagy-sync-run-ui)' })
+      return res.status(400).json({ error: 'Parâmetro ?tool= inválido ou ausente (use vercel-status, sync-lyra, stuck-check, lyra-webhook, gerar-cobranca-lyra, qwen-health, openrouter-usage, codex-openrouter, ocr-openrouter, vision-health, perplexity-health, prime-cobrancas-status, mensagem-manual, mcp, nex-sync-clientes, nex-cliente, nex-health, consultar-produto, prime-bridge-webhook, bagy-exception-status, alerta-inteligente ou bagy-sync-run-ui)' })
   }
 }
