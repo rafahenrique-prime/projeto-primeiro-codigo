@@ -5,6 +5,8 @@
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
 import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
+import { getStoryContext } from './_storyContext.js'
+import { identificarProdutoPorImagem } from './_visaoProduto.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -174,9 +176,15 @@ export async function buscarKnowledge(pergunta) {
 }
 
 // Função de busca integrada
-export async function searchKnowledge(pergunta) {
+// perguntaOriginal (Story): quando a busca é feita pela descrição visual de um
+// Story, buscaTexto é o texto da visão (só serve pra achar o produto certo) e
+// perguntaOriginal é a intenção literal do cliente ("Tem 44?") — nunca
+// substituída, sempre devolvida em dados.pergunta pra Gaby continuar
+// interpretando a pergunta real. Default = buscaTexto preserva 100% do
+// comportamento atual quando não há Story.
+export async function searchKnowledge(buscaTexto, perguntaOriginal = buscaTexto) {
   try {
-    if (!pergunta || pergunta.trim().length < 3) {
+    if (!buscaTexto || buscaTexto.trim().length < 3) {
       return {
         ok: false,
         erro: 'Pergunta muito curta',
@@ -184,11 +192,11 @@ export async function searchKnowledge(pergunta) {
       }
     }
 
-    console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
+    console.log(`[Webhook] 🔍 Buscando: "${buscaTexto}"`)
 
     const [produtosResult, knowledgeBase] = await Promise.all([
-      buscarProdutos(pergunta),
-      buscarKnowledge(pergunta)
+      buscarProdutos(buscaTexto),
+      buscarKnowledge(buscaTexto)
     ])
     const { produtos, total: totalReal } = produtosResult
 
@@ -196,7 +204,7 @@ export async function searchKnowledge(pergunta) {
 
     const resposta = {
       ok: true,
-      pergunta,
+      pergunta: perguntaOriginal,
       timestamp: new Date().toISOString(),
       dados: {
         // FASE 2A: spread completo (não allowlist manual) — preserva todos os
@@ -373,6 +381,10 @@ export default async function handler(req, res) {
       }
     }
 
+    // Mesmo tratamento já aplicado a cliente_id/telefone/chat_id — remove o `$`
+    // residual do artefato de substituição de variável do GPT Maker.
+    pergunta = removerDollarInicial(pergunta)
+
     // Validar que temos uma pergunta
     if (!pergunta || pergunta.trim().length < 3) {
       return res.status(400).json({
@@ -391,20 +403,50 @@ export default async function handler(req, res) {
     const telefone = removerDollarInicial(req.body?.telefone) || null
     const canal = req.body?.canal || null
     const tipo_busca = req.body?.tipo_busca || 'auto'
+    const chat_id = removerDollarInicial(req.body?.chat_id) || null
 
     // Captura de identidade (Fase 2A) — fire-and-forget, nunca deve atrasar
     // ou travar a resposta da Gabriela. Não implementa memória/prompt ainda.
     upsertIdentity({ contextId: cliente_id, telefone, canal }).catch(() => {})
 
-    console.log(`[Webhook] 🔍 Buscando: "${pergunta}"`)
+    // Story do Instagram (best-effort, nunca bloqueia nem quebra o fluxo normal):
+    // se a mensagem mais recente do cliente foi resposta a um Story, identifica
+    // o produto pela foto e usa SÓ essa descrição como chave de busca — a
+    // `pergunta` original ("Tem 44?") nunca é substituída, continua sendo
+    // devolvida em dados.pergunta pra Gaby interpretar a intenção real.
+    let buscaTexto = pergunta
+    if (chat_id) {
+      try {
+        const contextoStory = await getStoryContext(chat_id)
+        if (contextoStory?.storyMediaUrl) {
+          const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl)
+          if (descricaoVisual) {
+            console.log('[Webhook] 🖼️  Story identificado, buscando pelo produto da imagem')
+            buscaTexto = descricaoVisual
+          }
+        }
+      } catch (err) {
+        console.warn('[Webhook] Story indisponível, seguindo com a pergunta original:', err.message)
+      }
+    }
+
+    console.log(`[Webhook] 🔍 Buscando: "${buscaTexto}"`)
 
     // Busca de produtos/conhecimento e busca de memória (Fase 2B) rodam em paralelo —
     // getMemoryBlock() já encapsula seu próprio timeout/fallback (nunca atrasa nem
     // trava esta resposta; pior caso, contribui só com '').
-    const [resultado, memoriaBlock] = await Promise.all([
-      searchKnowledge(pergunta),
+    let [resultado, memoriaBlock] = await Promise.all([
+      searchKnowledge(buscaTexto, pergunta),
       getMemoryBlock(cliente_id),
     ])
+
+    // Se a busca pela descrição visual do Story não achou produto nenhum,
+    // tenta de novo com a pergunta original antes de desistir — evita que uma
+    // identificação de imagem imprecisa deixe o cliente sem resposta.
+    if (resultado.ok && buscaTexto !== pergunta && (resultado.dados?.produtos?.length || 0) === 0) {
+      console.log('[Webhook] 🔁 Story não encontrou produto, tentando com a pergunta original')
+      resultado = await searchKnowledge(pergunta)
+    }
 
     if (!resultado.ok) {
       return res.status(400).json({

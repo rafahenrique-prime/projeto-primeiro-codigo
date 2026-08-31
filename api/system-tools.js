@@ -1587,6 +1587,15 @@ const OPENROUTER_EMERGENCY_VISION_MODELS = [
   { id: 'google/gemma-4-31b-it:free', name: 'Google: Gemma 4 31B (free)', contextLength: 262144 },
 ]
 
+// Allowlist paga, curada manualmente (nunca "todo modelo pago do catálogo") — só pra
+// identificação de produto por foto (OCR/visão). Validado com teste real em 2026-08-30
+// (mesma imagem de Story homologada): HTTP PASS, ~3.84s, custo ~US$0.00035/chamada,
+// qualidade suficiente pra virar keyword de busca de catálogo. Único item por enquanto;
+// adicionar novo modelo aqui exige o mesmo tipo de validação real, nunca só "parece bom".
+const OCR_PAID_ALLOWLIST = [
+  { id: 'google/gemini-2.5-flash-lite', name: 'Google: Gemini 2.5 Flash Lite', contextLength: 1048576 },
+]
+
 let openrouterModelsCache = null // { text, vision, fetchedAt }
 let openrouterModelsLastGood = null // sobrevive além do TTL — só substituído por outro fetch bem-sucedido
 
@@ -1659,8 +1668,15 @@ function curateCodexModels(textModels) {
   return top
 }
 
+// Modelo pago curado primeiro (validado com teste real, ver OCR_PAID_ALLOWLIST) — só
+// depois os gratuitos dinâmicos, como fallback caso o pago falhe/fique indisponível.
+// Nunca abre acesso a outros modelos pagos do catálogo — só os desta lista fixa.
 function curateOcrModels(visionModels) {
-  return [...visionModels].sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0)).slice(0, OCR_CURATED_MAX)
+  const gratuitosCurados = [...visionModels]
+    .filter(m => !OCR_PAID_ALLOWLIST.some(p => p.id === m.id))
+    .sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0))
+    .slice(0, OCR_CURATED_MAX)
+  return [...OCR_PAID_ALLOWLIST, ...gratuitosCurados]
 }
 
 async function openrouterChatProxy(req, res, allowedModels, toolLabel) {
