@@ -1,22 +1,38 @@
 /**
- * api/_visaoProduto.js — identifica visualmente o produto de uma foto de Story,
- * reaproveitando a camada de visão compartilhada já homologada
+ * api/_visaoProduto.js — identifica visualmente o produto de uma mídia de Story
+ * (foto OU vídeo), reaproveitando a camada de visão compartilhada já homologada
  * (api/system-tools.js?tool=ocr-openrouter, google/gemini-2.5-flash-lite).
  *
  * Nenhuma chamada direta a provider de IA aqui — só busca segura da mídia e
  * repassa pra camada já existente, exatamente como o painel administrativo
  * (src/services/foto/ocrService.js) já faz do lado do browser.
  *
+ * Story video/mp4 (foto+música do Instagram sempre chega assim, mesmo quando o
+ * original era estático — comprovado empiricamente, não distinguível via API):
+ * extrai 1 frame representativo em ~1s com ffmpeg-static antes de seguir pro
+ * mesmo caminho de visão usado por foto — não é um segundo sistema de visão.
+ *
  * Fail-safe: qualquer falha (mídia inválida, hostname não permitido, timeout,
- * tamanho excedido, provider indisponível) retorna null — nunca lança exceção.
- * Nunca loga storyMediaUrl nem base64.
+ * tamanho excedido, frame não extraível, provider indisponível) retorna null —
+ * nunca lança exceção. Nunca loga storyMediaUrl nem base64.
  */
+
+import ffmpegPath from 'ffmpeg-static'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { writeFile, readFile, unlink } from 'node:fs/promises'
+import crypto from 'node:crypto'
+
+const execFileAsync = promisify(execFile)
 
 const MEDIA_FETCH_TIMEOUT_MS = 4000
 const VISION_CALL_TIMEOUT_MS = 8000
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024 // 8MB — folga generosa pra foto de Story
-const ALLOWED_MIME_PREFIX = /^image\/(jpeg|png|webp|gif)/
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024 // Stories em vídeo (foto+música do Instagram) chegam maiores
+const ALLOWED_IMAGE_MIME_PREFIX = /^image\/(jpeg|png|webp|gif)/
+const ALLOWED_VIDEO_MIME_PREFIX = /^video\/mp4/
 const ALLOWED_STORY_MEDIA_HOSTS = new Set(['gpt-files.com']) // único domínio real observado em teste
+const FFMPEG_TIMEOUT_MS = 15000
 
 const VISION_PROXY_MODEL = 'google/gemini-2.5-flash-lite'
 
@@ -65,18 +81,53 @@ async function baixarStoryMediaSeguro(storyMediaUrl) {
     if (!res.ok) return null
 
     const contentType = res.headers.get('content-type') || ''
-    if (!ALLOWED_MIME_PREFIX.test(contentType)) return null
+    const ehImagem = ALLOWED_IMAGE_MIME_PREFIX.test(contentType)
+    const ehVideo = ALLOWED_VIDEO_MIME_PREFIX.test(contentType)
+    if (!ehImagem && !ehVideo) return null
 
+    const limiteBytes = ehVideo ? MAX_VIDEO_BYTES : MAX_MEDIA_BYTES
     const contentLength = Number(res.headers.get('content-length') || 0)
-    if (contentLength > MAX_MEDIA_BYTES) return null
+    if (contentLength > limiteBytes) return null
 
     const arrayBuffer = await res.arrayBuffer()
-    if (arrayBuffer.byteLength > MAX_MEDIA_BYTES) return null // revalida pós-download
+    if (arrayBuffer.byteLength > limiteBytes) return null // revalida pós-download
 
     return { buffer: Buffer.from(arrayBuffer), contentType }
   } catch {
     clearTimeout(timeout)
     return null // timeout, DNS, rede — nunca loga a URL
+  }
+}
+
+// Extrai 1 frame (~1s) de um vídeo MP4 de Story e devolve como JPEG.
+// Comprovado via PoC isolado (branch poc/ffmpeg-story-frame, 2026-08-31) com o
+// mesmo vídeo real de um Story foto+música do Instagram (Meta sempre entrega
+// esse tipo de Story como video/mp4, mesmo quando o original era uma foto
+// estática) — ffmpegMs ~400ms, frame 720x1280, identificado corretamente pela
+// mesma camada de visão já homologada. Fail-safe: qualquer erro retorna null,
+// nunca lança — o chamador cai para o fluxo sem Story.
+async function extrairFrameDeVideo(videoBuffer) {
+  const videoPath = `/tmp/story-${crypto.randomUUID()}.mp4`
+  const framePath = `/tmp/frame-${crypto.randomUUID()}.jpg`
+  try {
+    await writeFile(videoPath, videoBuffer)
+    await execFileAsync(ffmpegPath, [
+      '-ss', '1',
+      '-i', videoPath,
+      '-frames:v', '1',
+      '-q:v', '2',
+      '-y',
+      framePath,
+    ], { timeout: FFMPEG_TIMEOUT_MS })
+    const frameBuffer = await readFile(framePath)
+    return frameBuffer
+  } catch {
+    // Nunca loga caminho/URL — só o tipo genérico da falha, sem detalhe do vídeo.
+    console.warn('[VisaoProduto] extração de frame indisponível, seguindo sem Story')
+    return null
+  } finally {
+    await unlink(videoPath).catch(() => {})
+    await unlink(framePath).catch(() => {})
   }
 }
 
@@ -95,7 +146,17 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
   const base = baseUrlDoDeployment()
   if (!base) return null
 
-  const base64 = midia.buffer.toString('base64')
+  let bufferParaVisao = midia.buffer
+  let contentTypeParaVisao = midia.contentType
+
+  if (ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType)) {
+    const frame = await extrairFrameDeVideo(midia.buffer)
+    if (!frame) return null // fail-safe: vídeo sem frame extraível, sem 2ª tentativa em V1
+    bufferParaVisao = frame
+    contentTypeParaVisao = 'image/jpeg'
+  }
+
+  const base64 = bufferParaVisao.toString('base64')
 
   // Em Preview, deployments ficam atrás do Vercel Deployment Protection (SSO) —
   // até chamadas internas servidor-a-servidor são bloqueadas sem esse header.
@@ -119,7 +180,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
           role: 'user',
           content: [
             { type: 'text', text: PROMPT_IDENTIFICACAO },
-            { type: 'image_url', image_url: { url: `data:${midia.contentType};base64,${base64}` } },
+            { type: 'image_url', image_url: { url: `data:${contentTypeParaVisao};base64,${base64}` } },
           ],
         }],
         max_tokens: 800,
