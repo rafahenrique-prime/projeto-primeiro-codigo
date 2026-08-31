@@ -381,6 +381,10 @@ export default async function handler(req, res) {
       }
     }
 
+    // Mesmo tratamento já aplicado a cliente_id/telefone/chat_id — remove o `$`
+    // residual do artefato de substituição de variável do GPT Maker.
+    pergunta = removerDollarInicial(pergunta)
+
     // Validar que temos uma pergunta
     if (!pergunta || pergunta.trim().length < 3) {
       return res.status(400).json({
