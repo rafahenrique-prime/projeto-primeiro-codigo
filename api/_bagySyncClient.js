@@ -12,6 +12,12 @@
 
 const STORE_URL = process.env.BAGY_STORE_URL || 'https://www.primestoremen.com.br'
 
+// Timeout individual por leitura de produto (fetchBagyProductByLink). 12s —
+// generoso frente à latência típica observada por produto (poucas centenas
+// de ms; lote de 556 levando 185-277s ≈ 330-500ms médios), mas limita o
+// pior caso quando a Bagy trava de verdade. Ver docs/integrations/BAGY-SYNC.md.
+const FETCH_TIMEOUT_MS = 12000
+
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -62,12 +68,24 @@ function extractDoocaProduct(html) {
 export async function fetchBagyProductByLink(link) {
   const url = link.startsWith('http') ? link : `${STORE_URL}/${link.replace(/^\//, '')}`
   const t0 = Date.now()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   let res, html
   try {
-    res = await fetch(url, { headers: BROWSER_HEADERS })
+    res = await fetch(url, { headers: BROWSER_HEADERS, signal: controller.signal })
     html = await res.text()
   } catch (e) {
-    return { ok: false, url, httpStatus: null, httpMs: Date.now() - t0, reason: 'fetch falhou: ' + e.message }
+    const httpMs = Date.now() - t0
+    // AbortError (nosso próprio timeout) cai no mesmo formato de falha de
+    // rede pura já usado abaixo (httpStatus: null) — automaticamente
+    // elegível ao retry existente via erroDeRede em syncProduct, sem
+    // precisar tocar em classificarFalha.
+    if (e.name === 'AbortError') {
+      return { ok: false, url, httpStatus: null, httpMs, reason: `timeout após ${FETCH_TIMEOUT_MS}ms sem resposta` }
+    }
+    return { ok: false, url, httpStatus: null, httpMs, reason: 'fetch falhou: ' + e.message }
+  } finally {
+    clearTimeout(timeout)
   }
   const httpMs = Date.now() - t0
   if (res.status !== 200) {
