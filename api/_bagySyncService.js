@@ -38,6 +38,31 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Concorrência controlada — só orquestra (limita workers simultâneos,
+// preserva ordem via índice pré-alocado, aguarda todos). Não decide nada
+// sobre erro/sucesso de item: `worker` é responsável por nunca lançar (o
+// tratamento de erro por produto continua vivendo em quem chama, com o
+// mesmo shape que o for..of sequencial sempre produziu — ver
+// processarItemBatch abaixo). Genérico o suficiente pra ser testado
+// isoladamente com workers falsos, sem precisar mockar Bagy/Supabase.
+export async function processWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (true) {
+      const i = nextIndex++
+      if (i >= items.length) return
+      results[i] = await worker(items[i], i)
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(limit, items.length))
+  await Promise.all(Array.from({ length: workerCount }, runWorker))
+
+  return results
+}
+
 /**
  * Classifica o resultado de um syncProduct que falhou (result.ok === false)
  * numa das 4 categorias conhecidas — usada tanto pelo retry (só a primeira
@@ -417,6 +442,34 @@ async function registrarExcecaoSeAplicavel(result, runId, logger) {
  * (results/resumo) continua sendo devolvido normalmente, com o erro de
  * persistência reportado à parte (nunca escondido, nunca derruba o sync).
  */
+// Concorrência do dry_run — ponto de partida conservador aprovado. Fixa,
+// pequena, fácil de ajustar depois de homologar (não subir sem nova
+// aprovação). `write` nunca usa isso — continua sequencial (ver syncBatch).
+const DRY_RUN_CONCURRENCY = 4
+
+/**
+ * Processa 1 item do lote (mesma unidade de trabalho que o for..of
+ * sequencial sempre executou): roda syncProductComRetry, registra exceção
+ * se aplicável, e NUNCA deixa uma exceção escapar — item que falhar de
+ * forma inesperada vira `{ input, ok: false, erro }`, exatamente o shape
+ * que o catch do loop antigo já produzia. Usado tanto pelo caminho
+ * sequencial (write) quanto pelo concorrente (dry_run via
+ * processWithConcurrency) — mesmo comportamento de erro nos dois modes.
+ */
+async function processarItemBatch(item, { mode, runId, logger }) {
+  try {
+    const { result: r, retries } = await syncProductComRetry(item, { mode, logger })
+    let reg = null
+    if (!r.ok) {
+      reg = await registrarExcecaoSeAplicavel(r, runId, logger)
+    }
+    return { result: r, retries, reg }
+  } catch (e) {
+    logger.error('erro_item', e)
+    return { result: { input: item, ok: false, erro: e.message }, retries: 0, reg: null }
+  }
+}
+
 export async function syncBatch(items, { mode = 'dry_run', runId, trigger = 'manual' } = {}) {
   const finalRunId = runId || `batch-${Date.now()}`
   const log = createRunLogger(finalRunId)
@@ -427,19 +480,26 @@ export async function syncBatch(items, { mode = 'dry_run', runId, trigger = 'man
   let retriesExecutados = 0
   const excecoesRegistradas = []
 
-  for (const item of items) {
-    try {
-      const { result: r, retries } = await syncProductComRetry(item, { mode, logger: log })
-      retriesExecutados += retries
-      results.push(r)
-      if (!r.ok) {
-        const reg = await registrarExcecaoSeAplicavel(r, finalRunId, log)
-        if (reg) excecoesRegistradas.push(reg)
-      }
-    } catch (e) {
-      results.push({ input: item, ok: false, erro: e.message })
-      log.error('erro_item', e)
+  // dry_run: concorrência controlada (menor tempo total, mesma ordem final
+  // de `results` — ver processWithConcurrency). write: permanece
+  // estritamente sequencial, sem nenhuma mudança de comportamento — decisão
+  // deliberada até tratarmos separadamente a atomicidade do lote em write.
+  let itemResults
+  if (mode === 'write') {
+    itemResults = []
+    for (const item of items) {
+      itemResults.push(await processarItemBatch(item, { mode, runId: finalRunId, logger: log }))
     }
+  } else {
+    itemResults = await processWithConcurrency(items, DRY_RUN_CONCURRENCY, (item) =>
+      processarItemBatch(item, { mode, runId: finalRunId, logger: log })
+    )
+  }
+
+  for (const { result: r, retries, reg } of itemResults) {
+    retriesExecutados += retries
+    results.push(r)
+    if (reg) excecoesRegistradas.push(reg)
   }
 
   const finishedAt = new Date()
