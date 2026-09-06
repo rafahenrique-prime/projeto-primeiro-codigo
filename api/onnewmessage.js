@@ -13,14 +13,82 @@
 // muda a semântica de como este handler processa o evento: ele espera a
 // conclusão real antes de responder, não dispara e esquece.
 //
+// Fan-out CI Insight V2: após os filtros de role/IDs/texto, publica em
+// background SOMENTE { contextId, messageId, role, channel } no Base44.
+// Nunca envia texto, telefone ou mídia. É fail-open e não altera a Fase 2C.
+//
 // Nunca chama GPT Maker, nunca envia mensagem, nunca lê images/audios/
 // documents, nunca cria migration, nunca escreve fora do que
 // _profileLearning.js já faz (só size).
 
+import { waitUntil } from '@vercel/functions'
 import { learnSizeFromMessage } from './_profileLearning.js'
+
+const CI_INSIGHT_SIGNAL_URL = 'https://igniteprime.base44.app/functions/ciInsightInboundSignal'
+const CI_INSIGHT_SIGNAL_TIMEOUT_MS = 2500
+const CI_INSIGHT_SIGNAL_RETRY_DELAY_MS = 700
 
 function logEvent(event) {
   console.log('[onnewmessage]', JSON.stringify({ event }))
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function postCiInsightSignalOnce(payload) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), CI_INSIGHT_SIGNAL_TIMEOUT_MS)
+  try {
+    const res = await fetch(CI_INSIGHT_SIGNAL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    return res.status
+  } catch (err) {
+    return err?.name === 'AbortError' ? 408 : 0
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function postCiInsightSignal(payload) {
+  let status = await postCiInsightSignalOnce(payload)
+
+  // Única repetição permitida: o webhook pode chegar alguns ms antes de a
+  // nova message ficar visível no GET /v2/chat/{id}/messages do GPTMaker.
+  if (status === 409) {
+    await sleep(CI_INSIGHT_SIGNAL_RETRY_DELAY_MS)
+    status = await postCiInsightSignalOnce(payload)
+  }
+
+  if (status >= 200 && status < 300) {
+    console.log('[onnewmessage][ci-insight]', JSON.stringify({ event: 'signal_delivered', status }))
+  } else {
+    console.warn('[onnewmessage][ci-insight]', JSON.stringify({ event: 'signal_failed', status }))
+  }
+}
+
+function scheduleCiInsightSignal({ contextId, messageId, channel }) {
+  const task = postCiInsightSignal({
+    contextId,
+    messageId,
+    role: 'user',
+    channel,
+  })
+
+  // Mesmo padrão fail-open já usado pelo projeto: nunca bloqueia a resposta
+  // do webhook nem transforma falha de telemetria/sinal em falha do atendimento.
+  try {
+    waitUntil(task)
+  } catch {
+    void task
+  }
 }
 
 export default async function handler(req, res) {
@@ -74,7 +142,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true })
   }
 
-  // (4) Encaminha pra _profileLearning.js — aguardado, não fire-and-forget.
+  // (4) Fan-out CI Insight — não envia texto/telefone/mídia e não bloqueia.
+  scheduleCiInsightSignal({ contextId, messageId, channel })
+
+  // (5) Encaminha pra _profileLearning.js — aguardado, não fire-and-forget.
   //     Nenhuma lógica de extractSize duplicada aqui.
   try {
     await learnSizeFromMessage({ contextId, telefone: contactPhone, channel, texto: message, messageId })
