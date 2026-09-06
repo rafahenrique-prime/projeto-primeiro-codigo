@@ -10,6 +10,11 @@
  * NUNCA recebe/grava chat_id, storyMediaUrl, base64, pergunta/resposta do
  * cliente, nem o texto identificado do produto — só metadados operacionais
  * (ver public.vision_usage_events, supabase/migrations/030).
+ *
+ * Etapa 0B (Story Vision Trace, supabase/migrations/032): aceita também
+ * correlationId (gerado por request em api/webhook.js) e storyId (resolvido
+ * por api/_storyContext.js) — ambos opcionais, nunca PII, só pra permitir
+ * correlacionar um evento técnico com a execução real que o originou.
  */
 
 import { waitUntil } from '@vercel/functions'
@@ -128,6 +133,8 @@ export function recordVisionUsageEvent(event) {
       cost_usd: costUsd,
       cost_source: costSource,
       error_code: event.errorCode ?? null,
+      correlation_id: event.correlationId ?? null,
+      story_id: event.storyId ?? null,
     })
   })().catch((err) => {
     console.warn('[VisionTelemetry] Erro inesperado na telemetria:', err?.message)

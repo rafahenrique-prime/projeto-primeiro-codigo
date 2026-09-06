@@ -141,8 +141,13 @@ function baseUrlDoDeployment() {
   return host ? `https://${host}` : null
 }
 
-export async function identificarProdutoPorImagem(storyMediaUrl) {
+export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {}) {
   const inicio = Date.now()
+  // Etapa 0B (Story Vision Trace) — repassados só pra telemetria, nunca usados
+  // em decisão de negócio nem logados em texto de conversa/prompt. Ambos
+  // opcionais: chamador que não passar traceMeta mantém 100% do comportamento
+  // anterior (correlation_id/story_id gravados como null).
+  const { correlationId = null, storyId = null } = traceMeta || {}
 
   const midia = await baixarStoryMediaSeguro(storyMediaUrl)
   // Falha de download acontece antes de sabermos o media_type real
@@ -153,7 +158,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
     recordVisionUsageEvent({
       source: 'story', mediaType: 'unknown', ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
-      errorCode: 'download_error',
+      errorCode: 'download_error', correlationId, storyId,
     })
     return null
   }
@@ -165,7 +170,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
     recordVisionUsageEvent({
       source: 'story', mediaType, ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
-      errorCode: 'provider_error',
+      errorCode: 'provider_error', correlationId, storyId,
     })
     return null
   }
@@ -185,7 +190,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       recordVisionUsageEvent({
         source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
         provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
-        errorCode: 'ffmpeg_error',
+        errorCode: 'ffmpeg_error', correlationId, storyId,
       })
       return null
     }
@@ -230,7 +235,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       recordVisionUsageEvent({
         source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
         provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
-        errorCode: 'provider_error',
+        errorCode: 'provider_error', correlationId, storyId,
       })
       return null
     }
@@ -250,6 +255,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       costFromMainResponse: typeof data.usage?.cost === 'number' ? data.usage.cost : null,
       generationId: data.id ?? null,
       errorCode: texto ? null : 'vision_error',
+      correlationId, storyId,
     })
     return texto || null
   } catch (err) {
@@ -260,6 +266,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl) {
       source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: err?.name === 'AbortError' ? 'timeout' : 'vision_error',
+      correlationId, storyId,
     })
     return null
   }
