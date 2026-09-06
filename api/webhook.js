@@ -476,6 +476,14 @@ export default async function handler(req, res) {
     let searchContextUsed = 'pergunta_direta'
     let fallbackUsed = false
     let storyIdParaTrace = null
+    // Correção #2 (2026-09-06): true assim que um Story ATUAL com mídia é
+    // confirmado (linha abaixo), independente de Vision/parser/matching/fallback
+    // terem sucesso depois — nunca revertido. Deliberadamente diferente de
+    // isStorySearch (mais abaixo, só da Correção #1): aquele só fica true se a
+    // query compacta foi extraída com sucesso, então tem uma brecha para o
+    // cenário mais perigoso pra memória (Story presente, mas Vision/parser
+    // falham — aí sobra só a memória antiga pra Gaby usar, sem supressão).
+    let hasCurrentStory = false
 
     // Story do Instagram (best-effort, nunca bloqueia nem quebra o fluxo normal):
     // se a mensagem mais recente do cliente foi resposta a um Story, identifica
@@ -493,6 +501,10 @@ export default async function handler(req, res) {
         const contextoStory = await getStoryContext(chat_id)
         storyContextStatus = contextoStory.status
         if (contextoStory.status === 'FOUND' && contextoStory.storyMediaUrl) {
+          // Correção #2: Story atual comprovado AQUI, antes de qualquer
+          // chamada à Vision — este é o sinal certo pra suprimir memória de
+          // produto histórico, não o resultado da Vision/parser mais abaixo.
+          hasCurrentStory = true
           storyIdParaTrace = contextoStory.storyId
           const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl, {
             correlationId,
@@ -535,7 +547,7 @@ export default async function handler(req, res) {
     // trava esta resposta; pior caso, contribui só com '').
     let [resultado, memoriaBlock] = await Promise.all([
       searchKnowledge(buscaTexto, pergunta),
-      getMemoryBlock(cliente_id),
+      getMemoryBlock(cliente_id, { suppressProductFields: hasCurrentStory }),
     ])
 
     // Correção #1: fallback pra pergunta original agora dispara quando a
