@@ -176,6 +176,62 @@ export async function buscarKnowledge(pergunta) {
   return resultado.knowledge
 }
 
+// Correção #1 (Story Vision → Catalog Matching, 2026-09-06): a descrição da
+// Vision (api/_visaoProduto.js) é um Markdown longo (Nome, Tipo, Marca, Cor,
+// Características, Ocasião/Uso, Descrição para venda) pensado pra virar texto
+// de conhecimento, não pra ser usado como query de busca. Usar o Markdown
+// inteiro como texto1 de calcularSimilaridade() (mais abaixo) infla o
+// denominador da fórmula de score com dezenas de palavras de descrição,
+// gerando candidatos com score residual (~6%, ruído) em vez de refletir um
+// match real — comprovado em runtime (correlation_id 62a96f86-b46f-457b-
+// bfb2-e90aab31c90c, 2026-09-06 07:09 BRT: Vision identificou corretamente
+// "Calça Skinny com Elastano / Calça Jeans / Diesel", mas os top scores
+// vieram [6,6,6] e o cliente recebeu resposta sobre um produto totalmente
+// diferente).
+//
+// Esta função extrai SOMENTE os 3 campos estruturados que a Vision já
+// garante no início do texto (## Nome, **Tipo:**, **Marca:**) — nunca Cor,
+// Características, Ocasião/Uso ou Descrição para venda, que são só ruído
+// pra fins de busca. Campo ausente é omitido, nunca inventado. Não altera o
+// texto/retorno original da Vision — só o que é usado como chave de busca.
+//
+// Medido contra o algoritmo real (calcularSimilaridade) e o catálogo real de
+// Production: Nome+Tipo+Marca leva o caso acima de 6% pra 47% de score nos
+// candidatos corretos (Calça Jeans Diesel), sem piorar quando comparado a
+// incluir também a Cor (que na prática dilui o score, porque cores como
+// "Cinza Escuro" raramente aparecem literalmente no nome do produto).
+export function extrairQueryCompactaDaVision(descricaoVisual) {
+  if (typeof descricaoVisual !== 'string' || !descricaoVisual.trim()) return ''
+
+  const nomeMatch = descricaoVisual.match(/^##\s*(.+)$/m)
+  const tipoMatch = descricaoVisual.match(/\*\*Tipo:\*\*\s*(.+)/i)
+  const marcaMatch = descricaoVisual.match(/\*\*Marca:\*\*\s*(.+)/i)
+
+  const partes = [nomeMatch?.[1], tipoMatch?.[1], marcaMatch?.[1]]
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+
+  return partes.join(' ')
+}
+
+// Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
+// considerado confiável. Não altera calcularSimilaridade() nem os scores em
+// si — só decide, depois da busca já feita, se o que veio de volta é forte o
+// bastante pra dispensar o fallback pra pergunta original. NÃO se aplica à
+// busca direta (sem Story), que continua aceitando qualquer score > 0, exatamente
+// como antes desta correção.
+//
+// Valor ajustado após auditoria do gate final (2026-09-06) com dados reais
+// medidos: ruído de query longa (Markdown inteiro) fica <=23%; um Story de
+// "Cueca Lupo" simulado (Nome+Tipo+Marca) contra o catálogo real, que tem
+// "Cueca Lup" sem o "o" final, pontua 28% — um match genuíno que NÃO pode
+// ser rejeitado. O caso real corrigido (Calça Diesel) fica em 47%; matches
+// fortes (substring) ficam em 80-100%. 25 é o menor valor que ainda separa
+// ruído (<=23) de match genuíno (>=28), sem reabrir espaço pro ruído do caso
+// original ([6,6,6]). Não cobre por si só a divergência "Lup"/"Lupo" — isso
+// fica documentado como risco conhecido, não corrigido nesta etapa.
+export const STORY_MATCH_CONFIDENCE_THRESHOLD = 25
+
 // Função de busca integrada
 // perguntaOriginal (Story): quando a busca é feita pela descrição visual de um
 // Story, buscaTexto é o texto da visão (só serve pra achar o produto certo) e
@@ -443,11 +499,24 @@ export default async function handler(req, res) {
             storyId: contextoStory.storyId,
           })
           if (descricaoVisual) {
-            console.log('[Webhook] 🖼️  Story identificado, buscando pelo produto da imagem')
-            buscaTexto = descricaoVisual
-            searchContextUsed = 'story'
-            visionStatus = 'success'
-            storyContextStatus = 'STORY_FOUND_VISION_OK'
+            // Correção #1 (gate final, 2026-09-06): a query de busca é
+            // SEMPRE a versão compacta (Nome+Tipo+Marca) — o Markdown
+            // inteiro da Vision NUNCA é usado como query do catálogo, nem
+            // como fallback silencioso. Se o parser não reconhecer nenhum
+            // dos 3 campos, buscaTexto permanece = pergunta (mesmo caminho
+            // seguro já usado quando a Vision falha ou não há Story).
+            const queryCompacta = extrairQueryCompactaDaVision(descricaoVisual)
+            if (queryCompacta) {
+              console.log('[Webhook] 🖼️  Story identificado, buscando pelo produto da imagem')
+              buscaTexto = queryCompacta
+              searchContextUsed = 'story'
+              visionStatus = 'success'
+              storyContextStatus = 'STORY_FOUND_VISION_OK'
+            } else {
+              console.warn('[Webhook] Vision retornou texto sem campos reconhecíveis (Nome/Tipo/Marca) — seguindo com a pergunta original')
+              visionStatus = 'success_empty_query'
+              storyContextStatus = 'STORY_FOUND_VISION_OK_EMPTY_QUERY'
+            }
           } else {
             visionStatus = 'failed'
             storyContextStatus = 'STORY_FOUND_VISION_FAILED'
@@ -469,14 +538,46 @@ export default async function handler(req, res) {
       getMemoryBlock(cliente_id),
     ])
 
-    // Se a busca pela descrição visual do Story não achou produto nenhum,
-    // tenta de novo com a pergunta original antes de desistir — evita que uma
-    // identificação de imagem imprecisa deixe o cliente sem resposta.
-    if (resultado.ok && buscaTexto !== pergunta && (resultado.dados?.produtos?.length || 0) === 0) {
-      console.log('[Webhook] 🔁 Story não encontrou produto, tentando com a pergunta original')
+    // Correção #1: fallback pra pergunta original agora dispara quando a
+    // busca derivada de Story não tem NENHUM candidato confiável
+    // (score >= STORY_MATCH_CONFIDENCE_THRESHOLD) — não só quando dá zero
+    // candidatos. Isso cobre exatamente o caso comprovado em runtime onde
+    // existiam candidatos (5), mas todos com score de ruído (6%). Mesmo
+    // fallback de sempre (searchKnowledge(pergunta)); só o gatilho mudou.
+    // Busca direta (sem Story) nunca passa por aqui — buscaTexto === pergunta
+    // sempre nesse caso, comportamento 100% preservado.
+    const isStorySearch = buscaTexto !== pergunta
+    const confidentCandidatesCount = isStorySearch
+      ? (resultado?.dados?.produtos || []).filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD).length
+      : null
+
+    if (resultado.ok && isStorySearch && confidentCandidatesCount === 0) {
+      console.log('[Webhook] 🔁 Story não encontrou produto confiável, tentando com a pergunta original')
       resultado = await searchKnowledge(pergunta)
       searchContextUsed = 'story_fallback_pergunta'
       fallbackUsed = true
+    } else if (resultado.ok && isStorySearch && confidentCandidatesCount > 0) {
+      // Correção #1 (gate final): mesmo havendo pelo menos 1 candidato
+      // confiável, produtos abaixo do threshold NÃO podem seguir misturados
+      // no payload — evita ruído de baixo score chegar a formatarRespostaGPT/
+      // Gaby junto do(s) resultado(s) bom(ns). Só se aplica ao caminho Story
+      // (isStorySearch); busca direta nunca é filtrada por score.
+      const produtosOriginais = resultado.dados.produtos
+      const produtosConfiaveis = produtosOriginais.filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD)
+      resultado = {
+        ...resultado,
+        dados: {
+          ...resultado.dados,
+          produtos: produtosConfiaveis,
+          // Coerente com o payload final: depois do filtro, o total "real"
+          // relevante pro cliente é só a contagem de confiáveis — não faz
+          // sentido informar variações restantes de candidatos que a própria
+          // Gaby nunca vai ver.
+          totalResultados: produtosConfiaveis.length,
+          totalVariacoes: produtosConfiaveis.length,
+          variacoesRestantes: 0,
+        },
+      }
     }
 
     // Etapa 0B (Story Vision Trace) — log estruturado sanitizado, 1 por
@@ -484,6 +585,9 @@ export default async function handler(req, res) {
     // pergunta completa, storyMediaUrl, prompt ou payload bruto. Top 3 scores
     // já vêm calculados e ordenados desc por buscarProdutos(); aqui só
     // truncamos pra no máximo 3 valores numéricos, sem nome/id de produto.
+    // Correção #1: confident_candidates_count/story_match_threshold são só
+    // metadado técnico (números) — nunca a query construída, que poderia
+    // carregar texto sensível do produto/Story.
     const candidatos = resultado?.dados?.produtos || []
     const topCandidateScores = candidatos
       .slice(0, 3)
@@ -498,6 +602,8 @@ export default async function handler(req, res) {
       fallback_used: fallbackUsed,
       candidates_count: candidatos.length,
       top_candidate_scores: topCandidateScores,
+      confident_candidates_count: isStorySearch ? confidentCandidatesCount : null,
+      story_match_threshold: isStorySearch ? STORY_MATCH_CONFIDENCE_THRESHOLD : null,
     }))
 
     if (!resultado.ok) {
