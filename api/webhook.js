@@ -2,6 +2,7 @@
 // Processa perguntas do cliente e retorna dados do Supabase
 // Integrado com GPT Maker
 
+import crypto from 'node:crypto'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
 import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
@@ -409,24 +410,52 @@ export default async function handler(req, res) {
     // ou travar a resposta da Gabriela. Não implementa memória/prompt ainda.
     upsertIdentity({ contextId: cliente_id, telefone, canal }).catch(() => {})
 
+    // Etapa 0B (Story Vision Trace) — 1 correlation_id por request, só pra
+    // amarrar telemetria técnica (vision_usage_events) e o log estruturado
+    // abaixo à mesma execução. Nunca deriva de/substitui chat_id/cliente_id,
+    // nunca é usado em decisão de negócio.
+    const correlationId = crypto.randomUUID()
+    let storyContextStatus = null // null = getStoryContext nem foi chamado (sem chat_id)
+    let visionStatus = 'not_attempted'
+    let searchContextUsed = 'pergunta_direta'
+    let fallbackUsed = false
+    let storyIdParaTrace = null
+
     // Story do Instagram (best-effort, nunca bloqueia nem quebra o fluxo normal):
     // se a mensagem mais recente do cliente foi resposta a um Story, identifica
     // o produto pela foto e usa SÓ essa descrição como chave de busca — a
     // `pergunta` original ("Tem 44?") nunca é substituída, continua sendo
     // devolvida em dados.pergunta pra Gaby interpretar a intenção real.
+    //
+    // Seleção da mensagem/Story dentro de getStoryContext NÃO muda nesta etapa
+    // (Etapa 0B é só instrumentação) — só passamos a ler o `status` que a
+    // function já devolve, pra saber diferenciar "sem Story nesta mensagem"
+    // de "Story achado, mas a Vision falhou" de "erro de fetch no GPTMaker".
     let buscaTexto = pergunta
     if (chat_id) {
       try {
         const contextoStory = await getStoryContext(chat_id)
-        if (contextoStory?.storyMediaUrl) {
-          const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl)
+        storyContextStatus = contextoStory.status
+        if (contextoStory.status === 'FOUND' && contextoStory.storyMediaUrl) {
+          storyIdParaTrace = contextoStory.storyId
+          const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl, {
+            correlationId,
+            storyId: contextoStory.storyId,
+          })
           if (descricaoVisual) {
             console.log('[Webhook] 🖼️  Story identificado, buscando pelo produto da imagem')
             buscaTexto = descricaoVisual
+            searchContextUsed = 'story'
+            visionStatus = 'success'
+            storyContextStatus = 'STORY_FOUND_VISION_OK'
+          } else {
+            visionStatus = 'failed'
+            storyContextStatus = 'STORY_FOUND_VISION_FAILED'
           }
         }
       } catch (err) {
         console.warn('[Webhook] Story indisponível, seguindo com a pergunta original:', err.message)
+        storyContextStatus = storyContextStatus || 'GPTMAKER_FETCH_ERROR'
       }
     }
 
@@ -446,7 +475,30 @@ export default async function handler(req, res) {
     if (resultado.ok && buscaTexto !== pergunta && (resultado.dados?.produtos?.length || 0) === 0) {
       console.log('[Webhook] 🔁 Story não encontrou produto, tentando com a pergunta original')
       resultado = await searchKnowledge(pergunta)
+      searchContextUsed = 'story_fallback_pergunta'
+      fallbackUsed = true
     }
+
+    // Etapa 0B (Story Vision Trace) — log estruturado sanitizado, 1 por
+    // request. Só números/enums fechados/scores — nunca nome, telefone,
+    // pergunta completa, storyMediaUrl, prompt ou payload bruto. Top 3 scores
+    // já vêm calculados e ordenados desc por buscarProdutos(); aqui só
+    // truncamos pra no máximo 3 valores numéricos, sem nome/id de produto.
+    const candidatos = resultado?.dados?.produtos || []
+    const topCandidateScores = candidatos
+      .slice(0, 3)
+      .map((p) => (typeof p?.score === 'number' ? p.score : null))
+      .filter((s) => s !== null)
+    console.log('[Webhook][trace]', JSON.stringify({
+      correlation_id: correlationId,
+      story_id: storyIdParaTrace,
+      story_context_status: storyContextStatus,
+      vision_status: visionStatus,
+      search_context_used: searchContextUsed,
+      fallback_used: fallbackUsed,
+      candidates_count: candidatos.length,
+      top_candidate_scores: topCandidateScores,
+    }))
 
     if (!resultado.ok) {
       return res.status(400).json({
