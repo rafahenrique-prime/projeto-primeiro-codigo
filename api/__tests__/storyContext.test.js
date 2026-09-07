@@ -1,10 +1,15 @@
 // api/__tests__/storyContext.test.js
 //
 // Etapa 0B (Story Vision Trace) — prova que getStoryContext() classifica
-// corretamente os 4 estados de story_context_status SEM mudar a seleção de
-// mensagem existente (sempre a mensagem role=user de maior `time`). Nenhum
-// destes testes corrige o comportamento "pega só a última mensagem" — só
-// prova que a classificação de status é honesta em cada cenário.
+// corretamente os 4 estados de story_context_status. Os testes originais
+// (abaixo) provam que, quando a mensagem mais recente TEM sua própria
+// metadata de Story, ela sempre vence (prioridade absoluta, nunca mudou).
+//
+// Correção #3 (2026-09-07, continuidade curta) — describe separado no final
+// do arquivo — prova a NOVA regra: quando a mensagem mais recente NÃO tem
+// metadata própria, mas é curta (1 a 3 palavras) e está a até 5 minutos de
+// um Story anterior válido, reaproveita esse Story (o mais próximo, nunca um
+// mais antigo se houver um mais recente também dentro da janela).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
@@ -141,5 +146,233 @@ describe('api/_storyContext.js — story_context_status (Etapa 0B)', () => {
     expect(await getStoryContext(null)).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
     expect(await getStoryContext('')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
     expect(await getStoryContext(123)).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+})
+
+describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)', () => {
+  const BASE = 1_700_000_000_000 // qualquer epoch fixo, só precisa ser consistente entre os testes
+  const MIN = 60_000
+
+  beforeEach(() => {
+    vi.resetModules()
+    process.env = { ...ORIGINAL_ENV }
+    process.env.VITE_GPTMAKER_TOKEN = 'fixture-token'
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    process.env = { ...ORIGINAL_ENV }
+  })
+
+  it('exporta as constantes esperadas (janela 5min, máximo 3 palavras)', async () => {
+    const { STORY_CONTINUATION_WINDOW_MS, STORY_CONTINUATION_MAX_WORDS } = await import('../_storyContext.js')
+    expect(STORY_CONTINUATION_WINDOW_MS).toBe(5 * MIN)
+    expect(STORY_CONTINUATION_MAX_WORDS).toBe(3)
+  })
+
+  it('CTX-STORY-01) Story Bermuda + "Qual valor?" + "Bermuda" (1 palavra) 4min depois → reutiliza o Story', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg', storyMediaType: 'image' } },
+      { role: 'assistant', time: BASE + 5_000 },
+      { role: 'user', time: BASE + 4 * MIN, text: 'Bermuda', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-01')
+
+    expect(resultado).toEqual({
+      status: 'FOUND',
+      storyId: 'story-bermuda',
+      storyMediaUrl: 'https://gpt-files.com/bermuda.jpg',
+      storyMediaType: 'image',
+    })
+  })
+
+  it('CTX-STORY-02) Story New Balance + "Qual valor?" + "cinza" (1 palavra) dentro da janela → reutiliza o Story', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-nb', storyMediaUrl: 'https://gpt-files.com/nb.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + 2 * MIN, text: 'cinza', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-02')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-nb')
+  })
+
+  it('CTX-STORY-03) Story + "tem 42?" (2 palavras) dentro da janela → reutiliza o Story', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Manda foto', metadata: { storyId: 'story-tenis', storyMediaUrl: 'https://gpt-files.com/tenis.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + MIN, text: 'tem 42?', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-03')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-tenis')
+  })
+
+  it('CTX-STORY-04) Story + mensagem curta, mas mais de 5min depois → NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg' } },
+      { role: 'user', time: BASE + 5 * MIN + 1_000, text: 'Bermuda', metadata: null }, // 5min01s depois
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-04')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('CTX-STORY-05) Story antigo A, depois Story novo B, depois mensagem curta → usa B (o mais próximo), mesmo A estando bem mais longe no tempo', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-A-antigo', storyMediaUrl: 'https://gpt-files.com/a.jpg' } }, // bem no passado
+      { role: 'user', time: BASE + 100 * MIN, text: 'Quanto custa?', metadata: { storyId: 'story-B-novo', storyMediaUrl: 'https://gpt-files.com/b.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + 100 * MIN + 2 * MIN, text: 'esse', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-05')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-B-novo')
+  })
+
+  it('CTX-STORY-06) sem Story em nenhuma mensagem → NO_STORY_IN_LATEST_MESSAGE, com ou sem mensagem curta', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'oi', metadata: null },
+      { role: 'user', time: BASE + MIN, text: 'tem bermuda?', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-06')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('CTX-STORY-07) Story + mensagem LONGA dentro da janela (>3 palavras) → NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg' } },
+      { role: 'user', time: BASE + MIN, text: 'Vocês têm tênis Nike disponível hoje?', metadata: null }, // 6 palavras
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-07')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('CTX-STORY-08) Story + texto vazio/ausente dentro da janela → NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg' } },
+      { role: 'user', time: BASE + MIN, text: '', metadata: null },
+    ])))
+    const { getStoryContext } = await import('../_storyContext.js')
+    expect(await getStoryContext('chat-ctx-story-08a')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg' } },
+      { role: 'user', time: BASE + MIN, metadata: null }, // sem campo text nenhum
+    ])))
+    const { getStoryContext: getStoryContext2 } = await import('../_storyContext.js')
+    expect(await getStoryContext2('chat-ctx-story-08b')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('CTX-STORY-09) mensagem mais recente já tem metadata própria → usa o Story ATUAL imediatamente, independente da heurística de continuidade', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-antigo', storyMediaUrl: 'https://gpt-files.com/antigo.jpg' } },
+      // mensagem mais recente tem SUA PRÓPRIA metadata — mesmo sendo curta, prioridade absoluta é dela, nunca da anterior
+      { role: 'user', time: BASE + MIN, text: 'oi', metadata: { storyId: 'story-atual', storyMediaUrl: 'https://gpt-files.com/atual.jpg', storyMediaType: 'image' } },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-09')
+
+    expect(resultado).toEqual({
+      status: 'FOUND',
+      storyId: 'story-atual',
+      storyMediaUrl: 'https://gpt-files.com/atual.jpg',
+      storyMediaType: 'image',
+    })
+  })
+
+  it('CTX-STORY-10) dois Stories anteriores, AMBOS dentro da janela → usa o mais recente dos dois (B), não o mais antigo (A)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-A', storyMediaUrl: 'https://gpt-files.com/a.jpg' } },
+      { role: 'user', time: BASE + 4 * MIN, text: 'Qual valor?', metadata: { storyId: 'story-B', storyMediaUrl: 'https://gpt-files.com/b.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + 4 * MIN + 1 * MIN, text: 'esse', metadata: null }, // 1min depois de B, 5min depois de A — ambos tecnicamente <=5min de A e B respectivamente
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-10')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-B')
+  })
+
+  // Reforço final (2026-09-07) — fecha as 3 lacunas de cobertura apontadas no
+  // gate: boundary exato em ms, whitespace-only, e independência de ordem no
+  // array. Nenhuma mudança de lógica de produção — só testes novos.
+
+  it('BOUNDARY) gap de exatamente 300000ms (5min) → ainda reutiliza (limite é <=, não <)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-boundary', storyMediaUrl: 'https://gpt-files.com/boundary.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + 300_000, text: 'Bermuda', metadata: null }, // exatamente 5*60*1000
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-boundary-exact')
+
+    expect(resultado).toEqual({
+      status: 'FOUND',
+      storyId: 'story-boundary',
+      storyMediaUrl: 'https://gpt-files.com/boundary.jpg',
+      storyMediaType: 'image',
+    })
+  })
+
+  it('BOUNDARY) gap de 300001ms (5min + 1ms) → NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-boundary', storyMediaUrl: 'https://gpt-files.com/boundary.jpg' } },
+      { role: 'user', time: BASE + 300_001, text: 'Bermuda', metadata: null }, // 5*60*1000 + 1
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-boundary-over')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('WHITESPACE) latest.text = "   " (só espaços) → 0 palavras, NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-bermuda', storyMediaUrl: 'https://gpt-files.com/bermuda.jpg' } },
+      { role: 'user', time: BASE + MIN, text: '   ', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-whitespace')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('ORDEM) array retornado fora de ordem cronológica (latest, Story A, Story B) → seleção depende só de .time, nunca da posição — usa Story B (o mais recente)', async () => {
+    const storyA = { role: 'user', time: BASE + 1_000, text: 'Qual valor?', metadata: { storyId: 'story-A', storyMediaUrl: 'https://gpt-files.com/a.jpg' } }
+    const storyB = { role: 'user', time: BASE + 2_000, text: 'Qual valor?', metadata: { storyId: 'story-B', storyMediaUrl: 'https://gpt-files.com/b.jpg', storyMediaType: 'image' } }
+    const latest = { role: 'user', time: BASE + 2_500, text: 'esse', metadata: null }
+
+    // Propositalmente fora de ordem: latest primeiro, depois A, depois B —
+    // se a seleção dependesse de índice/posição no array (ex.: pegar o
+    // último elemento, ou o penúltimo), este teste pegaria isso.
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([latest, storyA, storyB])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-ctx-story-out-of-order')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-B')
+    expect(resultado.storyMediaUrl).toBe('https://gpt-files.com/b.jpg')
   })
 })
