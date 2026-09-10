@@ -2,7 +2,25 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/api/ignite-mcp",
+      "destination": "https://prime-gptmaker-mcp.vercel.app/api/ignite-mcp"
+    },
+    {
+      "source": "/ignite-oauth/:path*",
+      "destination": "https://prime-gptmaker-mcp.vercel.app/ignite-oauth/:path*"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/api/ignite-mcp",
+      "destination": "https://prime-gptmaker-mcp.vercel.app/.well-known/oauth-protected-resource/api/ignite-mcp"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server/ignite-oauth",
+      "destination": "https://prime-gptmaker-mcp.vercel.app/.well-known/oauth-authorization-server/ignite-oauth"
+    },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "crons": [
     { "path": "/api/cron-diagnosis", "schedule": "0 12 * * *" },
     { "path": "/api/cron-diagnosis", "schedule": "0 18 * * *" }
