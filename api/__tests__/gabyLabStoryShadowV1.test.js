@@ -260,6 +260,81 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(res.body.contexto.clarificacao.motivo).toBe('visual_undefined')
   })
 
+  it('[Correção #7] UNICO Nike Air Force: vencedor claro 201 vs 42 retorna somente 1 produto', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-airforce', storyMediaUrl: 'https://gpt-files.com/airforce.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Tênis Nike Air Force 1\n**Tipo:** Calçado esportivo/casual\n**Marca:** Nike\n**Cor:** Branco'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([
+      { nome: 'Tênis Nike Air Force 1', categoria: 'Tênis', marca: 'Nike', relevancia: 201, preco: 'R$ 399,00' },
+      { nome: 'Tênis Nike Dunk Branco', categoria: 'Tênis', marca: 'Nike', relevancia: 54, preco: 'R$ 289,00' },
+      { nome: 'Tênis Nike Dunk Cinza', categoria: 'Tênis', marca: 'Nike', relevancia: 42, preco: 'R$ 289,00' },
+    ], 3))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor?', chat_id: 'chat-airforce' }), res)
+
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(io.shadowQueries).toEqual(['Tênis Nike Air Force 1 Branco'])
+    expect(res.body.contexto.produtos_encontrados).toBe(1)
+    expect(res.body.dados.produtos[0].nome).toBe('Tênis Nike Air Force 1')
+    expect(res.body.contexto.story_lab.visual_scene).toBe('UNICO')
+    expect(res.body.contexto.story_lab.single_match_status).toBe('clear')
+    expect(res.body.contexto.story_lab.single_top_score).toBe(201)
+    expect(res.body.contexto.story_lab.single_second_score).toBe(54)
+    expect(res.body.contexto.story_lab.cache_write_status).toBe('stored')
+    expect(io.cacheOps.find(x => x.action === 'cache_put').query_compact).toContain('UNICO::')
+  })
+
+  it('[Correção #7] UNICO Diesel branca: candidatos próximos não são chutados; pede confirmação', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-diesel-branca', storyMediaUrl: 'https://gpt-files.com/diesel-branca.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Camiseta Diesel Basic\n**Tipo:** Roupa (Camiseta)\n**Marca:** Diesel\n**Cor:** Branca'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([
+      { nome: 'Camiseta Diesel Básica Premium - Branca', categoria: 'Camisetas Básicas Premium', marca: 'Diesel', relevancia: 72, preco: 'R$ 129,00' },
+      { nome: 'Camiseta Diesel Branca', categoria: 'Camisetas', marca: 'Diesel', relevancia: 57, preco: 'R$ 179,00' },
+      { nome: 'Camiseta Diesel Básica Premium - Preta', categoria: 'Camisetas Básicas Premium', marca: 'Diesel', relevancia: 64, preco: 'R$ 129,00' },
+    ], 3))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor????', chat_id: 'chat-diesel' }), res)
+
+    expect(io.shadowQueries).toEqual(['Camiseta Diesel Basic Branca'])
+    expect(res.body.contexto.produtos_encontrados).toBe(0)
+    expect(res.body.contexto.story_lab.single_match_status).toBe('ambiguous')
+    expect(res.body.contexto.story_lab.clarification_needed).toBe(true)
+    expect(res.body.contexto.story_lab.clarification_reason).toBe('single_product_ambiguous')
+    expect(res.body.contexto.clarificacao.pergunta_sugerida).toContain('mais de um modelo parecido')
+    expect(res.body.contexto.clarificacao.cor).toBe('Branca')
+    expect(res.body.contexto.story_lab.cache_write_status).toBe('stored')
+  })
+
+  it('[Correção #7] UNICO ambíguo + confirmação usa cache, não repete Vision e resolve o modelo', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-diesel-followup', storyMediaUrl: 'https://gpt-files.com/diesel-branca.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Camiseta Diesel Basic\n**Tipo:** Camiseta\n**Marca:** Diesel\n**Cor:** Branca'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch((q, n) => n === 1
+      ? shadowResponse([
+          { nome: 'Camiseta Diesel Básica Premium - Branca', categoria: 'Camisetas Básicas Premium', marca: 'Diesel', relevancia: 72 },
+          { nome: 'Camiseta Diesel Branca', categoria: 'Camisetas', marca: 'Diesel', relevancia: 57 },
+        ], 2)
+      : shadowResponse([
+          { nome: 'Camiseta Diesel Básica Premium - Branca', categoria: 'Camisetas Básicas Premium', marca: 'Diesel', relevancia: q.includes('básica premium') ? 310 : 72 },
+          { nome: 'Camiseta Diesel Branca', categoria: 'Camisetas', marca: 'Diesel', relevancia: 57 },
+        ], 2))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const primeira = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor?', chat_id: 'chat-diesel' }), primeira)
+    const segunda = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'é a básica premium', chat_id: 'chat-diesel' }), segunda)
+
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(segunda.body.contexto.story_lab.cache_status).toBe('hit')
+    expect(segunda.body.contexto.story_lab.vision_status).toBe('cache_hit')
+    expect(io.shadowQueries).toEqual(['Camiseta Diesel Basic Branca', 'Camiseta Diesel Basic Branca é a básica premium'])
+    expect(segunda.body.contexto.produtos_encontrados).toBe(1)
+    expect(segunda.body.dados.produtos[0].nome).toContain('Básica Premium - Branca')
+    expect(segunda.body.contexto.story_lab.single_match_status).toBe('clear')
+  })
+
   it('qualquer falha nas duas travas LAB bloqueia antes de Story/Vision/fetch', async () => {
     const getStoryContext = vi.fn(); const vision = vi.fn(); const fetchSpy = vi.fn()
     vi.doMock('../_storyContext.js', () => ({ getStoryContext }))
