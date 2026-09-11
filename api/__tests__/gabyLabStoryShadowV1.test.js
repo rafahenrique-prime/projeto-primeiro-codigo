@@ -210,7 +210,7 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-multi-preta', storyMediaUrl: 'https://gpt-files.com/multi.jpg', storyMediaType: 'image' })) }))
     const vision = vi.fn(() => Promise.resolve('**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermuda\n**Marca:** Diesel'))
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
-    const io = mockLabFetch((q) => shadowResponse([{ nome: 'Bermuda Diesel Preta', relevancia: q.includes('preta') ? 60 : 0 }], 1))
+    const io = mockLabFetch((q) => shadowResponse([{ nome: 'Bermuda Diesel Preta', categoria: 'Bermudas', marca: 'Diesel', relevancia: q.includes('preta') ? 60 : 0 }], 1))
 
     const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
     await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-multi' }), makeRes())
@@ -221,6 +221,27 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(segunda.body.contexto.produtos_encontrados).toBe(1)
     expect(segunda.body.contexto.story_lab.search_context_used).toBe('story_clarified')
     expect(segunda.body.contexto.story_lab.clarification_needed).toBe(false)
+  })
+
+  it('[Correção #6] follow-up não aceita produto de categoria ou marca diferente mesmo com score >=25', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-multi-strict', storyMediaUrl: 'https://gpt-files.com/multi.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermudas\n**Marca:** BOSS'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([
+      { nome: 'Camiseta Boss Preta', categoria: 'Camisetas', marca: 'HUGO BOSS', relevancia: 60 },
+      { nome: 'Bermuda Burberry Preta', categoria: 'Bermudas', marca: 'Burberry', relevancia: 60 },
+    ], 2))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-multi' }), makeRes())
+    const segunda = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'a preta', chat_id: 'chat-multi' }), segunda)
+
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(io.shadowQueries).toEqual(['Bermudas BOSS a preta'])
+    expect(segunda.body.contexto.produtos_encontrados).toBe(0)
+    expect(segunda.body.contexto.story_lab.clarification_needed).toBe(true)
+    expect(segunda.body.contexto.story_lab.clarification_reason).toBe('clarification_not_resolved')
+    expect(segunda.body.contexto.clarificacao.motivo).toBe('clarification_not_resolved')
   })
 
   it('[Correção #6] INDEFINIDO: não consulta catálogo nem grava cache e pede identificação genérica', async () => {
