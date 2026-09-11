@@ -7,8 +7,12 @@ function makeRes() {
   return res
 }
 
-function makeReq(body, labHeader = 'GABY-LAB-COMERCIAL-V1') {
-  return { method: 'POST', body, headers: { 'x-prime-lab': labHeader } }
+function makeReq(body, labHeader = 'GABY-LAB-COMERCIAL-V1', labMode = 'story-shadow-v1') {
+  return {
+    method: 'POST',
+    body,
+    headers: { 'x-prime-lab': labHeader, 'x-prime-lab-mode': labMode },
+  }
 }
 
 function shadowResponse(produtos, total = produtos.length) {
@@ -42,7 +46,7 @@ function mockShadowFetch(responder) {
   return chamadas
 }
 
-describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
+describe('GABY LAB Story + Shadow V2 — helper privado', () => {
   beforeEach(() => {
     vi.resetModules()
     process.env.VITE_SUPABASE_URL = 'https://fixture.supabase.co'
@@ -62,10 +66,10 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem }))
     const chamadas = mockShadowFetch(() => shadowResponse([{ nome: 'Tenis New Balance 9060 Azul', relevancia: 172 }], 42))
 
-    const { default: handler, __resetStoryLabCacheForTests } = await import('../gaby-lab-story-shadow-v1.js')
+    const { runGabyLabStoryShadow, __resetStoryLabCacheForTests } = await import('../../lib/gabyLabStoryShadow.js')
     __resetStoryLabCacheForTests()
     const res = makeRes()
-    await handler(makeReq({ pergunta: 'New Balance 9060' }), res)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'New Balance 9060' }), res)
 
     expect(res.statusCode).toBe(200)
     expect(chamadas).toEqual(['New Balance 9060'])
@@ -86,10 +90,10 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
     const chamadas = mockShadowFetch(() => shadowResponse([{ nome: 'Calça Jeans Diesel 009', relevancia: 57 }], 83))
 
-    const { default: handler, __resetStoryLabCacheForTests } = await import('../gaby-lab-story-shadow-v1.js')
+    const { runGabyLabStoryShadow, __resetStoryLabCacheForTests } = await import('../../lib/gabyLabStoryShadow.js')
     __resetStoryLabCacheForTests()
     const res = makeRes()
-    await handler(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-diesel' }), res)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-diesel' }), res)
 
     expect(res.statusCode).toBe(200)
     expect(chamadas).toEqual(['Calça Skinny com Elastano Calça Jeans Diesel'])
@@ -110,13 +114,13 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
     const chamadas = mockShadowFetch(() => shadowResponse([{ nome: 'Bermuda Diesel Jeans', relevancia: 54 }], 39))
 
-    const { default: handler, __resetStoryLabCacheForTests } = await import('../gaby-lab-story-shadow-v1.js')
+    const { runGabyLabStoryShadow, __resetStoryLabCacheForTests } = await import('../../lib/gabyLabStoryShadow.js')
     __resetStoryLabCacheForTests()
 
     const primeira = makeRes()
-    await handler(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-1' }), primeira)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-1' }), primeira)
     const segunda = makeRes()
-    await handler(makeReq({ pergunta: 'tem 42?', chat_id: 'chat-1' }), segunda)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'tem 42?', chat_id: 'chat-1' }), segunda)
 
     expect(vision).toHaveBeenCalledTimes(1)
     expect(chamadas).toHaveLength(2)
@@ -125,7 +129,7 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     expect(segunda.body.contexto.pergunta).toBe('tem 42?')
   })
 
-  it('match visual abaixo de 25 não é confiável: faz fallback para pergunta e não cacheia o erro', async () => {
+  it('match visual abaixo de 25 faz fallback e não cacheia o erro', async () => {
     vi.doMock('../_storyContext.js', () => ({
       getStoryContext: vi.fn(() => Promise.resolve({
         status: 'FOUND', storyId: 'story-fraco', storyMediaUrl: 'https://gpt-files.com/fraco.jpg', storyMediaType: 'image',
@@ -137,13 +141,13 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
       ? shadowResponse([{ nome: 'Phantom Parfum 100ml', relevancia: 6 }], 1)
       : shadowResponse([{ nome: 'Bermuda Diesel Jeans', relevancia: 40 }], 1))
 
-    const { default: handler, __resetStoryLabCacheForTests } = await import('../gaby-lab-story-shadow-v1.js')
+    const { runGabyLabStoryShadow, __resetStoryLabCacheForTests } = await import('../../lib/gabyLabStoryShadow.js')
     __resetStoryLabCacheForTests()
 
     const primeira = makeRes()
-    await handler(makeReq({ pergunta: 'bermuda diesel', chat_id: 'chat-fraco' }), primeira)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'bermuda diesel', chat_id: 'chat-fraco' }), primeira)
     const segunda = makeRes()
-    await handler(makeReq({ pergunta: 'bermuda diesel', chat_id: 'chat-fraco' }), segunda)
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'bermuda diesel', chat_id: 'chat-fraco' }), segunda)
 
     expect(chamadas).toEqual([
       'Produto Inexistente Xyz Eletronico MarcaXyz', 'bermuda diesel',
@@ -154,7 +158,7 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     expect(primeira.body.contexto.story_lab.search_context_used).toBe('story_fallback_pergunta')
   })
 
-  it('header LAB inválido bloqueia antes de Story/Vision/Shadow', async () => {
+  it('qualquer falha em uma das duas travas LAB bloqueia antes de Story/Vision/Shadow', async () => {
     const getStoryContext = vi.fn()
     const identificarProdutoPorImagem = vi.fn()
     vi.doMock('../_storyContext.js', () => ({ getStoryContext }))
@@ -162,11 +166,16 @@ describe('api/gaby-lab-story-shadow-v1.js — LAB isolada + Shadow V2', () => {
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
 
-    const { default: handler } = await import('../gaby-lab-story-shadow-v1.js')
-    const res = makeRes()
-    await handler(makeReq({ pergunta: 'New Balance 9060' }, 'header-invalido'), res)
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
 
-    expect(res.statusCode).toBe(403)
+    const headerErrado = makeRes()
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'New Balance 9060' }, 'header-invalido'), headerErrado)
+    expect(headerErrado.statusCode).toBe(403)
+
+    const modoErrado = makeRes()
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'New Balance 9060' }, 'GABY-LAB-COMERCIAL-V1', 'modo-invalido'), modoErrado)
+    expect(modoErrado.statusCode).toBe(403)
+
     expect(getStoryContext).not.toHaveBeenCalled()
     expect(identificarProdutoPorImagem).not.toHaveBeenCalled()
     expect(fetchSpy).not.toHaveBeenCalled()
