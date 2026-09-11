@@ -260,7 +260,7 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(res.body.contexto.clarificacao.motivo).toBe('visual_undefined')
   })
 
-  it('[Correção #7] UNICO Nike Air Force: vencedor claro 201 vs 42 retorna somente 1 produto', async () => {
+  it('[Correção #9] HIGH — UNICO Nike Air Force: vencedor forte retorna 1 produto principal com linguagem não absoluta', async () => {
     vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-airforce', storyMediaUrl: 'https://gpt-files.com/airforce.jpg', storyMediaType: 'image' })) }))
     const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Tênis Nike Air Force 1\n**Tipo:** Calçado esportivo/casual\n**Marca:** Nike\n**Cor:** Branco'))
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
@@ -279,13 +279,39 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(res.body.dados.produtos[0].nome).toBe('Tênis Nike Air Force 1')
     expect(res.body.contexto.story_lab.visual_scene).toBe('UNICO')
     expect(res.body.contexto.story_lab.single_match_status).toBe('clear')
+    expect(res.body.contexto.story_lab.single_match_confidence).toBe('HIGH')
+    expect(res.body.contexto.story_lab.presentation_mode).toBe('primary')
+    expect(res.body.contexto.story_lab.confirmation_recommended).toBe(false)
+    expect(res.body.contexto.apresentacao).toMatchObject({ modo: 'primary', confianca: 'HIGH', linguagem: 'probabilistica' })
+    expect(res.body.contexto.apresentacao.frase_sugerida).toContain('mais provável')
     expect(res.body.contexto.story_lab.single_top_score).toBe(201)
     expect(res.body.contexto.story_lab.single_second_score).toBe(54)
+    expect(res.body.dados.informacao_adicional).toContain('mais provável')
     expect(res.body.contexto.story_lab.cache_write_status).toBe('stored')
     expect(io.cacheOps.find(x => x.action === 'cache_put').query_compact).toContain('UNICO::')
   })
 
-  it('[Correção #7] UNICO Diesel branca: candidatos próximos não são chutados; pede confirmação', async () => {
+  it('[Correção #9] HIGH — caso real Nike Dunk Low Retro 216 vs 75 mantém 1 principal sem linguagem absoluta', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-dunk-real', storyMediaUrl: 'https://gpt-files.com/dunk.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Tênis Nike Dunk Low Retro\n**Tipo:** Tênis\n**Marca:** Nike\n**Cor:** Preto e Branco'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    mockLabFetch(() => shadowResponse([
+      { nome: 'Tênis Nike Dunk Low Retro', categoria: 'Tênis', marca: 'Nike', relevancia: 216, preco: 'R$ 289,00' },
+      { nome: 'Tênis Nike Dunk Branco', categoria: 'Tênis', marca: 'Nike', relevancia: 75, preco: 'R$ 289,00' },
+      { nome: 'Tênis Nike Dunk Preto', categoria: 'Tênis', marca: 'Nike', relevancia: 75, preco: 'R$ 289,00' },
+    ], 3))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor?', chat_id: 'chat-dunk-real' }), res)
+
+    expect(res.body.contexto.produtos_encontrados).toBe(1)
+    expect(res.body.dados.produtos[0].nome).toBe('Tênis Nike Dunk Low Retro')
+    expect(res.body.contexto.story_lab.single_match_confidence).toBe('HIGH')
+    expect(res.body.contexto.story_lab.presentation_mode).toBe('primary')
+    expect(res.body.dados.informacao_adicional).toContain('mais provável')
+  })
+
+  it('[Correção #9] MEDIUM — UNICO Diesel branca: mostra shortlist de 2–3 parecidos e pede confirmação', async () => {
     vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-diesel-branca', storyMediaUrl: 'https://gpt-files.com/diesel-branca.jpg', storyMediaType: 'image' })) }))
     const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Camiseta Diesel Basic\n**Tipo:** Roupa (Camiseta)\n**Marca:** Diesel\n**Cor:** Branca'))
     vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
@@ -299,12 +325,20 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor????', chat_id: 'chat-diesel' }), res)
 
     expect(io.shadowQueries).toEqual(['Camiseta Diesel Basic Branca'])
-    expect(res.body.contexto.produtos_encontrados).toBe(0)
+    expect(res.body.contexto.produtos_encontrados).toBe(2)
+    expect(res.body.dados.produtos.map(p => p.nome)).toEqual([
+      'Camiseta Diesel Básica Premium - Branca',
+      'Camiseta Diesel Branca',
+    ])
     expect(res.body.contexto.story_lab.single_match_status).toBe('ambiguous')
-    expect(res.body.contexto.story_lab.clarification_needed).toBe(true)
-    expect(res.body.contexto.story_lab.clarification_reason).toBe('single_product_ambiguous')
-    expect(res.body.contexto.clarificacao.pergunta_sugerida).toContain('mais de um modelo parecido')
-    expect(res.body.contexto.clarificacao.cor).toBe('Branca')
+    expect(res.body.contexto.story_lab.single_match_confidence).toBe('MEDIUM')
+    expect(res.body.contexto.story_lab.presentation_mode).toBe('shortlist')
+    expect(res.body.contexto.story_lab.confirmation_recommended).toBe(true)
+    expect(res.body.contexto.story_lab.clarification_needed).toBe(false)
+    expect(res.body.contexto.apresentacao).toMatchObject({ modo: 'shortlist', confianca: 'MEDIUM', max_opcoes: 3 })
+    expect(res.body.contexto.confirmacao).toMatchObject({ recomendada: true, motivo: 'medium_confidence' })
+    expect(res.body.contexto.confirmacao.pergunta_sugerida).toContain('É algum desses')
+    expect(res.body.dados.informacao_adicional).toContain('máximo 3')
     expect(res.body.contexto.story_lab.cache_write_status).toBe('stored')
   })
 
@@ -330,9 +364,32 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(segunda.body.contexto.story_lab.cache_status).toBe('hit')
     expect(segunda.body.contexto.story_lab.vision_status).toBe('cache_hit')
     expect(io.shadowQueries).toEqual(['Camiseta Diesel Basic Branca', 'Camiseta Diesel Basic Branca é a básica premium'])
+    expect(primeira.body.contexto.story_lab.single_match_confidence).toBe('MEDIUM')
+    expect(primeira.body.contexto.produtos_encontrados).toBe(2)
     expect(segunda.body.contexto.produtos_encontrados).toBe(1)
     expect(segunda.body.dados.produtos[0].nome).toContain('Básica Premium - Branca')
     expect(segunda.body.contexto.story_lab.single_match_status).toBe('clear')
+    expect(segunda.body.contexto.story_lab.single_match_confidence).toBe('HIGH')
+  })
+
+  it('[Correção #9] LOW — score fraco não mostra shortlist nem afirma produto; pede detalhe', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-low', storyMediaUrl: 'https://gpt-files.com/low.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** UNICO\n## Tênis Nike desconhecido\n**Tipo:** Tênis\n**Marca:** Nike\n**Cor:** Branco'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    mockLabFetch(() => shadowResponse([
+      { nome: 'Tênis Nike Modelo A Branco', categoria: 'Tênis', marca: 'Nike', relevancia: 44 },
+      { nome: 'Tênis Nike Modelo B Branco', categoria: 'Tênis', marca: 'Nike', relevancia: 39 },
+    ], 2))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'Qual valor?', chat_id: 'chat-low' }), res)
+
+    expect(res.body.contexto.produtos_encontrados).toBe(0)
+    expect(res.body.contexto.story_lab.single_match_confidence).toBe('LOW')
+    expect(res.body.contexto.story_lab.presentation_mode).toBe('clarify')
+    expect(res.body.contexto.story_lab.clarification_needed).toBe(true)
+    expect(res.body.contexto.story_lab.clarification_reason).toBe('single_product_low_confidence')
+    expect(res.body.contexto.clarificacao.pergunta_sugerida).toContain('confirmar o modelo')
   })
 
   it('qualquer falha nas duas travas LAB bloqueia antes de Story/Vision/fetch', async () => {
