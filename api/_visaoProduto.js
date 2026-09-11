@@ -38,20 +38,30 @@ const FFMPEG_TIMEOUT_MS = 15000
 const VISION_PROXY_MODEL = 'google/gemini-2.5-flash-lite'
 const VISION_PROVIDER = 'openrouter'
 
-const PROMPT_IDENTIFICACAO = `Você é um especialista em identificação de produtos para lojas.
+const PROMPT_IDENTIFICACAO = `Você é um especialista em identificação visual de produtos para lojas.
 
-Analise esta foto e descreva o produto com detalhes para uma base de conhecimento:
+Antes de nomear qualquer produto, classifique a cena:
+- UNICO: existe um único produto claro/dominante que pode ser identificado com segurança.
+- MULTIPLOS: aparecem dois ou mais produtos/peças distintos e nenhum deles é claramente o único foco da pergunta.
+- INDEFINIDO: nem a categoria principal pode ser identificada com segurança.
+
+Regras anti-alucinação:
+- Em MULTIPLOS, NÃO escolha arbitrariamente uma das peças e NÃO invente modelo específico.
+- Em MULTIPLOS, informe no Tipo apenas a categoria comum que estiver realmente visível (ex.: Bermuda, Camiseta, Óculos).
+- Em MULTIPLOS, informe Marca somente se estiver claramente visível e for comum aos itens principais; caso contrário use "Não identificado".
+- Se houver várias cores/modelos da mesma categoria, isso continua sendo MULTIPLOS.
 
 Responda EXATAMENTE neste formato:
-## [Nome do produto]
-**Tipo:** (categoria do produto)
-**Marca:** (se visível, senão "Não identificado")
+**Cenário:** (UNICO, MULTIPLOS ou INDEFINIDO)
+## [Nome do produto; em MULTIPLOS use "Vários produtos"; em INDEFINIDO use "Produto não identificado"]
+**Tipo:** (categoria do produto; em INDEFINIDO use "Não identificado")
+**Marca:** (se visível com segurança, senão "Não identificado")
 **Cor:** (cores principais)
 **Características:** (detalhes visuais únicos: material, design, tamanho estimado, etc)
 **Ocasião/Uso:** (para que situações ou público serve)
 **Descrição para venda:** (texto persuasivo de 2-3 linhas para usar no WhatsApp)
 
-Identifique qualquer produto que apareça na imagem — roupa, tênis, perfume, acessório, bolsa, eletrônico, etc.
+Identifique produtos de moda e varejo que apareçam na imagem — roupa, tênis, perfume, acessório, bolsa, eletrônico, etc.
 Se não conseguir identificar algum campo, escreva "Não identificado".`
 
 function validarStoryMediaUrl(urlStr) {

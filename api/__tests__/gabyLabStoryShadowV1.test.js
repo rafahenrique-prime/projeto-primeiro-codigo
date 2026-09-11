@@ -167,6 +167,78 @@ describe('GABY LAB Story + Shadow V2 — persistent Vision cache', () => {
     expect(res.body.contexto.story_lab.cache_write_status).toBe('unavailable')
   })
 
+  it('[Correção #6] MULTIPLOS: não consulta catálogo, pede cor/modelo e grava contexto ambíguo no cache', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-multi', storyMediaUrl: 'https://gpt-files.com/multi.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermuda\n**Marca:** Não identificado\n**Cor:** preta, verde, bege'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([{ nome: 'NÃO DEVERIA SER CONSULTADO', relevancia: 99 }], 1))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-multi' }), res)
+
+    expect(res.statusCode).toBe(200)
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(io.shadowQueries).toHaveLength(0)
+    expect(res.body.contexto.produtos_encontrados).toBe(0)
+    expect(res.body.contexto.clarificacao).toMatchObject({ necessaria: true, motivo: 'multiple_products', categoria: 'Bermuda' })
+    expect(res.body.contexto.clarificacao.pergunta_sugerida).toContain('Qual cor ou modelo')
+    expect(res.body.contexto.story_lab.visual_scene).toBe('MULTIPLOS')
+    expect(res.body.contexto.story_lab.cache_write_status).toBe('stored')
+    const put = io.cacheOps.find(x => x.action === 'cache_put')
+    expect(put.query_compact).toContain('MULTI::')
+    expect(put.query_compact).toContain('Bermuda')
+  })
+
+  it('[Correção #6] mesmo Story MULTIPLOS + pergunta genérica usa cache e não repete Vision nem catálogo', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-multi-cache', storyMediaUrl: 'https://gpt-files.com/multi.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermuda\n**Marca:** Não identificado'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([{ nome: 'NÃO DEVERIA SER CONSULTADO', relevancia: 99 }], 1))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-multi' }), makeRes())
+    const segunda = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'tem M?', chat_id: 'chat-multi' }), segunda)
+
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(io.shadowQueries).toHaveLength(0)
+    expect(segunda.body.contexto.story_lab.cache_status).toBe('hit')
+    expect(segunda.body.contexto.story_lab.vision_status).toBe('cache_hit')
+    expect(segunda.body.contexto.clarificacao.motivo).toBe('multiple_products')
+  })
+
+  it('[Correção #6] mesmo Story MULTIPLOS + "a preta" combina categoria e discriminador sem repetir Vision', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-multi-preta', storyMediaUrl: 'https://gpt-files.com/multi.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermuda\n**Marca:** Diesel'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch((q) => shadowResponse([{ nome: 'Bermuda Diesel Preta', relevancia: q.includes('preta') ? 60 : 0 }], 1))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-multi' }), makeRes())
+    const segunda = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'a preta', chat_id: 'chat-multi' }), segunda)
+
+    expect(vision).toHaveBeenCalledTimes(1)
+    expect(io.shadowQueries).toEqual(['Bermuda Diesel a preta'])
+    expect(segunda.body.contexto.produtos_encontrados).toBe(1)
+    expect(segunda.body.contexto.story_lab.search_context_used).toBe('story_clarified')
+    expect(segunda.body.contexto.story_lab.clarification_needed).toBe(false)
+  })
+
+  it('[Correção #6] INDEFINIDO: não consulta catálogo nem grava cache e pede identificação genérica', async () => {
+    vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn(() => Promise.resolve({ status: 'FOUND', storyId: 'story-indef', storyMediaUrl: 'https://gpt-files.com/indef.jpg', storyMediaType: 'image' })) }))
+    const vision = vi.fn(() => Promise.resolve('**Cenário:** INDEFINIDO\n## Produto não identificado\n**Tipo:** Não identificado\n**Marca:** Não identificado'))
+    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vision }))
+    const io = mockLabFetch(() => shadowResponse([{ nome: 'NÃO DEVERIA SER CONSULTADO', relevancia: 99 }], 1))
+
+    const { runGabyLabStoryShadow } = await import('../../lib/gabyLabStoryShadow.js')
+    const res = makeRes(); await runGabyLabStoryShadow(makeReq({ pergunta: 'qual valor?', chat_id: 'chat-indef' }), res)
+
+    expect(res.statusCode).toBe(200)
+    expect(io.shadowQueries).toHaveLength(0)
+    expect(io.cacheOps.filter(x => x.action === 'cache_put')).toHaveLength(0)
+    expect(res.body.contexto.story_lab.visual_scene).toBe('INDEFINIDO')
+    expect(res.body.contexto.clarificacao.motivo).toBe('visual_undefined')
+  })
+
   it('qualquer falha nas duas travas LAB bloqueia antes de Story/Vision/fetch', async () => {
     const getStoryContext = vi.fn(); const vision = vi.fn(); const fetchSpy = vi.fn()
     vi.doMock('../_storyContext.js', () => ({ getStoryContext }))

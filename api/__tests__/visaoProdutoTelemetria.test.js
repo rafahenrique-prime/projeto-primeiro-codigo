@@ -325,4 +325,42 @@ describe('api/_visaoProduto.js — telemetria fail-open (não altera resultado c
     }
   })
 
+  it('H) [Correção #6 LAB] prompt real exige UNICO/MULTIPLOS/INDEFINIDO e proíbe escolher peça arbitrária', async () => {
+    let promptEnviado = ''
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+      const u = String(url)
+      if (u.startsWith('https://gpt-files.com/')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (h) => (h === 'content-type' ? 'image/jpeg' : null) },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        }
+      }
+      if (u.includes('/api/system-tools?tool=ocr-openrouter')) {
+        const body = JSON.parse(init?.body || '{}')
+        promptEnviado = body?.messages?.[0]?.content?.find((item) => item?.type === 'text')?.text || ''
+        return jsonResponse({
+          id: 'gen-ambiguidade-prompt',
+          choices: [{ message: { content: '**Cenário:** MULTIPLOS\n## Vários produtos\n**Tipo:** Bermuda\n**Marca:** Não identificado' } }],
+          usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120, cost: 0.00001 },
+        })
+      }
+      if (u.includes('fixture.supabase.co/rest/v1/vision_usage_events')) {
+        insertedRows.push(JSON.parse(init?.body || '{}'))
+        return { ok: true, status: 201 }
+      }
+      throw new Error(`fetch não mockado para: ${u}`)
+    }))
+
+    const { identificarProdutoPorImagem } = await import('../_visaoProduto.js')
+    const resultado = await identificarProdutoPorImagem(STORY_URL_IMAGE)
+    await waitUntilMock.mock.calls[0][0]
+
+    expect(resultado).toContain('**Cenário:** MULTIPLOS')
+    expect(promptEnviado).toContain('**Cenário:** (UNICO, MULTIPLOS ou INDEFINIDO)')
+    expect(promptEnviado).toContain('Em MULTIPLOS, NÃO escolha arbitrariamente uma das peças')
+    expect(promptEnviado).toContain('Se houver várias cores/modelos da mesma categoria, isso continua sendo MULTIPLOS')
+  })
+
 })
