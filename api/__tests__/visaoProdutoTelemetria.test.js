@@ -273,4 +273,56 @@ describe('api/_visaoProduto.js — telemetria fail-open (não altera resultado c
     expect(row.cost_usd).toBe(0.0000303) // veio da resposta principal, não do fallback fictício de 0.999
     expect(chamadasGeneration).toBe(0) // prova que a 2ª chamada (/generation) nunca foi necessária
   })
+
+  it('G) [Correção #5 LAB] resposta válida em 10s não é abortada antes da hora', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal('fetch', vi.fn((url, init) => {
+        const u = String(url)
+        if (u.startsWith('https://gpt-files.com/')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: (h) => (h === 'content-type' ? 'image/jpeg' : null) },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+          })
+        }
+        if (u.includes('/api/system-tools?tool=ocr-openrouter')) {
+          return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => resolve(jsonResponse({
+              id: 'gen-lento-valido',
+              choices: [{ message: { content: '## Produto Lento Válido' } }],
+              usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, cost: 0.00001 },
+            })), 10000)
+            init?.signal?.addEventListener('abort', () => {
+              clearTimeout(timer)
+              const err = new Error('aborted')
+              err.name = 'AbortError'
+              reject(err)
+            }, { once: true })
+          })
+        }
+        if (u.includes('fixture.supabase.co/rest/v1/vision_usage_events')) {
+          insertedRows.push(JSON.parse(init?.body || '{}'))
+          return Promise.resolve({ ok: true, status: 201 })
+        }
+        throw new Error(`fetch não mockado para: ${u}`)
+      }))
+
+      const { identificarProdutoPorImagem } = await import('../_visaoProduto.js')
+      const resultadoPromise = identificarProdutoPorImagem(STORY_URL_IMAGE)
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(10000)
+      const resultado = await resultadoPromise
+
+      expect(resultado).toBe('## Produto Lento Válido')
+      await waitUntilMock.mock.calls[0][0]
+      expect(insertedRows).toHaveLength(1)
+      expect(insertedRows[0].success).toBe(true)
+      expect(insertedRows[0].error_code).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
 })

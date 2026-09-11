@@ -27,7 +27,7 @@ import { recordVisionUsageEvent } from './_visionTelemetry.js'
 const execFileAsync = promisify(execFile)
 
 const MEDIA_FETCH_TIMEOUT_MS = 4000
-const VISION_CALL_TIMEOUT_MS = 8000
+const VISION_CALL_TIMEOUT_MS = 15000
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024 // 8MB — folga generosa pra foto de Story
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024 // Stories em vídeo (foto+música do Instagram) chegam maiores
 const ALLOWED_IMAGE_MIME_PREFIX = /^image\/(jpeg|png|webp|gif)/
