@@ -1727,6 +1727,7 @@ async function openrouterChatProxy(req, res, allowedModels, toolLabel) {
         messages,
         temperature: typeof temperature === 'number' ? temperature : 0.4,
         max_tokens: typeof max_tokens === 'number' ? max_tokens : 800,
+        ...(toolLabel === 'ocr-openrouter' ? { provider: { sort: 'throughput' } } : {}),
       }),
       signal: controller.signal,
     })
