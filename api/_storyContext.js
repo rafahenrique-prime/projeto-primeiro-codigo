@@ -26,6 +26,12 @@
  * Bermuda) ainda seria mal classificada como continuação — não há solução
  * determinística simples pra isso sem entender semântica.
  *
+ * Correção #8 (2026-09-11, referência explícita à mídia): mantém a regra
+ * curta acima intacta, mas permite reaproveitar o Story anterior por até
+ * 30 minutos quando a própria mensagem aponta explicitamente para a mídia
+ * anterior (ex.: "esse da foto", "essa imagem", "desse Story"). Pedidos de
+ * uma NOVA foto (ex.: "me manda foto do tênis") não qualificam.
+ *
  * Fail-safe: qualquer falha (timeout, HTTP não-200, chatId ausente, mensagem
  * sem metadata de Story) nunca lança exceção, nunca bloqueia o fluxo normal
  * do webhook.
@@ -53,12 +59,34 @@ const GPTMAKER_MESSAGES_TIMEOUT_MS = 2500
 export const STORY_CONTINUATION_WINDOW_MS = 5 * 60 * 1000
 export const STORY_CONTINUATION_MAX_WORDS = 3
 
+// Correção #8 — referência explícita à mídia permite continuidade mais longa
+// sem afrouxar a regra genérica acima. Ex.: "esse da foto", "essa imagem",
+// "desse Story". A janela maior só vale com referência textual forte.
+export const STORY_MEDIA_REFERENCE_WINDOW_MS = 30 * 60 * 1000
+export const STORY_MEDIA_REFERENCE_MAX_WORDS = 12
+
 // Contagem determinística de palavras: trim + split por whitespace + descarta
 // segmentos vazios. Texto ausente/vazio conta como 0 palavras (nunca qualifica
 // como continuação — CTX-STORY-08).
 function contarPalavras(texto) {
   if (typeof texto !== 'string') return 0
   return texto.trim().split(/\s+/).filter(Boolean).length
+}
+
+function normalizarReferencia(texto) {
+  if (typeof texto !== 'string') return ''
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
+function temReferenciaExplicitaAMidia(texto) {
+  const n = normalizarReferencia(texto)
+  if (!n) return false
+  return [
+    /\b(?:da|dessa|desta|na|nessa|nesta)\s+(?:foto|imagem)\b/,
+    /\b(?:do|desse|deste|no|nesse|neste)\s+story\b/,
+    /\b(?:essa|esta|aquela)\s+(?:foto|imagem)\b/,
+    /\b(?:esse|este|aquele)\s+story\b/,
+  ].some((re) => re.test(n))
 }
 
 export async function getStoryContext(chatId) {
@@ -104,24 +132,29 @@ export async function getStoryContext(chatId) {
     const textoAtual = typeof ultima.text === 'string' ? ultima.text : (typeof ultima.content === 'string' ? ultima.content : '')
     const numeroDePalavras = contarPalavras(textoAtual)
 
-    if (numeroDePalavras >= 1 && numeroDePalavras <= STORY_CONTINUATION_MAX_WORDS) {
-      const candidatosComStoryAnterior = mensagensDeUsuario.filter(
-        (m) => m.time < ultima.time && m.metadata && m.metadata.storyId && m.metadata.storyMediaUrl
-      )
+    const candidatosComStoryAnterior = mensagensDeUsuario.filter(
+      (m) => m.time < ultima.time && m.metadata && m.metadata.storyId && m.metadata.storyMediaUrl
+    )
 
-      if (candidatosComStoryAnterior.length > 0) {
-        // Sempre o mais PRÓXIMO (maior time entre os anteriores) — nunca um
-        // mais antigo se houver um mais recente também dentro da janela.
-        const storyAnterior = candidatosComStoryAnterior.reduce((a, b) => (b.time > a.time ? b : a))
+    if (candidatosComStoryAnterior.length > 0) {
+      // Sempre o mais PRÓXIMO (maior time entre os anteriores).
+      const storyAnterior = candidatosComStoryAnterior.reduce((a, b) => (b.time > a.time ? b : a))
+      const gapMs = ultima.time - storyAnterior.time
+      const continuidadeCurta = numeroDePalavras >= 1
+        && numeroDePalavras <= STORY_CONTINUATION_MAX_WORDS
+        && gapMs <= STORY_CONTINUATION_WINDOW_MS
+      const referenciaExplicita = numeroDePalavras >= 1
+        && numeroDePalavras <= STORY_MEDIA_REFERENCE_MAX_WORDS
+        && temReferenciaExplicitaAMidia(textoAtual)
+        && gapMs <= STORY_MEDIA_REFERENCE_WINDOW_MS
 
-        if (ultima.time - storyAnterior.time <= STORY_CONTINUATION_WINDOW_MS) {
-          const metaAnterior = storyAnterior.metadata
-          return {
-            status: 'FOUND',
-            storyId: metaAnterior.storyId,
-            storyMediaUrl: metaAnterior.storyMediaUrl,
-            storyMediaType: metaAnterior.storyMediaType || null,
-          }
+      if (continuidadeCurta || referenciaExplicita) {
+        const metaAnterior = storyAnterior.metadata
+        return {
+          status: 'FOUND',
+          storyId: metaAnterior.storyId,
+          storyMediaUrl: metaAnterior.storyMediaUrl,
+          storyMediaType: metaAnterior.storyMediaType || null,
         }
       }
     }

@@ -164,10 +164,12 @@ describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)',
     process.env = { ...ORIGINAL_ENV }
   })
 
-  it('exporta as constantes esperadas (janela 5min, máximo 3 palavras)', async () => {
-    const { STORY_CONTINUATION_WINDOW_MS, STORY_CONTINUATION_MAX_WORDS } = await import('../_storyContext.js')
+  it('exporta as constantes esperadas (regra curta 5min/3 palavras + referência explícita 30min/12 palavras)', async () => {
+    const { STORY_CONTINUATION_WINDOW_MS, STORY_CONTINUATION_MAX_WORDS, STORY_MEDIA_REFERENCE_WINDOW_MS, STORY_MEDIA_REFERENCE_MAX_WORDS } = await import('../_storyContext.js')
     expect(STORY_CONTINUATION_WINDOW_MS).toBe(5 * MIN)
     expect(STORY_CONTINUATION_MAX_WORDS).toBe(3)
+    expect(STORY_MEDIA_REFERENCE_WINDOW_MS).toBe(30 * MIN)
+    expect(STORY_MEDIA_REFERENCE_MAX_WORDS).toBe(12)
   })
 
   it('CTX-STORY-01) Story Bermuda + "Qual valor?" + "Bermuda" (1 palavra) 4min depois → reutiliza o Story', async () => {
@@ -212,6 +214,59 @@ describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)',
 
     expect(resultado.status).toBe('FOUND')
     expect(resultado.storyId).toBe('story-tenis')
+  })
+
+  it('[Correção #8] Story + referência explícita "da foto" 13min depois → reutiliza o Story', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-airforce-real', storyMediaUrl: 'https://gpt-files.com/airforce.jpg', storyMediaType: 'image' } },
+      { role: 'user', time: BASE + 13 * MIN, text: 'Mais esse da foto qual valor dele?', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-corr8-real')
+
+    expect(resultado.status).toBe('FOUND')
+    expect(resultado.storyId).toBe('story-airforce-real')
+  })
+
+  it('[Correção #8] "Tênis da foto" 13min depois → reutiliza o Story', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-airforce-tool', storyMediaUrl: 'https://gpt-files.com/airforce.jpg' } },
+      { role: 'user', time: BASE + 13 * MIN, text: 'Tênis da foto', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    expect((await getStoryContext('chat-corr8-tool')).storyId).toBe('story-airforce-tool')
+  })
+
+  it('[Correção #8] referência explícita acima de 30min → NÃO reutiliza', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-old', storyMediaUrl: 'https://gpt-files.com/old.jpg' } },
+      { role: 'user', time: BASE + 30 * MIN + 1, text: 'esse da foto', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    expect(await getStoryContext('chat-corr8-expired')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('[Correção #8] frase longa sem referência à mídia continua NÃO reutilizando mesmo dentro de 30min', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-old', storyMediaUrl: 'https://gpt-files.com/old.jpg' } },
+      { role: 'user', time: BASE + 13 * MIN, text: 'Vocês têm tênis Nike disponível hoje nessa numeração?', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    expect(await getStoryContext('chat-corr8-new-subject')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
+  it('[Correção #8] pedido novo "me manda foto do tênis Nike" NÃO é confundido com referência à foto anterior', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: BASE, text: 'Qual valor?', metadata: { storyId: 'story-old', storyMediaUrl: 'https://gpt-files.com/old.jpg' } },
+      { role: 'user', time: BASE + 13 * MIN, text: 'me manda foto do tênis Nike', metadata: null },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    expect(await getStoryContext('chat-corr8-photo-request')).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
   })
 
   it('CTX-STORY-04) Story + mensagem curta, mas mais de 5min depois → NÃO reutiliza', async () => {
