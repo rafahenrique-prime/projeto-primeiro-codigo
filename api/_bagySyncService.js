@@ -97,6 +97,29 @@ export function classificarFalha(result) {
  * bagy_sync" como fallback razoável; se nenhuma das duas resolver,
  * devolve DUPLICATE_CONFLICT e quem chamar decide pular o produto.
  */
+/**
+ * CONTRATO CATÁLOGO PRIME (Etapa 0 APROVADA): transições de products.status.
+ * - Leitura Bagy OK e produto marcado inativo → volta pra 'active'
+ *   (produto que volta a responder 200 pode ser reativado).
+ * - 404 confirmado → 'inactive' (404 é a ÚNICA evidência que inativa;
+ *   ausência da listagem NUNCA inativa — vira caso de revisão, ver
+ *   descobrirProdutosNovos em api/system-tools.js).
+ * - Qualquer outro caso → null (não tocar no status).
+ * Valores escritos são sempre 'active'/'inactive' — o vocabulário real da
+ * coluna (default do banco e 566 das 579 linhas). As 8 linhas legadas com
+ * 'Ativo' não são normalizadas aqui (decisão de dados separada, Etapa 3).
+ */
+export function resolveStatusProduto({ bagyOk, bagyHttpStatus, statusAtual }) {
+  const atual = (statusAtual || '').toString().toLowerCase()
+  if (bagyOk) {
+    return (atual === 'inactive' || atual === 'inativo') ? 'active' : null
+  }
+  if (bagyHttpStatus === 404) {
+    return atual === 'inactive' ? null : 'inactive'
+  }
+  return null
+}
+
 export function resolveProductRow(rows, bagyProductId) {
   const ids = rows.map((r) => r.id)
   if (rows.length === 0) return { status: 'NOT_FOUND', product: null, rule: null, duplicateCount: 0, ids }
@@ -155,6 +178,50 @@ export async function syncProduct(input, { mode = 'dry_run', logger } = {}) {
     result.erro = `falha ao ler Bagy: ${bagy.reason}`
     result.bagyHttpStatus = bagy.httpStatus
     result.produtoNaoEncontradoNaBagy = bagy.httpStatus === 404
+
+    // CONTRATO CATÁLOGO PRIME (Etapa 0 APROVADA): 404 confirmado pode marcar
+    // o produto como inativo. Resolve a linha ANTES de sair (sem o
+    // bagy_product_id da leitura — resolveProductRow já cobre linha única e
+    // fallback single_bagy_sync; DUPLICATE_CONFLICT aqui só registra, nunca
+    // escolhe). A exceção '404' continua registrada pelo fluxo normal
+    // (classificarFalha/registrarExcecaoSeAplicável) — as duas coisas
+    // coexistem: o dado fica certo E a fila de exceções mantém o histórico.
+    if (result.produtoNaoEncontradoNaBagy) {
+      try {
+        const rows404 = await getProductRowsByLink(link)
+        const resolucao404 = resolveProductRow(rows404, bagyProductIdConhecido)
+        if (resolucao404.status === 'OK' && resolucao404.product) {
+          const statusAlvo404 = resolveStatusProduto({
+            bagyOk: false,
+            bagyHttpStatus: 404,
+            statusAtual: resolucao404.product.status,
+          })
+          if (statusAlvo404) {
+            result.transicaoStatus = { de: resolucao404.product.status ?? null, para: statusAlvo404, motivo: '404_confirmado' }
+            if (mode === 'write') {
+              try {
+                await syncProductTransactional({
+                  productId: resolucao404.product.id,
+                  productFields: { status: statusAlvo404 },
+                  variations: [],
+                })
+                result.statusEscrito = true
+                log.step('status_inativado_404', { productId: resolucao404.product.id, status: statusAlvo404 })
+              } catch (e) {
+                result.erroEscritaStatus = `falha ao gravar status='${statusAlvo404}' após 404 (a exceção 404 continua registrada): ${e.message}`
+                log.error('status_inativado_404_falhou', e)
+              }
+            } else {
+              result.marcariaStatus = statusAlvo404
+            }
+          }
+        }
+      } catch (e) {
+        // Falha na tentativa de marcar status NUNCA esconde o 404 original.
+        result.erroEscritaStatus = `falha ao resolver linha para marcação de inativo: ${e.message}`
+        log.error('status_inativado_404_resolucao_falhou', e)
+      }
+    }
     // httpStatus === null só acontece quando o fetch() em si lançou exceção
     // (timeout, conexão recusada/terminada) — nunca chegou a existir uma
     // resposta HTTP. É a única classe de erro elegível a retry automático
@@ -190,7 +257,13 @@ export async function syncProduct(input, { mode = 'dry_run', logger } = {}) {
   result.resolucaoProduto = { status: resolucao.status, rule: resolucao.rule, duplicateCount: resolucao.duplicateCount }
 
   // 3) mapear
-  const mappedProduct = mapProductRow(bagy.product, { imagemAtualNoSupabase: current?.imagem })
+  // CONTRATO CATÁLOGO PRIME: produto inativo que voltou a responder 200
+  // pode ser reativado (Etapa 0 APROVADA). statusAlvo=null → o campo nem
+  // entra na linha mapeada → nenhum diff de status é gerado por acidente.
+  const statusAlvo = current
+    ? resolveStatusProduto({ bagyOk: true, bagyHttpStatus: bagy.httpStatus, statusAtual: current.status })
+    : null
+  const mappedProduct = mapProductRow(bagy.product, { imagemAtualNoSupabase: current?.imagem, status: statusAlvo ?? undefined })
   const productDiff = diffProductFields(current, mappedProduct)
   log.step('mapeamento_produto', { camposDiferentes: Object.keys(productDiff) })
 
@@ -324,6 +397,11 @@ export async function syncNewProduct(bagyProduct, { logger } = {}) {
   // coluna nem em produtos manuais — só o payload deste caminho específico.
   const productFields = {
     bagy_product_id: mappedProduct.bagy_product_id,
+    // CONTRATO CATÁLOGO PRIME: status enviado explicitamente ('active' — o
+    // produto acabou de ser lido com sucesso da Bagy) em vez de depender do
+    // default do banco. Valor idêntico ao default de hoje — mudança de
+    // contrato, não de comportamento.
+    status: 'active',
     nome: mappedProduct.nome,
     link: mappedProduct.link,
     ...(mappedProduct.categoria !== undefined ? { categoria: mappedProduct.categoria } : {}),
