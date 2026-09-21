@@ -251,3 +251,54 @@ describe('duplicate_group declarado (ajuste final Etapa 1, 2026-09-21)', () => {
     expect(canonicas[0]).not.toHaveProperty('duplicate_group')
   })
 })
+
+describe('desempate por menor bagy_product_id (Etapa 2, 2026-09-21)', () => {
+  // A mesma dupla de produtos em "dois ambientes": UUIDs internos com ordem
+  // invertida entre eles (UUID muda de base pra base). A canônica NÃO pode
+  // mudar de ambiente — antes desta regra, o On Running saía 10084131 em
+  // produção e 10084148 no LAB.
+  const onRunning = (idCinza, idCinzaClaro) => [
+    { id: idCinza, nome: 'Camisetas On Runing Treino - Cinza', bagy_product_id: 10084131, source: 'bagy_sync', preco: 'R$ 99,00', imagem: 'i' },
+    { id: idCinzaClaro, nome: 'Camisetas On Runing Treino - Cinza Claro', bagy_product_id: 10084148, source: 'bagy_sync', preco: 'R$ 99,00', imagem: 'i' },
+  ]
+
+  const tnf = (idPreto, idPretoII) => [
+    { id: idPreto, nome: 'Tênis Nike Dunk Tnf Preto', bagy_product_id: 8642057, source: 'bagy_sync', preco: 'R$ 899,00', imagem: 'i' },
+    { id: idPretoII, nome: 'Tênis Nike Dunk Tnf Preto Ii', bagy_product_id: 8642056, source: 'bagy_sync', preco: 'R$ 899,00', imagem: 'i' },
+  ]
+
+  it('On Running: canônica é sempre 10084131, com qualquer ordem de UUID entre ambientes', () => {
+    for (const rows of [onRunning('aaaa-uuid', 'zzzz-uuid'), onRunning('zzzz-uuid', 'aaaa-uuid')]) {
+      expect(escolherLinhaCanonica(rows).bagy_product_id).toBe(10084131)
+      const { canonicas, grupos } = deduplicarPorLinhaCanonica(rows)
+      expect(canonicas).toHaveLength(1)
+      expect(canonicas[0].bagy_product_id).toBe(10084131)
+      expect(grupos[0].total).toBe(2) // nada excluído nem mesclado
+    }
+  })
+
+  it('Nike Dunk TNF: canônica é sempre 8642056, com qualquer ordem de UUID entre ambientes', () => {
+    for (const rows of [tnf('aaaa-uuid', 'zzzz-uuid'), tnf('zzzz-uuid', 'aaaa-uuid')]) {
+      expect(escolherLinhaCanonica(rows).bagy_product_id).toBe(8642056)
+      const { canonicas } = deduplicarPorLinhaCanonica(rows)
+      expect(canonicas[0].bagy_product_id).toBe(8642056)
+    }
+  })
+
+  it('menor bagy_product_id NÃO vence os critérios de prioridade (vínculo > source > preço > imagem)', () => {
+    const rows = [
+      { id: 'a', nome: 'X', bagy_product_id: 1, source: 'bagy', preco: null, imagem: null },
+      { id: 'b', nome: 'X', bagy_product_id: 99999999, source: 'bagy_sync', preco: 'R$ 1,00', imagem: 'i' },
+    ]
+    expect(escolherLinhaCanonica(rows).id).toBe('b')
+  })
+
+  it('UUID id segue como último fallback quando nenhuma linha tem Bagy ID utilizável', () => {
+    const rows = [
+      { id: 'zzz', nome: 'X', bagy_product_id: null, source: 'bagy', preco: 'R$ 1,00', imagem: 'i' },
+      { id: 'aaa', nome: 'X', bagy_product_id: null, source: 'bagy', preco: 'R$ 1,00', imagem: 'i' },
+    ]
+    expect(escolherLinhaCanonica(rows).id).toBe('aaa')
+  })
+})
+
