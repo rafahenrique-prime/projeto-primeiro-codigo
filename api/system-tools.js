@@ -2471,6 +2471,28 @@ async function descobrirProdutosNovos(linksSupabase) {
   const linksSupabaseNorm = new Set(linksSupabase.map((l) => normalizeLink(l)))
   const candidatosBrutos = linksBagy.filter((l) => !linksSupabaseNorm.has(l))
 
+  // CONTRATO CATÁLOGO PRIME (Etapa 0 APROVADA): produto rastreado pelo sync
+  // (bagy_product_id presente) que SOME da listagem da Bagy vira CASO DE
+  // REVISÃO — NUNCA inativação automática nesta primeira versão. Só
+  // detecção aqui (leitura); o registro na fila de exceções
+  // (tipo 'ausente_listagem') acontece no caminho write de bagySyncRunUI.
+  // Legados sem bagy_product_id ficam fora de propósito: eles são objeto da
+  // reconciliação assistida (seção 8 do contrato), não desta regra.
+  const linksBagyNorm = new Set(linksBagy.map((l) => normalizeLink(l)))
+  let ausentesDaListagem = []
+  let ausentesErro = null
+  try {
+    const resT = await fetch(`${SUPABASE_URL}/rest/v1/products?select=link&bagy_product_id=not.is.null&link=not.is.null`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    })
+    if (!resT.ok) throw new Error(`listagem de rastreados ${resT.status}: ${await resT.text()}`)
+    const rowsT = await resT.json()
+    ausentesDaListagem = [...new Set(rowsT.map((r) => r.link).filter(Boolean).map((l) => normalizeLink(l)))]
+      .filter((l) => l && !linksBagyNorm.has(l))
+  } catch (e) {
+    ausentesErro = e.message
+  }
+
   const produtosNovos = []
   const descartados = []
   for (const link of candidatosBrutos) {
@@ -2515,6 +2537,8 @@ async function descobrirProdutosNovos(linksSupabase) {
     candidatosBrutos: candidatosBrutos.length,
     produtosNovos,
     descartados,
+    ausentesDaListagem,
+    ausentesErro,
   }
 }
 
@@ -2688,6 +2712,8 @@ async function bagySyncRunUI(req, res) {
     resultado.candidatosBrutos = descoberta.candidatosBrutos
     resultado.produtosNovos = descoberta.produtosNovos
     resultado.descartados = descoberta.descartados
+    resultado.ausentesDaListagem = descoberta.ausentesDaListagem
+    if (descoberta.ausentesErro) resultado.ausentesDaListagemErro = descoberta.ausentesErro
   } catch (e) {
     console.error('[system-tools:bagy-sync-run-ui] falha na descoberta de produtos novos:', e.message)
     resultado.descobertaErro = e.message
@@ -2699,6 +2725,37 @@ async function bagySyncRunUI(req, res) {
   // "detectado", nenhum INSERT é tentado. Falha na inserção de novos nunca
   // esconde o resultado real do lote de produtos existentes acima — isolado
   // em resultado.produtosNovosInseridos/produtosNovosFalhas.
+  // CONTRATO CATÁLOGO PRIME (Etapa 0 APROVADA): ausência da listagem gera
+  // CASO DE REVISÃO na fila de exceções (tipo 'ausente_listagem'), NUNCA
+  // inativação automática. Upsert por link+tipo, mesmo padrão das exceções
+  // de sync. Falha de gravação é reportada por item, nunca escondida e
+  // nunca derruba o resultado do lote.
+  if (modeSolicitado === 'write' && descoberta && (descoberta.ausentesDaListagem || []).length > 0) {
+    try {
+      const { getExceptionByLinkTipo, insertException, touchException } = await import('./_bagySyncSupabase.js')
+      const revisoes = []
+      for (const linkAusente of descoberta.ausentesDaListagem) {
+        try {
+          const detalhe = { motivo: 'ausente_da_listagem_bagy', totalLinksBagy: descoberta.totalLinksBagy }
+          const existente = await getExceptionByLinkTipo(linkAusente, 'ausente_listagem')
+          if (existente) {
+            await touchException(existente.id, { detalhe, runId: resultado.runId })
+            revisoes.push({ link: linkAusente, acao: 'atualizada', status: existente.status })
+          } else {
+            await insertException({ link: linkAusente, tipo: 'ausente_listagem', detalhe, runId: resultado.runId })
+            revisoes.push({ link: linkAusente, acao: 'criada', status: 'aberto' })
+          }
+        } catch (e) {
+          revisoes.push({ link: linkAusente, acao: 'falhou_ao_gravar', erro: e.message })
+        }
+      }
+      resultado.revisoesAusenciaListagem = revisoes
+    } catch (e) {
+      console.error('[system-tools:bagy-sync-run-ui] falha ao registrar revisões de ausência:', e.message)
+      resultado.revisoesAusenciaListagemErro = e.message
+    }
+  }
+
   if (modeSolicitado === 'write' && descoberta && descoberta.produtosNovos.length > 0) {
     try {
       const { inseridos, falhas } = await processarProdutosNovosWrite(descoberta.produtosNovos)
