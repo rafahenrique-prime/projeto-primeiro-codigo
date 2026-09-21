@@ -151,6 +151,14 @@ export function escolherLinhaCanonica(rows) {
     for (let i = 0; i < sa.length; i++) {
       if (sb[i] !== sa[i]) return sb[i] - sa[i]
     }
+    // Empate total (mesmo vínculo, source, preço e imagem): o menor
+    // bagy_product_id vence — determinístico entre ambientes, ao contrário
+    // do UUID interno `id`, que muda a cada base (LAB escolheu 10084148,
+    // produção 10084131, no mesmo grupo). `id` fica só como último
+    // fallback quando não há Bagy ID utilizável (Etapa 2, 2026-09-21).
+    const bagyA = a.bagy_product_id != null ? Number(a.bagy_product_id) : null
+    const bagyB = b.bagy_product_id != null ? Number(b.bagy_product_id) : null
+    if (bagyA != null && bagyB != null && bagyA !== bagyB) return bagyA - bagyB
     return String(a.id).localeCompare(String(b.id))
   })[0]
 }
