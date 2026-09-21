@@ -30,6 +30,22 @@ const PRODUCTS_SELECT_OFICIAL = 'id,nome,categoria,preco,imagem,link,codigo,' +
   'preco_tabela,preco_pix,' +
   'parcelamento_padrao_vezes,parcelamento_padrao_valor_parcela,parcelamento_padrao_com_juros,' +
   'parcelamento_max_vezes,parcelamento_valor_parcela,parcelamento_com_juros'
+
+// CONTRATO CATÁLOGO PRIME (Etapa 1, só quando deps.contratoV2 === true):
+// select estendido ganha marca (campo já sincronizado pelo mapper mas nunca
+// lido pela Gaby), status e sell_without_stock (insumos da disponibilidade
+// e do filtro de ativos), bagy_product_id/source (insumos da canônica).
+const PRODUCTS_SELECT_CONTRATO_V2 = PRODUCTS_SELECT_OFICIAL + ',' +
+  'marca,status,sell_without_stock,bagy_product_id,source'
+
+// CONTRATO CATÁLOGO PRIME: a Gaby só enxerga produtos ativos. Whitelist
+// explícita com os vocabulários REAIS hoje gravados na coluna (medido em
+// 2026-09-21: 'active' em 566 linhas, 'Ativo' em 8 legadas, 'inactive' em
+// 5) — valor desconhecido/futuro fica FORA por padrão, nunca dentro. O
+// plano original dizia status=eq.ativo, mas 'ativo' não existe na coluna:
+// um filtro por ele esvaziaria o catálogo inteiro da Gaby.
+const PRODUCTS_FILTRO_ATIVOS = 'status=in.(active,Ativo,ativo)'
+
 const KNOWLEDGE_TITLE = 'knowledge_gabriela_supabase_completo'
 
 /**
@@ -97,8 +113,13 @@ export async function fetchProductsCatalog(deps = {}) {
   const timeoutHandle = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null
 
   try {
+    // CONTRATO CATÁLOGO PRIME: deps.contratoV2 liga select estendido +
+    // filtro de ativos. Default false = URL idêntica à de sempre (nenhuma
+    // mudança de comportamento pra quem não pedir o contrato novo).
+    const select = deps.contratoV2 === true ? PRODUCTS_SELECT_CONTRATO_V2 : PRODUCTS_SELECT_OFICIAL
+    const filtro = deps.contratoV2 === true ? `&${PRODUCTS_FILTRO_ATIVOS}` : ''
     const res = await fetchFn(
-      `${supabaseConfig.baseUrl}/rest/v1/products?select=${PRODUCTS_SELECT_OFICIAL}`,
+      `${supabaseConfig.baseUrl}/rest/v1/products?select=${select}${filtro}`,
       { headers: supabaseConfig.headers, ...(controller ? { signal: controller.signal } : {}) }
     )
     if (timeoutHandle) clearTimeout(timeoutHandle)
@@ -123,6 +144,53 @@ export async function fetchProductsCatalog(deps = {}) {
     if (timeoutHandle) clearTimeout(timeoutHandle)
     const code = err?.name === 'AbortError' ? 'source_timeout' : 'source_unavailable'
     return { ok: false, products: [], error_code: code }
+  }
+}
+
+/**
+ * CONTRATO CATÁLOGO PRIME: busca as variações de um conjunto de produtos
+ * (insumo da disponibilidade DISPONIVEL/ESGOTADO/A_CONFIRMAR/INDISPONIVEL).
+ * Leitura única por lote de ids — usada pelo webhook depois do top-5, nunca
+ * no catálogo inteiro. Se as colunas novas (stock_real/active) ainda não
+ * existirem no schema alvo (ex.: produção antes da migration), o PostgREST
+ * responde 400 e esta função devolve ok:false — o caller degrada pra
+ * A_CONFIRMAR em vez de inventar disponibilidade.
+ *
+ * @param {{ supabaseConfig: {baseUrl: string, headers: object}, fetchImpl?: Function }} deps
+ * @param {string[]} productIds
+ * @returns {Promise<{ ok: boolean, variations: Array, error_code?: string }>}
+ */
+export async function fetchVariationsPorProdutos(deps = {}, productIds = []) {
+  const { supabaseConfig, fetchImpl } = deps
+  const fetchFn = fetchImpl ?? fetch
+
+  if (!Array.isArray(productIds) || productIds.length === 0) {
+    return { ok: true, variations: [] }
+  }
+
+  const select = 'product_id,bagy_variation_id,attributes,preco,stock_real,stock_quantity,sell_without_stock,active'
+  const ids = productIds.map((id) => encodeURIComponent(id)).join(',')
+
+  try {
+    const res = await fetchFn(
+      `${supabaseConfig.baseUrl}/rest/v1/product_variations?select=${select}&product_id=in.(${ids})`,
+      { headers: supabaseConfig.headers }
+    )
+    if (!res.ok) {
+      return { ok: false, variations: [], error_code: 'source_unavailable' }
+    }
+    let variations
+    try {
+      variations = await res.json()
+    } catch {
+      return { ok: false, variations: [], error_code: 'source_invalid_response' }
+    }
+    if (!Array.isArray(variations)) {
+      return { ok: false, variations: [], error_code: 'source_invalid_response' }
+    }
+    return { ok: true, variations }
+  } catch {
+    return { ok: false, variations: [], error_code: 'source_unavailable' }
   }
 }
 
