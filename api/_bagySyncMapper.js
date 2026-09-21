@@ -48,42 +48,110 @@ export function resolveCategoria(product) {
 }
 
 // --- Estoque ----------------------------------------------------------------
-// Regra definitiva (aprovada):
-// 1) product.selling_out_of_stock === true → sell_without_stock=true no
-//    produto; TODA variação recebe stock_quantity=null, independente do que
-//    variation.selling_out_of_stock disser (balance=9999 nunca é quantidade).
-// 2) variation.selling_out_of_stock é sempre gravado como veio, sem
-//    transformação — mesmo quando o produto está em modo 1.
-// 3) Se product.selling_out_of_stock !== true:
-//      balance === 0        → stock_quantity = 0
-//      balance > 0 e != 9999 → stock_quantity = balance
-//      balance === 9999      → ANOMALIA (não decide sozinho — sinaliza)
+// CONTRATO CATÁLOGO PRIME (Etapa 0 APROVADA — substitui a regra anterior,
+// que anulava o estoque quando sell_without_stock=true e assim PERDIA o
+// número real): flag de política de venda e contagem física são fatos
+// independentes e os dois se guardam.
+//
+// Regra nova:
+// 1) stock_real SEMPRE preserva variation.balance quando ele é um número
+//    real de estoque (0, positivo...), INDEPENDENTE de sell_without_stock.
+//    balance=9999 é convenção de "sem controle de estoque", NUNCA quantidade
+//    — vira stock_real=null + flag _semControle (não é anomalia bloqueante
+//    quando product.selling_out_of_stock=true, porque é a combinação mais
+//    comum do catálogo real: 253 produtos).
+// 2) stock_quantity (legado) MANTÉM o significado atual nesta etapa:
+//    product.selling_out_of_stock=true → null; senão 0/balance; 9999 sem o
+//    flag do produto continua ANOMALIA bloqueante (salvaguarda existente).
+// 3) variation.selling_out_of_stock continua gravado como veio.
+// A recarga dos nulls históricos vem da releitura da Bagy numa sincronização
+// pós-correção (o balance real está lá) — até lá, null = "desconhecido",
+// nunca "tem estoque".
 export function resolveSellWithoutStockProduto(product) {
   return product.selling_out_of_stock === true
 }
 
 export function resolveEstoqueVariacao(product, variation) {
   const sellWithoutStockVariacao = variation.selling_out_of_stock === true
-  if (product.selling_out_of_stock === true) {
-    return { stock_quantity: null, sell_without_stock: sellWithoutStockVariacao, anomalia: null }
-  }
   const balance = variation.balance
-  if (balance === 0) return { stock_quantity: 0, sell_without_stock: sellWithoutStockVariacao, anomalia: null }
-  if (typeof balance === 'number' && balance > 0 && balance !== 9999) {
-    return { stock_quantity: balance, sell_without_stock: sellWithoutStockVariacao, anomalia: null }
+  const balanceEhNumeroReal = typeof balance === 'number' && Number.isFinite(balance) && balance >= 0 && balance !== 9999
+  const semControle = balance === 9999
+
+  if (product.selling_out_of_stock === true) {
+    return {
+      stock_quantity: null,
+      stock_real: balanceEhNumeroReal ? balance : null,
+      sell_without_stock: sellWithoutStockVariacao,
+      anomalia: null,
+      semControle: semControle || (!balanceEhNumeroReal && balance != null) || null,
+    }
+  }
+  if (balance === 0) {
+    return { stock_quantity: 0, stock_real: 0, sell_without_stock: sellWithoutStockVariacao, anomalia: null, semControle: null }
+  }
+  if (balanceEhNumeroReal && balance > 0) {
+    return { stock_quantity: balance, stock_real: balance, sell_without_stock: sellWithoutStockVariacao, anomalia: null, semControle: null }
   }
   if (balance === 9999) {
     return {
       stock_quantity: undefined,
+      stock_real: null,
       sell_without_stock: sellWithoutStockVariacao,
       anomalia: 'balance=9999 mas product.selling_out_of_stock não é true — combinação não coberta pela regra aprovada',
+      semControle: true,
     }
   }
   return {
     stock_quantity: undefined,
+    stock_real: null,
     sell_without_stock: sellWithoutStockVariacao,
     anomalia: `balance com valor inesperado: ${JSON.stringify(balance)}`,
+    semControle: null,
   }
+}
+
+// --- Status ativo/inativo da variação (CONTRATO CATÁLOGO PRIME) -------------
+// A variação da Bagy NÃO tem campo de status próprio. O status do TAMANHO/COR
+// é derivado do VALOR DE ATRIBUTO ligado à variação, por 2 caminhos de
+// evidência (comprovados ao vivo em 2026-09-21):
+//  1) variation.attribute.active (booleano direto no objeto da variação);
+//  2) join variation.attribute.id (= attribute_value_id) →
+//     product.attribute.values[].active (e o equivalente pro atributo
+//     secundário, se existir — grade dupla cor+tamanho ainda não existe no
+//     catálogo real, mas a regra já está preparada).
+// Sem NENHUMA evidência booleana → active=null (desconhecido). Etapa 0
+// APROVADA: active=null NUNCA é tratado como disponibilidade confirmada.
+// Com evidência em mais de um atributo (grade dupla): active = AND de todas
+// as evidências (qualquer valor inativo derruba a variação).
+function evidenciaActivePorJoin(attrValues, attrDaVariacao) {
+  if (!Array.isArray(attrValues) || !attrDaVariacao) return null
+  const valueId = attrDaVariacao.id ?? attrDaVariacao.attribute_value_id ?? null
+  if (valueId == null) return null
+  const found = attrValues.find((v) => v && v.id === valueId)
+  return typeof found?.active === 'boolean' ? found.active : null
+}
+
+export function resolveActiveVariacao(product, variation) {
+  const evidencias = []
+  const attr = variation?.attribute ?? null
+  const attr2 = variation?.attribute_secondary ?? null
+
+  if (typeof attr?.active === 'boolean') evidencias.push(attr.active)
+  else {
+    const porJoin = evidenciaActivePorJoin(product?.attribute?.values, attr)
+    if (porJoin !== null) evidencias.push(porJoin)
+  }
+
+  if (attr2) {
+    if (typeof attr2?.active === 'boolean') evidencias.push(attr2.active)
+    else {
+      const porJoin2 = evidenciaActivePorJoin(product?.attribute_secondary?.values, attr2)
+      if (porJoin2 !== null) evidencias.push(porJoin2)
+    }
+  }
+
+  if (evidencias.length === 0) return null
+  return evidencias.every(Boolean)
 }
 
 // --- Imagem -----------------------------------------------------------------
@@ -111,19 +179,38 @@ export function resolveImagemVariacao(variation) {
 // validada: se attribute_name contém "TAMANHO", a chave vira "tamanho"; se
 // contém "COR", vira "cor"; caso contrário usa o nome do atributo em minúsculas
 // como chave (fallback honesto, sem inventar semântica que não temos evidência).
+// CONTRATO CATÁLOGO PRIME: atributo SECUNDÁRIO (grade dupla, ex. cor+tamanho)
+// entra no mesmo jsonb pela mesma heurística quando existir — no catálogo real
+// de 2026-09-21 nenhum produto tem attribute_secondary, mas a regra já está
+// preparada. Se primário e secundário caírem na MESMA chave, o secundário usa
+// sufixo "_2" pra nunca sobrescrever o primário silenciosamente.
+function chaveAtributo(attributeName) {
+  const attrName = (attributeName || '').toUpperCase()
+  if (attrName.includes('TAMANHO')) return { key: 'tamanho', fallback: false }
+  if (attrName.includes('COR')) return { key: 'cor', fallback: false }
+  return { key: (attributeName || 'atributo').trim().toLowerCase().replace(/\s+/g, '_'), fallback: true }
+}
+
 export function resolveAttributes(variation) {
-  const attr = variation.attribute
-  if (!attr || !attr.name) return { attributes: {}, fallback: false }
-  const attrName = (attr.attribute_name || '').toUpperCase()
-  let key
+  const attributes = {}
   let fallback = false
-  if (attrName.includes('TAMANHO')) key = 'tamanho'
-  else if (attrName.includes('COR')) key = 'cor'
-  else {
-    key = (attr.attribute_name || 'atributo').trim().toLowerCase().replace(/\s+/g, '_')
-    fallback = true
+
+  const attr = variation.attribute
+  if (attr && attr.name) {
+    const { key, fallback: fb } = chaveAtributo(attr.attribute_name)
+    attributes[key] = attr.name
+    fallback = fallback || fb
   }
-  return { attributes: { [key]: attr.name }, fallback }
+
+  const attr2 = variation.attribute_secondary
+  if (attr2 && attr2.name) {
+    let { key, fallback: fb } = chaveAtributo(attr2.attribute_name)
+    if (key in attributes) key = `${key}_2`
+    attributes[key] = attr2.name
+    fallback = fallback || fb
+  }
+
+  return { attributes, fallback }
 }
 
 // --- Preço --------------------------------------------------------------
@@ -138,11 +225,16 @@ export function resolveMarca(product) {
 }
 
 // --- Monta a linha completa de `products` para um produto (sem tocar Supabase) ---
-export function mapProductRow(product, { imagemAtualNoSupabase } = {}) {
+export function mapProductRow(product, { imagemAtualNoSupabase, status } = {}) {
   const cat = resolveCategoria(product)
   const img = resolveImagemProduto(product, imagemAtualNoSupabase)
   return {
     bagy_product_id: product.id,
+    // CONTRATO CATÁLOGO PRIME: `status` só entra na linha quando o caller
+    // (service) tem uma transação de estado a escrever ('active'/'inactive').
+    // Ausente aqui, o campo nem aparece no diff — produto não muda de status
+    // por acidente (ver resolveStatusProduto em api/_bagySyncService.js).
+    ...(status !== undefined ? { status } : {}),
     nome: product.name,
     link: `https://www.primestoremen.com.br${product.url}`,
     ...(cat.categoria !== undefined ? { categoria: cat.categoria } : {}),
@@ -172,9 +264,12 @@ export function mapVariationRows(product, productUuid) {
       preco: v.price != null ? Number(v.price) : null,
       preco_compare: v.price_compare != null ? Number(v.price_compare) : null,
       stock_quantity: estoque.stock_quantity,
+      stock_real: estoque.stock_real,
+      active: resolveActiveVariacao(product, v),
       sell_without_stock: estoque.sell_without_stock,
       imagem_principal: resolveImagemVariacao(v),
       _anomalia: estoque.anomalia,
+      _semControle: estoque.semControle,
       _attributeFallback: attrs.fallback,
     }
   })
