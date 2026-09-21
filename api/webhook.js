@@ -5,7 +5,8 @@
 import crypto from 'node:crypto'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
-import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
+import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchVariationsPorProdutos } from './_gabrielaContextService.js'
+import { deduplicarPorLinhaCanonica, avaliarElegibilidadeOferta, resolveDisponibilidade } from './_catalogoContratoPrime.js'
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
 
@@ -107,13 +108,31 @@ async function warmupSupabase() {
 // só ver 5 e não saber que existem mais (achado em 2026-07-04 debugando lista de cores).
 export async function buscarProdutos(pergunta, tentativa = 1) {
   try {
+    const contratoV2Ativo = process.env.CONTRATO_CATALOGO_V2 === 'true'
     const catalogResult = await fetchProductsCatalog({
       supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+      contratoV2: contratoV2Ativo,
     })
 
     if (!catalogResult.ok) return { produtos: [], total: 0 }
 
-    const produtos = catalogResult.products
+    let produtos = catalogResult.products
+
+    // CONTRATO CATÁLOGO PRIME (Etapa 1, atrás de feature flag
+    // CONTRATO_CATALOGO_V2 — desligada, o comportamento é bit a bit o atual):
+    // 1) deduplicação por linha canônica (nunca apaga registros — só escolhe
+    //    1 linha por grupo de nome duplicado pra Gaby enxergar);
+    // 2) elegibilidade: produto sem preço NÃO entra em oferta automática.
+    // O catálogo já chega filtrado por status ativo na fonte
+    // (fetchProductsCatalog).
+    const contratoV2 = contratoV2Ativo
+    if (contratoV2) {
+      const { canonicas, grupos } = deduplicarPorLinhaCanonica(produtos)
+      const antesDedup = produtos.length
+      const elegiveis = canonicas.filter((p) => avaliarElegibilidadeOferta(p).elegivel)
+      produtos = elegiveis
+      console.log(`[Webhook] 📇 Contrato V2: ${antesDedup} → ${canonicas.length} canônicas (${grupos.length} grupos de duplicidade) → ${elegiveis.length} elegíveis`)
+    }
 
     // Extrai keywords da pergunta para melhorar a busca
     const keywords = extrairKeywords(pergunta)
@@ -128,6 +147,32 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
       .sort((a, b) => b.score - a.score)
 
     const produtosComScore = todosComScore.slice(0, 5)
+
+    // CONTRATO CATÁLOGO PRIME: disponibilidade real por produto (top-5
+    // apenas — 1 leitura de variações por busca, nunca do catálogo inteiro).
+    // Se a leitura falhar (ex.: schema sem stock_real/active), degrada pra
+    // A_CONFIRMAR via resolveDisponibilidade([], ...) — nunca inventa
+    // disponibilidade. sem_imagem marca produto elegível sem foto (a Gaby
+    // não pode prometer/enviar foto inexistente).
+    if (contratoV2 && produtosComScore.length > 0) {
+      const varResult = await fetchVariationsPorProdutos(
+        { supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders } },
+        produtosComScore.map((p) => p.id)
+      )
+      const porProduto = new Map()
+      if (varResult.ok) {
+        for (const v of varResult.variations) {
+          if (!porProduto.has(v.product_id)) porProduto.set(v.product_id, [])
+          porProduto.get(v.product_id).push(v)
+        }
+      } else {
+        console.log(`[Webhook] ⚠️ Contrato V2: leitura de variações falhou (${varResult.error_code}) — disponibilidade degradada pra A_CONFIRMAR`)
+      }
+      for (const p of produtosComScore) {
+        p.disponibilidade = resolveDisponibilidade(p, porProduto.get(p.id) || [])
+        p.sem_imagem = !p.imagem
+      }
+    }
 
     // Total de variações precisa ser do MESMO MODELO, não só da mesma marca.
     // calcularSimilaridade() pontua com só 1 palavra em comum ("new balance 530"
@@ -342,7 +387,12 @@ export function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
       preco: p.preco,
       imagem: p.imagem,
       link: p.link,
-      disponibilidade: 'SIM',
+      // CONTRATO CATÁLOGO PRIME: com a flag ligada, `disponibilidade` já vem
+      // calculada (DISPONIVEL/ESGOTADO/A_CONFIRMAR/INDISPONIVEL). Sem a
+      // flag, permanece o 'SIM' fixo de sempre — bit a bit o contrato atual.
+      disponibilidade: p.disponibilidade ?? 'SIM',
+      ...(p.marca ? { marca: p.marca } : {}),
+      ...(p.sem_imagem ? { sem_imagem: true } : {}),
       relevancia: `${p.score}%`,
       ...formatarProdutoComercial(p),
     }))
