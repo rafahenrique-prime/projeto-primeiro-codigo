@@ -6,10 +6,13 @@
  * para o orquestrador (ou o dry-run) usar.
  */
 
+// CONTRATO CATÁLOGO PRIME: `status` entra na comparação — mas como o mapper
+// só inclui `status` na linha quando há transição de estado a escrever, o
+// campo só vira diff nesses casos (nunca por acidente).
 const CAMPOS_COMPARAVEIS_PRODUCT = [
   'bagy_product_id', 'nome', 'link', 'categoria', 'categoria_breadcrumb',
   'bagy_category_id', 'preco', 'preco_pix', 'imagem', 'descricao', 'marca',
-  'sell_without_stock', 'source',
+  'sell_without_stock', 'source', 'status',
 ]
 
 export function diffProductFields(current, mapped) {
@@ -25,8 +28,10 @@ export function diffProductFields(current, mapped) {
   return diffs
 }
 
+// CONTRATO CATÁLOGO PRIME: stock_real (estoque físico sempre preservado) e
+// active (status do valor de atributo) passam a ser comparados também.
 const CAMPOS_COMPARAVEIS_VARIATION = [
-  'attributes', 'preco', 'preco_compare', 'stock_quantity', 'sell_without_stock', 'imagem_principal',
+  'attributes', 'preco', 'preco_compare', 'stock_quantity', 'stock_real', 'active', 'sell_without_stock', 'imagem_principal',
 ]
 
 /**
