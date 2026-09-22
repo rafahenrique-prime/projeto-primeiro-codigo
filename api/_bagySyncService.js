@@ -413,6 +413,10 @@ export async function syncNewProduct(bagyProduct, { logger } = {}) {
     descricao: mappedProduct.descricao,
     marca: mappedProduct.marca,
     sell_without_stock: mappedProduct.sell_without_stock,
+    gender: mappedProduct.gender,
+    age_group: mappedProduct.age_group,
+    color: mappedProduct.color,
+    google_product_category: mappedProduct.google_product_category,
     source: mappedProduct.source,
   }
 
