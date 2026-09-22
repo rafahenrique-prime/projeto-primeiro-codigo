@@ -10,18 +10,31 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { url, pilot } = req.query
+  const { url, pilot, id } = req.query
 
   if (pilot === '1') {
-    if (!url || !String(url).startsWith('https://www.primestoremen.com.br/')) {
-      return res.status(400).json({ error: 'URL PRIME STORE obrigatória no modo pilot' })
+    const pilotLinks = new Map([
+      [7630238, 'https://www.primestoremen.com.br/amisa-real-madrid-home-adidas-2425'],
+      [10586354, 'https://www.primestoremen.com.br/calca-jeans-armani-1'],
+      [8641698, 'https://www.primestoremen.com.br/tenis-new-balance-1000-reflection-4'],
+      [7618140, 'https://www.primestoremen.com.br/chinelo-slide-gucci-unissex'],
+      [10251897, 'https://www.primestoremen.com.br/cueca-lupo-008'],
+      [10547975, 'https://www.primestoremen.com.br/oculos-de-sol-balenciaga'],
+      [7638364, 'https://www.primestoremen.com.br/bone-new-era-branco'],
+      [7598984, 'https://www.primestoremen.com.br/fantasy-eau-de-parfum-100ml'],
+    ])
+    const pilotId = Number(id)
+    const pilotUrl = pilotLinks.get(pilotId)
+    if (!pilotUrl) {
+      return res.status(400).json({ error: 'id fora do piloto 4.5F' })
     }
-    const r = await fetchBagyProductByLink(String(url))
+    const r = await fetchBagyProductByLink(pilotUrl)
     if (!r.ok) return res.status(502).json({ ok: false, httpStatus: r.httpStatus, reason: r.reason, url: r.url })
     const p = r.product || {}
     return res.status(200).json({
       ok: true,
       pilot: '4.5F-readonly',
+      expected_id: pilotId,
       httpMs: r.httpMs,
       product: {
         id: p.id ?? null,
