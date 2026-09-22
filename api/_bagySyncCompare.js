@@ -12,7 +12,7 @@
 const CAMPOS_COMPARAVEIS_PRODUCT = [
   'bagy_product_id', 'nome', 'link', 'categoria', 'categoria_breadcrumb',
   'bagy_category_id', 'preco', 'preco_pix', 'imagem', 'descricao', 'marca',
-  'sell_without_stock', 'source', 'status',
+  'sell_without_stock', 'gender', 'age_group', 'color', 'google_product_category', 'source', 'status',
 ]
 
 export function diffProductFields(current, mapped) {
@@ -31,7 +31,7 @@ export function diffProductFields(current, mapped) {
 // CONTRATO CATÁLOGO PRIME: stock_real (estoque físico sempre preservado) e
 // active (status do valor de atributo) passam a ser comparados também.
 const CAMPOS_COMPARAVEIS_VARIATION = [
-  'attributes', 'preco', 'preco_compare', 'stock_quantity', 'stock_real', 'active', 'sell_without_stock', 'imagem_principal',
+  'attributes', 'preco', 'preco_compare', 'stock_quantity', 'stock_real', 'active', 'color', 'sell_without_stock', 'imagem_principal',
 ]
 
 /**
