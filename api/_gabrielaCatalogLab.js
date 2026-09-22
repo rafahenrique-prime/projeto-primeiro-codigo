@@ -18,6 +18,7 @@ export function answerVariantFact(product, { size, color, gender } = {}) {
   const productGender = norm(product?.gender)
   if (wantedGender && !productGender) return { answer: null, reason: 'unknown_gender' }
   if (wantedGender && productGender !== wantedGender) return { answer: false, reason: 'gender_mismatch' }
+  // Pergunta factual só de gênero independe de estoque/variações.
   if (wantedGender && !size && !color) return { answer: true, reason: 'confirmed_gender' }
 
   const variations = Array.isArray(product?.variations) ? product.variations : []
@@ -55,6 +56,7 @@ export function answerVariantFact(product, { size, color, gender } = {}) {
   return { answer: null, reason: 'insufficient_structured_data' }
 }
 
+// Feed de amostra: estoque desconhecido nunca vira out_of_stock.
 export function buildGoogleFeedOffer(product, variation) {
   let availability_state
   let emit
