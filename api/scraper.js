@@ -1,3 +1,5 @@
+import { fetchBagyProductByLink } from './_bagySyncClient.js'
+
 // API Serverless para Web Scraping
 // Executa no servidor (sem CORS issues)
 // Uso: GET /api/scraper?url=https://www.primestoremen.com.br/...
@@ -8,7 +10,50 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { url } = req.query
+  const { url, pilot } = req.query
+
+  if (pilot === '1') {
+    if (!url || !String(url).startsWith('https://www.primestoremen.com.br/')) {
+      return res.status(400).json({ error: 'URL PRIME STORE obrigatória no modo pilot' })
+    }
+    const r = await fetchBagyProductByLink(String(url))
+    if (!r.ok) return res.status(502).json({ ok: false, httpStatus: r.httpStatus, reason: r.reason, url: r.url })
+    const p = r.product || {}
+    return res.status(200).json({
+      ok: true,
+      pilot: '4.5F-readonly',
+      httpMs: r.httpMs,
+      product: {
+        id: p.id ?? null,
+        name: p.name ?? null,
+        url: p.url ?? null,
+        active: p.active ?? null,
+        gender: p.gender ?? null,
+        age_group: p.age_group ?? null,
+        color: p.color ?? null,
+        colors: p.colors ?? null,
+        category: p.category ?? null,
+        category_default: p.category_default ?? null,
+        categories: p.categories ?? null,
+        brand: p.brand ?? null,
+        price: p.price ?? null,
+        selling_out_of_stock: p.selling_out_of_stock ?? null,
+        attribute: p.attribute ?? null,
+        attribute_secondary: p.attribute_secondary ?? null,
+        variations: Array.isArray(p.variations) ? p.variations.map(v => ({
+          id: v?.id ?? null,
+          price: v?.price ?? null,
+          price_compare: v?.price_compare ?? null,
+          balance: v?.balance ?? null,
+          selling_out_of_stock: v?.selling_out_of_stock ?? null,
+          color: v?.color ?? null,
+          attribute: v?.attribute ?? null,
+          attribute_secondary: v?.attribute_secondary ?? null,
+          active: v?.active ?? null,
+        })) : [],
+      },
+    })
+  }
 
   if (!url) {
     return res.status(400).json({ error: 'URL parameter required' })
