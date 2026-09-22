@@ -219,6 +219,58 @@ export function formatarPrecoBR(valorNumerico) {
   return 'R$ ' + valorNumerico.toFixed(2).replace('.', ',')
 }
 
+// --- Atributos Google estruturados (piloto LAB) -----------------------------
+const GENDER_VALUES = new Set(['male', 'female', 'unisex'])
+const AGE_GROUP_VALUES = new Set(['newborn', 'infant', 'toddler', 'kids', 'adult'])
+
+function enumOrNull(value, allowed) {
+  return typeof value === 'string' && allowed.has(value.trim().toLowerCase())
+    ? value.trim().toLowerCase()
+    : null
+}
+
+function colorName(value) {
+  if (typeof value === 'string') return value.trim() || null
+  if (value && typeof value.name === 'string') return value.name.trim() || null
+  return null
+}
+
+export function resolveGender(product) {
+  return enumOrNull(product?.gender, GENDER_VALUES)
+}
+
+export function resolveAgeGroup(product) {
+  return enumOrNull(product?.age_group, AGE_GROUP_VALUES)
+}
+
+// Cor do produto só existe quando a Bagy a entrega explicitamente e com um
+// único valor inequívoco. Nome/slug/descrição nunca são usados como fonte.
+export function resolveProductColor(product) {
+  const direct = colorName(product?.color)
+  if (direct) return direct
+  const colors = Array.isArray(product?.colors)
+    ? [...new Set(product.colors.map(colorName).filter(Boolean))]
+    : []
+  return colors.length === 1 ? colors[0] : null
+}
+
+// Cor específica da variação vence a cor comum do produto. O fallback do
+// produto é factual e explícito; se nenhum existir, grava NULL.
+export function resolveVariationColor(product, variation) {
+  return colorName(variation?.color) || resolveProductColor(product)
+}
+
+export function resolveGoogleProductCategory(product) {
+  const candidates = [
+    product?.google_product_category,
+    product?.category?.google_taxonomy_id,
+    product?.category_default?.google_taxonomy_id,
+  ]
+  const value = candidates.find((v) => v !== null && v !== undefined && v !== '')
+  const numeric = Number(value)
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null
+}
+
 // --- Marca ----------------------------------------------------------------
 export function resolveMarca(product) {
   return product.brand?.name ? product.brand.name.trim() : null
@@ -246,6 +298,10 @@ export function mapProductRow(product, { imagemAtualNoSupabase, status } = {}) {
     descricao: product.description ?? null,
     marca: resolveMarca(product),
     sell_without_stock: resolveSellWithoutStockProduto(product),
+    gender: resolveGender(product),
+    age_group: resolveAgeGroup(product),
+    color: resolveProductColor(product),
+    google_product_category: resolveGoogleProductCategory(product),
     source: 'bagy_sync',
     _meta: { imagemMotivo: img.motivo, categoriaFonte: cat.fonte },
   }
@@ -266,6 +322,7 @@ export function mapVariationRows(product, productUuid) {
       stock_quantity: estoque.stock_quantity,
       stock_real: estoque.stock_real,
       active: resolveActiveVariacao(product, v),
+      color: resolveVariationColor(product, v),
       sell_without_stock: estoque.sell_without_stock,
       imagem_principal: resolveImagemVariacao(v),
       _anomalia: estoque.anomalia,
