@@ -19,10 +19,11 @@ const DEFAULT_MIN_CONFIDENCE = 0.95
 const VALID_MODES = new Set(['off', 'shadow', 'guard'])
 
 export function getJevStoryMode() {
-  // Preview testa a política real em GUARD; Production permanece SHADOW
-  // até a promoção final desta etapa.
+  // Story Guard homologado: Preview e Production usam GUARD.
+  // Ambientes locais continuam OFF por padrão. A env JEV_STORY_MODE permite
+  // rollback imediato para shadow/off sem alterar a política do restante.
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
-  const defaultMode = env === 'preview' ? 'guard' : (env === 'production' ? 'shadow' : 'off')
+  const defaultMode = (env === 'preview' || env === 'production') ? 'guard' : 'off'
   const mode = String(process.env.JEV_STORY_MODE || defaultMode).trim().toLowerCase()
   return VALID_MODES.has(mode) ? mode : defaultMode
 }
