@@ -642,10 +642,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // JEV Story Guard V1 — entra somente quando existe Story atual OU quando
+    // JEV Story Ranker — entra somente quando existe Story atual OU quando
     // o próprio cliente faz referência explícita a Story/foto mas o contexto
-    // não pôde ser recuperado. Em guard, qualquer dúvida/erro é fail-closed:
-    // remove produtos e memória de produto antes da Gaby receber o payload.
+    // não pôde ser recuperado. Em guard, o catálogo preserva as opções e o JEV
+    // apenas prioriza candidato + define o grau de cautela da resposta.
     const storyDecisionEligible = Boolean(chat_id) && (hasCurrentStory || explicitStoryReference)
     if (jevStoryMode !== 'off' && storyDecisionEligible) {
       if (!hasCurrentStory) {
@@ -682,9 +682,11 @@ export default async function handler(req, res) {
       }
 
       if (jevStoryMode === 'guard') {
-        // Hard-fact gate: resolver o PRODUTO não equivale a confirmar estoque
-        // ou tamanho. Até existir lookup determinístico de variação, perguntas
-        // desse tipo nunca recebem "sim/não" automático.
+        // JEV passa a atuar como RANKER, não como filtro destrutivo.
+        // O catálogo continua decidindo quais opções existem; o JEV apenas
+        // prioriza a mais provável e define o nível de cautela da resposta.
+        // Assim preservamos recall comercial sem transformar ambiguidade em
+        // afirmação de produto exato.
         const requiresStockVerification =
           jevStoryDecision.action === 'ALLOW_AUTO' &&
           (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
@@ -697,27 +699,37 @@ export default async function handler(req, res) {
           }
         }
 
+        const currentProducts = Array.isArray(resultado?.dados?.produtos)
+          ? resultado.dados.produtos
+          : []
+
         if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
           const selectedId = String(jevStoryDecision.selectedCandidateId || '')
           const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
-          const selectedProduct = selectedIndex >= 0 ? resultado?.dados?.produtos?.[selectedIndex] : null
+          const selectedProduct = selectedIndex >= 0 ? currentProducts[selectedIndex] : null
 
           if (selectedProduct) {
+            // Mantém TODAS as opções vindas do catálogo; só move a escolhida
+            // pelo JEV para o topo. Nenhum candidato é descartado aqui.
+            const rankedProducts = [
+              selectedProduct,
+              ...currentProducts.filter((_, index) => index !== selectedIndex),
+            ]
             resultado = {
               ...resultado,
               dados: {
                 ...resultado.dados,
-                produtos: [selectedProduct],
+                produtos: rankedProducts,
                 knowledge: null,
-                totalResultados: 1,
-                totalVariacoes: 1,
-                variacoesRestantes: 0,
+                totalResultados: rankedProducts.length,
               },
             }
           } else {
+            // Resposta inconsistente do JEV não apaga o catálogo. Rebaixa para
+            // esclarecimento e preserva as opções para a Gaby apresentar.
             jevStoryDecision = {
               ...jevStoryDecision,
-              action: 'BLOCK_ASSERTION',
+              action: 'ASK_CLARIFY',
               selectedCandidateId: null,
               reason: 'JEV_SELECTED_CANDIDATE_INVALID',
             }
@@ -725,25 +737,20 @@ export default async function handler(req, res) {
               ...resultado,
               dados: {
                 ...resultado.dados,
-                produtos: [],
                 knowledge: null,
-                totalResultados: 0,
-                totalVariacoes: 0,
-                variacoesRestantes: 0,
               },
             }
             memoriaBlock = ''
           }
         } else {
+          // Baixa confiança/ambiguidade: preserva candidatos do catálogo, mas
+          // remove memória/knowledge de produto para evitar que contexto antigo
+          // transforme uma opção em certeza indevida.
           resultado = {
             ...resultado,
             dados: {
               ...resultado.dados,
-              produtos: [],
               knowledge: null,
-              totalResultados: 0,
-              totalVariacoes: 0,
-              variacoesRestantes: 0,
             },
           }
           memoriaBlock = ''
@@ -813,16 +820,16 @@ export default async function handler(req, res) {
       }
 
       if (jevStoryDecision.action === 'ALLOW_AUTO') {
-        const instruction = 'PRIME DECISION LAYER: produto do Story identificado com alta confiança. Use somente os dados do produto retornado. NÃO afirme estoque/tamanho como disponível sem verificação específica.'
+        const instruction = 'PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança, mas NÃO trate a lista como correspondência única. Apresente o primeiro como o mais provável e, quando útil, mostre também as alternativas retornadas pelo catálogo. NÃO afirme estoque/tamanho sem verificação específica.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'VERIFY_STOCK') {
-        const instruction = 'PRIME DECISION LAYER: produto identificado, mas tamanho/estoque NÃO foi verificado. NÃO responda sim/não sobre disponibilidade. Informe de forma curta que precisa confirmar e encaminhe para atendimento humano.'
+        const instruction = 'PRIME DECISION LAYER: o primeiro produto é o mais provável, porém tamanho/estoque NÃO foi verificado. Preserve as alternativas do catálogo. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'ASK_CLARIFY') {
-        const instruction = 'PRIME DECISION LAYER: há ambiguidade no Story. NÃO afirme produto, preço, tamanho ou disponibilidade. Faça UMA pergunta curta para o cliente confirmar qual cor/modelo/produto deseja.'
+        const instruction = 'PRIME DECISION LAYER: confiança média/baixa. NÃO escolha um único produto como certeza. Mostre de 2 a 5 opções mais relacionadas que vieram do catálogo e faça UMA pergunta curta para o cliente confirmar cor/modelo/produto.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'BLOCK_ASSERTION') {
-        const instruction = 'PRIME DECISION LAYER: contexto de Story insuficiente ou conflitante. NÃO afirme produto, preço, tamanho ou disponibilidade. Peça ao cliente para confirmar o produto ou reenviar/identificar a foto do Story.'
+        const instruction = 'PRIME DECISION LAYER: contexto insuficiente para afirmar qual é o produto exato. Se o catálogo retornou opções, apresente-as apenas como possibilidades relacionadas e peça ao cliente para confirmar qual delas é; não invente produto, preço, tamanho ou disponibilidade.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       }
     }
