@@ -52,15 +52,15 @@ describe('fetchProductsCatalog — Mirror/Shadow como fonte principal', () => {
       nome: 'Óculos Dolce Gabbana',
       categoria: 'Óculos',
       marca: 'DOLCE GABBANA',
-      preco: 'R$ 199,00',
+      preco: 'R$ 199,00',
       preco_pix: 187.06,
       imagem: 'https://img/oculos.jpg',
       parcelamento_padrao_valor_parcela: 49.75,
     })
     expect(formatarProdutoComercial(result.products[0])).toMatchObject({
-      precoPix: 'R$ 187,06',
+      precoPix: 'R$ 187,06',
       parcelamentoPadraoVezes: 4,
-      parcelamentoPadraoValor: 'R$ 49,75',
+      parcelamentoPadraoValor: 'R$ 49,75',
       parcelamentoPadraoComJuros: false,
     })
   })
