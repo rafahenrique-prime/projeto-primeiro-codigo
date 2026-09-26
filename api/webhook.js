@@ -8,6 +8,7 @@ import { getMemoryBlock } from './_profileMemory.js'
 import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
+import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -485,6 +486,19 @@ export default async function handler(req, res) {
     // falham — aí sobra só a memória antiga pra Gaby usar, sem supressão).
     let hasCurrentStory = false
 
+    // JEV Story Guard V1: desligado por padrão. Em shadow, só observa; em
+    // guard, aplica política fail-closed exclusivamente em referências de Story.
+    const jevStoryMode = getJevStoryMode()
+    const explicitStoryReference = isExplicitStoryReference(pergunta)
+    let jevStoryDecision = {
+      status: 'not_attempted',
+      action: 'BYPASS',
+      selectedCandidateId: null,
+      confidence: null,
+      selectedProbability: null,
+      reason: 'NOT_ELIGIBLE',
+    }
+
     // Story do Instagram (best-effort, nunca bloqueia nem quebra o fluxo normal):
     // se a mensagem mais recente do cliente foi resposta a um Story, identifica
     // o produto pela foto e usa SÓ essa descrição como chave de busca — a
@@ -592,6 +606,92 @@ export default async function handler(req, res) {
       }
     }
 
+    // JEV Story Guard V1 — entra somente quando existe Story atual OU quando
+    // o próprio cliente faz referência explícita a Story/foto mas o contexto
+    // não pôde ser recuperado. Em guard, qualquer dúvida/erro é fail-closed:
+    // remove produtos e memória de produto antes da Gaby receber o payload.
+    const storyDecisionEligible = Boolean(chat_id) && (hasCurrentStory || explicitStoryReference)
+    if (jevStoryMode !== 'off' && storyDecisionEligible) {
+      if (!hasCurrentStory) {
+        jevStoryDecision = {
+          status: 'local_guard',
+          action: 'BLOCK_ASSERTION',
+          selectedCandidateId: null,
+          confidence: null,
+          selectedProbability: null,
+          reason: 'EXPLICIT_STORY_REFERENCE_WITHOUT_CONTEXT',
+        }
+      } else if (visionStatus !== 'success' || !isStorySearch) {
+        jevStoryDecision = {
+          status: 'local_guard',
+          action: 'BLOCK_ASSERTION',
+          selectedCandidateId: null,
+          confidence: null,
+          selectedProbability: null,
+          reason: 'STORY_CONTEXT_WITHOUT_USABLE_VISION',
+        }
+      } else {
+        jevStoryDecision = await decideStoryWithJev({
+          question: pergunta,
+          visionQuery: buscaTexto,
+          candidates: resultado?.dados?.produtos || [],
+          storyContextStatus,
+          visionStatus,
+        })
+      }
+
+      if (jevStoryMode === 'guard') {
+        if (jevStoryDecision.action === 'ALLOW_AUTO') {
+          const selectedId = String(jevStoryDecision.selectedCandidateId || '')
+          const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
+          const selectedProduct = selectedIndex >= 0 ? resultado?.dados?.produtos?.[selectedIndex] : null
+
+          if (selectedProduct) {
+            resultado = {
+              ...resultado,
+              dados: {
+                ...resultado.dados,
+                produtos: [selectedProduct],
+                totalResultados: 1,
+                totalVariacoes: 1,
+                variacoesRestantes: 0,
+              },
+            }
+          } else {
+            jevStoryDecision = {
+              ...jevStoryDecision,
+              action: 'BLOCK_ASSERTION',
+              selectedCandidateId: null,
+              reason: 'JEV_SELECTED_CANDIDATE_INVALID',
+            }
+            resultado = {
+              ...resultado,
+              dados: {
+                ...resultado.dados,
+                produtos: [],
+                totalResultados: 0,
+                totalVariacoes: 0,
+                variacoesRestantes: 0,
+              },
+            }
+            memoriaBlock = ''
+          }
+        } else {
+          resultado = {
+            ...resultado,
+            dados: {
+              ...resultado.dados,
+              produtos: [],
+              totalResultados: 0,
+              totalVariacoes: 0,
+              variacoesRestantes: 0,
+            },
+          }
+          memoriaBlock = ''
+        }
+      }
+    }
+
     // Etapa 0B (Story Vision Trace) — log estruturado sanitizado, 1 por
     // request. Só números/enums fechados/scores — nunca nome, telefone,
     // pergunta completa, storyMediaUrl, prompt ou payload bruto. Top 3 scores
@@ -616,6 +716,12 @@ export default async function handler(req, res) {
       top_candidate_scores: topCandidateScores,
       confident_candidates_count: isStorySearch ? confidentCandidatesCount : null,
       story_match_threshold: isStorySearch ? STORY_MATCH_CONFIDENCE_THRESHOLD : null,
+      jev_story_mode: jevStoryMode,
+      jev_status: jevStoryDecision.status,
+      jev_action: jevStoryDecision.action,
+      jev_confidence: jevStoryDecision.confidence,
+      jev_selected_probability: jevStoryDecision.selectedProbability,
+      jev_reason: jevStoryDecision.reason,
     }))
 
     if (!resultado.ok) {
@@ -627,6 +733,24 @@ export default async function handler(req, res) {
 
     // Formatar para GPT Maker
     const respostaGPT = formatarRespostaGPT(resultado, memoriaBlock)
+
+    // Em guard, a política chega à Gaby sem probabilidades/PII. Dúvida ou
+    // contexto ausente nunca vira afirmação de produto/preço/tamanho.
+    if (jevStoryMode === 'guard' && jevStoryDecision.action !== 'BYPASS') {
+      respostaGPT.contexto.decision_layer = {
+        scope: 'story',
+        action: jevStoryDecision.action,
+        reason: jevStoryDecision.reason,
+      }
+
+      if (jevStoryDecision.action === 'ASK_CLARIFY') {
+        const instruction = 'PRIME DECISION LAYER: há ambiguidade no Story. NÃO afirme produto, preço, tamanho ou disponibilidade. Faça UMA pergunta curta para o cliente confirmar qual cor/modelo/produto deseja.'
+        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+      } else if (jevStoryDecision.action === 'BLOCK_ASSERTION') {
+        const instruction = 'PRIME DECISION LAYER: contexto de Story insuficiente ou conflitante. NÃO afirme produto, preço, tamanho ou disponibilidade. Peça ao cliente para confirmar o produto ou reenviar/identificar a foto do Story.'
+        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+      }
+    }
 
     console.log(`[Webhook] ✅ Encontrados ${respostaGPT.contexto.produtos_encontrados} produtos`)
 
