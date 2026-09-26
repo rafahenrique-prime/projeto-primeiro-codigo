@@ -98,6 +98,27 @@ export async function getStoryContext(chatId) {
       }
     }
 
+    // Correção #4 (2026-09-26) — quando o cliente reenviar uma imagem no chat
+    // depois de uma resposta de Story, o GPT Maker registra a mensagem como
+    // role=user, type=IMAGE, text="" e imageUrl, sem metadata de Story.
+    // Essa imagem É o contexto visual atual e deve passar pelo mesmo
+    // Vision -> catálogo -> JEV Guard, em vez de cair na busca textual direta.
+    // Não inventamos storyId: telemetria mantém null e a mídia atual vira a
+    // fonte visual verdadeira.
+    if (
+      String(ultima.type || '').toUpperCase() === 'IMAGE' &&
+      typeof ultima.imageUrl === 'string' &&
+      ultima.imageUrl.startsWith('https://gpt-files.com/')
+    ) {
+      return {
+        status: 'FOUND',
+        storyId: null,
+        storyMediaUrl: ultima.imageUrl,
+        storyMediaType: 'image',
+        source: 'user_image',
+      }
+    }
+
     // Correção #3 — continuidade curta: a mensagem mais recente não tem
     // metadata própria, mas pode ser uma continuação curta de um Story
     // anterior (ver comentário no topo do arquivo pras 4 condições).

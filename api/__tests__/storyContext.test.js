@@ -69,6 +69,36 @@ describe('api/_storyContext.js — story_context_status (Etapa 0B)', () => {
     expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
   })
 
+  it('FOUND — imagem reenviada pelo cliente vira contexto visual atual para Vision/JEV', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: 100, text: 'Quanto esse?', metadata: { storyId: 'story-oculos', storyMediaUrl: 'https://gpt-files.com/story-oculos.jpg', storyMediaType: 'image/jpeg' } },
+      { role: 'assistant', time: 150, text: 'Pode reenviar a foto?' },
+      { role: 'user', time: 200, type: 'IMAGE', text: '', metadata: {}, imageUrl: 'https://gpt-files.com/foto-reenviada.jpg' },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-image-reupload')
+
+    expect(resultado).toEqual({
+      status: 'FOUND',
+      storyId: null,
+      storyMediaUrl: 'https://gpt-files.com/foto-reenviada.jpg',
+      storyMediaType: 'image',
+      source: 'user_image',
+    })
+  })
+
+  it('não aceita URL externa como imagem visual confiável', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: 100, type: 'IMAGE', text: '', metadata: {}, imageUrl: 'https://example.com/foto.jpg' },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-external-image')
+
+    expect(resultado).toEqual({ status: 'NO_STORY_IN_LATEST_MESSAGE' })
+  })
+
   it('FOUND — última mensagem de usuário tem storyId + storyMediaUrl (webhook decide depois se Vision teve sucesso ou falhou)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
       { role: 'user', time: 100, metadata: { storyId: 'story-antigo', storyMediaUrl: 'https://gpt-files.com/antigo.jpg' } },
