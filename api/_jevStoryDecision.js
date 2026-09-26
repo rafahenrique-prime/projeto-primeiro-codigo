@@ -19,10 +19,10 @@ const DEFAULT_MIN_CONFIDENCE = 0.95
 const VALID_MODES = new Set(['off', 'shadow', 'guard'])
 
 export function getJevStoryMode() {
-  // Preview e Production começam em SHADOW: observa decisões reais sem alterar
-  // a resposta da Gaby. Guard só entra por promoção explícita posterior.
+  // Preview testa a política real em GUARD; Production permanece SHADOW
+  // até a promoção final desta etapa.
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
-  const defaultMode = (env === 'preview' || env === 'production') ? 'shadow' : 'off'
+  const defaultMode = env === 'preview' ? 'guard' : (env === 'production' ? 'shadow' : 'off')
   const mode = String(process.env.JEV_STORY_MODE || defaultMode).trim().toLowerCase()
   return VALID_MODES.has(mode) ? mode : defaultMode
 }
@@ -62,6 +62,8 @@ function failClosed(reason, extra = {}) {
     confidence: null,
     selectedProbability: null,
     reason,
+    intent: 'UNKNOWN',
+    intentConfidence: null,
     ...extra,
   }
 }
@@ -145,6 +147,18 @@ export async function decideStoryWithJev({
               'Escolha qual candidato do catálogo corresponde ao produto referenciado pelo cliente no Story atual. Use apenas as evidências do state. Se houver ambiguidade relevante, conflito ou evidência insuficiente, escolha NONE.',
             criteria,
           },
+          intent: {
+            type: 'choice',
+            instructions:
+              'Classifique a intenção principal da pergunta do cliente sobre o produto do Story.',
+            criteria: {
+              PRICE: 'Pergunta de preço, valor, promoção ou condição de pagamento.',
+              SIZE_STOCK: 'Pergunta se tem determinado tamanho, numeração, estoque ou disponibilidade.',
+              PHOTO: 'Pedido de foto, imagem ou para ver o produto.',
+              COLOR_MODEL: 'Pergunta sobre cor, modelo, versão ou qual produto é.',
+              OTHER: 'Outra intenção que não se encaixa nas anteriores.',
+            },
+          },
           route: {
             type: 'choice',
             instructions:
@@ -168,9 +182,10 @@ export async function decideStoryWithJev({
 
     const body = await response.json().catch(() => null)
     const product = body?.answers?.product
+    const intent = body?.answers?.intent
     const route = body?.answers?.route
 
-    if (product?.type !== 'choice' || route?.type !== 'choice') {
+    if (product?.type !== 'choice' || intent?.type !== 'choice' || route?.type !== 'choice') {
       return failClosed('JEV_INVALID_RESPONSE')
     }
 
@@ -179,6 +194,8 @@ export async function decideStoryWithJev({
       ? Number(product.probabilities?.[selectedCandidateId] ?? 0)
       : 0
     const confidence = Number(product.confidence ?? 0)
+    const intentChoice = typeof intent.choice === 'string' ? intent.choice : 'OTHER'
+    const intentConfidence = Number(intent.confidence ?? 0)
     const threshold = minConfidence()
 
     let action = route.choice
@@ -209,6 +226,8 @@ export async function decideStoryWithJev({
       confidence: Number.isFinite(confidence) ? confidence : null,
       selectedProbability: Number.isFinite(selectedProbability) ? selectedProbability : null,
       reason,
+      intent: intentChoice,
+      intentConfidence: Number.isFinite(intentConfidence) ? intentConfidence : null,
       model: typeof body?.model === 'string' ? body.model.slice(0, 100) : JEV_MODEL,
       costUsd: typeof body?.usage?.cost === 'number' ? body.usage.cost : null,
     }
