@@ -5,10 +5,11 @@
 import crypto from 'node:crypto'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
-import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
+import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
+import { compararStoryComCandidatos, getStoryVisualMatchMode, getStoryVisualMatchMinConfidence } from './_visualMatchProduto.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -242,6 +243,17 @@ export function isStoryStockOrSizeQuestion(text) {
   }
 
   return /\btem\s+(?:o\s+|a\s+)?(?:\d{2}|pp|p|m|g|gg|xg|xxg)\b/.test(value)
+}
+
+export function extractRequestedSize(text) {
+  const value = normalizarBusca(text)
+  if (!value) return null
+
+  const explicit = value.match(
+    /\b(?:tamanho|tam|numero|numeracao|tem)\s+(?:o\s+|a\s+)?(pp|p|m|g|gg|xg|xxg|\d{2})\b/
+  )
+  if (!explicit) return null
+  return String(explicit[1]).toUpperCase()
 }
 
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
@@ -515,6 +527,19 @@ export default async function handler(req, res) {
     // falham — aí sobra só a memória antiga pra Gaby usar, sem supressão).
     let hasCurrentStory = false
     let visionDecisionEvidence = null
+    let storyMediaUrlForDecision = null
+    const visualMatchMode = getStoryVisualMatchMode()
+    let visualMatchDecision = {
+      status: 'not_attempted',
+      choice: 'NONE',
+      confidence: null,
+      reason: 'NOT_ELIGIBLE',
+    }
+    let stockVerification = {
+      status: 'NOT_CHECKED',
+      reason: 'NOT_REQUIRED',
+      requestedSize: null,
+    }
 
     // JEV Story Guard V1: desligado por padrão. Em shadow, só observa; em
     // guard, aplica política fail-closed exclusivamente em referências de Story.
@@ -552,6 +577,7 @@ export default async function handler(req, res) {
           // produto histórico, não o resultado da Vision/parser mais abaixo.
           hasCurrentStory = true
           storyIdParaTrace = contextoStory.storyId
+          storyMediaUrlForDecision = contextoStory.storyMediaUrl
           const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl, {
             correlationId,
             storyId: contextoStory.storyId,
@@ -600,6 +626,94 @@ export default async function handler(req, res) {
       getMemoryBlock(cliente_id, { suppressProductFields: hasCurrentStory }),
     ])
 
+    const isStorySearch = buscaTexto !== pergunta
+
+    // Story Visual Match V2 — Preview-only durante homologação.
+    // A pista textual NUNCA vira verdade: ela apenas expande candidatos da
+    // mesma categoria. A confirmação vem da comparação Story x foto do Mirror.
+    if (
+      resultado?.ok &&
+      isStorySearch &&
+      visualMatchMode !== 'off' &&
+      storyMediaUrlForDecision
+    ) {
+      const primaryProducts = Array.isArray(resultado?.dados?.produtos)
+        ? resultado.dados.produtos
+        : []
+      const supplementalResult = await buscarProdutos(pergunta)
+      const baseCategory = normalizarBusca(primaryProducts?.[0]?.categoria || '')
+      const supplementalSameCategory = (supplementalResult.produtos || []).filter((p) => {
+        if (!baseCategory) return true
+        return normalizarBusca(p?.categoria || '') === baseCategory
+      })
+
+      const merged = []
+      const seen = new Set()
+      const interleaved = [
+        ...primaryProducts.slice(0, 3),
+        ...supplementalSameCategory.slice(0, 3),
+        ...primaryProducts.slice(3),
+        ...supplementalSameCategory.slice(3),
+      ]
+
+      for (const p of interleaved) {
+        const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        merged.push(p)
+        if (merged.length >= 5) break
+      }
+
+      visualMatchDecision = await compararStoryComCandidatos(
+        storyMediaUrlForDecision,
+        merged
+      )
+
+      const visualThreshold = getStoryVisualMatchMinConfidence()
+      const visualStrong =
+        visualMatchDecision?.status === 'ok' &&
+        visualMatchDecision?.choice !== 'NONE' &&
+        Number(visualMatchDecision?.confidence) >= visualThreshold &&
+        visualMatchDecision?.selectedOriginalIndex != null
+
+      if (visualStrong && visualMatchMode === 'guard') {
+        const selectedIndex = Number(visualMatchDecision.selectedOriginalIndex)
+        const selected = merged[selectedIndex]
+
+        if (selected) {
+          const selectedAnnotated = {
+            ...selected,
+            visual_match_confidence: Number(visualMatchDecision.confidence),
+          }
+          const ranked = [
+            selectedAnnotated,
+            ...merged.filter((_, index) => index !== selectedIndex),
+          ]
+
+          // Após mover o selecionado para o topo, o ID semântico dele passa
+          // a ser C1 para o JEV. Remapeia a evidência visual para não enviar
+          // "choice=C4" junto de um candidato C1 marcado com visual=0.95.
+          visualMatchDecision = {
+            ...visualMatchDecision,
+            choice: 'C1',
+            selectedOriginalIndex: 0,
+          }
+
+          resultado = {
+            ...resultado,
+            dados: {
+              ...resultado.dados,
+              produtos: ranked,
+              totalResultados: ranked.length,
+              totalVariacoes: ranked.length,
+              variacoesRestantes: 0,
+            },
+          }
+          searchContextUsed = 'story_visual_match'
+        }
+      }
+    }
+
     // Correção #1: fallback pra pergunta original agora dispara quando a
     // busca derivada de Story não tem NENHUM candidato confiável
     // (score >= STORY_MATCH_CONFIDENCE_THRESHOLD) — não só quando dá zero
@@ -608,7 +722,6 @@ export default async function handler(req, res) {
     // fallback de sempre (searchKnowledge(pergunta)); só o gatilho mudou.
     // Busca direta (sem Story) nunca passa por aqui — buscaTexto === pergunta
     // sempre nesse caso, comportamento 100% preservado.
-    const isStorySearch = buscaTexto !== pergunta
     const confidentCandidatesCount = isStorySearch
       ? (resultado?.dados?.produtos || []).filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD).length
       : null
@@ -678,39 +791,65 @@ export default async function handler(req, res) {
           candidates: resultado?.dados?.produtos || [],
           storyContextStatus,
           visionStatus,
+          visualMatch: visualMatchDecision,
         })
       }
 
       if (jevStoryMode === 'guard') {
-        // JEV passa a atuar como RANKER, não como filtro destrutivo.
-        // O catálogo continua decidindo quais opções existem; o JEV apenas
-        // prioriza a mais provável e define o nível de cautela da resposta.
-        // Assim preservamos recall comercial sem transformar ambiguidade em
-        // afirmação de produto exato.
-        const requiresStockVerification =
-          jevStoryDecision.action === 'ALLOW_AUTO' &&
-          (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
-
-        if (requiresStockVerification) {
-          jevStoryDecision = {
-            ...jevStoryDecision,
-            action: 'VERIFY_STOCK',
-            reason: 'STOCK_NOT_VERIFIED',
-          }
-        }
-
+        // JEV é o ranker final. Estoque/tamanho só pode virar fato depois de
+        // consultar shadow_product_variations do produto selecionado.
         const currentProducts = Array.isArray(resultado?.dados?.produtos)
           ? resultado.dados.produtos
           : []
 
-        if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
-          const selectedId = String(jevStoryDecision.selectedCandidateId || '')
-          const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
-          const selectedProduct = selectedIndex >= 0 ? currentProducts[selectedIndex] : null
+        const selectedId = String(jevStoryDecision.selectedCandidateId || '')
+        const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
+        let selectedProduct = selectedIndex >= 0 ? currentProducts[selectedIndex] : null
 
+        const requiresStockVerification =
+          jevStoryDecision.action === 'ALLOW_AUTO' &&
+          (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
+
+        if (requiresStockVerification && selectedProduct) {
+          const requestedSize = extractRequestedSize(pergunta)
+          stockVerification = await fetchShadowProductAvailability(
+            {
+              shadowProductId: selectedProduct.id,
+              requestedSize,
+            },
+            {
+              supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+            }
+          )
+
+          if (
+            stockVerification.status === 'AVAILABLE' ||
+            stockVerification.status === 'OUT_OF_STOCK'
+          ) {
+            selectedProduct = {
+              ...selectedProduct,
+              stock_verification_status: stockVerification.status,
+              stock_requested_size: stockVerification.requestedSize || null,
+            }
+            jevStoryDecision = {
+              ...jevStoryDecision,
+              reason: stockVerification.status === 'AVAILABLE'
+                ? 'STOCK_VERIFIED_AVAILABLE'
+                : 'STOCK_VERIFIED_OUT_OF_STOCK',
+            }
+          } else {
+            jevStoryDecision = {
+              ...jevStoryDecision,
+              action: 'VERIFY_STOCK',
+              reason: 'STOCK_NOT_VERIFIED',
+            }
+          }
+        }
+
+        if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
           if (selectedProduct) {
-            // Mantém TODAS as opções vindas do catálogo; só move a escolhida
-            // pelo JEV para o topo. Nenhum candidato é descartado aqui.
+            // Mantém as opções, mas move a escolhida para o topo. O objeto do
+            // selecionado pode carregar somente o status factual de estoque.
             const rankedProducts = [
               selectedProduct,
               ...currentProducts.filter((_, index) => index !== selectedIndex),
@@ -725,8 +864,6 @@ export default async function handler(req, res) {
               },
             }
           } else {
-            // Resposta inconsistente do JEV não apaga o catálogo. Rebaixa para
-            // esclarecimento e preserva as opções para a Gaby apresentar.
             jevStoryDecision = {
               ...jevStoryDecision,
               action: 'ASK_CLARIFY',
@@ -743,9 +880,6 @@ export default async function handler(req, res) {
             memoriaBlock = ''
           }
         } else {
-          // Baixa confiança/ambiguidade: preserva candidatos do catálogo, mas
-          // remove memória/knowledge de produto para evitar que contexto antigo
-          // transforme uma opção em certeza indevida.
           resultado = {
             ...resultado,
             dados: {
@@ -782,6 +916,12 @@ export default async function handler(req, res) {
       top_candidate_scores: topCandidateScores,
       confident_candidates_count: isStorySearch ? confidentCandidatesCount : null,
       story_match_threshold: isStorySearch ? STORY_MATCH_CONFIDENCE_THRESHOLD : null,
+      visual_match_mode: visualMatchMode,
+      visual_match_status: visualMatchDecision.status,
+      visual_match_choice: visualMatchDecision.choice,
+      visual_match_confidence: visualMatchDecision.confidence,
+      stock_verification_status: stockVerification.status,
+      stock_verification_reason: stockVerification.reason,
       jev_story_mode: jevStoryMode,
       jev_status: jevStoryDecision.status,
       jev_action: jevStoryDecision.action,
@@ -811,26 +951,42 @@ export default async function handler(req, res) {
         reason: jevStoryDecision.reason,
       }
 
-      // Em Story Guard, existência do produto nunca é convertida em estoque.
+      // Só o primeiro produto pode receber disponibilidade confirmada, e
+      // somente quando shadow_product_variations respondeu deterministicamente.
       if (Array.isArray(respostaGPT.dados.produtos)) {
-        respostaGPT.dados.produtos = respostaGPT.dados.produtos.map((p) => ({
+        respostaGPT.dados.produtos = respostaGPT.dados.produtos.map((p, index) => ({
           ...p,
-          disponibilidade: 'NÃO CONFIRMADA',
+          disponibilidade:
+            index === 0 && stockVerification.status === 'AVAILABLE'
+              ? 'SIM — CONFIRMADA NO ESTOQUE'
+              : index === 0 && stockVerification.status === 'OUT_OF_STOCK'
+                ? 'NÃO — SEM ESTOQUE'
+                : 'NÃO CONFIRMADA',
         }))
       }
 
       if (jevStoryDecision.action === 'ALLOW_AUTO') {
-        const instruction = 'PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança, mas NÃO trate a lista como correspondência única. Apresente o primeiro como o mais provável e, quando útil, mostre também as alternativas retornadas pelo catálogo. NÃO afirme estoque/tamanho sem verificação específica.'
+        const stockFact = stockVerification.status === 'AVAILABLE'
+          ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está disponível; pode informar disponibilidade.'
+          : stockVerification.status === 'OUT_OF_STOCK'
+            ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está sem estoque; pode informar indisponibilidade.'
+            : ' NÃO afirme estoque/tamanho sem verificação específica.'
+        const instruction = `PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança. Apresente-o como o produto identificado pelo fluxo atual.${stockFact}`
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'VERIFY_STOCK') {
-        const instruction = 'PRIME DECISION LAYER: o primeiro produto é o mais provável, porém tamanho/estoque NÃO foi verificado. Preserve as alternativas do catálogo. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
+        const instruction = 'PRIME DECISION LAYER: o produto foi identificado, porém tamanho/estoque NÃO pôde ser verificado. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'ASK_CLARIFY') {
         const instruction = 'PRIME DECISION LAYER: confiança média/baixa. NÃO escolha um único produto como certeza. Mostre de 2 a 5 opções mais relacionadas que vieram do catálogo e faça UMA pergunta curta para o cliente confirmar cor/modelo/produto.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'BLOCK_ASSERTION') {
-        const instruction = 'PRIME DECISION LAYER: contexto insuficiente para afirmar qual é o produto exato. Se o catálogo retornou opções, apresente-as apenas como possibilidades relacionadas e peça ao cliente para confirmar qual delas é; não invente produto, preço, tamanho ou disponibilidade.'
-        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+        // Hard gate: não entrega preços/opções quando nem o produto foi
+        // confirmado. Isso força a linguagem aprovada de pedir o print.
+        respostaGPT.dados.produtos = []
+        respostaGPT.contexto.produtos_encontrados = 0
+        respostaGPT.contexto.tem_produtos = false
+        const instruction = 'PRIME DECISION LAYER: não foi possível confirmar com segurança o produto exato do Story. NÃO cite preço, produto similar, estoque ou alternativas. Responda de forma curta: “Como veio pelo Story, não consegui confirmar com segurança o modelo exato. Pode me mandar um print da foto? Aí verifico certinho pra você 😊”'
+        respostaGPT.dados.informacao_adicional = instruction
       }
     }
 

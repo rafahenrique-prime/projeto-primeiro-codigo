@@ -137,6 +137,93 @@ describe('api/_jevStoryDecision.js — Story Guard V1', () => {
     expect(result.selectedCandidateId).toBe(null)
   })
 
+  it('libera consenso multimodal quando Visual + catálogo + JEV concordam e o BLOCK de rota é fraco', async () => {
+    process.env.JEV_STORY_MODE = 'guard'
+    vi.stubGlobal('fetch', vi.fn(async () => decisionResponse({
+      answers: {
+        product: {
+          type: 'choice',
+          choice: 'C1',
+          probabilities: { C1: 0.89, C2: 0.06, NONE: 0.05 },
+          confidence: 0.87,
+        },
+        intent: {
+          type: 'choice',
+          choice: 'PRICE',
+          probabilities: { PRICE: 0.89, SIZE_STOCK: 0.08, OTHER: 0.03 },
+          confidence: 0.89,
+        },
+        route: {
+          type: 'choice',
+          choice: 'BLOCK_ASSERTION',
+          probabilities: { BLOCK_ASSERTION: 0.50, ASK_CLARIFY: 0.30, ALLOW_AUTO: 0.20 },
+          confidence: 0.24,
+        },
+      },
+      usage: { cost: 0.00001 },
+    })))
+
+    const { decideStoryWithJev } = await import('../_jevStoryDecision.js')
+    const result = await decideStoryWithJev({
+      question: 'qual valor?',
+      visionQuery: 'Óculos de Sol',
+      candidates: [
+        { nome: 'Óculos Dolce Gabbana', categoria: 'Óculos', marca: 'DOLCE GABBANA', score: 100, visual_match_confidence: 0.95 },
+        { nome: 'Óculos Fendi', categoria: 'Óculos', marca: 'FENDI', score: 28 },
+      ],
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+      visualMatch: { status: 'ok', choice: 'C1', confidence: 0.95 },
+    })
+
+    expect(result.action).toBe('ALLOW_AUTO')
+    expect(result.selectedCandidateId).toBe('C1')
+    expect(result.reason).toBe('MULTIMODAL_CONSENSUS_MATCH')
+  })
+
+  it('não libera consenso multimodal quando o JEV continua inseguro sobre o produto', async () => {
+    process.env.JEV_STORY_MODE = 'guard'
+    vi.stubGlobal('fetch', vi.fn(async () => decisionResponse({
+      answers: {
+        product: {
+          type: 'choice',
+          choice: 'C1',
+          probabilities: { C1: 0.72, C2: 0.18, NONE: 0.10 },
+          confidence: 0.66,
+        },
+        intent: {
+          type: 'choice',
+          choice: 'PRICE',
+          probabilities: { PRICE: 0.91, SIZE_STOCK: 0.06, OTHER: 0.03 },
+          confidence: 0.91,
+        },
+        route: {
+          type: 'choice',
+          choice: 'BLOCK_ASSERTION',
+          probabilities: { BLOCK_ASSERTION: 0.66, ASK_CLARIFY: 0.22, ALLOW_AUTO: 0.12 },
+          confidence: 0.48,
+        },
+      },
+      usage: { cost: 0.00001 },
+    })))
+
+    const { decideStoryWithJev } = await import('../_jevStoryDecision.js')
+    const result = await decideStoryWithJev({
+      question: 'qual valor?',
+      visionQuery: 'Óculos de Sol',
+      candidates: [
+        { nome: 'Óculos Fendi', categoria: 'Óculos', marca: 'FENDI', score: 100, visual_match_confidence: 0.98 },
+        { nome: 'Óculos Dolce Gabbana', categoria: 'Óculos', marca: 'DOLCE GABBANA', score: 23 },
+      ],
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+      visualMatch: { status: 'ok', choice: 'C1', confidence: 0.98 },
+    })
+
+    expect(result.action).toBe('BLOCK_ASSERTION')
+    expect(result.selectedCandidateId).toBe(null)
+  })
+
   it('falha fechado quando OpenRouter/JEV está indisponível', async () => {
     process.env.JEV_STORY_MODE = 'guard'
     vi.stubGlobal('fetch', vi.fn(async () => decisionResponse({}, 503)))

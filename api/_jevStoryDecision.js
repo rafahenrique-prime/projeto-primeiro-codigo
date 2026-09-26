@@ -52,6 +52,9 @@ function sanitizeCandidate(product, index) {
     categoria: String(product?.categoria || '').slice(0, 100),
     marca: String(product?.marca || '').slice(0, 100),
     score_catalogo: Number.isFinite(Number(product?.score)) ? Number(product.score) : null,
+    visual_match_confidence: Number.isFinite(Number(product?.visual_match_confidence))
+      ? Number(product.visual_match_confidence)
+      : null,
   }
 }
 
@@ -76,6 +79,7 @@ export async function decideStoryWithJev({
   candidates,
   storyContextStatus,
   visionStatus,
+  visualMatch = null,
 }) {
   const mode = getJevStoryMode()
   if (mode === 'off') {
@@ -106,6 +110,9 @@ export async function decideStoryWithJev({
         candidate.categoria ? `Categoria: ${candidate.categoria}` : '',
         candidate.marca ? `Marca: ${candidate.marca}` : '',
         candidate.score_catalogo != null ? `Score determinístico do catálogo: ${candidate.score_catalogo}` : '',
+        candidate.visual_match_confidence != null
+          ? `Visual Match Story x foto do catálogo: ${candidate.visual_match_confidence}`
+          : '',
       ].filter(Boolean).join(' | '),
     ]),
     ['NONE', 'Nenhum candidato pode ser associado com segurança ao produto referenciado no Story.'],
@@ -124,6 +131,13 @@ export async function decideStoryWithJev({
       tipo: String(visionEvidence.tipo || '').slice(0, 120),
       marca: String(visionEvidence.marca || '').slice(0, 120),
       cor: String(visionEvidence.cor || '').slice(0, 120),
+    } : null,
+    visual_match: visualMatch && typeof visualMatch === 'object' ? {
+      choice: String(visualMatch.choice || 'NONE').slice(0, 20),
+      confidence: Number.isFinite(Number(visualMatch.confidence))
+        ? Number(visualMatch.confidence)
+        : null,
+      status: String(visualMatch.status || 'UNKNOWN').slice(0, 40),
     } : null,
     candidates: safeCandidates,
   }
@@ -145,7 +159,7 @@ export async function decideStoryWithJev({
           product: {
             type: 'choice',
             instructions:
-              'Escolha qual candidato do catálogo corresponde ao produto referenciado pelo cliente no Story atual. Use apenas as evidências do state. Se houver ambiguidade relevante, conflito ou evidência insuficiente, escolha NONE.',
+              'Escolha qual candidato do catálogo corresponde ao produto referenciado pelo cliente no Story atual. Use apenas as evidências do state. Visual Match compara pixels do Story com a foto real do catálogo e é evidência forte quando a confiança é alta, mas nunca supera conflito determinístico de categoria. Se houver ambiguidade relevante, conflito ou evidência insuficiente, escolha NONE.',
             criteria,
           },
           intent: {
@@ -202,6 +216,32 @@ export async function decideStoryWithJev({
     let action = route.choice
     let reason = 'JEV_ROUTE'
 
+    const selectedCandidate = safeCandidates.find((c) => c.id === selectedCandidateId)
+    const visualChoice = String(visualMatch?.choice || 'NONE')
+    const routeConfidence = Number(route.confidence ?? 0)
+    const routeProbability = typeof route.choice === 'string'
+      ? Number(route.probabilities?.[route.choice] ?? 0)
+      : 0
+
+    // Gate de consenso multimodal: não baixa o threshold global do JEV.
+    // Só libera quando três sinais independentes concordam no MESMO produto:
+    // 1) Visual Match >= .95; 2) catálogo forte >= 80; 3) JEV escolheu o mesmo
+    // candidato com confiança/probabilidade mínimas. Um BLOCK forte continua
+    // soberano; somente bloqueio fraco/indeciso pode ser superado.
+    const visualConsensus =
+      selectedCandidateId &&
+      selectedCandidateId !== 'NONE' &&
+      visualChoice === selectedCandidateId &&
+      Number(selectedCandidate?.visual_match_confidence ?? 0) >= 0.95 &&
+      Number(selectedCandidate?.score_catalogo ?? 0) >= 80 &&
+      confidence >= 0.80 &&
+      selectedProbability >= 0.85
+
+    const weakRouteBlock =
+      route.choice === 'BLOCK_ASSERTION' &&
+      routeConfidence < 0.50 &&
+      routeProbability < 0.65
+
     // A política final pertence ao código, não ao modelo.
     if (
       action === 'ALLOW_AUTO' &&
@@ -212,6 +252,9 @@ export async function decideStoryWithJev({
     ) {
       action = 'ALLOW_AUTO'
       reason = 'JEV_STRONG_SINGLE_MATCH'
+    } else if (visualConsensus && (route.choice === 'ALLOW_AUTO' || weakRouteBlock)) {
+      action = 'ALLOW_AUTO'
+      reason = 'MULTIMODAL_CONSENSUS_MATCH'
     } else if (action === 'BLOCK_ASSERTION') {
       action = 'BLOCK_ASSERTION'
       reason = 'JEV_BLOCK_ASSERTION'
@@ -229,6 +272,18 @@ export async function decideStoryWithJev({
       reason,
       intent: intentChoice,
       intentConfidence: Number.isFinite(intentConfidence) ? intentConfidence : null,
+      // Diagnóstico sanitizado para calibração: não contém texto do cliente,
+      // produto, PII ou prompt — só escolhas/enums/confianças.
+      diagnostic: {
+        rawProductChoice: selectedCandidateId,
+        rawProductConfidence: Number.isFinite(confidence) ? confidence : null,
+        rawProductProbability: Number.isFinite(selectedProbability) ? selectedProbability : null,
+        rawRouteChoice: typeof route.choice === 'string' ? route.choice : null,
+        rawRouteConfidence: Number.isFinite(Number(route.confidence)) ? Number(route.confidence) : null,
+        rawRouteProbability: typeof route.choice === 'string' && Number.isFinite(Number(route.probabilities?.[route.choice]))
+          ? Number(route.probabilities[route.choice])
+          : null,
+      },
       model: typeof body?.model === 'string' ? body.model.slice(0, 100) : JEV_MODEL,
       costUsd: typeof body?.usage?.cost === 'number' ? body.usage.cost : null,
     }

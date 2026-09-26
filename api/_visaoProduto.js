@@ -133,6 +133,32 @@ async function extrairFrameDeVideo(videoBuffer) {
   }
 }
 
+
+// Prepara a mídia do Story como uma única imagem para outros fluxos de visão
+// (ex.: Visual Match). Reusa exatamente a mesma allowlist/download/frame de
+// identificarProdutoPorImagem(). Não registra telemetria própria — o chamador
+// decide a telemetria da operação derivada.
+export async function prepararStoryImageDataUrl(storyMediaUrl) {
+  const midia = await baixarStoryMediaSeguro(storyMediaUrl)
+  if (!midia) return null
+
+  let buffer = midia.buffer
+  let contentType = midia.contentType
+  let sourceMediaType = ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType) ? 'video' : 'image'
+
+  if (sourceMediaType === 'video') {
+    const frame = await extrairFrameDeVideo(midia.buffer)
+    if (!frame) return null
+    buffer = frame
+    contentType = 'image/jpeg'
+  }
+
+  return {
+    dataUrl: `data:${contentType};base64,${buffer.toString('base64')}`,
+    sourceMediaType,
+  }
+}
+
 function baseUrlDoDeployment() {
   // VERCEL_URL é preenchido automaticamente pela Vercel em toda deployment
   // (Preview ou Production) — sempre aponta pro próprio deployment em execução,
