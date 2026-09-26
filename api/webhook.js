@@ -443,13 +443,22 @@ export default async function handler(req, res) {
 
     const merged = []
     const seen = new Set()
+    // Categoria-base vem dos candidatos da Vision. O hint textual só pode
+    // expandir dentro da MESMA categoria; impede perfume/roupa entrar numa
+    // comparação visual de óculos só porque compartilha a marca.
+    const baseCategory = normalizarBusca(primary.produtos?.[0]?.categoria || '')
+    const supplementalSameCategory = (supplemental.produtos || []).filter((p) => {
+      if (!baseCategory) return true
+      return normalizarBusca(p?.categoria || '') === baseCategory
+    })
+
     // Reserva espaço pros dois sinais: Vision (visual-semântico) e hint textual.
     // O hint só EXPANDE candidatos; quem confirma ou rejeita é o Visual Match.
     const interleaved = [
       ...(primary.produtos || []).slice(0, 3),
-      ...(supplemental.produtos || []).slice(0, 3),
+      ...supplementalSameCategory.slice(0, 3),
       ...(primary.produtos || []).slice(3),
-      ...(supplemental.produtos || []).slice(3),
+      ...supplementalSameCategory.slice(3),
     ]
     for (const p of interleaved) {
       const key = String(p.bagy_product_id || p.id || p.nome)
@@ -468,6 +477,7 @@ export default async function handler(req, res) {
         id: `C${index + 1}`,
         nome: p.nome,
         marca: p.marca || null,
+        categoria: p.categoria || null,
         score: p.score ?? null,
         bagyProductId: p.bagy_product_id ?? null,
       })),
