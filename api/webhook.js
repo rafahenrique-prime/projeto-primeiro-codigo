@@ -448,7 +448,31 @@ export default async function handler(req, res) {
       },
     }
 
-    const fixture = fixtures[String(req.query.jev_validate)]
+    const caseName = String(req.query.jev_validate)
+
+    if (caseName === 'all') {
+      const results = {}
+      for (const [name, fixture] of Object.entries(fixtures)) {
+        const decision = await decideStoryWithJev({
+          ...fixture,
+          storyContextStatus: 'STORY_FOUND_VISION_OK',
+          visionStatus: 'success',
+        })
+        results[name] = {
+          status: decision.status,
+          action: decision.action,
+          selectedCandidateId: decision.selectedCandidateId,
+          confidence: decision.confidence,
+          selectedProbability: decision.selectedProbability,
+          reason: decision.reason,
+          model: decision.model || null,
+          costUsd: decision.costUsd ?? null,
+        }
+      }
+      return res.status(200).json(results)
+    }
+
+    const fixture = fixtures[caseName]
     if (!fixture) return res.status(400).json({ error: 'invalid_case' })
 
     const decision = await decideStoryWithJev({
@@ -458,7 +482,7 @@ export default async function handler(req, res) {
     })
 
     return res.status(200).json({
-      case: String(req.query.jev_validate),
+      case: caseName,
       status: decision.status,
       action: decision.action,
       selectedCandidateId: decision.selectedCandidateId,
