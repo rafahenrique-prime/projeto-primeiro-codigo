@@ -5,7 +5,7 @@
 import crypto from 'node:crypto'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
-import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial } from './_gabrielaContextService.js'
+import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
@@ -469,6 +469,16 @@ export default async function handler(req, res) {
     }
 
     const visual = await compararStoryComCandidatos(contexto.storyMediaUrl, merged)
+    const selected = visual?.selectedOriginalIndex != null
+      ? merged[visual.selectedOriginalIndex]
+      : null
+
+    const stock = selected
+      ? await fetchShadowProductAvailability(
+          { shadowProductId: selected.id },
+          { supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders } }
+        )
+      : { status: 'NOT_CHECKED', reason: 'NO_VISUAL_SELECTION' }
 
     return res.status(200).json({
       ok: true,
@@ -482,6 +492,7 @@ export default async function handler(req, res) {
         bagyProductId: p.bagy_product_id ?? null,
       })),
       visual,
+      stock,
     })
   }
 
