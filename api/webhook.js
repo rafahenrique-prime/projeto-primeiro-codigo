@@ -697,6 +697,85 @@ export default async function handler(req, res) {
       getMemoryBlock(cliente_id, { suppressProductFields: hasCurrentStory }),
     ])
 
+    const isStorySearch = buscaTexto !== pergunta
+
+    // Story Visual Match V2 — Preview-only durante homologação.
+    // A pista textual NUNCA vira verdade: ela apenas expande candidatos da
+    // mesma categoria. A confirmação vem da comparação Story x foto do Mirror.
+    if (
+      resultado?.ok &&
+      isStorySearch &&
+      visualMatchMode !== 'off' &&
+      storyMediaUrlForDecision
+    ) {
+      const primaryProducts = Array.isArray(resultado?.dados?.produtos)
+        ? resultado.dados.produtos
+        : []
+      const supplementalResult = await buscarProdutos(pergunta)
+      const baseCategory = normalizarBusca(primaryProducts?.[0]?.categoria || '')
+      const supplementalSameCategory = (supplementalResult.produtos || []).filter((p) => {
+        if (!baseCategory) return true
+        return normalizarBusca(p?.categoria || '') === baseCategory
+      })
+
+      const merged = []
+      const seen = new Set()
+      const interleaved = [
+        ...primaryProducts.slice(0, 3),
+        ...supplementalSameCategory.slice(0, 3),
+        ...primaryProducts.slice(3),
+        ...supplementalSameCategory.slice(3),
+      ]
+
+      for (const p of interleaved) {
+        const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        merged.push(p)
+        if (merged.length >= 5) break
+      }
+
+      visualMatchDecision = await compararStoryComCandidatos(
+        storyMediaUrlForDecision,
+        merged
+      )
+
+      const visualThreshold = getStoryVisualMatchMinConfidence()
+      const visualStrong =
+        visualMatchDecision?.status === 'ok' &&
+        visualMatchDecision?.choice !== 'NONE' &&
+        Number(visualMatchDecision?.confidence) >= visualThreshold &&
+        visualMatchDecision?.selectedOriginalIndex != null
+
+      if (visualStrong && visualMatchMode === 'guard') {
+        const selectedIndex = Number(visualMatchDecision.selectedOriginalIndex)
+        const selected = merged[selectedIndex]
+
+        if (selected) {
+          const selectedAnnotated = {
+            ...selected,
+            visual_match_confidence: Number(visualMatchDecision.confidence),
+          }
+          const ranked = [
+            selectedAnnotated,
+            ...merged.filter((_, index) => index !== selectedIndex),
+          ]
+
+          resultado = {
+            ...resultado,
+            dados: {
+              ...resultado.dados,
+              produtos: ranked,
+              totalResultados: ranked.length,
+              totalVariacoes: ranked.length,
+              variacoesRestantes: 0,
+            },
+          }
+          searchContextUsed = 'story_visual_match'
+        }
+      }
+    }
+
     // Correção #1: fallback pra pergunta original agora dispara quando a
     // busca derivada de Story não tem NENHUM candidato confiável
     // (score >= STORY_MATCH_CONFIDENCE_THRESHOLD) — não só quando dá zero
@@ -705,7 +784,6 @@ export default async function handler(req, res) {
     // fallback de sempre (searchKnowledge(pergunta)); só o gatilho mudou.
     // Busca direta (sem Story) nunca passa por aqui — buscaTexto === pergunta
     // sempre nesse caso, comportamento 100% preservado.
-    const isStorySearch = buscaTexto !== pergunta
     const confidentCandidatesCount = isStorySearch
       ? (resultado?.dados?.produtos || []).filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD).length
       : null
@@ -775,6 +853,7 @@ export default async function handler(req, res) {
           candidates: resultado?.dados?.produtos || [],
           storyContextStatus,
           visionStatus,
+          visualMatch: visualMatchDecision,
         })
       }
 
