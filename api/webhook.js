@@ -215,6 +215,24 @@ export function extrairQueryCompactaDaVision(descricaoVisual) {
   return partes.join(' ')
 }
 
+export function extrairEvidenciasDaVision(descricaoVisual) {
+  if (typeof descricaoVisual !== 'string' || !descricaoVisual.trim()) return null
+
+  const read = (regex) => {
+    const value = descricaoVisual.match(regex)?.[1]
+    return typeof value === 'string' ? value.trim().slice(0, 160) : ''
+  }
+
+  const evidence = {
+    nome: read(/^##\s*(.+)$/m),
+    tipo: read(/\*\*Tipo:\*\*\s*(.+)/i),
+    marca: read(/\*\*Marca:\*\*\s*(.+)/i),
+    cor: read(/\*\*Cor:\*\*\s*(.+)/i),
+  }
+
+  return Object.values(evidence).some(Boolean) ? evidence : null
+}
+
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
 // considerado confiável. Não altera calcularSimilaridade() nem os scores em
 // si — só decide, depois da busca já feita, se o que veio de volta é forte o
@@ -485,6 +503,7 @@ export default async function handler(req, res) {
     // cenário mais perigoso pra memória (Story presente, mas Vision/parser
     // falham — aí sobra só a memória antiga pra Gaby usar, sem supressão).
     let hasCurrentStory = false
+    let visionDecisionEvidence = null
 
     // JEV Story Guard V1: desligado por padrão. Em shadow, só observa; em
     // guard, aplica política fail-closed exclusivamente em referências de Story.
@@ -525,6 +544,10 @@ export default async function handler(req, res) {
             storyId: contextoStory.storyId,
           })
           if (descricaoVisual) {
+            // O catálogo continua usando Nome+Tipo+Marca, mas o JEV recebe
+            // também Cor como evidência semântica para distinguir variantes.
+            visionDecisionEvidence = extrairEvidenciasDaVision(descricaoVisual)
+
             // Correção #1 (gate final, 2026-09-06): a query de busca é
             // SEMPRE a versão compacta (Nome+Tipo+Marca) — o Markdown
             // inteiro da Vision NUNCA é usado como query do catálogo, nem
@@ -634,6 +657,7 @@ export default async function handler(req, res) {
         jevStoryDecision = await decideStoryWithJev({
           question: pergunta,
           visionQuery: buscaTexto,
+          visionEvidence: visionDecisionEvidence,
           candidates: resultado?.dados?.produtos || [],
           storyContextStatus,
           visionStatus,
