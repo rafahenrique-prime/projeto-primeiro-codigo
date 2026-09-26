@@ -443,7 +443,15 @@ export default async function handler(req, res) {
 
     const merged = []
     const seen = new Set()
-    for (const p of [...(primary.produtos || []), ...(supplemental.produtos || [])]) {
+    // Reserva espaço pros dois sinais: Vision (visual-semântico) e hint textual.
+    // O hint só EXPANDE candidatos; quem confirma ou rejeita é o Visual Match.
+    const interleaved = [
+      ...(primary.produtos || []).slice(0, 3),
+      ...(supplemental.produtos || []).slice(0, 3),
+      ...(primary.produtos || []).slice(3),
+      ...(supplemental.produtos || []).slice(3),
+    ]
+    for (const p of interleaved) {
       const key = String(p.bagy_product_id || p.id || p.nome)
       if (seen.has(key)) continue
       seen.add(key)
