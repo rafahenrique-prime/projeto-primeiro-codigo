@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fetchProductsCatalog, formatarProdutoComercial } from '../_gabrielaContextService.js'
+import { fetchProductsCatalog, formatarProdutoComercial, fetchShadowProductAvailability } from '../_gabrielaContextService.js'
 
 const SUPABASE_CONFIG = {
   baseUrl: 'https://mock-project.supabase.co',
@@ -113,5 +113,61 @@ describe('fetchProductsCatalog — Mirror/Shadow como fonte principal', () => {
       imagem: 'https://img/legacy.jpg',
     })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
+})
+
+
+describe('fetchShadowProductAvailability — fatos de estoque', () => {
+  it('confirma AVAILABLE quando há variação com estoque positivo', async () => {
+    const fetchImpl = vi.fn(async (url) => {
+      expect(url).toContain('/rest/v1/shadow_product_variations?')
+      expect(url).toContain('shadow_product_id=eq.shadow-1')
+      return response([{ stock_quantity: 3, attributes: {}, selling_out_of_stock: null, balance_raw: null }])
+    })
+
+    const result = await fetchShadowProductAvailability(
+      { shadowProductId: 'shadow-1' },
+      { supabaseConfig: SUPABASE_CONFIG, fetchImpl }
+    )
+
+    expect(result).toMatchObject({
+      status: 'AVAILABLE',
+      reason: 'PRODUCT_IN_STOCK',
+    })
+  })
+
+  it('confirma tamanho específico quando a variação correspondente tem estoque', async () => {
+    const fetchImpl = vi.fn(async () => response([
+      { stock_quantity: 0, attributes: { Tamanho: 'M' } },
+      { stock_quantity: 2, attributes: { Tamanho: 'G' } },
+    ]))
+
+    const result = await fetchShadowProductAvailability(
+      { shadowProductId: 'shadow-1', requestedSize: 'G' },
+      { supabaseConfig: SUPABASE_CONFIG, fetchImpl }
+    )
+
+    expect(result).toMatchObject({
+      status: 'AVAILABLE',
+      reason: 'SIZE_IN_STOCK',
+      requestedSize: 'G',
+    })
+  })
+
+  it('não inventa disponibilidade quando o tamanho não existe', async () => {
+    const fetchImpl = vi.fn(async () => response([
+      { stock_quantity: 2, attributes: { Tamanho: 'M' } },
+    ]))
+
+    const result = await fetchShadowProductAvailability(
+      { shadowProductId: 'shadow-1', requestedSize: 'GG' },
+      { supabaseConfig: SUPABASE_CONFIG, fetchImpl }
+    )
+
+    expect(result).toMatchObject({
+      status: 'UNKNOWN',
+      reason: 'SIZE_NOT_FOUND',
+      requestedSize: 'GG',
+    })
   })
 })
