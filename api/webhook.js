@@ -233,6 +233,17 @@ export function extrairEvidenciasDaVision(descricaoVisual) {
   return Object.values(evidence).some(Boolean) ? evidence : null
 }
 
+export function isStoryStockOrSizeQuestion(text) {
+  const value = normalizarBusca(text)
+  if (!value) return false
+
+  if (/\b(estoque|disponivel|disponibilidade|tamanho|tamanhos|numeracao|numero)\b/.test(value)) {
+    return true
+  }
+
+  return /\btem\s+(?:o\s+|a\s+)?(?:\d{2}|pp|p|m|g|gg|xg|xxg)\b/.test(value)
+}
+
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
 // considerado confiável. Não altera calcularSimilaridade() nem os scores em
 // si — só decide, depois da busca já feita, se o que veio de volta é forte o
