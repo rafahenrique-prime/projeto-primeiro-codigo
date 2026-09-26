@@ -243,6 +243,18 @@ export async function decideStoryWithJev({
       reason,
       intent: intentChoice,
       intentConfidence: Number.isFinite(intentConfidence) ? intentConfidence : null,
+      // Diagnóstico sanitizado para calibração: não contém texto do cliente,
+      // produto, PII ou prompt — só escolhas/enums/confianças.
+      diagnostic: {
+        rawProductChoice: selectedCandidateId,
+        rawProductConfidence: Number.isFinite(confidence) ? confidence : null,
+        rawProductProbability: Number.isFinite(selectedProbability) ? selectedProbability : null,
+        rawRouteChoice: typeof route.choice === 'string' ? route.choice : null,
+        rawRouteConfidence: Number.isFinite(Number(route.confidence)) ? Number(route.confidence) : null,
+        rawRouteProbability: typeof route.choice === 'string' && Number.isFinite(Number(route.probabilities?.[route.choice]))
+          ? Number(route.probabilities[route.choice])
+          : null,
+      },
       model: typeof body?.model === 'string' ? body.model.slice(0, 100) : JEV_MODEL,
       costUsd: typeof body?.usage?.cost === 'number' ? body.usage.cost : null,
     }
