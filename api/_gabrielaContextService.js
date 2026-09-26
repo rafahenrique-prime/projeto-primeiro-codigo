@@ -26,7 +26,11 @@
 import { getMemoryBlock } from './_profileMemory.js'
 import { formatarPrecoBR } from './_bagySyncMapper.js'
 
-const PRODUCTS_SELECT_OFICIAL = 'id,nome,categoria,preco,imagem,link,codigo,' +
+const SHADOW_PRODUCTS_SELECT = 'id,bagy_product_id,nome,categoria_nome,preco,imagem_principal,link,codigo,marca,' +
+  'preco_tabela,preco_pix,' +
+  'parcelamento_padrao_vezes,parcelamento_padrao_valor,parcelamento_padrao_com_juros,' +
+  'parcelamento_max_vezes,parcelamento_max_valor,parcelamento_max_com_juros'
+const LEGACY_PRODUCTS_SELECT = 'id,nome,categoria,preco,imagem,link,codigo,marca,' +
   'preco_tabela,preco_pix,' +
   'parcelamento_padrao_vezes,parcelamento_padrao_valor_parcela,parcelamento_padrao_com_juros,' +
   'parcelamento_max_vezes,parcelamento_valor_parcela,parcelamento_com_juros'
@@ -84,21 +88,51 @@ export function formatarProdutoComercial(product) {
  * @param {{ supabaseConfig: {baseUrl: string, headers: object}, fetchImpl?: Function }} deps
  * @returns {Promise<{ ok: boolean, products: Array, error_code?: string }>}
  */
-export async function fetchProductsCatalog(deps = {}) {
-  const { supabaseConfig, fetchImpl, timeoutMs } = deps
-  const fetchFn = fetchImpl ?? fetch
+function formatBasePrice(value) {
+  if (value == null || value === '') return value
+  if (typeof value === 'string' && /R\$/.test(value)) return value
+  return formatarPrecoBR(value)
+}
 
-  // timeoutMs é opcional — sem ele (uso atual de api/webhook.js), nenhum
-  // AbortController é criado e o fetch se comporta exatamente como antes desta
-  // etapa. Com ele (uso da PRIME Bridge, que já tinha esse timeout próprio em
-  // fetchProductsFromSource), preserva o error_code 'source_timeout' que os
-  // testes da Bridge já esperavam antes da extração.
+function normalizeCatalogProduct(row = {}) {
+  return {
+    id: row.id,
+    bagy_product_id: row.bagy_product_id ?? null,
+    nome: row.nome ?? '',
+    categoria: row.categoria_nome ?? row.categoria ?? '',
+    preco: formatBasePrice(row.preco),
+    imagem: row.imagem_principal ?? row.imagem ?? null,
+    link: row.link ?? null,
+    codigo: row.codigo ?? null,
+    marca: row.marca ?? null,
+    preco_tabela: row.preco_tabela ?? null,
+    preco_pix: row.preco_pix ?? null,
+    parcelamento_padrao_vezes: row.parcelamento_padrao_vezes ?? null,
+    parcelamento_padrao_valor_parcela:
+      row.parcelamento_padrao_valor ?? row.parcelamento_padrao_valor_parcela ?? null,
+    parcelamento_padrao_com_juros: row.parcelamento_padrao_com_juros ?? null,
+    parcelamento_max_vezes: row.parcelamento_max_vezes ?? null,
+    parcelamento_valor_parcela:
+      row.parcelamento_max_valor ?? row.parcelamento_valor_parcela ?? null,
+    parcelamento_com_juros:
+      row.parcelamento_max_com_juros ?? row.parcelamento_com_juros ?? null,
+  }
+}
+
+async function fetchCatalogTable({
+  table,
+  select,
+  query = '',
+  supabaseConfig,
+  fetchFn,
+  timeoutMs,
+}) {
   const controller = timeoutMs ? new AbortController() : null
   const timeoutHandle = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null
 
   try {
     const res = await fetchFn(
-      `${supabaseConfig.baseUrl}/rest/v1/products?select=${PRODUCTS_SELECT_OFICIAL}`,
+      `${supabaseConfig.baseUrl}/rest/v1/${table}?select=${select}${query}`,
       { headers: supabaseConfig.headers, ...(controller ? { signal: controller.signal } : {}) }
     )
     if (timeoutHandle) clearTimeout(timeoutHandle)
@@ -118,11 +152,61 @@ export async function fetchProductsCatalog(deps = {}) {
       return { ok: false, products: [], error_code: 'source_invalid_response' }
     }
 
-    return { ok: true, products }
+    return {
+      ok: true,
+      products: products.map(normalizeCatalogProduct),
+      source: table,
+    }
   } catch (err) {
     if (timeoutHandle) clearTimeout(timeoutHandle)
     const code = err?.name === 'AbortError' ? 'source_timeout' : 'source_unavailable'
     return { ok: false, products: [], error_code: code }
+  }
+}
+
+export async function fetchProductsCatalog(deps = {}) {
+  const { supabaseConfig, fetchImpl, timeoutMs } = deps
+  const fetchFn = fetchImpl ?? fetch
+
+  // Fonte oficial de leitura: Mirror/Shadow, que acompanha o catálogo atual
+  // usado no IGNITE. "Zero produtos" é uma resposta válida e NÃO aciona
+  // fallback, evitando ressuscitar itens antigos da tabela legacy.
+  const shadow = await fetchCatalogTable({
+    table: 'shadow_products',
+    select: SHADOW_PRODUCTS_SELECT,
+    query: '&ativo=eq.true',
+    supabaseConfig,
+    fetchFn,
+    timeoutMs,
+  })
+
+  if (shadow.ok) {
+    return shadow
+  }
+
+  // Fallback apenas por indisponibilidade/erro técnico do Mirror.
+  // Mantém a Gaby operacional sem usar a tabela antiga como "segunda opinião"
+  // quando um produto simplesmente não existe no Mirror.
+  const legacy = await fetchCatalogTable({
+    table: 'products',
+    select: LEGACY_PRODUCTS_SELECT,
+    supabaseConfig,
+    fetchFn,
+    timeoutMs,
+  })
+
+  if (legacy.ok) {
+    return {
+      ...legacy,
+      source: 'products_fallback',
+      primary_error_code: shadow.error_code,
+    }
+  }
+
+  return {
+    ok: false,
+    products: [],
+    error_code: legacy.error_code || shadow.error_code || 'source_unavailable',
   }
 }
 
