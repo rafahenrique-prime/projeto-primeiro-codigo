@@ -19,8 +19,11 @@ const DEFAULT_MIN_CONFIDENCE = 0.95
 const VALID_MODES = new Set(['off', 'shadow', 'guard'])
 
 export function getJevStoryMode() {
-  const mode = String(process.env.JEV_STORY_MODE || 'off').trim().toLowerCase()
-  return VALID_MODES.has(mode) ? mode : 'off'
+  // Preview é laboratório: se a flag não existir, observa em shadow.
+  // Production continua OFF por padrão até promoção explícita.
+  const defaultMode = process.env.VERCEL_ENV === 'preview' ? 'shadow' : 'off'
+  const mode = String(process.env.JEV_STORY_MODE || defaultMode).trim().toLowerCase()
+  return VALID_MODES.has(mode) ? mode : defaultMode
 }
 
 export function isExplicitStoryReference(text) {
