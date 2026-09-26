@@ -88,10 +88,18 @@ export function formatarProdutoComercial(product) {
  * @param {{ supabaseConfig: {baseUrl: string, headers: object}, fetchImpl?: Function }} deps
  * @returns {Promise<{ ok: boolean, products: Array, error_code?: string }>}
  */
+function normalizeNumber(value) {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function formatBasePrice(value) {
   if (value == null || value === '') return value
   if (typeof value === 'string' && /R\$/.test(value)) return value
-  return formatarPrecoBR(value)
+  const numeric = normalizeNumber(value)
+  return numeric == null ? null : formatarPrecoBR(numeric)
 }
 
 function normalizeCatalogProduct(row = {}) {
@@ -105,15 +113,17 @@ function normalizeCatalogProduct(row = {}) {
     link: row.link ?? null,
     codigo: row.codigo ?? null,
     marca: row.marca ?? null,
-    preco_tabela: row.preco_tabela ?? null,
-    preco_pix: row.preco_pix ?? null,
+    preco_tabela: normalizeNumber(row.preco_tabela),
+    preco_pix: normalizeNumber(row.preco_pix),
     parcelamento_padrao_vezes: row.parcelamento_padrao_vezes ?? null,
-    parcelamento_padrao_valor_parcela:
-      row.parcelamento_padrao_valor ?? row.parcelamento_padrao_valor_parcela ?? null,
+    parcelamento_padrao_valor_parcela: normalizeNumber(
+      row.parcelamento_padrao_valor ?? row.parcelamento_padrao_valor_parcela
+    ),
     parcelamento_padrao_com_juros: row.parcelamento_padrao_com_juros ?? null,
     parcelamento_max_vezes: row.parcelamento_max_vezes ?? null,
-    parcelamento_valor_parcela:
-      row.parcelamento_max_valor ?? row.parcelamento_valor_parcela ?? null,
+    parcelamento_valor_parcela: normalizeNumber(
+      row.parcelamento_max_valor ?? row.parcelamento_valor_parcela
+    ),
     parcelamento_com_juros:
       row.parcelamento_max_com_juros ?? row.parcelamento_com_juros ?? null,
   }
