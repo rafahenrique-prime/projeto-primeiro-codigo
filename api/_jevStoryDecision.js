@@ -216,6 +216,32 @@ export async function decideStoryWithJev({
     let action = route.choice
     let reason = 'JEV_ROUTE'
 
+    const selectedCandidate = safeCandidates.find((c) => c.id === selectedCandidateId)
+    const visualChoice = String(visualMatch?.choice || 'NONE')
+    const routeConfidence = Number(route.confidence ?? 0)
+    const routeProbability = typeof route.choice === 'string'
+      ? Number(route.probabilities?.[route.choice] ?? 0)
+      : 0
+
+    // Gate de consenso multimodal: não baixa o threshold global do JEV.
+    // Só libera quando três sinais independentes concordam no MESMO produto:
+    // 1) Visual Match >= .95; 2) catálogo forte >= 80; 3) JEV escolheu o mesmo
+    // candidato com confiança/probabilidade mínimas. Um BLOCK forte continua
+    // soberano; somente bloqueio fraco/indeciso pode ser superado.
+    const visualConsensus =
+      selectedCandidateId &&
+      selectedCandidateId !== 'NONE' &&
+      visualChoice === selectedCandidateId &&
+      Number(selectedCandidate?.visual_match_confidence ?? 0) >= 0.95 &&
+      Number(selectedCandidate?.score_catalogo ?? 0) >= 80 &&
+      confidence >= 0.80 &&
+      selectedProbability >= 0.85
+
+    const weakRouteBlock =
+      route.choice === 'BLOCK_ASSERTION' &&
+      routeConfidence < 0.50 &&
+      routeProbability < 0.65
+
     // A política final pertence ao código, não ao modelo.
     if (
       action === 'ALLOW_AUTO' &&
@@ -226,6 +252,9 @@ export async function decideStoryWithJev({
     ) {
       action = 'ALLOW_AUTO'
       reason = 'JEV_STRONG_SINGLE_MATCH'
+    } else if (visualConsensus && (route.choice === 'ALLOW_AUTO' || weakRouteBlock)) {
+      action = 'ALLOW_AUTO'
+      reason = 'MULTIMODAL_CONSENSUS_MATCH'
     } else if (action === 'BLOCK_ASSERTION') {
       action = 'BLOCK_ASSERTION'
       reason = 'JEV_BLOCK_ASSERTION'
