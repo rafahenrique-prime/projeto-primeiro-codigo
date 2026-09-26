@@ -19,10 +19,11 @@ const DEFAULT_MIN_CONFIDENCE = 0.95
 const VALID_MODES = new Set(['off', 'shadow', 'guard'])
 
 export function getJevStoryMode() {
-  // Preview e Production começam em SHADOW: observa decisões reais sem alterar
-  // a resposta da Gaby. Guard só entra por promoção explícita posterior.
+  // Preview permanece em SHADOW para validar novas mudanças sem impacto.
+  // Production foi promovido a GUARD após validação real + cenários controlados
+  // em 2026-09-26. Fora da Vercel, continua OFF por segurança.
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
-  const defaultMode = (env === 'preview' || env === 'production') ? 'shadow' : 'off'
+  const defaultMode = env === 'production' ? 'guard' : (env === 'preview' ? 'shadow' : 'off')
   const mode = String(process.env.JEV_STORY_MODE || defaultMode).trim().toLowerCase()
   return VALID_MODES.has(mode) ? mode : defaultMode
 }
