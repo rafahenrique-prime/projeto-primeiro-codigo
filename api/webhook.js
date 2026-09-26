@@ -858,35 +858,60 @@ export default async function handler(req, res) {
       }
 
       if (jevStoryMode === 'guard') {
-        // JEV passa a atuar como RANKER, não como filtro destrutivo.
-        // O catálogo continua decidindo quais opções existem; o JEV apenas
-        // prioriza a mais provável e define o nível de cautela da resposta.
-        // Assim preservamos recall comercial sem transformar ambiguidade em
-        // afirmação de produto exato.
-        const requiresStockVerification =
-          jevStoryDecision.action === 'ALLOW_AUTO' &&
-          (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
-
-        if (requiresStockVerification) {
-          jevStoryDecision = {
-            ...jevStoryDecision,
-            action: 'VERIFY_STOCK',
-            reason: 'STOCK_NOT_VERIFIED',
-          }
-        }
-
+        // JEV é o ranker final. Estoque/tamanho só pode virar fato depois de
+        // consultar shadow_product_variations do produto selecionado.
         const currentProducts = Array.isArray(resultado?.dados?.produtos)
           ? resultado.dados.produtos
           : []
 
-        if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
-          const selectedId = String(jevStoryDecision.selectedCandidateId || '')
-          const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
-          const selectedProduct = selectedIndex >= 0 ? currentProducts[selectedIndex] : null
+        const selectedId = String(jevStoryDecision.selectedCandidateId || '')
+        const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
+        let selectedProduct = selectedIndex >= 0 ? currentProducts[selectedIndex] : null
 
+        const requiresStockVerification =
+          jevStoryDecision.action === 'ALLOW_AUTO' &&
+          (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
+
+        if (requiresStockVerification && selectedProduct) {
+          const requestedSize = extractRequestedSize(pergunta)
+          stockVerification = await fetchShadowProductAvailability(
+            {
+              shadowProductId: selectedProduct.id,
+              requestedSize,
+            },
+            {
+              supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+            }
+          )
+
+          if (
+            stockVerification.status === 'AVAILABLE' ||
+            stockVerification.status === 'OUT_OF_STOCK'
+          ) {
+            selectedProduct = {
+              ...selectedProduct,
+              stock_verification_status: stockVerification.status,
+              stock_requested_size: stockVerification.requestedSize || null,
+            }
+            jevStoryDecision = {
+              ...jevStoryDecision,
+              reason: stockVerification.status === 'AVAILABLE'
+                ? 'STOCK_VERIFIED_AVAILABLE'
+                : 'STOCK_VERIFIED_OUT_OF_STOCK',
+            }
+          } else {
+            jevStoryDecision = {
+              ...jevStoryDecision,
+              action: 'VERIFY_STOCK',
+              reason: 'STOCK_NOT_VERIFIED',
+            }
+          }
+        }
+
+        if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
           if (selectedProduct) {
-            // Mantém TODAS as opções vindas do catálogo; só move a escolhida
-            // pelo JEV para o topo. Nenhum candidato é descartado aqui.
+            // Mantém as opções, mas move a escolhida para o topo. O objeto do
+            // selecionado pode carregar somente o status factual de estoque.
             const rankedProducts = [
               selectedProduct,
               ...currentProducts.filter((_, index) => index !== selectedIndex),
@@ -901,8 +926,6 @@ export default async function handler(req, res) {
               },
             }
           } else {
-            // Resposta inconsistente do JEV não apaga o catálogo. Rebaixa para
-            // esclarecimento e preserva as opções para a Gaby apresentar.
             jevStoryDecision = {
               ...jevStoryDecision,
               action: 'ASK_CLARIFY',
@@ -919,9 +942,6 @@ export default async function handler(req, res) {
             memoriaBlock = ''
           }
         } else {
-          // Baixa confiança/ambiguidade: preserva candidatos do catálogo, mas
-          // remove memória/knowledge de produto para evitar que contexto antigo
-          // transforme uma opção em certeza indevida.
           resultado = {
             ...resultado,
             dados: {
