@@ -11,7 +11,25 @@ import { prepararStoryImageDataUrl } from './_visaoProduto.js'
 const MODEL = process.env.STORY_VISUAL_MATCH_MODEL || 'google/gemini-2.5-flash-lite'
 const TIMEOUT_MS = 9000
 const MAX_CANDIDATES = 5
+const DEFAULT_MIN_CONFIDENCE = 0.95
+const VALID_MODES = new Set(['off', 'shadow', 'guard'])
 const ALLOWED_CATALOG_IMAGE_HOSTS = new Set(['cdn.dooca.store'])
+
+
+export function getStoryVisualMatchMode() {
+  // Enquanto V2 está em homologação: Preview aplica, Production fica OFF.
+  // Promoção posterior exige mudança explícita, evitando ativação acidental.
+  const env = String(process.env.VERCEL_ENV || '').toLowerCase()
+  const defaultMode = env === 'preview' ? 'guard' : 'off'
+  const mode = String(process.env.STORY_VISUAL_MATCH_MODE || defaultMode).trim().toLowerCase()
+  return VALID_MODES.has(mode) ? mode : defaultMode
+}
+
+export function getStoryVisualMatchMinConfidence() {
+  const raw = Number(process.env.STORY_VISUAL_MATCH_MIN_CONFIDENCE)
+  if (!Number.isFinite(raw) || raw < 0.5 || raw > 1) return DEFAULT_MIN_CONFIDENCE
+  return raw
+}
 
 function baseUrlDoDeployment() {
   const host = process.env.VERCEL_URL
