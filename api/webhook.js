@@ -90,7 +90,7 @@ async function warmupSupabase() {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3000)
 
-    await fetch(`${SUPABASE_URL}/rest/v1/products?select=id&limit=1`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/shadow_products?select=id&ativo=eq.true&limit=1`, {
       headers: sbHeaders,
       signal: controller.signal
     })

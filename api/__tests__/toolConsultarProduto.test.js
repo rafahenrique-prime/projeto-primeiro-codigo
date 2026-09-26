@@ -309,7 +309,9 @@ describe('consultarProduto — helper completo (fetch injetado)', () => {
     const fetchImpl = makeFetchImpl(PRODUTOS_FIXTURE)
     await consultarProduto({ query: 'cacau' }, { caller: 'prime_bridge' }, { supabaseConfig: SUPABASE_CONFIG, fetchImpl })
     const urlChamada = fetchImpl.mock.calls[0][0]
-    expect(urlChamada).toContain('select=id,nome,categoria,preco,imagem,link,codigo')
+    expect(urlChamada).toContain('/rest/v1/shadow_products?')
+    expect(urlChamada).toContain('select=id,bagy_product_id,nome,categoria_nome,preco,imagem_principal,link,codigo,marca')
+    expect(urlChamada).toContain('ativo=eq.true')
     expect(urlChamada).not.toContain('select=*')
   })
 
