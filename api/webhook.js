@@ -480,29 +480,70 @@ export default async function handler(req, res) {
     }
 
     const visual = await compararStoryComCandidatos(contexto.storyMediaUrl, merged)
-    const selected = visual?.selectedOriginalIndex != null
-      ? merged[visual.selectedOriginalIndex]
-      : null
+    const visualThreshold = getStoryVisualMatchMinConfidence()
+    const visualStrong =
+      visual?.status === 'ok' &&
+      visual?.choice !== 'NONE' &&
+      Number(visual?.confidence) >= visualThreshold &&
+      visual?.selectedOriginalIndex != null
 
-    const stock = selected
+    let decisionCandidates = merged
+    if (visualStrong) {
+      const selectedIndex = Number(visual.selectedOriginalIndex)
+      const selected = merged[selectedIndex]
+      if (selected) {
+        decisionCandidates = [
+          { ...selected, visual_match_confidence: Number(visual.confidence) },
+          ...merged.filter((_, index) => index !== selectedIndex),
+        ]
+      }
+    }
+
+    const question = String(
+      req.query.q || 'Qual valor? Ainda está disponível? óculos Dolce & Gabbana da imagem'
+    ).slice(0, 240)
+
+    const jev = await decideStoryWithJev({
+      question,
+      visionQuery,
+      visionEvidence: extrairEvidenciasDaVision(descricao || ''),
+      candidates: decisionCandidates,
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+      visualMatch: visual,
+    })
+
+    const selectedId = String(jev?.selectedCandidateId || '')
+    const selectedIndex = /^C[1-5]$/.test(selectedId)
+      ? Number(selectedId.slice(1)) - 1
+      : -1
+    const selectedByJev = selectedIndex >= 0 ? decisionCandidates[selectedIndex] : null
+
+    const stock = selectedByJev && (jev.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(question))
       ? await fetchShadowProductAvailability(
-          { shadowProductId: selected.id },
+          {
+            shadowProductId: selectedByJev.id,
+            requestedSize: extractRequestedSize(question),
+          },
           { supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders } }
         )
-      : { status: 'NOT_CHECKED', reason: 'NO_VISUAL_SELECTION' }
+      : { status: 'NOT_CHECKED', reason: 'NOT_REQUIRED_OR_NO_JEV_SELECTION' }
 
     return res.status(200).json({
       ok: true,
+      question,
       visionQuery,
-      candidates: merged.map((p, index) => ({
+      candidates: decisionCandidates.map((p, index) => ({
         id: `C${index + 1}`,
         nome: p.nome,
         marca: p.marca || null,
         categoria: p.categoria || null,
         score: p.score ?? null,
+        visualMatchConfidence: p.visual_match_confidence ?? null,
         bagyProductId: p.bagy_product_id ?? null,
       })),
       visual,
+      jev,
       stock,
     })
   }
