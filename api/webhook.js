@@ -395,6 +395,62 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  // LAB temporário, somente em Preview: valida a chamada real ao JEV sem
+  // criar uma 13ª Serverless Function no plano Hobby. Não recebe PII nem
+  // conversa real e não existe efeito colateral.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.jev_lab) {
+    const fixtures = {
+      strong: {
+        question: 'Quanto essa?',
+        visionQuery: 'New Balance 9060 Bege',
+        candidates: [
+          { nome: 'Tênis New Balance 9060 Bege', categoria: 'Tênis', marca: 'New Balance', score: 80 },
+          { nome: 'Tênis New Balance 9060 Gelo', categoria: 'Tênis', marca: 'New Balance', score: 47 },
+          { nome: 'Tênis Nike Dunk Bege', categoria: 'Tênis', marca: 'Nike', score: 23 },
+        ],
+      },
+      ambiguous: {
+        question: 'Quanto o cinza?',
+        visionQuery: 'New Balance 9060 Cinza',
+        candidates: [
+          { nome: 'Tênis New Balance 9060 Cinza Claro', categoria: 'Tênis', marca: 'New Balance', score: 55 },
+          { nome: 'Tênis New Balance 9060 Cinza Escuro', categoria: 'Tênis', marca: 'New Balance', score: 53 },
+          { nome: 'Tênis Nike Dunk Cinza', categoria: 'Tênis', marca: 'Nike', score: 32 },
+        ],
+      },
+      mismatch: {
+        question: 'Tem 37?',
+        visionQuery: 'New Balance 9060 Bege',
+        candidates: [
+          { nome: 'Camiseta Diesel Preta', categoria: 'Camiseta', marca: 'Diesel', score: 28 },
+          { nome: 'Calça Jeans Diesel Azul', categoria: 'Calça', marca: 'Diesel', score: 27 },
+        ],
+      },
+    }
+
+    const caseName = String(req.query.jev_lab)
+    const fixture = fixtures[caseName]
+    if (!fixture) return res.status(400).json({ error: 'invalid_case' })
+
+    const decision = await decideStoryWithJev({
+      ...fixture,
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+    })
+
+    return res.status(200).json({
+      case: caseName,
+      status: decision.status,
+      action: decision.action,
+      selectedCandidateId: decision.selectedCandidateId,
+      confidence: decision.confidence,
+      selectedProbability: decision.selectedProbability,
+      reason: decision.reason,
+      model: decision.model || null,
+      costUsd: decision.costUsd ?? null,
+    })
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
