@@ -52,6 +52,9 @@ function sanitizeCandidate(product, index) {
     categoria: String(product?.categoria || '').slice(0, 100),
     marca: String(product?.marca || '').slice(0, 100),
     score_catalogo: Number.isFinite(Number(product?.score)) ? Number(product.score) : null,
+    visual_match_confidence: Number.isFinite(Number(product?.visual_match_confidence))
+      ? Number(product.visual_match_confidence)
+      : null,
   }
 }
 
@@ -76,6 +79,7 @@ export async function decideStoryWithJev({
   candidates,
   storyContextStatus,
   visionStatus,
+  visualMatch = null,
 }) {
   const mode = getJevStoryMode()
   if (mode === 'off') {
@@ -106,6 +110,9 @@ export async function decideStoryWithJev({
         candidate.categoria ? `Categoria: ${candidate.categoria}` : '',
         candidate.marca ? `Marca: ${candidate.marca}` : '',
         candidate.score_catalogo != null ? `Score determinístico do catálogo: ${candidate.score_catalogo}` : '',
+        candidate.visual_match_confidence != null
+          ? `Visual Match Story x foto do catálogo: ${candidate.visual_match_confidence}`
+          : '',
       ].filter(Boolean).join(' | '),
     ]),
     ['NONE', 'Nenhum candidato pode ser associado com segurança ao produto referenciado no Story.'],
@@ -124,6 +131,13 @@ export async function decideStoryWithJev({
       tipo: String(visionEvidence.tipo || '').slice(0, 120),
       marca: String(visionEvidence.marca || '').slice(0, 120),
       cor: String(visionEvidence.cor || '').slice(0, 120),
+    } : null,
+    visual_match: visualMatch && typeof visualMatch === 'object' ? {
+      choice: String(visualMatch.choice || 'NONE').slice(0, 20),
+      confidence: Number.isFinite(Number(visualMatch.confidence))
+        ? Number(visualMatch.confidence)
+        : null,
+      status: String(visualMatch.status || 'UNKNOWN').slice(0, 40),
     } : null,
     candidates: safeCandidates,
   }
@@ -145,7 +159,7 @@ export async function decideStoryWithJev({
           product: {
             type: 'choice',
             instructions:
-              'Escolha qual candidato do catálogo corresponde ao produto referenciado pelo cliente no Story atual. Use apenas as evidências do state. Se houver ambiguidade relevante, conflito ou evidência insuficiente, escolha NONE.',
+              'Escolha qual candidato do catálogo corresponde ao produto referenciado pelo cliente no Story atual. Use apenas as evidências do state. Visual Match compara pixels do Story com a foto real do catálogo e é evidência forte quando a confiança é alta, mas nunca supera conflito determinístico de categoria. Se houver ambiguidade relevante, conflito ou evidência insuficiente, escolha NONE.',
             criteria,
           },
           intent: {
