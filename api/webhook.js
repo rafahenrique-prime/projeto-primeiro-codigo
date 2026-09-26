@@ -503,6 +503,10 @@ export default async function handler(req, res) {
       req.query.q || 'Qual valor? Ainda está disponível? óculos Dolce & Gabbana da imagem'
     ).slice(0, 240)
 
+    const visualForJev = visualStrong
+      ? { ...visual, choice: 'C1', selectedOriginalIndex: 0 }
+      : visual
+
     const jev = await decideStoryWithJev({
       question,
       visionQuery,
@@ -510,7 +514,7 @@ export default async function handler(req, res) {
       candidates: decisionCandidates,
       storyContextStatus: 'STORY_FOUND_VISION_OK',
       visionStatus: 'success',
-      visualMatch: visual,
+      visualMatch: visualForJev,
     })
 
     const selectedId = String(jev?.selectedCandidateId || '')
@@ -801,6 +805,15 @@ export default async function handler(req, res) {
             selectedAnnotated,
             ...merged.filter((_, index) => index !== selectedIndex),
           ]
+
+          // Após mover o selecionado para o topo, o ID semântico dele passa
+          // a ser C1 para o JEV. Remapeia a evidência visual para não enviar
+          // "choice=C4" junto de um candidato C1 marcado com visual=0.95.
+          visualMatchDecision = {
+            ...visualMatchDecision,
+            choice: 'C1',
+            selectedOriginalIndex: 0,
+          }
 
           resultado = {
             ...resultado,
