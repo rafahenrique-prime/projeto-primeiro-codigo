@@ -9,7 +9,7 @@ import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial,
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
-import { compararStoryComCandidatos } from './_visualMatchProduto.js'
+import { compararStoryComCandidatos, getStoryVisualMatchMode, getStoryVisualMatchMinConfidence } from './_visualMatchProduto.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -243,6 +243,17 @@ export function isStoryStockOrSizeQuestion(text) {
   }
 
   return /\btem\s+(?:o\s+|a\s+)?(?:\d{2}|pp|p|m|g|gg|xg|xxg)\b/.test(value)
+}
+
+export function extractRequestedSize(text) {
+  const value = normalizarBusca(text)
+  if (!value) return null
+
+  const explicit = value.match(
+    /\b(?:tamanho|tam|numero|numeracao|tem)\s+(?:o\s+|a\s+)?(pp|p|m|g|gg|xg|xxg|\d{2})\b/
+  )
+  if (!explicit) return null
+  return String(explicit[1]).toUpperCase()
 }
 
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
@@ -587,6 +598,19 @@ export default async function handler(req, res) {
     // falham — aí sobra só a memória antiga pra Gaby usar, sem supressão).
     let hasCurrentStory = false
     let visionDecisionEvidence = null
+    let storyMediaUrlForDecision = null
+    const visualMatchMode = getStoryVisualMatchMode()
+    let visualMatchDecision = {
+      status: 'not_attempted',
+      choice: 'NONE',
+      confidence: null,
+      reason: 'NOT_ELIGIBLE',
+    }
+    let stockVerification = {
+      status: 'NOT_CHECKED',
+      reason: 'NOT_REQUIRED',
+      requestedSize: null,
+    }
 
     // JEV Story Guard V1: desligado por padrão. Em shadow, só observa; em
     // guard, aplica política fail-closed exclusivamente em referências de Story.
@@ -624,6 +648,7 @@ export default async function handler(req, res) {
           // produto histórico, não o resultado da Vision/parser mais abaixo.
           hasCurrentStory = true
           storyIdParaTrace = contextoStory.storyId
+          storyMediaUrlForDecision = contextoStory.storyMediaUrl
           const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl, {
             correlationId,
             storyId: contextoStory.storyId,
