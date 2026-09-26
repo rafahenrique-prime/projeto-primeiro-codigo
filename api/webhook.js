@@ -398,6 +398,82 @@ export default async function handler(req, res) {
   // LAB temporário, somente em Preview: valida a chamada real ao JEV sem
   // criar uma 13ª Serverless Function no plano Hobby. Não recebe PII nem
   // conversa real e não existe efeito colateral.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.real_story_chat) {
+    const labChatId = String(req.query.real_story_chat || '')
+    const labQuestion = String(req.query.q || 'Qual valor?').slice(0, 120)
+    const labCorrelationId = crypto.randomUUID()
+
+    const contextoStory = await getStoryContext(labChatId)
+    if (contextoStory.status !== 'FOUND' || !contextoStory.storyMediaUrl) {
+      return res.status(200).json({
+        lab: 'real_story',
+        storyContextStatus: contextoStory.status,
+        visionStatus: 'not_attempted',
+        candidateScores: [],
+        decision: null,
+      })
+    }
+
+    const descricaoVisual = await identificarProdutoPorImagem(contextoStory.storyMediaUrl, {
+      correlationId: labCorrelationId,
+      storyId: contextoStory.storyId,
+    })
+    if (!descricaoVisual) {
+      return res.status(200).json({
+        lab: 'real_story',
+        storyContextStatus: 'FOUND',
+        visionStatus: 'failed',
+        candidateScores: [],
+        decision: null,
+      })
+    }
+
+    const queryCompacta = extrairQueryCompactaDaVision(descricaoVisual)
+    if (!queryCompacta) {
+      return res.status(200).json({
+        lab: 'real_story',
+        storyContextStatus: 'FOUND',
+        visionStatus: 'success_empty_query',
+        candidateScores: [],
+        decision: null,
+      })
+    }
+
+    const labResultado = await searchKnowledge(queryCompacta, labQuestion)
+    const labCandidates = (labResultado?.dados?.produtos || [])
+      .filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD)
+      .slice(0, 5)
+
+    const labDecision = await decideStoryWithJev({
+      question: labQuestion,
+      visionQuery: queryCompacta,
+      candidates: labCandidates,
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+    })
+
+    return res.status(200).json({
+      lab: 'real_story',
+      storyContextStatus: 'FOUND',
+      visionStatus: 'success',
+      candidateScores: labCandidates.map((p) => p.score),
+      candidates: labCandidates.map((p, i) => ({
+        id: `C${i + 1}`,
+        nome: String(p?.nome || '').slice(0, 120),
+      })),
+      decision: {
+        status: labDecision.status,
+        action: labDecision.action,
+        selectedCandidateId: labDecision.selectedCandidateId,
+        confidence: labDecision.confidence,
+        selectedProbability: labDecision.selectedProbability,
+        reason: labDecision.reason,
+        model: labDecision.model || null,
+        costUsd: labDecision.costUsd ?? null,
+      },
+    })
+  }
+
   if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.jev_lab) {
     const fixtures = {
       strong: {
