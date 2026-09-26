@@ -978,6 +978,12 @@ export default async function handler(req, res) {
       top_candidate_scores: topCandidateScores,
       confident_candidates_count: isStorySearch ? confidentCandidatesCount : null,
       story_match_threshold: isStorySearch ? STORY_MATCH_CONFIDENCE_THRESHOLD : null,
+      visual_match_mode: visualMatchMode,
+      visual_match_status: visualMatchDecision.status,
+      visual_match_choice: visualMatchDecision.choice,
+      visual_match_confidence: visualMatchDecision.confidence,
+      stock_verification_status: stockVerification.status,
+      stock_verification_reason: stockVerification.reason,
       jev_story_mode: jevStoryMode,
       jev_status: jevStoryDecision.status,
       jev_action: jevStoryDecision.action,
@@ -1007,26 +1013,42 @@ export default async function handler(req, res) {
         reason: jevStoryDecision.reason,
       }
 
-      // Em Story Guard, existência do produto nunca é convertida em estoque.
+      // Só o primeiro produto pode receber disponibilidade confirmada, e
+      // somente quando shadow_product_variations respondeu deterministicamente.
       if (Array.isArray(respostaGPT.dados.produtos)) {
-        respostaGPT.dados.produtos = respostaGPT.dados.produtos.map((p) => ({
+        respostaGPT.dados.produtos = respostaGPT.dados.produtos.map((p, index) => ({
           ...p,
-          disponibilidade: 'NÃO CONFIRMADA',
+          disponibilidade:
+            index === 0 && stockVerification.status === 'AVAILABLE'
+              ? 'SIM — CONFIRMADA NO ESTOQUE'
+              : index === 0 && stockVerification.status === 'OUT_OF_STOCK'
+                ? 'NÃO — SEM ESTOQUE'
+                : 'NÃO CONFIRMADA',
         }))
       }
 
       if (jevStoryDecision.action === 'ALLOW_AUTO') {
-        const instruction = 'PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança, mas NÃO trate a lista como correspondência única. Apresente o primeiro como o mais provável e, quando útil, mostre também as alternativas retornadas pelo catálogo. NÃO afirme estoque/tamanho sem verificação específica.'
+        const stockFact = stockVerification.status === 'AVAILABLE'
+          ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está disponível; pode informar disponibilidade.'
+          : stockVerification.status === 'OUT_OF_STOCK'
+            ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está sem estoque; pode informar indisponibilidade.'
+            : ' NÃO afirme estoque/tamanho sem verificação específica.'
+        const instruction = `PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança. Apresente-o como o produto identificado pelo fluxo atual.${stockFact}`
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'VERIFY_STOCK') {
-        const instruction = 'PRIME DECISION LAYER: o primeiro produto é o mais provável, porém tamanho/estoque NÃO foi verificado. Preserve as alternativas do catálogo. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
+        const instruction = 'PRIME DECISION LAYER: o produto foi identificado, porém tamanho/estoque NÃO pôde ser verificado. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'ASK_CLARIFY') {
         const instruction = 'PRIME DECISION LAYER: confiança média/baixa. NÃO escolha um único produto como certeza. Mostre de 2 a 5 opções mais relacionadas que vieram do catálogo e faça UMA pergunta curta para o cliente confirmar cor/modelo/produto.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'BLOCK_ASSERTION') {
-        const instruction = 'PRIME DECISION LAYER: contexto insuficiente para afirmar qual é o produto exato. Se o catálogo retornou opções, apresente-as apenas como possibilidades relacionadas e peça ao cliente para confirmar qual delas é; não invente produto, preço, tamanho ou disponibilidade.'
-        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+        // Hard gate: não entrega preços/opções quando nem o produto foi
+        // confirmado. Isso força a linguagem aprovada de pedir o print.
+        respostaGPT.dados.produtos = []
+        respostaGPT.contexto.produtos_encontrados = 0
+        respostaGPT.contexto.tem_produtos = false
+        const instruction = 'PRIME DECISION LAYER: não foi possível confirmar com segurança o produto exato do Story. NÃO cite preço, produto similar, estoque ou alternativas. Responda de forma curta: “Como veio pelo Story, não consegui confirmar com segurança o modelo exato. Pode me mandar um print da foto? Aí verifico certinho pra você 😊”'
+        respostaGPT.dados.informacao_adicional = instruction
       }
     }
 
