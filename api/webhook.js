@@ -233,6 +233,17 @@ export function extrairEvidenciasDaVision(descricaoVisual) {
   return Object.values(evidence).some(Boolean) ? evidence : null
 }
 
+export function isStoryStockOrSizeQuestion(text) {
+  const value = normalizarBusca(text)
+  if (!value) return false
+
+  if (/\b(estoque|disponivel|disponibilidade|tamanho|tamanhos|numeracao|numero)\b/.test(value)) {
+    return true
+  }
+
+  return /\btem\s+(?:o\s+|a\s+)?(?:\d{2}|pp|p|m|g|gg|xg|xxg)\b/.test(value)
+}
+
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
 // considerado confiável. Não altera calcularSimilaridade() nem os scores em
 // si — só decide, depois da busca já feita, se o que veio de volta é forte o
@@ -516,6 +527,8 @@ export default async function handler(req, res) {
       confidence: null,
       selectedProbability: null,
       reason: 'NOT_ELIGIBLE',
+      intent: 'UNKNOWN',
+      intentConfidence: null,
     }
 
     // Story do Instagram (best-effort, nunca bloqueia nem quebra o fluxo normal):
@@ -643,6 +656,8 @@ export default async function handler(req, res) {
           confidence: null,
           selectedProbability: null,
           reason: 'EXPLICIT_STORY_REFERENCE_WITHOUT_CONTEXT',
+          intent: 'UNKNOWN',
+          intentConfidence: null,
         }
       } else if (visionStatus !== 'success' || !isStorySearch) {
         jevStoryDecision = {
@@ -652,6 +667,8 @@ export default async function handler(req, res) {
           confidence: null,
           selectedProbability: null,
           reason: 'STORY_CONTEXT_WITHOUT_USABLE_VISION',
+          intent: 'UNKNOWN',
+          intentConfidence: null,
         }
       } else {
         jevStoryDecision = await decideStoryWithJev({
@@ -665,7 +682,22 @@ export default async function handler(req, res) {
       }
 
       if (jevStoryMode === 'guard') {
-        if (jevStoryDecision.action === 'ALLOW_AUTO') {
+        // Hard-fact gate: resolver o PRODUTO não equivale a confirmar estoque
+        // ou tamanho. Até existir lookup determinístico de variação, perguntas
+        // desse tipo nunca recebem "sim/não" automático.
+        const requiresStockVerification =
+          jevStoryDecision.action === 'ALLOW_AUTO' &&
+          (jevStoryDecision.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(pergunta))
+
+        if (requiresStockVerification) {
+          jevStoryDecision = {
+            ...jevStoryDecision,
+            action: 'VERIFY_STOCK',
+            reason: 'STOCK_NOT_VERIFIED',
+          }
+        }
+
+        if (jevStoryDecision.action === 'ALLOW_AUTO' || jevStoryDecision.action === 'VERIFY_STOCK') {
           const selectedId = String(jevStoryDecision.selectedCandidateId || '')
           const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
           const selectedProduct = selectedIndex >= 0 ? resultado?.dados?.produtos?.[selectedIndex] : null
@@ -676,6 +708,7 @@ export default async function handler(req, res) {
               dados: {
                 ...resultado.dados,
                 produtos: [selectedProduct],
+                knowledge: null,
                 totalResultados: 1,
                 totalVariacoes: 1,
                 variacoesRestantes: 0,
@@ -693,6 +726,7 @@ export default async function handler(req, res) {
               dados: {
                 ...resultado.dados,
                 produtos: [],
+                knowledge: null,
                 totalResultados: 0,
                 totalVariacoes: 0,
                 variacoesRestantes: 0,
@@ -706,6 +740,7 @@ export default async function handler(req, res) {
             dados: {
               ...resultado.dados,
               produtos: [],
+              knowledge: null,
               totalResultados: 0,
               totalVariacoes: 0,
               variacoesRestantes: 0,
@@ -746,6 +781,8 @@ export default async function handler(req, res) {
       jev_confidence: jevStoryDecision.confidence,
       jev_selected_probability: jevStoryDecision.selectedProbability,
       jev_reason: jevStoryDecision.reason,
+      jev_intent: jevStoryDecision.intent,
+      jev_intent_confidence: jevStoryDecision.intentConfidence,
     }))
 
     if (!resultado.ok) {
@@ -767,7 +804,21 @@ export default async function handler(req, res) {
         reason: jevStoryDecision.reason,
       }
 
-      if (jevStoryDecision.action === 'ASK_CLARIFY') {
+      // Em Story Guard, existência do produto nunca é convertida em estoque.
+      if (Array.isArray(respostaGPT.dados.produtos)) {
+        respostaGPT.dados.produtos = respostaGPT.dados.produtos.map((p) => ({
+          ...p,
+          disponibilidade: 'NÃO CONFIRMADA',
+        }))
+      }
+
+      if (jevStoryDecision.action === 'ALLOW_AUTO') {
+        const instruction = 'PRIME DECISION LAYER: produto do Story identificado com alta confiança. Use somente os dados do produto retornado. NÃO afirme estoque/tamanho como disponível sem verificação específica.'
+        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+      } else if (jevStoryDecision.action === 'VERIFY_STOCK') {
+        const instruction = 'PRIME DECISION LAYER: produto identificado, mas tamanho/estoque NÃO foi verificado. NÃO responda sim/não sobre disponibilidade. Informe de forma curta que precisa confirmar e encaminhe para atendimento humano.'
+        respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
+      } else if (jevStoryDecision.action === 'ASK_CLARIFY') {
         const instruction = 'PRIME DECISION LAYER: há ambiguidade no Story. NÃO afirme produto, preço, tamanho ou disponibilidade. Faça UMA pergunta curta para o cliente confirmar qual cor/modelo/produto deseja.'
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'BLOCK_ASSERTION') {

@@ -61,6 +61,12 @@ describe('api/_jevStoryDecision.js — Story Guard V1', () => {
           probabilities: { C1: 0.99, C2: 0.01, NONE: 0 },
           confidence: 0.99,
         },
+        intent: {
+          type: 'choice',
+          choice: 'PRICE',
+          probabilities: { PRICE: 0.99, SIZE_STOCK: 0.01, PHOTO: 0, COLOR_MODEL: 0, OTHER: 0 },
+          confidence: 0.99,
+        },
         route: {
           type: 'choice',
           choice: 'ALLOW_AUTO',
@@ -86,6 +92,7 @@ describe('api/_jevStoryDecision.js — Story Guard V1', () => {
     expect(result.action).toBe('ALLOW_AUTO')
     expect(result.selectedCandidateId).toBe('C1')
     expect(result.confidence).toBe(0.99)
+    expect(result.intent).toBe('PRICE')
   })
 
   it('rebaixa ALLOW_AUTO para ASK_CLARIFY quando confiança não atinge o gate', async () => {
@@ -97,6 +104,12 @@ describe('api/_jevStoryDecision.js — Story Guard V1', () => {
           choice: 'C1',
           probabilities: { C1: 0.72, C2: 0.28, NONE: 0 },
           confidence: 0.70,
+        },
+        intent: {
+          type: 'choice',
+          choice: 'PRICE',
+          probabilities: { PRICE: 0.90, SIZE_STOCK: 0.03, PHOTO: 0.02, COLOR_MODEL: 0.03, OTHER: 0.02 },
+          confidence: 0.88,
         },
         route: {
           type: 'choice',
