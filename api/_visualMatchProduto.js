@@ -17,10 +17,11 @@ const ALLOWED_CATALOG_IMAGE_HOSTS = new Set(['cdn.dooca.store'])
 
 
 export function getStoryVisualMatchMode() {
-  // Enquanto V2 está em homologação: Preview aplica, Production fica OFF.
-  // Promoção posterior exige mudança explícita, evitando ativação acidental.
+  // V2 homologada: Preview e Production usam GUARD.
+  // Fora da Vercel continua OFF. A env STORY_VISUAL_MATCH_MODE permite
+  // rollback imediato para shadow/off sem alterar o restante do fluxo.
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
-  const defaultMode = env === 'preview' ? 'guard' : 'off'
+  const defaultMode = (env === 'preview' || env === 'production') ? 'guard' : 'off'
   const mode = String(process.env.STORY_VISUAL_MATCH_MODE || defaultMode).trim().toLowerCase()
   return VALID_MODES.has(mode) ? mode : defaultMode
 }
