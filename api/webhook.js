@@ -9,6 +9,7 @@ import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial 
 import { getStoryContext } from './_storyContext.js'
 import { identificarProdutoPorImagem } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
+import { compararStoryComCandidatos } from './_visualMatchProduto.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -422,6 +423,48 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
+  }
+
+  // LAB temporário — somente Preview, sem envio ao cliente.
+  // Usa o último Story real do chat + hint comercial apenas para EXPANDIR
+  // candidatos. A decisão final continua sendo visual.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.visual_match_lab) {
+    const chatId = String(req.query.visual_match_lab || '').slice(0, 160)
+    const hint = String(req.query.hint || '').slice(0, 160)
+    const contexto = await getStoryContext(chatId)
+    if (contexto.status !== 'FOUND' || !contexto.storyMediaUrl) {
+      return res.status(200).json({ ok: false, stage: 'story_context', status: contexto.status })
+    }
+
+    const descricao = await identificarProdutoPorImagem(contexto.storyMediaUrl)
+    const visionQuery = extrairQueryCompactaDaVision(descricao || '')
+    const primary = visionQuery ? await buscarProdutos(visionQuery) : { produtos: [] }
+    const supplemental = hint ? await buscarProdutos(hint) : { produtos: [] }
+
+    const merged = []
+    const seen = new Set()
+    for (const p of [...(primary.produtos || []), ...(supplemental.produtos || [])]) {
+      const key = String(p.bagy_product_id || p.id || p.nome)
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(p)
+      if (merged.length >= 5) break
+    }
+
+    const visual = await compararStoryComCandidatos(contexto.storyMediaUrl, merged)
+
+    return res.status(200).json({
+      ok: true,
+      visionQuery,
+      candidates: merged.map((p, index) => ({
+        id: `C${index + 1}`,
+        nome: p.nome,
+        marca: p.marca || null,
+        score: p.score ?? null,
+        bagyProductId: p.bagy_product_id ?? null,
+      })),
+      visual,
+    })
   }
 
   if (req.method !== 'POST') {
