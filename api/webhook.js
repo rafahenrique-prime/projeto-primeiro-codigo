@@ -424,6 +424,25 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  // LAB temporário — somente Preview, sem PII e sem efeito colateral.
+  // Valida a nova fonte shadow_products usando exatamente buscarProdutos().
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.catalog_lab) {
+    const query = String(req.query.catalog_lab).slice(0, 120)
+    const result = await buscarProdutos(query)
+    return res.status(200).json({
+      query,
+      total: result.total,
+      produtos: (result.produtos || []).slice(0, 5).map((p) => ({
+        nome: p.nome,
+        marca: p.marca || null,
+        preco: p.preco,
+        precoPix: p.preco_pix ?? null,
+        score: p.score,
+        bagyProductId: p.bagy_product_id ?? null,
+      })),
+    })
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
