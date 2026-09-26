@@ -413,6 +413,63 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  // Preview-only JEV validation lab. Reuses this existing function so the
+  // Vercel Hobby function-count limit is unchanged. No customer data/PII.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.jev_validate) {
+    const fixtures = {
+      strong: {
+        question: 'Quanto essa?',
+        visionQuery: 'Regata Alo Feminina Importada Branca',
+        visionEvidence: { nome: 'Regata Alo Feminina Importada', tipo: 'Regata', marca: 'Alo', cor: 'Branca' },
+        candidates: [
+          { nome: 'Regata Alo Feminina Importada Branca', categoria: 'Feminino', marca: 'Alo', score: 80 },
+          { nome: 'Regata Alo Feminina Importada Preta', categoria: 'Feminino', marca: 'Alo', score: 58 },
+          { nome: 'Conjunto Alo Fitness Top Alça Fina com Legging - Cinza', categoria: 'Feminino', marca: 'Alo', score: 33 },
+        ],
+      },
+      ambiguous: {
+        question: 'Qual valor?',
+        visionQuery: 'Regata Alo Feminina Importada Branca',
+        visionEvidence: { nome: 'Regata Alo Feminina Importada', tipo: 'Regata', marca: 'Alo', cor: 'Branca' },
+        candidates: [
+          { nome: 'Regata Alo Feminina Importada Branca', categoria: 'Feminino', marca: 'Alo', score: 56 },
+          { nome: 'Regata Alo Feminina Importada Branca - TESTE OFICIAL', categoria: 'Feminino', marca: 'Alo', score: 56 },
+          { nome: 'Regata Alo Feminina Importada Preta', categoria: 'Feminino', marca: 'Alo', score: 40 },
+        ],
+      },
+      mismatch: {
+        question: 'Tem 37?',
+        visionQuery: 'New Balance 9060 Bege',
+        visionEvidence: { nome: 'New Balance 9060', tipo: 'Tênis', marca: 'New Balance', cor: 'Bege' },
+        candidates: [
+          { nome: 'Camiseta Diesel Preta', categoria: 'Camiseta', marca: 'Diesel', score: 28 },
+          { nome: 'Calça Jeans Diesel Azul', categoria: 'Calça', marca: 'Diesel', score: 27 },
+        ],
+      },
+    }
+
+    const fixture = fixtures[String(req.query.jev_validate)]
+    if (!fixture) return res.status(400).json({ error: 'invalid_case' })
+
+    const decision = await decideStoryWithJev({
+      ...fixture,
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+    })
+
+    return res.status(200).json({
+      case: String(req.query.jev_validate),
+      status: decision.status,
+      action: decision.action,
+      selectedCandidateId: decision.selectedCandidateId,
+      confidence: decision.confidence,
+      selectedProbability: decision.selectedProbability,
+      reason: decision.reason,
+      model: decision.model || null,
+      costUsd: decision.costUsd ?? null,
+    })
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
