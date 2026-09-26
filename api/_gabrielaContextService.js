@@ -220,6 +220,103 @@ export async function fetchProductsCatalog(deps = {}) {
   }
 }
 
+
+
+function normalizeAttrText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function variationMatchesSize(attributes, requestedSize) {
+  if (!requestedSize) return true
+  const target = normalizeAttrText(requestedSize)
+  if (!target) return true
+
+  const values = attributes && typeof attributes === 'object'
+    ? Object.values(attributes)
+    : []
+
+  return values.some((value) => normalizeAttrText(value) === target)
+}
+
+/**
+ * Verifica disponibilidade real no Mirror para um produto já identificado.
+ * Nunca infere estoque pela existência do produto.
+ *
+ * AVAILABLE     -> ao menos uma variação relevante tem stock_quantity > 0
+ * OUT_OF_STOCK  -> variação relevante existe, mas todas têm estoque 0
+ * UNKNOWN       -> sem variações ou tamanho solicitado não encontrado
+ */
+export async function fetchShadowProductAvailability({
+  shadowProductId,
+  requestedSize = null,
+} = {}, deps = {}) {
+  const { supabaseConfig, fetchImpl, timeoutMs = 3500 } = deps
+  if (!shadowProductId || !supabaseConfig?.baseUrl) {
+    return { status: 'UNKNOWN', reason: 'INVALID_INPUT' }
+  }
+
+  const fetchFn = fetchImpl ?? fetch
+  const controller = new AbortController()
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const url = `${supabaseConfig.baseUrl}/rest/v1/shadow_product_variations` +
+      `?shadow_product_id=eq.${encodeURIComponent(shadowProductId)}` +
+      '&select=stock_quantity,attributes,selling_out_of_stock,balance_raw'
+
+    const res = await fetchFn(url, {
+      headers: supabaseConfig.headers,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutHandle)
+
+    if (!res.ok) return { status: 'UNKNOWN', reason: 'SOURCE_UNAVAILABLE' }
+
+    const rows = await res.json().catch(() => null)
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { status: 'UNKNOWN', reason: 'NO_VARIATIONS' }
+    }
+
+    const relevant = rows.filter((row) => variationMatchesSize(row?.attributes, requestedSize))
+    if (relevant.length === 0) {
+      return { status: 'UNKNOWN', reason: 'SIZE_NOT_FOUND', requestedSize }
+    }
+
+    const quantities = relevant
+      .map((row) => Number(row?.stock_quantity))
+      .filter((n) => Number.isFinite(n))
+
+    if (quantities.some((n) => n > 0)) {
+      return {
+        status: 'AVAILABLE',
+        reason: requestedSize ? 'SIZE_IN_STOCK' : 'PRODUCT_IN_STOCK',
+        requestedSize,
+      }
+    }
+
+    if (quantities.length === relevant.length && quantities.every((n) => n === 0)) {
+      return {
+        status: 'OUT_OF_STOCK',
+        reason: requestedSize ? 'SIZE_OUT_OF_STOCK' : 'PRODUCT_OUT_OF_STOCK',
+        requestedSize,
+      }
+    }
+
+    return { status: 'UNKNOWN', reason: 'STOCK_NOT_DETERMINISTIC', requestedSize }
+  } catch (err) {
+    clearTimeout(timeoutHandle)
+    return {
+      status: 'UNKNOWN',
+      reason: err?.name === 'AbortError' ? 'SOURCE_TIMEOUT' : 'SOURCE_UNAVAILABLE',
+      requestedSize,
+    }
+  }
+}
+
 /**
  * Busca a linha fixa de knowledge (title=eq.knowledge_gabriela_supabase_completo).
  * Mesma URL/select já usados hoje em api/webhook.js (buscarKnowledge).
