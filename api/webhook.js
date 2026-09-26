@@ -436,6 +436,123 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  // LAB temporário — Preview-only. Exercita Visual Match -> JEV -> estoque
+  // com Story real, sem enviar resposta ao GPT Maker/cliente.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.full_story_lab) {
+    const chatId = String(req.query.full_story_lab || '').slice(0, 160)
+    const question = String(req.query.question || 'Qual valor? Ainda está disponível?').slice(0, 220)
+    const hint = String(req.query.hint || '').slice(0, 160)
+
+    const contexto = await getStoryContext(chatId)
+    if (contexto.status !== 'FOUND' || !contexto.storyMediaUrl) {
+      return res.status(200).json({ ok: false, stage: 'story_context', status: contexto.status })
+    }
+
+    const descricao = await identificarProdutoPorImagem(contexto.storyMediaUrl)
+    const visionQuery = extrairQueryCompactaDaVision(descricao || '')
+    const visionEvidence = extrairEvidenciasDaVision(descricao || '')
+    const primary = visionQuery ? await buscarProdutos(visionQuery) : { produtos: [] }
+    const supplemental = hint ? await buscarProdutos(hint) : { produtos: [] }
+
+    const baseCategory = normalizarBusca(primary.produtos?.[0]?.categoria || '')
+    const supplementalSameCategory = (supplemental.produtos || []).filter((p) => {
+      if (!baseCategory) return true
+      return normalizarBusca(p?.categoria || '') === baseCategory
+    })
+
+    const merged = []
+    const seen = new Set()
+    const interleaved = [
+      ...(primary.produtos || []).slice(0, 3),
+      ...supplementalSameCategory.slice(0, 3),
+      ...(primary.produtos || []).slice(3),
+      ...supplementalSameCategory.slice(3),
+    ]
+    for (const p of interleaved) {
+      const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      merged.push(p)
+      if (merged.length >= 5) break
+    }
+
+    let visual = await compararStoryComCandidatos(contexto.storyMediaUrl, merged)
+    const visualStrong =
+      visual?.status === 'ok' &&
+      visual?.choice !== 'NONE' &&
+      Number(visual?.confidence) >= getStoryVisualMatchMinConfidence() &&
+      visual?.selectedOriginalIndex != null
+
+    let ranked = [...merged]
+    if (visualStrong) {
+      const idx = Number(visual.selectedOriginalIndex)
+      const selected = ranked[idx]
+      if (selected) {
+        ranked = [
+          { ...selected, visual_match_confidence: Number(visual.confidence) },
+          ...ranked.filter((_, i) => i !== idx),
+        ]
+        visual = { ...visual, choice: 'C1', selectedOriginalIndex: 0 }
+      }
+    }
+
+    const jev = await decideStoryWithJev({
+      question,
+      visionQuery,
+      visionEvidence,
+      candidates: ranked,
+      storyContextStatus: 'STORY_FOUND_VISION_OK',
+      visionStatus: 'success',
+      visualMatch: visual,
+    })
+
+    let stock = { status: 'NOT_REQUESTED' }
+    const selectedId = String(jev.selectedCandidateId || '')
+    const selectedIndex = /^C[1-5]$/.test(selectedId) ? Number(selectedId.slice(1)) - 1 : -1
+    const selected = selectedIndex >= 0 ? ranked[selectedIndex] : null
+
+    if (
+      selected &&
+      jev.action === 'ALLOW_AUTO' &&
+      (jev.intent === 'SIZE_STOCK' || isStoryStockOrSizeQuestion(question))
+    ) {
+      stock = await fetchShadowProductAvailability(
+        { shadowProductId: selected.id, requestedSize: extractRequestedSize(question) },
+        { supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders } }
+      )
+    }
+
+    return res.status(200).json({
+      ok: true,
+      visionQuery,
+      visual: {
+        status: visual?.status,
+        choice: visual?.choice,
+        confidence: visual?.confidence,
+        reason: visual?.reason,
+      },
+      candidates: ranked.map((p, index) => ({
+        id: `C${index + 1}`,
+        nome: p.nome,
+        categoria: p.categoria || null,
+        bagyProductId: p.bagy_product_id || null,
+        score: p.score ?? null,
+        visualConfidence: p.visual_match_confidence ?? null,
+      })),
+      jev: {
+        status: jev.status,
+        action: jev.action,
+        selectedCandidateId: jev.selectedCandidateId,
+        confidence: jev.confidence,
+        selectedProbability: jev.selectedProbability,
+        intent: jev.intent,
+        intentConfidence: jev.intentConfidence,
+        reason: jev.reason,
+      },
+      stock,
+    })
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
