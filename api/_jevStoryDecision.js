@@ -69,6 +69,7 @@ function failClosed(reason, extra = {}) {
 export async function decideStoryWithJev({
   question,
   visionQuery,
+  visionEvidence = null,
   candidates,
   storyContextStatus,
   visionStatus,
@@ -115,6 +116,12 @@ export async function decideStoryWithJev({
     story_context_status: String(storyContextStatus || 'UNKNOWN').slice(0, 80),
     vision_status: String(visionStatus || 'UNKNOWN').slice(0, 80),
     vision_query: String(visionQuery || '').slice(0, 400),
+    vision_evidence: visionEvidence && typeof visionEvidence === 'object' ? {
+      nome: String(visionEvidence.nome || '').slice(0, 160),
+      tipo: String(visionEvidence.tipo || '').slice(0, 120),
+      marca: String(visionEvidence.marca || '').slice(0, 120),
+      cor: String(visionEvidence.cor || '').slice(0, 120),
+    } : null,
     candidates: safeCandidates,
   }
 
