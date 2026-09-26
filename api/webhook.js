@@ -441,7 +441,10 @@ export default async function handler(req, res) {
   // candidatos. A decisão final continua sendo visual.
   if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.visual_match_lab) {
     const chatId = String(req.query.visual_match_lab || '').slice(0, 160)
-    const hint = String(req.query.hint || '').slice(0, 160)
+    const labCase = String(req.query.case || 'positive')
+    const hint = labCase === 'negative'
+      ? 'oculos fendi'
+      : String(req.query.hint || 'oculos dolce gabbana').slice(0, 160)
     const contexto = await getStoryContext(chatId)
     if (contexto.status !== 'FOUND' || !contexto.storyMediaUrl) {
       return res.status(200).json({ ok: false, stage: 'story_context', status: contexto.status })
@@ -500,7 +503,9 @@ export default async function handler(req, res) {
     }
 
     const question = String(
-      req.query.q || 'Qual valor? Ainda está disponível? óculos Dolce & Gabbana da imagem'
+      req.query.q || (labCase === 'negative'
+        ? 'Qual valor? Ainda está disponível? óculos Fendi da imagem'
+        : 'Qual valor? Ainda está disponível? óculos Dolce & Gabbana da imagem')
     ).slice(0, 240)
 
     const visualForJev = visualStrong
