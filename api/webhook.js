@@ -302,6 +302,131 @@ export function isStoryCandidateTrusted(product, visualThreshold = 0.95) {
 // fica documentado como risco conhecido, não corrigido nesta etapa.
 export const STORY_MATCH_CONFIDENCE_THRESHOLD = 25
 
+async function runStoryVideoSmartShadow({
+  correlationId,
+  storyId,
+  storyMediaUrl,
+  question,
+  baselineVisionQuery,
+  storyContextStatus,
+  candidatePool,
+  currentVisualMatch,
+  currentJevDecision,
+}) {
+  const startedAt = Date.now()
+
+  try {
+    const smartDescription = await identificarProdutoPorImagem(
+      storyMediaUrl,
+      { correlationId, storyId },
+      { smartVideo: true, recordTelemetry: false }
+    )
+
+    const smartVisionQuery = extrairQueryCompactaDaVision(smartDescription)
+    const smartVisionEvidence = extrairEvidenciasDaVision(smartDescription)
+
+    let smartCandidates = Array.isArray(candidatePool) ? [...candidatePool] : []
+
+    if (smartVisionQuery) {
+      const smartSearch = await buscarProdutos(smartVisionQuery, 5)
+      const merged = []
+      const seen = new Set()
+
+      for (const p of [...(smartSearch.produtos || []), ...smartCandidates]) {
+        const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        merged.push(p)
+        if (merged.length >= 5) break
+      }
+
+      smartCandidates = merged
+    }
+
+    let smartVisualMatch = await compararStoryComCandidatos(
+      storyMediaUrl,
+      smartCandidates,
+      { smartVideo: true }
+    )
+
+    const visualThreshold = getStoryVisualMatchMinConfidence()
+    const visualStrong =
+      smartVisualMatch?.status === 'ok' &&
+      smartVisualMatch?.choice !== 'NONE' &&
+      Number(smartVisualMatch?.confidence) >= visualThreshold &&
+      smartVisualMatch?.selectedOriginalIndex != null
+
+    if (visualStrong) {
+      const selectedIndex = Number(smartVisualMatch.selectedOriginalIndex)
+      const selected = smartCandidates[selectedIndex]
+
+      if (selected) {
+        const selectedAnnotated = {
+          ...selected,
+          visual_match_confidence: Number(smartVisualMatch.confidence),
+        }
+        smartCandidates = [
+          selectedAnnotated,
+          ...smartCandidates.filter((_, index) => index !== selectedIndex),
+        ]
+        smartVisualMatch = {
+          ...smartVisualMatch,
+          choice: 'C1',
+          selectedOriginalIndex: 0,
+        }
+      }
+    }
+
+    const trustedCandidates = smartCandidates.filter((p) =>
+      isStoryCandidateTrusted(p, visualThreshold)
+    )
+
+    const smartJevDecision = await decideStoryWithJev({
+      question,
+      visionQuery: smartVisionQuery || baselineVisionQuery || '',
+      visionEvidence: smartVisionEvidence,
+      candidates: trustedCandidates,
+      storyContextStatus,
+      visionStatus: smartVisionQuery ? 'success' : 'failed',
+      visualMatch: smartVisualMatch,
+    })
+
+    console.log('[StorySmartShadow]', JSON.stringify({
+      correlation_id: correlationId,
+      story_id: storyId,
+      mode: 'shadow',
+      frame_count: Number(smartVisualMatch?.storyFrameCount || 0),
+      smart_video_used: smartVisualMatch?.smartVideoUsed === true,
+      vision_query_changed:
+        Boolean(smartVisionQuery) &&
+        normalizarBusca(smartVisionQuery) !== normalizarBusca(baselineVisionQuery || ''),
+      candidate_pool_count: smartCandidates.length,
+      trusted_candidates_count: trustedCandidates.length,
+      current_visual_choice: currentVisualMatch?.choice || 'NONE',
+      current_visual_confidence: currentVisualMatch?.confidence ?? null,
+      smart_visual_choice: smartVisualMatch?.choice || 'NONE',
+      smart_visual_confidence: smartVisualMatch?.confidence ?? null,
+      current_jev_action: currentJevDecision?.action || 'BYPASS',
+      current_jev_confidence: currentJevDecision?.confidence ?? null,
+      current_jev_selected_probability: currentJevDecision?.selectedProbability ?? null,
+      smart_jev_action: smartJevDecision?.action || 'BYPASS',
+      smart_jev_confidence: smartJevDecision?.confidence ?? null,
+      smart_jev_selected_probability: smartJevDecision?.selectedProbability ?? null,
+      latency_ms: Date.now() - startedAt,
+      success: true,
+    }))
+  } catch (err) {
+    console.warn('[StorySmartShadow]', JSON.stringify({
+      correlation_id: correlationId,
+      story_id: storyId,
+      mode: 'shadow',
+      success: false,
+      error: err?.name === 'AbortError' ? 'timeout' : 'shadow_error',
+      latency_ms: Date.now() - startedAt,
+    }))
+  }
+}
+
 // Função de busca integrada
 // perguntaOriginal (Story): quando a busca é feita pela descrição visual de um
 // Story, buscaTexto é o texto da visão (só serve pra achar o produto certo) e
