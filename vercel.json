@@ -34,5 +34,11 @@
       "schedule": "0 18 * * *"
     }
   ],
-  "ignoreCommand": "[ \"$VERCEL_PROJECT_ID\" = \"prj_tbb2vBinCcUEkM47dAoq81fLTXoC\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"render-lab\" ] || echo \"$VERCEL_GIT_COMMIT_REF\" | grep -q \"^lab/\""
+  "ignoreCommand": "[ \"$VERCEL_PROJECT_ID\" = \"prj_tbb2vBinCcUEkM47dAoq81fLTXoC\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"render-lab\" ] || echo \"$VERCEL_GIT_COMMIT_REF\" | grep -q \"^lab/\"",
+  "git": {
+    "deploymentEnabled": {
+      "render-lab": false,
+      "lab/**": false
+    }
+  }
 }
