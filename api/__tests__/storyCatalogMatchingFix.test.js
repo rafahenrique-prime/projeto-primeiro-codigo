@@ -169,6 +169,8 @@ describe('Story V2 — Visual Match forte + pergunta genérica', () => {
     expect(isGenericStoryQuestion('Qual preço?')).toBe(true)
     expect(isGenericStoryQuestion('Quanto custa?')).toBe(true)
     expect(isGenericStoryQuestion('Qual modelo é esse? E qual valor?')).toBe(true)
+    expect(isGenericStoryQuestion('Me passa os valores ?')).toBe(true)
+    expect(isGenericStoryQuestion('Me manda o preço')).toBe(true)
   })
 
   it('não trata pergunta com pista real de produto/tamanho como genérica', async () => {
