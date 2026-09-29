@@ -510,16 +510,35 @@ async function vercelStatus(req, res) {
   }
   try {
     const headers = { Authorization: `Bearer ${VERCEL_TOKEN}` }
-    const deploysRes = await fetch(
-      `https://api.vercel.com/v6/deployments?projectId=${PROJECT_ID}&teamId=${TEAM_ID}&limit=1`,
-      { headers }
-    )
-    if (!deploysRes.ok) {
-      return res.status(deploysRes.status).json({ error: 'Falha ao consultar deployments' })
+
+    // Tokens Vercel com escopo de projeto já inferem o contexto de team/projeto.
+    // Nesses casos, enviar teamId pode resultar em 403. Tentamos primeiro o
+    // formato project-scoped e mantemos fallback para tokens antigos de equipe.
+    const scopedUrl = `https://api.vercel.com/v6/deployments?projectId=${PROJECT_ID}&limit=1`
+    const teamUrl = `https://api.vercel.com/v6/deployments?projectId=${PROJECT_ID}&teamId=${TEAM_ID}&limit=1`
+
+    let deploysRes = await fetch(scopedUrl, { headers })
+    let authMode = 'project_scoped'
+
+    if (!deploysRes.ok && (deploysRes.status === 401 || deploysRes.status === 403)) {
+      deploysRes = await fetch(teamUrl, { headers })
+      authMode = 'team_scoped_fallback'
     }
+
+    if (!deploysRes.ok) {
+      console.warn('[system-tools:vercel-status] Falha ao consultar deployments', {
+        status: deploysRes.status,
+        authMode,
+      })
+      return res.status(deploysRes.status).json({
+        error: 'Falha ao consultar deployments',
+        errorCode: deploysRes.status === 403 ? 'VERCEL_TOKEN_SCOPE_FORBIDDEN' : 'VERCEL_API_ERROR',
+      })
+    }
+
     const { deployments } = await deploysRes.json()
     const latest = deployments?.[0]
-    if (!latest) return res.status(200).json({ available: false })
+    if (!latest) return res.status(200).json({ available: false, authMode })
 
     return res.status(200).json({
       available: true,
@@ -528,6 +547,7 @@ async function vercelStatus(req, res) {
       branch: latest.meta?.githubCommitRef || null,
       url: latest.url,
       target: latest.target || 'production',
+      authMode,
       usageNote: 'Uso detalhado disponível no painel da Vercel',
     })
   } catch (e) {
