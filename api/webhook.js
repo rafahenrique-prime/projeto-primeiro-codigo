@@ -328,6 +328,44 @@ export function isStoryCandidateTrusted(product, visualThreshold = 0.95) {
 // fica documentado como risco conhecido, não corrigido nesta etapa.
 export const STORY_MATCH_CONFIDENCE_THRESHOLD = 25
 
+export function intercalarResultadosInventario(itemSearches = [], limit = 5) {
+  const max = Number.isFinite(Number(limit)) ? Math.max(1, Number(limit)) : 5
+  const results = Array.isArray(itemSearches) ? itemSearches : []
+  const out = []
+  const seen = new Set()
+
+  const add = (product) => {
+    const key = String(product?.bagy_product_id || product?.id || product?.nome || '')
+    if (!key || seen.has(key) || out.length >= max) return
+    seen.add(key)
+    out.push(product)
+  }
+
+  for (let rank = 0; rank < max && out.length < max; rank += 1) {
+    for (const result of results) {
+      if (result?.produtos?.[rank]) add(result.produtos[rank])
+      if (out.length >= max) break
+    }
+  }
+
+  return out
+}
+
+export function acrescentarCandidatosUnicos(base = [], extras = [], limit = 5) {
+  const max = Number.isFinite(Number(limit)) ? Math.max(1, Number(limit)) : 5
+  const out = []
+  const seen = new Set()
+
+  for (const product of [...(Array.isArray(base) ? base : []), ...(Array.isArray(extras) ? extras : [])]) {
+    const key = String(product?.bagy_product_id || product?.id || product?.nome || '')
+    if (!key || seen.has(key) || out.length >= max) continue
+    seen.add(key)
+    out.push(product)
+  }
+
+  return out
+}
+
 async function runStoryVideoSmartShadow({
   correlationId,
   storyId,
@@ -372,30 +410,22 @@ async function runStoryVideoSmartShadow({
       })
     )
 
-    let smartCandidates = []
-    const seen = new Set()
-    const addCandidate = (p) => {
-      const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
-      if (!key || seen.has(key) || smartCandidates.length >= 5) return
-      seen.add(key)
-      smartCandidates.push(p)
-    }
-
-    // Intercala os resultados por item para impedir que P1 ocupe sozinho os 5 slots
-    // e esconda P2/P3 antes do Visual Match multi-produto.
-    for (let rank = 0; rank < 5 && smartCandidates.length < 5; rank += 1) {
-      for (const result of itemSearches) {
-        if (result.produtos?.[rank]) addCandidate(result.produtos[rank])
-        if (smartCandidates.length >= 5) break
-      }
-    }
+    let smartCandidates = intercalarResultadosInventario(itemSearches, 5)
 
     if (smartVisionQuery && smartCandidates.length < 5) {
       const smartSearch = await buscarProdutos(smartVisionQuery, 5)
-      for (const p of smartSearch.produtos || []) addCandidate(p)
+      smartCandidates = acrescentarCandidatosUnicos(
+        smartCandidates,
+        smartSearch.produtos || [],
+        5
+      )
     }
 
-    for (const p of Array.isArray(candidatePool) ? candidatePool : []) addCandidate(p)
+    smartCandidates = acrescentarCandidatosUnicos(
+      smartCandidates,
+      Array.isArray(candidatePool) ? candidatePool : [],
+      5
+    )
 
     let smartVisualMatch = await compararStoryComCandidatos(
       storyMediaUrl,
