@@ -59,11 +59,25 @@ Se não conseguir identificar algum campo, escreva "Não identificado".`
 const PROMPT_IDENTIFICACAO_MULTI_FRAME = `Você é um especialista em identificação de produtos para lojas.
 
 Você receberá até 3 quadros (F1, F2, F3) do MESMO Story em vídeo.
-Analise TODOS os quadros em conjunto. Use o quadro mais nítido e informativo para identificar o produto.
-Se o Story mostrar vários produtos diferentes sem um único produto dominante, NÃO escolha um item arbitrariamente: descreva a categoria/conjunto e deixe a marca como "Não identificado" quando houver dúvida.
+Analise TODOS os quadros em conjunto.
+
+ANTES do resumo principal, faça um inventário visual dos PRODUTOS DISTINTOS da cena:
+- conte modelos/produtos diferentes, não repetições do mesmo item;
+- um produto sendo usado e outro produto diferente exposto ao lado contam como 2;
+- o mesmo modelo repetido em outro frame/posição conta uma vez;
+- liste no máximo 3 itens distintos;
+- se houver dúvida real sobre a quantidade, use UNCERTAIN;
+- não invente marca/modelo por causa de texto do cliente.
 
 Responda EXATAMENTE neste formato:
-## [Nome do produto]
+**Cena:** SINGLE_PRODUCT | MULTI_PRODUCT | UNCERTAIN
+**Quantidade distinta:** [1, 2 ou 3]
+**P1:** [nome] | [tipo] | [marca] | [cor] | [posição visual]
+**P2:** [nome] | [tipo] | [marca] | [cor] | [posição visual]
+**P3:** [nome] | [tipo] | [marca] | [cor] | [posição visual]
+
+Depois faça o resumo principal:
+## [Nome do produto ou conjunto]
 **Tipo:** (categoria do produto)
 **Marca:** (se visível e consistente, senão "Não identificado")
 **Cor:** (cores principais)
@@ -73,8 +87,81 @@ Responda EXATAMENTE neste formato:
 **Consistência:** (alta, média ou baixa)
 **Descrição para venda:** (texto persuasivo de 2-3 linhas para usar no WhatsApp)
 
-Identifique qualquer produto que apareça nos quadros — roupa, tênis, perfume, acessório, bolsa, eletrônico, etc.
+Se houver apenas 1 produto distinto, preencha só P1 e use SINGLE_PRODUCT.
+Se houver 2 ou mais produtos distintos, preencha P1/P2/P3 conforme necessário e use MULTI_PRODUCT.
 Se não conseguir identificar algum campo, escreva "Não identificado".`
+
+export function extrairInventarioProdutosDaVision(descricaoVisual) {
+  if (typeof descricaoVisual !== 'string' || !descricaoVisual.trim()) {
+    return { sceneMode: 'UNCERTAIN', declaredCount: null, items: [] }
+  }
+
+  const sceneRaw = descricaoVisual.match(/\*\*Cena:\*\*\s*(SINGLE_PRODUCT|MULTI_PRODUCT|UNCERTAIN)/i)?.[1]
+  const sceneMode = sceneRaw ? sceneRaw.toUpperCase() : 'UNCERTAIN'
+  const countRaw = Number(descricaoVisual.match(/\*\*Quantidade distinta:\*\*\s*(\d+)/i)?.[1])
+  const declaredCount = Number.isFinite(countRaw) && countRaw >= 1 && countRaw <= 3 ? countRaw : null
+
+  const items = []
+  const regex = /^\*\*P([1-3]):\*\*\s*(.+)$/gmi
+  let match
+  while ((match = regex.exec(descricaoVisual)) !== null) {
+    const parts = String(match[2] || '').split('|').map((v) => v.trim())
+    const [nome = '', tipo = '', marca = '', cor = '', posicao = ''] = parts
+    const meaningful = [nome, tipo, marca].some((v) => v && !/^nao identificado$/i.test(v.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))
+    if (!meaningful) continue
+    items.push({
+      id: `P${match[1]}`,
+      nome: nome.slice(0, 160),
+      tipo: tipo.slice(0, 100),
+      marca: marca.slice(0, 100),
+      cor: cor.slice(0, 100),
+      posicao: posicao.slice(0, 140),
+    })
+  }
+
+  const deduped = []
+  const seen = new Set()
+  for (const item of items) {
+    const key = [item.nome, item.tipo, item.marca, item.cor]
+      .join('|')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    deduped.push(item)
+  }
+
+  const inferredMode = deduped.length >= 2
+    ? 'MULTI_PRODUCT'
+    : deduped.length === 1 && sceneMode !== 'UNCERTAIN'
+      ? sceneMode
+      : sceneMode
+
+  return {
+    sceneMode: inferredMode,
+    declaredCount,
+    items: deduped.slice(0, 3),
+  }
+}
+
+export function montarQueryInventarioProduto(item) {
+  if (!item || typeof item !== 'object') return ''
+  const isUnknown = (value) => {
+    const normalized = String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase()
+    return !normalized || normalized === 'nao identificado'
+  }
+  return [item.nome, item.tipo, item.marca]
+    .filter((value) => !isUnknown(value))
+    .join(' ')
+    .trim()
+}
 
 export function getStoryVideoSmartVisionMode() {
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
@@ -401,8 +488,17 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {},
     }
   }
 
+  const expectedProductCount = Number(options.expectedProductCount)
+  const countHint =
+    smartVideoUsed &&
+    Number.isFinite(expectedProductCount) &&
+    expectedProductCount >= 2 &&
+    expectedProductCount <= 3
+      ? `\n\nPISTA NÃO AUTORITATIVA: o cliente mencionou ${expectedProductCount} produtos na pergunta. Use isso apenas para revisar a cena com atenção; confirme visualmente e ignore a pista se a imagem não sustentar essa quantidade.`
+      : ''
+
   const visionPrompt = smartVideoUsed && buffersParaVisao.length > 1
-    ? PROMPT_IDENTIFICACAO_MULTI_FRAME
+    ? `${PROMPT_IDENTIFICACAO_MULTI_FRAME}${countHint}`
     : PROMPT_IDENTIFICACAO
 
   // Em Preview, deployments ficam atrás do Vercel Deployment Protection (SSO) —

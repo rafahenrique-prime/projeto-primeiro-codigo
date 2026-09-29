@@ -101,3 +101,52 @@ describe('Story Multi-Product Shadow V1 — normalização segura', () => {
     expect(result.mode).toBe('UNCERTAIN')
   })
 })
+
+
+describe('Story Item Inventory Shadow V1 — separação antes da busca', () => {
+  it('extrai dois produtos distintos P1/P2 da Vision', async () => {
+    const { extrairInventarioProdutosDaVision } = await import('../_visaoProduto.js')
+    const result = extrairInventarioProdutosDaVision(`
+**Cena:** MULTI_PRODUCT
+**Quantidade distinta:** 2
+**P1:** Chinelo Flat Branco | Calçado / Chinelo | Prada | Branco | parte superior
+**P2:** Chinelo Flat Marrom | Calçado / Chinelo | Prada | Marrom | sendo usado nos pés
+
+## Chinelo Flat Feminino
+**Tipo:** Calçado / Chinelo
+**Marca:** Prada
+`)
+
+    expect(result.sceneMode).toBe('MULTI_PRODUCT')
+    expect(result.declaredCount).toBe(2)
+    expect(result.items).toHaveLength(2)
+    expect(result.items[0].id).toBe('P1')
+    expect(result.items[1].id).toBe('P2')
+  })
+
+  it('monta query individual sem usar cor/posição como ruído obrigatório', async () => {
+    const { montarQueryInventarioProduto } = await import('../_visaoProduto.js')
+    expect(montarQueryInventarioProduto({
+      nome: 'Chinelo Flat Branco',
+      tipo: 'Calçado / Chinelo',
+      marca: 'Prada',
+      cor: 'Branco',
+      posicao: 'parte superior',
+    })).toBe('Chinelo Flat Branco Calçado / Chinelo Prada')
+  })
+
+  it('remove Não identificado da query individual', async () => {
+    const { montarQueryInventarioProduto } = await import('../_visaoProduto.js')
+    expect(montarQueryInventarioProduto({
+      nome: 'Chinelo Flat Feminino',
+      tipo: 'Calçado / Chinelo',
+      marca: 'Não identificado',
+    })).toBe('Chinelo Flat Feminino Calçado / Chinelo')
+  })
+
+  it('entende "Quais valores dos 2?" apenas como pista de quantidade', async () => {
+    const { extractRequestedStoryProductCount } = await import('../webhook.js')
+    expect(extractRequestedStoryProductCount('Quais valores dos 2?')).toBe(2)
+    expect(extractRequestedStoryProductCount('Qual preço?')).toBeNull()
+  })
+})
