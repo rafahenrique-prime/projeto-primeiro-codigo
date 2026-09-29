@@ -526,13 +526,29 @@ async function vercelStatus(req, res) {
     }
 
     if (!deploysRes.ok) {
+      const [projectScopedRes, projectTeamRes, teamsRes] = await Promise.all([
+        fetch(`https://api.vercel.com/v9/projects/${PROJECT_ID}`, { headers }),
+        fetch(`https://api.vercel.com/v9/projects/${PROJECT_ID}?teamId=${TEAM_ID}`, { headers }),
+        fetch('https://api.vercel.com/v2/teams?limit=1', { headers }),
+      ])
+
+      const diagnostic = {
+        deployments_project_scoped: authMode === 'project_scoped' ? deploysRes.status : null,
+        deployments_team_scoped: authMode === 'team_scoped_fallback' ? deploysRes.status : null,
+        project_without_team: projectScopedRes.status,
+        project_with_team: projectTeamRes.status,
+        teams_list: teamsRes.status,
+      }
+
       console.warn('[system-tools:vercel-status] Falha ao consultar deployments', {
         status: deploysRes.status,
         authMode,
+        diagnostic,
       })
       return res.status(deploysRes.status).json({
         error: 'Falha ao consultar deployments',
         errorCode: deploysRes.status === 403 ? 'VERCEL_TOKEN_SCOPE_FORBIDDEN' : 'VERCEL_API_ERROR',
+        diagnostic,
       })
     }
 
