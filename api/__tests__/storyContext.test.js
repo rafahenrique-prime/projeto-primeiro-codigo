@@ -114,7 +114,25 @@ describe('api/_storyContext.js — story_context_status (Etapa 0B)', () => {
       storyId: 'story-novo',
       storyMediaUrl: 'https://gpt-files.com/novo.jpg',
       storyMediaType: 'image',
+      currentUserText: null,
+      source: 'story_message',
     })
+  })
+
+  it('REGRESSÃO — Story novo expõe a pergunta literal atual, nunca produto antigo do chat', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([
+      { role: 'user', time: 100, text: 'Qual valor?', metadata: { storyId: 'story-vans', storyMediaUrl: 'https://gpt-files.com/vans.jpg', storyMediaType: 'image/jpeg' } },
+      { role: 'assistant', time: 150, text: 'Óculos Dolce & Gabbana custa R$ 199' },
+      { role: 'user', time: 200, text: 'Qual modelo é esse ? E qual valor?', metadata: { storyId: 'story-chinelo', storyMediaUrl: 'https://gpt-files.com/chinelo.jpg', storyMediaType: 'image/jpeg' } },
+    ])))
+
+    const { getStoryContext } = await import('../_storyContext.js')
+    const resultado = await getStoryContext('chat-regression-story-boundary')
+
+    expect(resultado.storyId).toBe('story-chinelo')
+    expect(resultado.currentUserText).toBe('Qual modelo é esse ? E qual valor?')
+    expect(resultado.source).toBe('story_message')
+    expect(resultado.currentUserText).not.toContain('Dolce')
   })
 
   it('GPTMAKER_FETCH_ERROR — HTTP não-200', async () => {
@@ -215,6 +233,8 @@ describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)',
       storyId: 'story-bermuda',
       storyMediaUrl: 'https://gpt-files.com/bermuda.jpg',
       storyMediaType: 'image',
+      currentUserText: 'Bermuda',
+      source: 'story_continuation',
     })
   })
 
@@ -326,6 +346,8 @@ describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)',
       storyId: 'story-atual',
       storyMediaUrl: 'https://gpt-files.com/atual.jpg',
       storyMediaType: 'image',
+      currentUserText: 'oi',
+      source: 'story_message',
     })
   })
 
@@ -361,6 +383,8 @@ describe('api/_storyContext.js — Correção #3 (continuidade curta de Story)',
       storyId: 'story-boundary',
       storyMediaUrl: 'https://gpt-files.com/boundary.jpg',
       storyMediaType: 'image',
+      currentUserText: 'Bermuda',
+      source: 'story_continuation',
     })
   })
 
