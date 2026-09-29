@@ -32,6 +32,13 @@ describe('Story Video Smart Vision V1 — modo shadow seguro', () => {
     expect(getStoryVideoSmartVisionMode()).toBe('off')
   })
 
+  it('modo inválido em produção volta com segurança para SHADOW', async () => {
+    process.env.VERCEL_ENV = 'production'
+    process.env.STORY_VIDEO_SMART_VISION_MODE = 'valor-invalido'
+    const { getStoryVideoSmartVisionMode } = await import('../_visaoProduto.js')
+    expect(getStoryVideoSmartVisionMode()).toBe('shadow')
+  })
+
   it('vídeo normal amostra 25%, 50% e 75%', async () => {
     const { calcularTimestampsSmartVision } = await import('../_visaoProduto.js')
     expect(calcularTimestampsSmartVision(16)).toEqual([4, 8, 12])
