@@ -1207,6 +1207,32 @@ export default async function handler(req, res) {
       }
     }
 
+    if (
+      smartVideoMode === 'shadow' &&
+      hasCurrentStory &&
+      visualMatchDecision?.sourceMediaType === 'video' &&
+      storyMediaUrlForDecision &&
+      storyShadowCandidatePool.length > 0
+    ) {
+      const shadowTask = runStoryVideoSmartShadow({
+        correlationId,
+        storyId: storyIdParaTrace,
+        storyMediaUrl: storyMediaUrlForDecision,
+        question: pergunta,
+        baselineVisionQuery: buscaTexto,
+        storyContextStatus,
+        candidatePool: storyShadowCandidatePool,
+        currentVisualMatch: visualMatchDecision,
+        currentJevDecision: jevStoryDecision,
+      }).catch(() => {})
+
+      try {
+        waitUntil(shadowTask)
+      } catch {
+        // Fora da Vercel, o shadow não deve interferir no atendimento.
+      }
+    }
+
     console.log(`[Webhook] ✅ Encontrados ${respostaGPT.contexto.produtos_encontrados} produtos`)
 
     return res.status(200).json(respostaGPT)
