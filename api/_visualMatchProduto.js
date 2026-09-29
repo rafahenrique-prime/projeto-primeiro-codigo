@@ -71,6 +71,31 @@ function fail(reason, extra = {}) {
   }
 }
 
+export function normalizarStorySceneDecision(parsed, validCandidateIds = []) {
+  const allowed = new Set(Array.isArray(validCandidateIds) ? validCandidateIds : [])
+  const rawMode = String(parsed?.mode || '').trim().toUpperCase()
+  const mode = ['SINGLE_PRODUCT', 'MULTI_PRODUCT', 'UNCERTAIN'].includes(rawMode)
+    ? rawMode
+    : 'UNCERTAIN'
+
+  const seen = new Set()
+  const matches = (Array.isArray(parsed?.matches) ? parsed.matches : [])
+    .map((item) => ({
+      choice: String(item?.choice || '').trim().toUpperCase(),
+      confidence: Number(item?.confidence),
+    }))
+    .filter((item) => {
+      if (!allowed.has(item.choice)) return false
+      if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 1) return false
+      if (seen.has(item.choice)) return false
+      seen.add(item.choice)
+      return true
+    })
+    .slice(0, 5)
+
+  return { mode, matches }
+}
+
 export async function compararStoryComCandidatos(storyMediaUrl, candidates = [], options = {}) {
   const base = baseUrlDoDeployment()
   if (!base) return fail('NO_DEPLOYMENT_URL')
@@ -95,6 +120,7 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [],
     ? prepared.dataUrls.slice(0, 3)
     : [prepared.dataUrl]
 
+  const multiProductShadow = options.multiProductShadow === true
   const prompt = [
     'Você é um comparador visual de produtos de moda.',
     storyFrames.length === 1
@@ -104,13 +130,24 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [],
       ? 'As imagens seguintes são candidatos do catálogo na ordem C1, C2, C3...'
       : 'Depois dos frames do Story vêm os candidatos do catálogo na ordem C1, C2, C3...',
     'Seu trabalho é decidir se algum candidato mostra o MESMO produto físico/modelo da referência.',
+    ...(multiProductShadow ? [
+      'Antes de escolher candidato, classifique a CENA do Story:',
+      'SINGLE_PRODUCT = existe um único produto/modelo dominante que representa o Story.',
+      'MULTI_PRODUCT = aparecem dois ou mais produtos/modelos distintos e nenhum item sozinho representa o Story inteiro.',
+      'UNCERTAIN = não há evidência visual suficiente para decidir entre SINGLE_PRODUCT e MULTI_PRODUCT.',
+      'Se for MULTI_PRODUCT, NÃO escolha um vencedor único: choice deve ser NONE.',
+      'Em MULTI_PRODUCT, matches pode conter vários candidatos que correspondem visualmente a itens distintos realmente visíveis no Story.',
+      'Em SINGLE_PRODUCT, matches deve conter no máximo o mesmo candidato de choice quando houver match.',
+    ] : []),
     'Compare formato, proporções, aro, lente, ponte, hastes, detalhes, pedraria, logo, acabamento e desenho.',
     'Ignore pessoa, fundo, pose, iluminação, escala e ângulo da foto.',
     'O mesmo produto pode estar fotografado em outro ângulo ou fora/no rosto.',
     'Nomes e marcas dos candidatos servem só como rótulos; NÃO use texto como prova visual.',
     'Se houver dúvida real entre candidatos ou se nenhuma foto corresponder, escolha NONE.',
     'Retorne SOMENTE JSON puro neste formato:',
-    '{"choice":"C1|C2|C3|C4|C5|NONE","confidence":0.00,"reason":"frase curta"}',
+    multiProductShadow
+      ? '{"mode":"SINGLE_PRODUCT|MULTI_PRODUCT|UNCERTAIN","choice":"C1|C2|C3|C4|C5|NONE","matches":[{"choice":"C1","confidence":0.00}],"confidence":0.00,"reason":"frase curta"}'
+      : '{"choice":"C1|C2|C3|C4|C5|NONE","confidence":0.00,"reason":"frase curta"}',
     '',
     'Rótulos dos candidatos:',
     ...safeCandidates.map((c) => `${c.id}: ${c.nome}${c.marca ? ` | ${c.marca}` : ''}`),
@@ -142,7 +179,7 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [],
       body: JSON.stringify({
         model: MODEL,
         messages: [{ role: 'user', content }],
-        max_tokens: 220,
+        max_tokens: multiProductShadow ? 320 : 220,
         temperature: 0.1,
       }),
       signal: controller.signal,
@@ -156,11 +193,19 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [],
     const parsed = parseJsonObject(raw)
     if (!parsed) return fail('INVALID_JSON')
 
-    const choice = typeof parsed.choice === 'string' ? parsed.choice.toUpperCase() : 'NONE'
+    let choice = typeof parsed.choice === 'string' ? parsed.choice.toUpperCase() : 'NONE'
     const confidence = Number(parsed.confidence)
     const validChoice = choice === 'NONE' || safeCandidates.some((c) => c.id === choice)
     if (!validChoice || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
       return fail('INVALID_RESPONSE')
+    }
+
+    const sceneDecision = multiProductShadow
+      ? normalizarStorySceneDecision(parsed, safeCandidates.map((c) => c.id))
+      : { mode: null, matches: [] }
+
+    if (multiProductShadow && sceneDecision.mode === 'MULTI_PRODUCT') {
+      choice = 'NONE'
     }
 
     const selected = choice === 'NONE'
@@ -178,6 +223,8 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [],
       sourceMediaType: prepared.sourceMediaType,
       storyFrameCount: storyFrames.length,
       smartVideoUsed: prepared.smartVideoUsed === true,
+      sceneMode: sceneDecision.mode,
+      multiMatches: sceneDecision.matches,
     }
   } catch (err) {
     clearTimeout(timeout)

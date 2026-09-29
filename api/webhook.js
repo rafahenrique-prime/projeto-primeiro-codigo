@@ -346,11 +346,15 @@ async function runStoryVideoSmartShadow({
     let smartVisualMatch = await compararStoryComCandidatos(
       storyMediaUrl,
       smartCandidates,
-      { smartVideo: true }
+      { smartVideo: true, multiProductShadow: true }
     )
 
     const visualThreshold = getStoryVisualMatchMinConfidence()
+    const multiProductDetected =
+      smartVisualMatch?.status === 'ok' &&
+      smartVisualMatch?.sceneMode === 'MULTI_PRODUCT'
     const visualStrong =
+      !multiProductDetected &&
       smartVisualMatch?.status === 'ok' &&
       smartVisualMatch?.choice !== 'NONE' &&
       Number(smartVisualMatch?.confidence) >= visualThreshold &&
@@ -381,15 +385,33 @@ async function runStoryVideoSmartShadow({
       isStoryCandidateTrusted(p, visualThreshold)
     )
 
-    const smartJevDecision = await decideStoryWithJev({
-      question,
-      visionQuery: smartVisionQuery || baselineVisionQuery || '',
-      visionEvidence: smartVisionEvidence,
-      candidates: trustedCandidates,
-      storyContextStatus,
-      visionStatus: smartVisionQuery ? 'success' : 'failed',
-      visualMatch: smartVisualMatch,
-    })
+    const multiMatches = Array.isArray(smartVisualMatch?.multiMatches)
+      ? smartVisualMatch.multiMatches
+      : []
+    const strongMultiMatches = multiMatches.filter(
+      (match) => Number(match?.confidence) >= visualThreshold
+    )
+
+    const smartJevDecision = multiProductDetected
+      ? {
+          status: 'local_shadow',
+          action: 'BLOCK_ASSERTION',
+          selectedCandidateId: null,
+          confidence: Number(smartVisualMatch?.confidence) || null,
+          selectedProbability: null,
+          reason: 'MULTI_PRODUCT_SCENE',
+          intent: 'UNKNOWN',
+          intentConfidence: null,
+        }
+      : await decideStoryWithJev({
+          question,
+          visionQuery: smartVisionQuery || baselineVisionQuery || '',
+          visionEvidence: smartVisionEvidence,
+          candidates: trustedCandidates,
+          storyContextStatus,
+          visionStatus: smartVisionQuery ? 'success' : 'failed',
+          visualMatch: smartVisualMatch,
+        })
 
     console.log('[StorySmartShadow]', JSON.stringify({
       correlation_id: correlationId,
@@ -406,12 +428,18 @@ async function runStoryVideoSmartShadow({
       current_visual_confidence: currentVisualMatch?.confidence ?? null,
       smart_visual_choice: smartVisualMatch?.choice || 'NONE',
       smart_visual_confidence: smartVisualMatch?.confidence ?? null,
+      smart_scene_mode: smartVisualMatch?.sceneMode || 'UNCERTAIN',
+      multi_product_detected: multiProductDetected,
+      multi_match_count: multiMatches.length,
+      strong_multi_match_count: strongMultiMatches.length,
+      multi_match_confidences: multiMatches.map((match) => Number(match?.confidence) || 0),
       current_jev_action: currentJevDecision?.action || 'BYPASS',
       current_jev_confidence: currentJevDecision?.confidence ?? null,
       current_jev_selected_probability: currentJevDecision?.selectedProbability ?? null,
       smart_jev_action: smartJevDecision?.action || 'BYPASS',
       smart_jev_confidence: smartJevDecision?.confidence ?? null,
       smart_jev_selected_probability: smartJevDecision?.selectedProbability ?? null,
+      smart_jev_reason: smartJevDecision?.reason || null,
       latency_ms: Date.now() - startedAt,
       success: true,
     }))
