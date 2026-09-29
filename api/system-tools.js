@@ -583,7 +583,7 @@ async function vercelUsage(req, res) {
     let usageRes = await fetch(scopedUrl, { headers })
     let authMode = 'project_scoped'
 
-    if (!usageRes.ok && (usageRes.status === 401 || usageRes.status === 403)) {
+    if (!usageRes.ok && (usageRes.status === 401 || usageRes.status === 403 || usageRes.status === 404)) {
       usageRes = await fetch(teamUrl, { headers })
       authMode = 'team_scoped_fallback'
     }
