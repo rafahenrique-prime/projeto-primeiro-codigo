@@ -556,6 +556,150 @@ async function vercelStatus(req, res) {
   }
 }
 
+async function vercelUsage(req, res) {
+  if (!VERCEL_TOKEN) {
+    return res.status(500).json({ error: 'VERCEL_ACCESS_TOKEN não configurado' })
+  }
+
+  try {
+    const now = new Date()
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0))
+    const to = new Date(now.getTime() + 60 * 1000)
+    const headers = {
+      Authorization: `Bearer ${VERCEL_TOKEN}`,
+      Accept: 'application/x-ndjson, application/json;q=0.9, text/plain;q=0.8',
+    }
+
+    const baseParams = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+    })
+
+    const scopedUrl = `https://api.vercel.com/v1/billing/charges?${baseParams.toString()}`
+    const teamParams = new URLSearchParams(baseParams)
+    teamParams.set('teamId', TEAM_ID)
+    const teamUrl = `https://api.vercel.com/v1/billing/charges?${teamParams.toString()}`
+
+    let usageRes = await fetch(scopedUrl, { headers })
+    let authMode = 'project_scoped'
+
+    if (!usageRes.ok && (usageRes.status === 401 || usageRes.status === 403)) {
+      usageRes = await fetch(teamUrl, { headers })
+      authMode = 'team_scoped_fallback'
+    }
+
+    if (!usageRes.ok) {
+      const body = await usageRes.text().catch(() => '')
+      console.warn('[system-tools:vercel-usage] Falha ao consultar billing usage', {
+        status: usageRes.status,
+        authMode,
+        bodyPreview: body.slice(0, 120),
+      })
+      return res.status(usageRes.status).json({
+        available: false,
+        error: 'Falha ao consultar Usage/Billing da Vercel',
+        errorCode:
+          usageRes.status === 403
+            ? 'VERCEL_USAGE_FORBIDDEN'
+            : usageRes.status === 404
+            ? 'VERCEL_USAGE_NOT_AVAILABLE'
+            : 'VERCEL_USAGE_API_ERROR',
+        authMode,
+      })
+    }
+
+    const raw = await usageRes.text()
+    const rows = []
+
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) rows.push(...parsed)
+        else if (parsed && typeof parsed === 'object') rows.push(parsed)
+      } catch {
+        // A API oficial usa JSONL; linhas inválidas são ignoradas sem vazar payload.
+      }
+    }
+
+    const serviceMap = new Map()
+    let totalBilledCost = 0
+    let totalEffectiveCost = 0
+    let projectMatchedCharges = 0
+
+    for (const row of rows) {
+      const serviceName = String(row.ServiceName || 'Outro')
+      const unit = row.ConsumedUnit == null ? null : String(row.ConsumedUnit)
+      const quantity = Number(row.ConsumedQuantity)
+      const billedCost = Number(row.BilledCost)
+      const effectiveCost = Number(row.EffectiveCost)
+
+      if (Number.isFinite(billedCost)) totalBilledCost += billedCost
+      if (Number.isFinite(effectiveCost)) totalEffectiveCost += effectiveCost
+
+      const tags = row.Tags && typeof row.Tags === 'object' ? row.Tags : {}
+      const rowProjectId =
+        tags.ProjectId ||
+        tags.projectId ||
+        tags.project_id ||
+        tags['vercel.projectId'] ||
+        null
+
+      if (rowProjectId === PROJECT_ID) projectMatchedCharges += 1
+
+      const key = `${serviceName}::${unit || ''}`
+      const current = serviceMap.get(key) || {
+        serviceName,
+        unit,
+        consumedQuantity: 0,
+        billedCost: 0,
+        effectiveCost: 0,
+        charges: 0,
+      }
+
+      if (Number.isFinite(quantity)) current.consumedQuantity += quantity
+      if (Number.isFinite(billedCost)) current.billedCost += billedCost
+      if (Number.isFinite(effectiveCost)) current.effectiveCost += effectiveCost
+      current.charges += 1
+      serviceMap.set(key, current)
+    }
+
+    const services = [...serviceMap.values()]
+      .map(item => ({
+        ...item,
+        consumedQuantity: Number(item.consumedQuantity.toFixed(6)),
+        billedCost: Number(item.billedCost.toFixed(6)),
+        effectiveCost: Number(item.effectiveCost.toFixed(6)),
+      }))
+      .sort((a, b) => {
+        if (b.effectiveCost !== a.effectiveCost) return b.effectiveCost - a.effectiveCost
+        return b.consumedQuantity - a.consumedQuantity
+      })
+
+    return res.status(200).json({
+      available: true,
+      source: 'Vercel Billing API /v1/billing/charges',
+      authMode,
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+      },
+      chargeCount: rows.length,
+      projectMatchedCharges,
+      totalBilledCost: Number(totalBilledCost.toFixed(6)),
+      totalEffectiveCost: Number(totalEffectiveCost.toFixed(6)),
+      services: services.slice(0, 50),
+    })
+  } catch (e) {
+    console.error('[system-tools:vercel-usage] Erro:', e.message)
+    return res.status(500).json({
+      available: false,
+      error: 'Erro interno ao consultar Usage/Billing da Vercel',
+    })
+  }
+}
+
 async function enviarTelegramStuck(mensagem) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error('[system-tools:stuck-check] Telegram não configurado')
@@ -2747,6 +2891,10 @@ export default async function handler(req, res) {
     case 'vercel-status':
       // Sem autenticação — consumido diretamente pelo Dashboard no navegador.
       return vercelStatus(req, res)
+
+    case 'vercel-usage':
+      // Usage/Billing oficial da Vercel, agregado e sanitizado no servidor.
+      return vercelUsage(req, res)
 
     case 'qwen-health':
       // Sem autenticação de usuário (risco residual aceito e documentado — ver
