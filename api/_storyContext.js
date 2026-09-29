@@ -61,6 +61,14 @@ function contarPalavras(texto) {
   return texto.trim().split(/\s+/).filter(Boolean).length
 }
 
+function textoDaMensagem(mensagem) {
+  if (!mensagem || typeof mensagem !== 'object') return ''
+  const texto = typeof mensagem.text === 'string'
+    ? mensagem.text
+    : (typeof mensagem.content === 'string' ? mensagem.content : '')
+  return texto.trim().slice(0, 300)
+}
+
 export async function getStoryContext(chatId) {
   if (!chatId || typeof chatId !== 'string') return { status: 'NO_STORY_IN_LATEST_MESSAGE' }
 
@@ -95,6 +103,8 @@ export async function getStoryContext(chatId) {
         storyId: meta.storyId,
         storyMediaUrl: meta.storyMediaUrl,
         storyMediaType: meta.storyMediaType || null,
+        currentUserText: textoDaMensagem(ultima) || null,
+        source: 'story_message',
       }
     }
 
@@ -122,7 +132,7 @@ export async function getStoryContext(chatId) {
     // Correção #3 — continuidade curta: a mensagem mais recente não tem
     // metadata própria, mas pode ser uma continuação curta de um Story
     // anterior (ver comentário no topo do arquivo pras 4 condições).
-    const textoAtual = typeof ultima.text === 'string' ? ultima.text : (typeof ultima.content === 'string' ? ultima.content : '')
+    const textoAtual = textoDaMensagem(ultima)
     const numeroDePalavras = contarPalavras(textoAtual)
 
     if (numeroDePalavras >= 1 && numeroDePalavras <= STORY_CONTINUATION_MAX_WORDS) {
@@ -142,6 +152,8 @@ export async function getStoryContext(chatId) {
             storyId: metaAnterior.storyId,
             storyMediaUrl: metaAnterior.storyMediaUrl,
             storyMediaType: metaAnterior.storyMediaType || null,
+            currentUserText: textoAtual || null,
+            source: 'story_continuation',
           }
         }
       }
