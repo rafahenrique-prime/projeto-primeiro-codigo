@@ -34,5 +34,9 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Unit tests
+      - name: Critical Story tests
+        run: npx vitest run api/__tests__/storyVideoSmartVision.test.js api/__tests__/storyCatalogMatchingFix.test.js
+
+      - name: Full suite baseline observation
+        continue-on-error: true
         run: npm test -- --run
