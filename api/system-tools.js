@@ -644,7 +644,15 @@ async function fetchVercelMetricsUsage(headers, scope, start, end) {
 }
 
 async function vercelHobbyMetricsUsage(headers) {
-  const end = new Date()
+  // O canonical Metrics API exige que start/end estejam alinhados ao bucket.
+  // Para bucket diário, fechamos o intervalo em dias UTC completos.
+  const now = new Date()
+  const end = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0, 0, 0, 0
+  ))
   const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   const [team, project] = await Promise.all([
