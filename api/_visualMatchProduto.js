@@ -91,10 +91,18 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [])
 
   if (safeCandidates.length === 0) return fail('NO_CANDIDATE_IMAGES')
 
+  const storyFrames = Array.isArray(prepared.dataUrls) && prepared.dataUrls.length > 0
+    ? prepared.dataUrls.slice(0, 3)
+    : [prepared.dataUrl]
+
   const prompt = [
     'Você é um comparador visual de produtos de moda.',
-    'A PRIMEIRA imagem é a referência do Story do cliente.',
-    'As imagens seguintes são candidatos do catálogo na ordem C1, C2, C3...',
+    storyFrames.length === 1
+      ? 'A PRIMEIRA imagem é a referência do Story do cliente.'
+      : `As PRIMEIRAS ${storyFrames.length} imagens (F1..${storyFrames.length}) são quadros do MESMO Story em vídeo.`,
+    storyFrames.length === 1
+      ? 'As imagens seguintes são candidatos do catálogo na ordem C1, C2, C3...'
+      : 'Depois dos frames do Story vêm os candidatos do catálogo na ordem C1, C2, C3...',
     'Seu trabalho é decidir se algum candidato mostra o MESMO produto físico/modelo da referência.',
     'Compare formato, proporções, aro, lente, ponte, hastes, detalhes, pedraria, logo, acabamento e desenho.',
     'Ignore pessoa, fundo, pose, iluminação, escala e ângulo da foto.',
@@ -110,7 +118,10 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [])
 
   const content = [
     { type: 'text', text: prompt },
-    { type: 'image_url', image_url: { url: prepared.dataUrl } },
+    ...storyFrames.map((url) => ({
+      type: 'image_url',
+      image_url: { url },
+    })),
     ...safeCandidates.map((c) => ({
       type: 'image_url',
       image_url: { url: c.imagem },
@@ -165,6 +176,8 @@ export async function compararStoryComCandidatos(storyMediaUrl, candidates = [])
       model: typeof data?.model === 'string' ? data.model.slice(0, 120) : MODEL,
       costUsd: typeof data?.usage?.cost === 'number' ? data.usage.cost : null,
       sourceMediaType: prepared.sourceMediaType,
+      storyFrameCount: storyFrames.length,
+      smartVideoUsed: prepared.smartVideoUsed === true,
     }
   } catch (err) {
     clearTimeout(timeout)
