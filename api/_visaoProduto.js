@@ -35,7 +35,7 @@ const ALLOWED_VIDEO_MIME_PREFIX = /^video\/mp4/
 const ALLOWED_STORY_MEDIA_HOSTS = new Set(['gpt-files.com']) // único domínio real observado em teste
 const FFMPEG_TIMEOUT_MS = 15000
 const SMART_VIDEO_MAX_FRAMES = 3
-const SMART_VIDEO_VALID_MODES = new Set(['off', 'lab', 'guard'])
+const SMART_VIDEO_VALID_MODES = new Set(['off', 'lab', 'shadow', 'guard'])
 
 const VISION_PROXY_MODEL = 'google/gemini-2.5-flash-lite'
 const VISION_PROVIDER = 'openrouter'
@@ -78,7 +78,7 @@ Se não conseguir identificar algum campo, escreva "Não identificado".`
 
 export function getStoryVideoSmartVisionMode() {
   const env = String(process.env.VERCEL_ENV || '').toLowerCase()
-  const defaultMode = env === 'preview' ? 'lab' : 'off'
+  const defaultMode = env === 'preview' ? 'lab' : env === 'production' ? 'shadow' : 'off'
   const mode = String(process.env.STORY_VIDEO_SMART_VISION_MODE || defaultMode).trim().toLowerCase()
   return SMART_VIDEO_VALID_MODES.has(mode) ? mode : defaultMode
 }
