@@ -144,6 +144,41 @@ describe('Correção #1 — FILTER: só confiáveis chegam à formatação (sín
   })
 })
 
+describe('Story V2 — Visual Match forte + pergunta genérica', () => {
+  it('preserva candidato visual forte mesmo com score textual abaixo de 25', async () => {
+    const { isStoryCandidateTrusted } = await import('../webhook.js')
+    expect(isStoryCandidateTrusted({ score: 12, visual_match_confidence: 0.95 }, 0.95)).toBe(true)
+    expect(isStoryCandidateTrusted({ score: 0, visual_match_confidence: 0.98 }, 0.95)).toBe(true)
+  })
+
+  it('não preserva ruído quando texto e visual são fracos', async () => {
+    const { isStoryCandidateTrusted } = await import('../webhook.js')
+    expect(isStoryCandidateTrusted({ score: 23, visual_match_confidence: 0.94 }, 0.95)).toBe(false)
+    expect(isStoryCandidateTrusted({ score: 0, visual_match_confidence: 0 }, 0.95)).toBe(false)
+  })
+
+  it('continua aceitando match textual >=25 mesmo sem visual', async () => {
+    const { isStoryCandidateTrusted } = await import('../webhook.js')
+    expect(isStoryCandidateTrusted({ score: 25 }, 0.95)).toBe(true)
+    expect(isStoryCandidateTrusted({ score: 47 }, 0.95)).toBe(true)
+  })
+
+  it('detecta perguntas genéricas de Story sem pista de produto', async () => {
+    const { isGenericStoryQuestion } = await import('../webhook.js')
+    expect(isGenericStoryQuestion('Qual valor?')).toBe(true)
+    expect(isGenericStoryQuestion('Qual preço?')).toBe(true)
+    expect(isGenericStoryQuestion('Quanto custa?')).toBe(true)
+    expect(isGenericStoryQuestion('Qual modelo é esse? E qual valor?')).toBe(true)
+  })
+
+  it('não trata pergunta com pista real de produto/tamanho como genérica', async () => {
+    const { isGenericStoryQuestion } = await import('../webhook.js')
+    expect(isGenericStoryQuestion('Qual valor do Vans?')).toBe(false)
+    expect(isGenericStoryQuestion('Tem tamanho 42?')).toBe(false)
+    expect(isGenericStoryQuestion('Esse é o Diesel preto?')).toBe(false)
+  })
+})
+
 describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => {
   let logSpy
 

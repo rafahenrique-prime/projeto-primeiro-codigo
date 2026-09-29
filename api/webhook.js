@@ -256,6 +256,32 @@ export function extractRequestedSize(text) {
   return String(explicit[1]).toUpperCase()
 }
 
+// Em Story, perguntas como "qual valor?", "quanto?" ou "qual modelo e valor?"
+// não carregam nenhuma pista de produto. Repetir a mesma busca textual 5x
+// só adiciona latência e nunca melhora o match visual.
+export function isGenericStoryQuestion(text) {
+  const keywords = extrairKeywords(text)
+  if (!keywords) return true
+  const generic = new Set([
+    'valor', 'preco', 'quanto', 'custa', 'custando',
+    'modelo', 'nome', 'produto', 'item'
+  ])
+  const tokens = normalizarBusca(keywords).split(' ').filter(Boolean)
+  return tokens.length > 0 && tokens.every((token) => generic.has(token))
+}
+
+// Candidato de Story pode ser confiável por DUAS evidências independentes:
+// 1) score textual histórico >= 25; OU
+// 2) Visual Match forte >= threshold visual.
+// O Visual Match não libera resposta sozinho: ele apenas impede que um bom
+// candidato seja descartado ANTES de chegar ao JEV, que continua sendo o
+// ranker/policy final.
+export function isStoryCandidateTrusted(product, visualThreshold = 0.95) {
+  const textStrong = Number(product?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD
+  const visualStrong = Number(product?.visual_match_confidence ?? 0) >= Number(visualThreshold)
+  return textStrong || visualStrong
+}
+
 // Correção #1 — score mínimo pra um candidato de busca DERIVADA DE STORY ser
 // considerado confiável. Não altera calcularSimilaridade() nem os scores em
 // si — só decide, depois da busca já feita, se o que veio de volta é forte o
@@ -658,7 +684,13 @@ export default async function handler(req, res) {
       const primaryProducts = Array.isArray(resultado?.dados?.produtos)
         ? resultado.dados.produtos
         : []
-      const supplementalResult = await buscarProdutos(pergunta)
+      const genericStoryQuestion = isGenericStoryQuestion(pergunta)
+      const supplementalResult = genericStoryQuestion
+        ? { produtos: [], total: 0 }
+        : await buscarProdutos(pergunta)
+      if (genericStoryQuestion) {
+        console.log('[Webhook] ⚡ Story genérico: pulando busca suplementar textual sem pista de produto')
+      }
       const baseCategory = normalizarBusca(primaryProducts?.[0]?.categoria || '')
       const supplementalSameCategory = (supplementalResult.produtos || []).filter((p) => {
         if (!baseCategory) return true
@@ -732,42 +764,51 @@ export default async function handler(req, res) {
       }
     }
 
-    // Correção #1: fallback pra pergunta original agora dispara quando a
-    // busca derivada de Story não tem NENHUM candidato confiável
-    // (score >= STORY_MATCH_CONFIDENCE_THRESHOLD) — não só quando dá zero
-    // candidatos. Isso cobre exatamente o caso comprovado em runtime onde
-    // existiam candidatos (5), mas todos com score de ruído (6%). Mesmo
-    // fallback de sempre (searchKnowledge(pergunta)); só o gatilho mudou.
-    // Busca direta (sem Story) nunca passa por aqui — buscaTexto === pergunta
-    // sempre nesse caso, comportamento 100% preservado.
+    // Gate Story V2: preserva a proteção textual histórica (>=25), mas
+    // permite que um candidato com Visual Match forte sobreviva até o JEV.
+    // Importante: isso NÃO transforma Visual Match em verdade; ele apenas
+    // impede descarte prematuro. O JEV continua sendo a decisão final.
+    const visualThresholdForGate = getStoryVisualMatchMinConfidence()
+    const trustedStoryCandidates = isStorySearch
+      ? (resultado?.dados?.produtos || []).filter((p) =>
+          isStoryCandidateTrusted(p, visualThresholdForGate)
+        )
+      : []
     const confidentCandidatesCount = isStorySearch
-      ? (resultado?.dados?.produtos || []).filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD).length
+      ? trustedStoryCandidates.length
       : null
 
     if (resultado.ok && isStorySearch && confidentCandidatesCount === 0) {
-      console.log('[Webhook] 🔁 Story não encontrou produto confiável, tentando com a pergunta original')
-      resultado = await searchKnowledge(pergunta)
-      searchContextUsed = 'story_fallback_pergunta'
-      fallbackUsed = true
+      if (isGenericStoryQuestion(pergunta)) {
+        // "Qual valor?", "quanto?", "qual modelo?" etc. não adicionam pista
+        // de catálogo. Não repetimos 5 buscas inúteis de 2s; entregamos zero
+        // candidatos ao JEV para que ele bloqueie/peça confirmação.
+        console.log('[Webhook] ⚡ Story sem candidato confiável + pergunta genérica: fallback textual ignorado')
+        resultado = {
+          ...resultado,
+          dados: {
+            ...resultado.dados,
+            produtos: [],
+            totalResultados: 0,
+            totalVariacoes: 0,
+            variacoesRestantes: 0,
+          },
+        }
+        searchContextUsed = 'story_no_confident_candidate'
+      } else {
+        console.log('[Webhook] 🔁 Story não encontrou produto confiável, tentando com a pergunta original')
+        resultado = await searchKnowledge(pergunta)
+        searchContextUsed = 'story_fallback_pergunta'
+        fallbackUsed = true
+      }
     } else if (resultado.ok && isStorySearch && confidentCandidatesCount > 0) {
-      // Correção #1 (gate final): mesmo havendo pelo menos 1 candidato
-      // confiável, produtos abaixo do threshold NÃO podem seguir misturados
-      // no payload — evita ruído de baixo score chegar a formatarRespostaGPT/
-      // Gaby junto do(s) resultado(s) bom(ns). Só se aplica ao caminho Story
-      // (isStorySearch); busca direta nunca é filtrada por score.
-      const produtosOriginais = resultado.dados.produtos
-      const produtosConfiaveis = produtosOriginais.filter((p) => (p?.score ?? 0) >= STORY_MATCH_CONFIDENCE_THRESHOLD)
       resultado = {
         ...resultado,
         dados: {
           ...resultado.dados,
-          produtos: produtosConfiaveis,
-          // Coerente com o payload final: depois do filtro, o total "real"
-          // relevante pro cliente é só a contagem de confiáveis — não faz
-          // sentido informar variações restantes de candidatos que a própria
-          // Gaby nunca vai ver.
-          totalResultados: produtosConfiaveis.length,
-          totalVariacoes: produtosConfiaveis.length,
+          produtos: trustedStoryCandidates,
+          totalResultados: trustedStoryCandidates.length,
+          totalVariacoes: trustedStoryCandidates.length,
           variacoesRestantes: 0,
         },
       }
