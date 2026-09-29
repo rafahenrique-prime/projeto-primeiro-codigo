@@ -3,11 +3,12 @@
 // Integrado com GPT Maker
 
 import crypto from 'node:crypto'
+import { waitUntil } from '@vercel/functions'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
 import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
-import { identificarProdutoPorImagem } from './_visaoProduto.js'
+import { identificarProdutoPorImagem, getStoryVideoSmartVisionMode } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
 import { compararStoryComCandidatos, getStoryVisualMatchMode, getStoryVisualMatchMinConfidence } from './_visualMatchProduto.js'
 
