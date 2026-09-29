@@ -56,3 +56,48 @@ describe('Story Video Smart Vision V1 — modo shadow seguro', () => {
     expect(calcularTimestampsSmartVision(NaN)).toEqual([1])
   })
 })
+
+
+describe('Story Multi-Product Shadow V1 — normalização segura', () => {
+  it('reconhece MULTI_PRODUCT e preserva múltiplos matches válidos', async () => {
+    const { normalizarStorySceneDecision } = await import('../_visualMatchProduto.js')
+    const result = normalizarStorySceneDecision({
+      mode: 'MULTI_PRODUCT',
+      matches: [
+        { choice: 'C1', confidence: 0.98 },
+        { choice: 'C3', confidence: 0.96 },
+      ],
+    }, ['C1', 'C2', 'C3'])
+
+    expect(result.mode).toBe('MULTI_PRODUCT')
+    expect(result.matches).toEqual([
+      { choice: 'C1', confidence: 0.98 },
+      { choice: 'C3', confidence: 0.96 },
+    ])
+  })
+
+  it('remove candidato inválido, confiança inválida e duplicata', async () => {
+    const { normalizarStorySceneDecision } = await import('../_visualMatchProduto.js')
+    const result = normalizarStorySceneDecision({
+      mode: 'MULTI_PRODUCT',
+      matches: [
+        { choice: 'C1', confidence: 0.97 },
+        { choice: 'C1', confidence: 0.99 },
+        { choice: 'C9', confidence: 0.99 },
+        { choice: 'C2', confidence: 1.4 },
+      ],
+    }, ['C1', 'C2'])
+
+    expect(result.matches).toEqual([{ choice: 'C1', confidence: 0.97 }])
+  })
+
+  it('modo desconhecido cai para UNCERTAIN, nunca para SINGLE_PRODUCT', async () => {
+    const { normalizarStorySceneDecision } = await import('../_visualMatchProduto.js')
+    const result = normalizarStorySceneDecision({
+      mode: 'qualquer-coisa',
+      matches: [{ choice: 'C1', confidence: 0.99 }],
+    }, ['C1'])
+
+    expect(result.mode).toBe('UNCERTAIN')
+  })
+})
