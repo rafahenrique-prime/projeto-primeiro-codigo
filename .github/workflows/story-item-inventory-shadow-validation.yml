@@ -1,0 +1,30 @@
+name: Story Item Inventory Shadow Validation
+
+on:
+  push:
+    branches:
+      - feat/story-item-inventory-shadow-v1
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Story tests
+        run: npx vitest run api/__tests__/storyVideoSmartVision.test.js api/__tests__/storyCatalogMatchingFix.test.js
+
+      - name: Build
+        run: npm run build
