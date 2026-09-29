@@ -366,8 +366,12 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {},
   if (ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType)) {
     ffmpegUsed = true
     const smartMode = getStoryVideoSmartVisionMode()
+    const useSmartVideo =
+      options.smartVideo === true ||
+      smartMode === 'lab' ||
+      smartMode === 'guard'
 
-    if (smartMode !== 'off') {
+    if (useSmartVideo) {
       const smart = await extrairFramesInteligentesDeVideo(midia.buffer)
       ffmpegMs = smart.ffmpegMs
       if (smart.frames.length > 0) {
