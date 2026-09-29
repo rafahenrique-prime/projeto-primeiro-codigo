@@ -985,12 +985,38 @@ export default async function handler(req, res) {
       }
 
       if (jevStoryDecision.action === 'ALLOW_AUTO') {
+        // Story atual é fronteira de contexto também na GERAÇÃO FINAL da Gaby.
+        // Mesmo com o backend usando a pergunta bruta correta, o modelo do
+        // GPTMaker ainda enxerga o histórico do chat e pode citar um produto
+        // antigo. Em ALLOW_AUTO o JEV já escolheu C1: portanto entregamos só
+        // esse produto e marcamos explicitamente que histórico comercial
+        // anterior NÃO é fonte válida para esta resposta.
+        const currentStoryProduct = Array.isArray(respostaGPT.dados.produtos)
+          ? respostaGPT.dados.produtos[0]
+          : null
+
+        if (currentStoryProduct) {
+          respostaGPT.dados.produtos = [currentStoryProduct]
+          respostaGPT.contexto.produtos_encontrados = 1
+          respostaGPT.contexto.tem_produtos = true
+        }
+
+        respostaGPT.contexto.story_context_reset = true
+        respostaGPT.contexto.story_authoritative_product =
+          currentStoryProduct?.nome || null
+
         const stockFact = stockVerification.status === 'AVAILABLE'
-          ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está disponível; pode informar disponibilidade.'
+          ? ' O estoque deste produto foi VERIFICADO no Mirror e está disponível; pode informar disponibilidade.'
           : stockVerification.status === 'OUT_OF_STOCK'
-            ? ' O estoque do primeiro produto foi VERIFICADO no Mirror e está sem estoque; pode informar indisponibilidade.'
+            ? ' O estoque deste produto foi VERIFICADO no Mirror e está sem estoque; pode informar indisponibilidade.'
             : ' NÃO afirme estoque/tamanho sem verificação específica.'
-        const instruction = `PRIME DECISION LAYER: o primeiro produto foi priorizado pelo JEV com alta confiança. Apresente-o como o produto identificado pelo fluxo atual.${stockFact}`
+
+        const productFact = currentStoryProduct?.nome
+          ? ` O ÚNICO produto autorizado para esta resposta é: "${currentStoryProduct.nome}".`
+          : ''
+
+        const instruction = `PRIME DECISION LAYER — STORY ATUAL = NOVA FRONTEIRA DE CONTEXTO. IGNORE qualquer nome, marca, preço ou produto citado em mensagens anteriores do chat que não esteja em dados.produtos desta resposta. NÃO mencione produto histórico. Use exclusivamente o produto retornado AGORA pelo fluxo Story/Vision/Visual Match/JEV.${productFact}${stockFact}`
+
         respostaGPT.dados.informacao_adicional = `${instruction}\n\n${respostaGPT.dados.informacao_adicional || ''}`.trim()
       } else if (jevStoryDecision.action === 'VERIFY_STOCK') {
         const instruction = 'PRIME DECISION LAYER: o produto foi identificado, porém tamanho/estoque NÃO pôde ser verificado. NÃO responda sim/não sobre disponibilidade; informe de forma curta que precisa confirmar.'
