@@ -462,17 +462,6 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
-  // LAB temporário — Preview-only. Reaproveita o handler real sem enviar
-  // nada ao GPTMaker/cliente. O Story usado é o mais recente do chat.
-  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.story_v2_lab) {
-    req.method = 'POST'
-    req.body = {
-      pergunta: String(req.query.question || 'Qual preço?').slice(0, 220),
-      cliente_id: 'story-v2-preview-lab',
-      chat_id: String(req.query.story_v2_lab).slice(0, 180),
-    }
-  }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
