@@ -34,6 +34,8 @@ const ALLOWED_IMAGE_MIME_PREFIX = /^image\/(jpeg|png|webp|gif)/
 const ALLOWED_VIDEO_MIME_PREFIX = /^video\/mp4/
 const ALLOWED_STORY_MEDIA_HOSTS = new Set(['gpt-files.com']) // único domínio real observado em teste
 const FFMPEG_TIMEOUT_MS = 15000
+const SMART_VIDEO_MAX_FRAMES = 3
+const SMART_VIDEO_VALID_MODES = new Set(['off', 'lab', 'shadow', 'guard'])
 
 const VISION_PROXY_MODEL = 'google/gemini-2.5-flash-lite'
 const VISION_PROVIDER = 'openrouter'
@@ -53,6 +55,125 @@ Responda EXATAMENTE neste formato:
 
 Identifique qualquer produto que apareça na imagem — roupa, tênis, perfume, acessório, bolsa, eletrônico, etc.
 Se não conseguir identificar algum campo, escreva "Não identificado".`
+
+const PROMPT_IDENTIFICACAO_MULTI_FRAME = `Você é um especialista em identificação de produtos para lojas.
+
+Você receberá até 3 quadros (F1, F2, F3) do MESMO Story em vídeo.
+Analise TODOS os quadros em conjunto. Use o quadro mais nítido e informativo para identificar o produto.
+Se o Story mostrar vários produtos diferentes sem um único produto dominante, NÃO escolha um item arbitrariamente: descreva a categoria/conjunto e deixe a marca como "Não identificado" quando houver dúvida.
+
+Responda EXATAMENTE neste formato:
+## [Nome do produto]
+**Tipo:** (categoria do produto)
+**Marca:** (se visível e consistente, senão "Não identificado")
+**Cor:** (cores principais)
+**Características:** (detalhes visuais únicos: material, design, logos, formato, etc)
+**Ocasião/Uso:** (para que situações ou público serve)
+**Melhor frame:** (F1, F2 ou F3)
+**Consistência:** (alta, média ou baixa)
+**Descrição para venda:** (texto persuasivo de 2-3 linhas para usar no WhatsApp)
+
+Identifique qualquer produto que apareça nos quadros — roupa, tênis, perfume, acessório, bolsa, eletrônico, etc.
+Se não conseguir identificar algum campo, escreva "Não identificado".`
+
+export function getStoryVideoSmartVisionMode() {
+  const env = String(process.env.VERCEL_ENV || '').toLowerCase()
+  const defaultMode = env === 'preview' ? 'lab' : env === 'production' ? 'shadow' : 'off'
+  const mode = String(process.env.STORY_VIDEO_SMART_VISION_MODE || defaultMode).trim().toLowerCase()
+  return SMART_VIDEO_VALID_MODES.has(mode) ? mode : defaultMode
+}
+
+export function calcularTimestampsSmartVision(durationSec) {
+  const d = Number(durationSec)
+  if (!Number.isFinite(d) || d <= 0) return [1]
+  if (d < 2.4) return [Math.max(0.1, Number((d * 0.5).toFixed(2)))]
+
+  const raw = [d * 0.25, d * 0.5, d * 0.75]
+  return [...new Set(raw.map((value) => {
+    const safe = Math.min(Math.max(value, 0.1), Math.max(0.1, d - 0.1))
+    return Number(safe.toFixed(2))
+  }))]
+}
+
+function parseDurationFromFfmpeg(stderr = '') {
+  const match = String(stderr).match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/)
+  if (!match) return null
+  const seconds = (Number(match[1]) * 3600) + (Number(match[2]) * 60) + Number(match[3])
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null
+}
+
+async function obterDuracaoVideo(videoPath) {
+  try {
+    const result = await execFileAsync(ffmpegPath, [
+      '-hide_banner',
+      '-i', videoPath,
+      '-t', '0.05',
+      '-f', 'null',
+      '-',
+    ], { timeout: 5000 })
+    return parseDurationFromFfmpeg(result?.stderr || '')
+  } catch (err) {
+    return parseDurationFromFfmpeg(err?.stderr || '')
+  }
+}
+
+function dedupeFramesExatos(frames = []) {
+  const seen = new Set()
+  const unique = []
+  for (const frame of frames) {
+    if (!Buffer.isBuffer(frame?.buffer)) continue
+    const hash = crypto.createHash('sha256').update(frame.buffer).digest('hex')
+    if (seen.has(hash)) continue
+    seen.add(hash)
+    unique.push(frame)
+  }
+  return unique
+}
+
+async function extrairFramesInteligentesDeVideo(videoBuffer) {
+  const videoPath = `/tmp/story-smart-${crypto.randomUUID()}.mp4`
+  const framePaths = []
+  const startedAt = Date.now()
+
+  try {
+    await writeFile(videoPath, videoBuffer)
+    const durationSec = await obterDuracaoVideo(videoPath)
+    const timestamps = calcularTimestampsSmartVision(durationSec).slice(0, SMART_VIDEO_MAX_FRAMES)
+
+    const frames = []
+    for (let index = 0; index < timestamps.length; index += 1) {
+      const framePath = `/tmp/frame-smart-${crypto.randomUUID()}-${index + 1}.jpg`
+      framePaths.push(framePath)
+      try {
+        await execFileAsync(ffmpegPath, [
+          '-ss', String(timestamps[index]),
+          '-i', videoPath,
+          '-frames:v', '1',
+          '-q:v', '2',
+          '-y',
+          framePath,
+        ], { timeout: FFMPEG_TIMEOUT_MS })
+        const buffer = await readFile(framePath)
+        frames.push({ buffer, timestampSec: timestamps[index], label: `F${index + 1}` })
+      } catch {
+        // Um frame específico pode falhar; os demais ainda são úteis.
+      }
+    }
+
+    const unique = dedupeFramesExatos(frames)
+    return {
+      frames: unique,
+      durationSec,
+      ffmpegMs: Date.now() - startedAt,
+      collapsedStatic: unique.length === 1 && frames.length > 1,
+    }
+  } catch {
+    return { frames: [], durationSec: null, ffmpegMs: Date.now() - startedAt, collapsedStatic: false }
+  } finally {
+    await unlink(videoPath).catch(() => {})
+    await Promise.all(framePaths.map((path) => unlink(path).catch(() => {})))
+  }
+}
 
 function validarStoryMediaUrl(urlStr) {
   let u
@@ -138,24 +259,57 @@ async function extrairFrameDeVideo(videoBuffer) {
 // (ex.: Visual Match). Reusa exatamente a mesma allowlist/download/frame de
 // identificarProdutoPorImagem(). Não registra telemetria própria — o chamador
 // decide a telemetria da operação derivada.
-export async function prepararStoryImageDataUrl(storyMediaUrl) {
+export async function prepararStoryImageDataUrl(storyMediaUrl, options = {}) {
   const midia = await baixarStoryMediaSeguro(storyMediaUrl)
   if (!midia) return null
 
-  let buffer = midia.buffer
-  let contentType = midia.contentType
-  let sourceMediaType = ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType) ? 'video' : 'image'
+  const sourceMediaType = ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType) ? 'video' : 'image'
+  const smartMode = getStoryVideoSmartVisionMode()
+  const useSmartVideo =
+    options.smartVideo === true ||
+    smartMode === 'lab' ||
+    smartMode === 'guard'
 
   if (sourceMediaType === 'video') {
+    if (useSmartVideo) {
+      const smart = await extrairFramesInteligentesDeVideo(midia.buffer)
+      if (smart.frames.length > 0) {
+        const dataUrls = smart.frames.map((frame) =>
+          `data:image/jpeg;base64,${frame.buffer.toString('base64')}`
+        )
+        console.log(`[VisaoProduto] Smart Video LAB: frames=${dataUrls.length} collapsed_static=${smart.collapsedStatic}`)
+        return {
+          dataUrl: dataUrls[0],
+          dataUrls,
+          sourceMediaType,
+          smartVideoUsed: true,
+          frameCount: dataUrls.length,
+          durationSec: smart.durationSec,
+          collapsedStatic: smart.collapsedStatic,
+          ffmpegMs: smart.ffmpegMs,
+        }
+      }
+    }
+
     const frame = await extrairFrameDeVideo(midia.buffer)
     if (!frame) return null
-    buffer = frame
-    contentType = 'image/jpeg'
+    const dataUrl = `data:image/jpeg;base64,${frame.toString('base64')}`
+    return {
+      dataUrl,
+      dataUrls: [dataUrl],
+      sourceMediaType,
+      smartVideoUsed: false,
+      frameCount: 1,
+    }
   }
 
+  const dataUrl = `data:${midia.contentType};base64,${midia.buffer.toString('base64')}`
   return {
-    dataUrl: `data:${contentType};base64,${buffer.toString('base64')}`,
+    dataUrl,
+    dataUrls: [dataUrl],
     sourceMediaType,
+    smartVideoUsed: false,
+    frameCount: 1,
   }
 }
 
@@ -167,8 +321,11 @@ function baseUrlDoDeployment() {
   return host ? `https://${host}` : null
 }
 
-export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {}) {
+export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {}, options = {}) {
   const inicio = Date.now()
+  const recordVisionTelemetry = (event) => {
+    if (options.recordTelemetry !== false) recordVisionUsageEvent(event)
+  }
   // Etapa 0B (Story Vision Trace) — repassados só pra telemetria, nunca usados
   // em decisão de negócio nem logados em texto de conversa/prompt. Ambos
   // opcionais: chamador que não passar traceMeta mantém 100% do comportamento
@@ -181,7 +338,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
   // este caso, sem precisar alterar a assinatura pública da função nem
   // tocar webhook.js.
   if (!midia) {
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType: 'unknown', ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: 'download_error', correlationId, storyId,
@@ -193,7 +350,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
 
   const base = baseUrlDoDeployment()
   if (!base) {
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: 'provider_error', correlationId, storyId,
@@ -201,30 +358,52 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     return null
   }
 
-  let bufferParaVisao = midia.buffer
-  let contentTypeParaVisao = midia.contentType
+  let buffersParaVisao = [{ buffer: midia.buffer, contentType: midia.contentType, label: 'F1' }]
   let ffmpegUsed = false
   let ffmpegMs = null
+  let smartVideoUsed = false
 
   if (ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType)) {
     ffmpegUsed = true
-    const ffmpegInicio = Date.now()
-    const frame = await extrairFrameDeVideo(midia.buffer)
-    ffmpegMs = Date.now() - ffmpegInicio
-    if (!frame) {
-      // fail-safe: vídeo sem frame extraível, sem 2ª tentativa em V1
-      recordVisionUsageEvent({
-        source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
-        provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
-        errorCode: 'ffmpeg_error', correlationId, storyId,
-      })
-      return null
+    const smartMode = getStoryVideoSmartVisionMode()
+    const useSmartVideo =
+      options.smartVideo === true ||
+      smartMode === 'lab' ||
+      smartMode === 'guard'
+
+    if (useSmartVideo) {
+      const smart = await extrairFramesInteligentesDeVideo(midia.buffer)
+      ffmpegMs = smart.ffmpegMs
+      if (smart.frames.length > 0) {
+        smartVideoUsed = true
+        buffersParaVisao = smart.frames.map((frame) => ({
+          buffer: frame.buffer,
+          contentType: 'image/jpeg',
+          label: frame.label,
+        }))
+        console.log(`[VisaoProduto] Smart Video LAB: vision_frames=${buffersParaVisao.length} collapsed_static=${smart.collapsedStatic}`)
+      }
     }
-    bufferParaVisao = frame
-    contentTypeParaVisao = 'image/jpeg'
+
+    if (!smartVideoUsed) {
+      const ffmpegInicio = Date.now()
+      const frame = await extrairFrameDeVideo(midia.buffer)
+      ffmpegMs = Date.now() - ffmpegInicio
+      if (!frame) {
+        recordVisionTelemetry({
+          source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
+          provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
+          errorCode: 'ffmpeg_error', correlationId, storyId,
+        })
+        return null
+      }
+      buffersParaVisao = [{ buffer: frame, contentType: 'image/jpeg', label: 'F1' }]
+    }
   }
 
-  const base64 = bufferParaVisao.toString('base64')
+  const visionPrompt = smartVideoUsed && buffersParaVisao.length > 1
+    ? PROMPT_IDENTIFICACAO_MULTI_FRAME
+    : PROMPT_IDENTIFICACAO
 
   // Em Preview, deployments ficam atrás do Vercel Deployment Protection (SSO) —
   // até chamadas internas servidor-a-servidor são bloqueadas sem esse header.
@@ -247,8 +426,11 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: PROMPT_IDENTIFICACAO },
-            { type: 'image_url', image_url: { url: `data:${contentTypeParaVisao};base64,${base64}` } },
+            { type: 'text', text: visionPrompt },
+            ...buffersParaVisao.map((frame) => ({
+              type: 'image_url',
+              image_url: { url: `data:${frame.contentType};base64,${frame.buffer.toString('base64')}` },
+            })),
           ],
         }],
         max_tokens: 800,
@@ -258,7 +440,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     })
     clearTimeout(timeout)
     if (!res.ok) {
-      recordVisionUsageEvent({
+      recordVisionTelemetry({
         source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
         provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
         errorCode: 'provider_error', correlationId, storyId,
@@ -269,7 +451,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     const data = await res.json()
     const texto = data.choices?.[0]?.message?.content || ''
 
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: !!texto, latencyMs: Date.now() - inicio,
       inputTokens: data.usage?.prompt_tokens ?? null,
@@ -288,7 +470,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     clearTimeout(timeout)
     // Nunca loga base64 nem storyMediaUrl.
     console.warn('[VisaoProduto] identificação indisponível, seguindo sem Story')
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: err?.name === 'AbortError' ? 'timeout' : 'vision_error',

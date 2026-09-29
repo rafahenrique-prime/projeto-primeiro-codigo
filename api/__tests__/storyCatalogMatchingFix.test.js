@@ -222,6 +222,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       // Query compacta = só "Bermuda Jeans Azul" (sem Tipo/Marca reconhecíveis
       // no texto) → match exato (100) contra "Bermuda Jeans Azul"; "Bermuda
       // Moletom Cinza" compartilha 1 de 3 palavras ("bermuda") → round(1/3*70)
@@ -252,6 +253,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       // keywords: "tenis esportivo casual calcado vans" — 2 palavras em comum
       // ("tenis","vans") com "Tenis Vans Old Skool Preto" (5 palavras) →
       // score = round(2/5*70) = 28... espera, esse valor É >= 25. Pra manter
@@ -279,6 +281,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       identificarProdutoPorImagem: vi.fn(() => Promise.resolve(
         '## Produto Inexistente Xyz\n**Tipo:** Eletronico\n**Marca:** MarcaXyz'
       )),
@@ -302,6 +305,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       // Texto "fora do formato" — sem "## ", sem **Tipo:**, sem **Marca:** —
       // extrairQueryCompactaDaVision() retorna '' pra isso.
       identificarProdutoPorImagem: vi.fn(() => Promise.resolve('Não foi possível identificar detalhes desta imagem.')),
@@ -324,7 +328,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
 
   it('D) SEM Story — busca direta nunca é filtrada por threshold (comportamento inalterado)', async () => {
     vi.doMock('../_storyContext.js', () => ({ getStoryContext: vi.fn() }))
-    vi.doMock('../_visaoProduto.js', () => ({ identificarProdutoPorImagem: vi.fn() }))
+    vi.doMock('../_visaoProduto.js', () => ({ getStoryVideoSmartVisionMode: vi.fn(() => 'off'), identificarProdutoPorImagem: vi.fn() }))
 
     const { default: handler } = await import('../webhook.js')
     const res = makeRes()
