@@ -321,8 +321,11 @@ function baseUrlDoDeployment() {
   return host ? `https://${host}` : null
 }
 
-export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {}) {
+export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {}, options = {}) {
   const inicio = Date.now()
+  const recordVisionTelemetry = (event) => {
+    if (options.recordTelemetry !== false) recordVisionUsageEvent(event)
+  }
   // Etapa 0B (Story Vision Trace) — repassados só pra telemetria, nunca usados
   // em decisão de negócio nem logados em texto de conversa/prompt. Ambos
   // opcionais: chamador que não passar traceMeta mantém 100% do comportamento
@@ -335,7 +338,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
   // este caso, sem precisar alterar a assinatura pública da função nem
   // tocar webhook.js.
   if (!midia) {
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType: 'unknown', ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: 'download_error', correlationId, storyId,
@@ -347,7 +350,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
 
   const base = baseUrlDoDeployment()
   if (!base) {
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed: false, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: 'provider_error', correlationId, storyId,
@@ -383,7 +386,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
       const frame = await extrairFrameDeVideo(midia.buffer)
       ffmpegMs = Date.now() - ffmpegInicio
       if (!frame) {
-        recordVisionUsageEvent({
+        recordVisionTelemetry({
           source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
           provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
           errorCode: 'ffmpeg_error', correlationId, storyId,
@@ -433,7 +436,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     })
     clearTimeout(timeout)
     if (!res.ok) {
-      recordVisionUsageEvent({
+      recordVisionTelemetry({
         source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
         provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
         errorCode: 'provider_error', correlationId, storyId,
@@ -444,7 +447,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     const data = await res.json()
     const texto = data.choices?.[0]?.message?.content || ''
 
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: !!texto, latencyMs: Date.now() - inicio,
       inputTokens: data.usage?.prompt_tokens ?? null,
@@ -463,7 +466,7 @@ export async function identificarProdutoPorImagem(storyMediaUrl, traceMeta = {})
     clearTimeout(timeout)
     // Nunca loga base64 nem storyMediaUrl.
     console.warn('[VisaoProduto] identificação indisponível, seguindo sem Story')
-    recordVisionUsageEvent({
+    recordVisionTelemetry({
       source: 'story', mediaType, ffmpegUsed, ffmpegMs, model: VISION_PROXY_MODEL,
       provider: VISION_PROVIDER, success: false, latencyMs: Date.now() - inicio,
       errorCode: err?.name === 'AbortError' ? 'timeout' : 'vision_error',
