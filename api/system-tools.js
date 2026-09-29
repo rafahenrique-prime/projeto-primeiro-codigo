@@ -766,6 +766,41 @@ async function vercelUsage(req, res) {
           status: metrics.status,
           error: metrics.error,
         })
+
+        if (metrics.status === 402 || metrics.error === 'payment_required') {
+          return res.status(200).json({
+            available: true,
+            mode: 'hobby_dashboard_only',
+            source: 'Vercel REST API + Hobby public limits',
+            billingChargesAvailable: false,
+            billingChargesReason: 'costs_not_found',
+            observabilityMetricsAvailable: false,
+            observabilityMetricsReason: 'payment_required',
+            authMode,
+            projectName: 'ignite-webhook',
+            projectId: PROJECT_ID,
+            statusOnly: true,
+            includedLimits: {
+              activeCpuHours: 4,
+              functionInvocations: 1000000,
+              fastDataTransferGb: 100,
+              blobAdvancedOperations: 2000,
+              deploymentStorageGb: 10,
+            },
+            automationCoverage: {
+              deploymentStatus: 'CONFIRMED',
+              functionInvocationsUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+              activeCpuUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+              fastDataTransferUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+              functionsStorageUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+              deploymentStorageUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+              blobAdvancedOperationsUsed: 'DASHBOARD_ONLY_ON_HOBBY',
+            },
+            note:
+              'O plano Hobby expõe os limites no dashboard, mas a Billing API não possui charges e a consulta histórica do Metrics API exige Observability pago. Nenhum consumo é estimado.',
+          })
+        }
+
         return res.status(metrics.status || 502).json({
           available: false,
           error: 'Billing sem dados e Metrics indisponível',
