@@ -263,8 +263,9 @@ export function isGenericStoryQuestion(text) {
   const keywords = extrairKeywords(text)
   if (!keywords) return true
   const generic = new Set([
-    'valor', 'preco', 'quanto', 'custa', 'custando',
-    'modelo', 'nome', 'produto', 'item'
+    'valor', 'valores', 'preco', 'precos', 'quanto', 'custa', 'custam', 'custando',
+    'modelo', 'modelos', 'nome', 'produto', 'produtos', 'item', 'itens',
+    'passa', 'passe', 'passar', 'manda', 'mande', 'mandar', 'fala', 'fale', 'diz', 'diga'
   ])
   const tokens = normalizarBusca(keywords).split(' ').filter(Boolean)
   return tokens.length > 0 && tokens.every((token) => generic.has(token))
