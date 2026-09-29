@@ -700,6 +700,61 @@ async function vercelUsage(req, res) {
   }
 }
 
+async function vercelMetricsCatalog(req, res) {
+  if (!VERCEL_TOKEN) {
+    return res.status(500).json({ error: 'VERCEL_ACCESS_TOKEN não configurado' })
+  }
+
+  try {
+    const headers = {
+      Authorization: `Bearer ${VERCEL_TOKEN}`,
+      Accept: 'application/json',
+    }
+    const params = new URLSearchParams({
+      limit: '250',
+      kind: 'system',
+      teamId: TEAM_ID,
+    })
+    const response = await fetch(`https://api.vercel.com/metrics/v1?${params.toString()}`, { headers })
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        available: false,
+        error: 'Falha ao consultar catálogo de métricas da Vercel',
+        errorCode: response.status === 403 ? 'VERCEL_METRICS_FORBIDDEN' : 'VERCEL_METRICS_API_ERROR',
+      })
+    }
+
+    const allMetrics = Array.isArray(payload?.metrics) ? payload.metrics : []
+    const wanted = /(storage|cpu|function|blob|bandwidth|request|transfer|invocation|memory|edge)/i
+    const metrics = allMetrics
+      .filter(metric => wanted.test(String(metric?.id || '')) || wanted.test(String(metric?.description || '')))
+      .map(metric => ({
+        id: metric.id,
+        description: metric.description,
+        unit: metric.unit,
+        aggregations: metric.aggregations,
+        dimensions: metric.dimensions,
+      }))
+      .slice(0, 100)
+
+    return res.status(200).json({
+      available: true,
+      source: 'Vercel Observability Metrics Catalog /metrics/v1',
+      totalCatalogMetrics: allMetrics.length,
+      matchedMetrics: metrics.length,
+      metrics,
+    })
+  } catch (e) {
+    console.error('[system-tools:vercel-metrics-catalog] Erro:', e.message)
+    return res.status(500).json({
+      available: false,
+      error: 'Erro interno ao consultar catálogo de métricas da Vercel',
+    })
+  }
+}
+
 async function enviarTelegramStuck(mensagem) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error('[system-tools:stuck-check] Telegram não configurado')
@@ -2895,6 +2950,10 @@ export default async function handler(req, res) {
     case 'vercel-usage':
       // Usage/Billing oficial da Vercel, agregado e sanitizado no servidor.
       return vercelUsage(req, res)
+
+    case 'vercel-metrics-catalog':
+      // Catálogo sanitizado de métricas oficiais para configurar o Painel Operacional.
+      return vercelMetricsCatalog(req, res)
 
     case 'qwen-health':
       // Sem autenticação de usuário (risco residual aceito e documentado — ver
