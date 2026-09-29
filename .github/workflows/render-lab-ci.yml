@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - render-lab
+      - 'lab/**'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: render-lab-ci
+  group: render-lab-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
