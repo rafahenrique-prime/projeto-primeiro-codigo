@@ -683,6 +683,8 @@ export default async function handler(req, res) {
     let visionDecisionEvidence = null
     let storyMediaUrlForDecision = null
     const visualMatchMode = getStoryVisualMatchMode()
+    const smartVideoMode = getStoryVideoSmartVisionMode()
+    let storyShadowCandidatePool = []
     let visualMatchDecision = {
       status: 'not_attempted',
       choice: 'NONE',
