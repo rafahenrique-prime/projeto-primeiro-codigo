@@ -259,15 +259,19 @@ async function extrairFrameDeVideo(videoBuffer) {
 // (ex.: Visual Match). Reusa exatamente a mesma allowlist/download/frame de
 // identificarProdutoPorImagem(). Não registra telemetria própria — o chamador
 // decide a telemetria da operação derivada.
-export async function prepararStoryImageDataUrl(storyMediaUrl) {
+export async function prepararStoryImageDataUrl(storyMediaUrl, options = {}) {
   const midia = await baixarStoryMediaSeguro(storyMediaUrl)
   if (!midia) return null
 
   const sourceMediaType = ALLOWED_VIDEO_MIME_PREFIX.test(midia.contentType) ? 'video' : 'image'
   const smartMode = getStoryVideoSmartVisionMode()
+  const useSmartVideo =
+    options.smartVideo === true ||
+    smartMode === 'lab' ||
+    smartMode === 'guard'
 
   if (sourceMediaType === 'video') {
-    if (smartMode !== 'off') {
+    if (useSmartVideo) {
       const smart = await extrairFramesInteligentesDeVideo(midia.buffer)
       if (smart.frames.length > 0) {
         const dataUrls = smart.frames.map((frame) =>
