@@ -150,3 +150,67 @@ describe('Story Item Inventory Shadow V1 — separação antes da busca', () => 
     expect(extractRequestedStoryProductCount('Qual preço?')).toBeNull()
   })
 })
+
+
+describe('Story P1/P2 — caso real dos dois chinelos', () => {
+  it('mantém candidatos de P1 e P2 intercalados mesmo quando P1 tem muitos resultados', async () => {
+    const { intercalarResultadosInventario } = await import('../webhook.js')
+
+    const p1 = [
+      { bagy_product_id: 9730182, nome: 'Chinelo Sandália Plataforma Bege', marca: 'PRADA', score: 80 },
+      { bagy_product_id: 9730204, nome: 'Chinelo Sandália Plataforma Palha', marca: 'PRADA', score: 70 },
+      { bagy_product_id: 9730217, nome: 'Chinelo Sandália Plataforma Preta', marca: 'PRADA', score: 60 },
+      { bagy_product_id: 7622418, nome: 'Chinelo Boss', marca: 'BOSS', score: 50 },
+      { bagy_product_id: 7622329, nome: 'Chinelo Diesel Branco', marca: 'Diesel', score: 40 },
+    ]
+
+    const p2 = [
+      { bagy_product_id: 7617068, nome: 'Chinelo Slide Boss - Branca', marca: 'BOSS', score: 79 },
+      { bagy_product_id: 7622298, nome: 'Chinelo Diesel Creme', marca: 'Diesel', score: 69 },
+    ]
+
+    const result = intercalarResultadosInventario([
+      { item: { id: 'P1' }, produtos: p1 },
+      { item: { id: 'P2' }, produtos: p2 },
+    ], 5)
+
+    expect(result.map((p) => p.bagy_product_id)).toEqual([
+      9730182,
+      7617068,
+      9730204,
+      7622298,
+      9730217,
+    ])
+    expect(result.some((p) => p.bagy_product_id === 7617068)).toBe(true)
+    expect(result.some((p) => p.bagy_product_id === 7622298)).toBe(true)
+  })
+
+  it('deduplica o mesmo produto se P1 e P2 trouxerem o mesmo candidato', async () => {
+    const { intercalarResultadosInventario } = await import('../webhook.js')
+    const same = { bagy_product_id: 9730182, nome: 'Chinelo Sandália Plataforma Bege' }
+
+    const result = intercalarResultadosInventario([
+      { item: { id: 'P1' }, produtos: [same] },
+      { item: { id: 'P2' }, produtos: [same, { bagy_product_id: 9730204, nome: 'Chinelo Sandália Plataforma Palha' }] },
+    ], 5)
+
+    expect(result.filter((p) => p.bagy_product_id === 9730182)).toHaveLength(1)
+    expect(result.some((p) => p.bagy_product_id === 9730204)).toBe(true)
+  })
+
+  it('preserva P1/P2 antes de anexar fallback global', async () => {
+    const { intercalarResultadosInventario, acrescentarCandidatosUnicos } = await import('../webhook.js')
+
+    const itemCandidates = intercalarResultadosInventario([
+      { produtos: [{ bagy_product_id: 'P1-A', nome: 'Produto P1' }] },
+      { produtos: [{ bagy_product_id: 'P2-A', nome: 'Produto P2' }] },
+    ], 5)
+
+    const merged = acrescentarCandidatosUnicos(itemCandidates, [
+      { bagy_product_id: 'GLOBAL-1', nome: 'Fallback global' },
+      { bagy_product_id: 'GLOBAL-2', nome: 'Fallback global 2' },
+    ], 5)
+
+    expect(merged.slice(0, 2).map((p) => p.bagy_product_id)).toEqual(['P1-A', 'P2-A'])
+  })
+})
