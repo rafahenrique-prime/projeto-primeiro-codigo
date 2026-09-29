@@ -556,6 +556,151 @@ async function vercelStatus(req, res) {
   }
 }
 
+function vercelMetricValue(payload, key) {
+  const rows = Array.isArray(payload?.summary) ? payload.summary : []
+  let total = 0
+  let found = false
+  for (const row of rows) {
+    const value = Number(row?.values?.[key])
+    if (Number.isFinite(value)) {
+      total += value
+      found = true
+    }
+  }
+  return found ? total : null
+}
+
+async function fetchVercelMetricsUsage(headers, scope, start, end) {
+  const metrics = {
+    function_invocations: {
+      metric: 'vercel.function_invocation.count',
+      aggregation: 'count',
+    },
+    function_cpu_ms: {
+      metric: 'vercel.function_invocation.function_cpu_time_ms',
+      aggregation: 'sum',
+    },
+    middleware_cpu_ms: {
+      metric: 'vercel.middleware_invocation.function_cpu_time_ms',
+      aggregation: 'sum',
+    },
+    fast_data_transfer_bytes: {
+      metric: 'vercel.request.fdt_total_bytes',
+      aggregation: 'sum',
+    },
+    request_count: {
+      metric: 'vercel.request.count',
+      aggregation: 'count',
+    },
+  }
+
+  const body = {
+    scope,
+    timeRange: {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    },
+    bucketSeconds: 86400,
+    metrics,
+    outputs: Object.keys(metrics),
+  }
+
+  const response = await fetch(
+    `https://api.vercel.com/metrics/v1?teamId=${encodeURIComponent(TEAM_ID)}`,
+    {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      error: payload?.error?.code || payload?.error?.message || 'VERCEL_METRICS_QUERY_FAILED',
+    }
+  }
+
+  const functionCpuMs = vercelMetricValue(payload, 'function_cpu_ms') || 0
+  const middlewareCpuMs = vercelMetricValue(payload, 'middleware_cpu_ms') || 0
+
+  return {
+    ok: true,
+    status: response.status,
+    values: {
+      functionInvocations: vercelMetricValue(payload, 'function_invocations'),
+      activeCpuMs: functionCpuMs + middlewareCpuMs,
+      functionCpuMs,
+      middlewareCpuMs,
+      fastDataTransferBytes: vercelMetricValue(payload, 'fast_data_transfer_bytes'),
+      requestCount: vercelMetricValue(payload, 'request_count'),
+    },
+  }
+}
+
+async function vercelHobbyMetricsUsage(headers) {
+  const end = new Date()
+  const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const [team, project] = await Promise.all([
+    fetchVercelMetricsUsage(
+      headers,
+      { ownerId: TEAM_ID },
+      start,
+      end
+    ),
+    fetchVercelMetricsUsage(
+      headers,
+      { ownerId: TEAM_ID, projectIds: [PROJECT_ID] },
+      start,
+      end
+    ),
+  ])
+
+  if (!team.ok) {
+    return {
+      ok: false,
+      status: team.status || 502,
+      error: team.error || 'VERCEL_TEAM_METRICS_UNAVAILABLE',
+    }
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: {
+      available: true,
+      mode: 'observability_metrics',
+      source: 'Vercel Observability Metrics API /metrics/v1',
+      period: {
+        kind: 'rolling_30_days',
+        from: start.toISOString(),
+        to: end.toISOString(),
+      },
+      team: team.values,
+      project: project.ok ? project.values : null,
+      projectName: 'ignite-webhook',
+      projectId: PROJECT_ID,
+      projectMetricsAvailable: project.ok,
+      projectMetricsError: project.ok ? null : project.error,
+      automationCoverage: {
+        functionInvocations: 'CONFIRMED',
+        activeCpu: 'CONFIRMED',
+        fastDataTransfer: 'CONFIRMED',
+        requests: 'CONFIRMED',
+        functionsStorage: 'NOT_EXPOSED_IN_METRICS_CATALOG',
+        deploymentStorage: 'NOT_EXPOSED_IN_METRICS_CATALOG',
+        blobAdvancedOperations: 'NOT_EXPOSED_IN_METRICS_CATALOG',
+      },
+    },
+  }
+}
+
 async function vercelUsage(req, res) {
   if (!VERCEL_TOKEN) {
     return res.status(500).json({ error: 'VERCEL_ACCESS_TOKEN não configurado' })
@@ -590,6 +735,37 @@ async function vercelUsage(req, res) {
 
     if (!usageRes.ok) {
       const body = await usageRes.text().catch(() => '')
+      let parsedError = null
+      try {
+        parsedError = JSON.parse(body)
+      } catch {
+        parsedError = null
+      }
+      const upstreamCode = parsedError?.error?.code || null
+
+      if (usageRes.status === 404 && upstreamCode === 'costs_not_found') {
+        const metrics = await vercelHobbyMetricsUsage(headers)
+        if (metrics.ok) {
+          return res.status(200).json({
+            ...metrics.data,
+            billingChargesAvailable: false,
+            billingChargesReason: 'costs_not_found',
+            authMode,
+          })
+        }
+
+        console.warn('[system-tools:vercel-usage] Metrics fallback indisponível', {
+          status: metrics.status,
+          error: metrics.error,
+        })
+        return res.status(metrics.status || 502).json({
+          available: false,
+          error: 'Billing sem dados e Metrics indisponível',
+          errorCode: metrics.error || 'VERCEL_METRICS_UNAVAILABLE',
+          authMode,
+        })
+      }
+
       console.warn('[system-tools:vercel-usage] Falha ao consultar billing usage', {
         status: usageRes.status,
         authMode,
@@ -696,61 +872,6 @@ async function vercelUsage(req, res) {
     return res.status(500).json({
       available: false,
       error: 'Erro interno ao consultar Usage/Billing da Vercel',
-    })
-  }
-}
-
-async function vercelMetricsCatalog(req, res) {
-  if (!VERCEL_TOKEN) {
-    return res.status(500).json({ error: 'VERCEL_ACCESS_TOKEN não configurado' })
-  }
-
-  try {
-    const headers = {
-      Authorization: `Bearer ${VERCEL_TOKEN}`,
-      Accept: 'application/json',
-    }
-    const params = new URLSearchParams({
-      limit: '250',
-      kind: 'system',
-      teamId: TEAM_ID,
-    })
-    const response = await fetch(`https://api.vercel.com/metrics/v1?${params.toString()}`, { headers })
-    const payload = await response.json().catch(() => null)
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        available: false,
-        error: 'Falha ao consultar catálogo de métricas da Vercel',
-        errorCode: response.status === 403 ? 'VERCEL_METRICS_FORBIDDEN' : 'VERCEL_METRICS_API_ERROR',
-      })
-    }
-
-    const allMetrics = Array.isArray(payload?.metrics) ? payload.metrics : []
-    const wanted = /(storage|cpu|function|blob|bandwidth|request|transfer|invocation|memory|edge)/i
-    const metrics = allMetrics
-      .filter(metric => wanted.test(String(metric?.id || '')) || wanted.test(String(metric?.description || '')))
-      .map(metric => ({
-        id: metric.id,
-        description: metric.description,
-        unit: metric.unit,
-        aggregations: metric.aggregations,
-        dimensions: metric.dimensions,
-      }))
-      .slice(0, 100)
-
-    return res.status(200).json({
-      available: true,
-      source: 'Vercel Observability Metrics Catalog /metrics/v1',
-      totalCatalogMetrics: allMetrics.length,
-      matchedMetrics: metrics.length,
-      metrics,
-    })
-  } catch (e) {
-    console.error('[system-tools:vercel-metrics-catalog] Erro:', e.message)
-    return res.status(500).json({
-      available: false,
-      error: 'Erro interno ao consultar catálogo de métricas da Vercel',
     })
   }
 }
@@ -2950,10 +3071,6 @@ export default async function handler(req, res) {
     case 'vercel-usage':
       // Usage/Billing oficial da Vercel, agregado e sanitizado no servidor.
       return vercelUsage(req, res)
-
-    case 'vercel-metrics-catalog':
-      // Catálogo sanitizado de métricas oficiais para configurar o Painel Operacional.
-      return vercelMetricsCatalog(req, res)
 
     case 'qwen-health':
       // Sem autenticação de usuário (risco residual aceito e documentado — ver
