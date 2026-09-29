@@ -518,6 +518,7 @@ export default async function handler(req, res) {
     let searchContextUsed = 'pergunta_direta'
     let fallbackUsed = false
     let storyIdParaTrace = null
+    let storyRawQuestionUsed = false
     // Correção #2 (2026-09-06): true assim que um Story ATUAL com mídia é
     // confirmado (linha abaixo), independente de Vision/parser/matching/fallback
     // terem sucesso depois — nunca revertido. Deliberadamente diferente de
@@ -572,6 +573,23 @@ export default async function handler(req, res) {
         const contextoStory = await getStoryContext(chat_id)
         storyContextStatus = contextoStory.status
         if (contextoStory.status === 'FOUND' && contextoStory.storyMediaUrl) {
+          // Story novo é uma fronteira de contexto. O parâmetro "pergunta"
+          // da Action é gerado pelo modelo do GPT Maker e pode carregar um
+          // produto de mensagens antigas. Quando temos o texto bruto da
+          // mensagem user que contém o Story (ou continuação curta validada),
+          // ele substitui o argumento gerado pelo agente em TODAS as decisões
+          // downstream: intenção, fallback, candidatos suplementares e JEV.
+          // Imagem reenviada sem texto mantém o comportamento anterior.
+          const rawStoryQuestion = typeof contextoStory.currentUserText === 'string'
+            ? contextoStory.currentUserText.trim().slice(0, 300)
+            : ''
+          if (rawStoryQuestion) {
+            pergunta = rawStoryQuestion
+            buscaTexto = rawStoryQuestion
+            storyRawQuestionUsed = true
+            console.log('[Webhook] Story atual: usando pergunta bruta do cliente; argumento gerado pelo agente ignorado')
+          }
+
           // Correção #2: Story atual comprovado AQUI, antes de qualquer
           // chamada à Vision — este é o sinal certo pra suprimir memória de
           // produto histórico, não o resultado da Vision/parser mais abaixo.
@@ -909,6 +927,7 @@ export default async function handler(req, res) {
       correlation_id: correlationId,
       story_id: storyIdParaTrace,
       story_context_status: storyContextStatus,
+      story_raw_question_used: storyRawQuestionUsed,
       vision_status: visionStatus,
       search_context_used: searchContextUsed,
       fallback_used: fallbackUsed,
