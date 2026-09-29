@@ -843,6 +843,8 @@ export default async function handler(req, res) {
         if (merged.length >= 5) break
       }
 
+      storyShadowCandidatePool = merged.map((p) => ({ ...p }))
+
       visualMatchDecision = await compararStoryComCandidatos(
         storyMediaUrlForDecision,
         merged
