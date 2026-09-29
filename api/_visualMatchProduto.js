@@ -71,11 +71,11 @@ function fail(reason, extra = {}) {
   }
 }
 
-export async function compararStoryComCandidatos(storyMediaUrl, candidates = []) {
+export async function compararStoryComCandidatos(storyMediaUrl, candidates = [], options = {}) {
   const base = baseUrlDoDeployment()
   if (!base) return fail('NO_DEPLOYMENT_URL')
 
-  const prepared = await prepararStoryImageDataUrl(storyMediaUrl)
+  const prepared = await prepararStoryImageDataUrl(storyMediaUrl, { smartVideo: options.smartVideo === true })
   if (!prepared?.dataUrl) return fail('STORY_IMAGE_UNAVAILABLE')
 
   const safeCandidates = (Array.isArray(candidates) ? candidates : [])
