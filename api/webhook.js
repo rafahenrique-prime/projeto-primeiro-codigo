@@ -463,6 +463,17 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
+  // LAB temporário — Preview-only. Exercita o fluxo real usando o Story mais
+  // recente do chat, mas não envia nada ao GPTMaker/cliente.
+  if (req.method === 'GET' && process.env.VERCEL_ENV === 'preview' && req.query?.smart_video_lab) {
+    req.method = 'POST'
+    req.body = {
+      pergunta: String(req.query.question || 'Qual preço?').slice(0, 220),
+      cliente_id: 'smart-video-preview-lab',
+      chat_id: String(req.query.smart_video_lab).slice(0, 180),
+    }
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não permitido' })
   }
