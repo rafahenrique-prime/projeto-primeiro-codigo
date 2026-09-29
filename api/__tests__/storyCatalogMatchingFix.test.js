@@ -253,6 +253,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       // keywords: "tenis esportivo casual calcado vans" — 2 palavras em comum
       // ("tenis","vans") com "Tenis Vans Old Skool Preto" (5 palavras) →
       // score = round(2/5*70) = 28... espera, esse valor É >= 25. Pra manter
@@ -304,6 +305,7 @@ describe('Correção #1 — comportamento end-to-end via api/webhook.js', () => 
       })),
     }))
     vi.doMock('../_visaoProduto.js', () => ({
+      getStoryVideoSmartVisionMode: vi.fn(() => 'off'),
       // Texto "fora do formato" — sem "## ", sem **Tipo:**, sem **Marca:** —
       // extrairQueryCompactaDaVision() retorna '' pra isso.
       identificarProdutoPorImagem: vi.fn(() => Promise.resolve('Não foi possível identificar detalhes desta imagem.')),
