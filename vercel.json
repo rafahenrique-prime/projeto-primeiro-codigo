@@ -19,10 +19,20 @@
       "source": "/.well-known/oauth-authorization-server/ignite-oauth",
       "destination": "https://prime-gptmaker-mcp.vercel.app/.well-known/oauth-authorization-server/ignite-oauth"
     },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ],
   "crons": [
-    { "path": "/api/cron-diagnosis", "schedule": "0 12 * * *" },
-    { "path": "/api/cron-diagnosis", "schedule": "0 18 * * *" }
-  ]
+    {
+      "path": "/api/cron-diagnosis",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron-diagnosis",
+      "schedule": "0 18 * * *"
+    }
+  ],
+  "ignoreCommand": "if [ \"$VERCEL_PROJECT_ID\" = \"prj_tbb2vBinCcUEkM47dAoq81fLTXoC\" ]; then echo \"Skipping duplicate deploy-clean project\"; exit 0; else exit 1; fi"
 }
