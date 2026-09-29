@@ -34,5 +34,5 @@
       "schedule": "0 18 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_PROJECT_ID\" = \"prj_tbb2vBinCcUEkM47dAoq81fLTXoC\" ]; then echo \"Skipping duplicate deploy-clean project\"; exit 0; else exit 1; fi"
+  "ignoreCommand": "if [ \"$VERCEL_PROJECT_ID\" = \"prj_tbb2vBinCcUEkM47dAoq81fLTXoC\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"render-lab\" ]; then echo \"Skipping deploy for deploy-clean or render-lab\"; exit 0; else exit 1; fi"
 }
