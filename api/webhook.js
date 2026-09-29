@@ -8,7 +8,12 @@ import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
 import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
-import { identificarProdutoPorImagem, getStoryVideoSmartVisionMode } from './_visaoProduto.js'
+import {
+  identificarProdutoPorImagem,
+  getStoryVideoSmartVisionMode,
+  extrairInventarioProdutosDaVision,
+  montarQueryInventarioProduto,
+} from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
 import { compararStoryComCandidatos, getStoryVisualMatchMode, getStoryVisualMatchMinConfidence } from './_visualMatchProduto.js'
 
@@ -260,6 +265,27 @@ export function extractRequestedSize(text) {
 // Em Story, perguntas como "qual valor?", "quanto?" ou "qual modelo e valor?"
 // não carregam nenhuma pista de produto. Repetir a mesma busca textual 5x
 // só adiciona latência e nunca melhora o match visual.
+export function extractRequestedStoryProductCount(text) {
+  const value = normalizarBusca(text)
+  if (!value) return null
+
+  const patterns = [
+    /\b(?:dos|das|os|as|esses|essas|estes|estas)\s+(2|3)\b/,
+    /\b(2|3)\s+(?:produtos|itens|modelos|pares|opcoes)\b/,
+    /\b(?:dois|duas)\b/,
+    /\btres\b/,
+  ]
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern)
+    if (!match) continue
+    if (match[1]) return Number(match[1])
+    if (/\b(?:dois|duas)\b/.test(match[0])) return 2
+    if (/\btres\b/.test(match[0])) return 3
+  }
+  return null
+}
+
 export function isGenericStoryQuestion(text) {
   const keywords = extrairKeywords(text)
   if (!keywords) return true
@@ -316,32 +342,60 @@ async function runStoryVideoSmartShadow({
   const startedAt = Date.now()
 
   try {
+    const expectedProductCount = extractRequestedStoryProductCount(question)
     const smartDescription = await identificarProdutoPorImagem(
       storyMediaUrl,
       { correlationId, storyId },
-      { smartVideo: true, recordTelemetry: false }
+      {
+        smartVideo: true,
+        recordTelemetry: false,
+        expectedProductCount,
+      }
     )
 
     const smartVisionQuery = extrairQueryCompactaDaVision(smartDescription)
     const smartVisionEvidence = extrairEvidenciasDaVision(smartDescription)
+    const inventory = extrairInventarioProdutosDaVision(smartDescription)
+    const inventoryItems = Array.isArray(inventory?.items) ? inventory.items.slice(0, 3) : []
 
-    let smartCandidates = Array.isArray(candidatePool) ? [...candidatePool] : []
+    const itemSearches = await Promise.all(
+      inventoryItems.map(async (item) => {
+        const query = montarQueryInventarioProduto(item)
+        if (!query) return { item, query: '', produtos: [], total: 0 }
+        const result = await buscarProdutos(query, 5)
+        return {
+          item,
+          query,
+          produtos: Array.isArray(result?.produtos) ? result.produtos : [],
+          total: Number(result?.total || 0),
+        }
+      })
+    )
 
-    if (smartVisionQuery) {
-      const smartSearch = await buscarProdutos(smartVisionQuery, 5)
-      const merged = []
-      const seen = new Set()
-
-      for (const p of [...(smartSearch.produtos || []), ...smartCandidates]) {
-        const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
-        if (!key || seen.has(key)) continue
-        seen.add(key)
-        merged.push(p)
-        if (merged.length >= 5) break
-      }
-
-      smartCandidates = merged
+    let smartCandidates = []
+    const seen = new Set()
+    const addCandidate = (p) => {
+      const key = String(p?.bagy_product_id || p?.id || p?.nome || '')
+      if (!key || seen.has(key) || smartCandidates.length >= 5) return
+      seen.add(key)
+      smartCandidates.push(p)
     }
+
+    // Intercala os resultados por item para impedir que P1 ocupe sozinho os 5 slots
+    // e esconda P2/P3 antes do Visual Match multi-produto.
+    for (let rank = 0; rank < 5 && smartCandidates.length < 5; rank += 1) {
+      for (const result of itemSearches) {
+        if (result.produtos?.[rank]) addCandidate(result.produtos[rank])
+        if (smartCandidates.length >= 5) break
+      }
+    }
+
+    if (smartVisionQuery && smartCandidates.length < 5) {
+      const smartSearch = await buscarProdutos(smartVisionQuery, 5)
+      for (const p of smartSearch.produtos || []) addCandidate(p)
+    }
+
+    for (const p of Array.isArray(candidatePool) ? candidatePool : []) addCandidate(p)
 
     let smartVisualMatch = await compararStoryComCandidatos(
       storyMediaUrl,
@@ -350,9 +404,15 @@ async function runStoryVideoSmartShadow({
     )
 
     const visualThreshold = getStoryVisualMatchMinConfidence()
+    const inventoryMultiProduct =
+      inventory?.sceneMode === 'MULTI_PRODUCT' ||
+      inventoryItems.length >= 2
     const multiProductDetected =
-      smartVisualMatch?.status === 'ok' &&
-      smartVisualMatch?.sceneMode === 'MULTI_PRODUCT'
+      inventoryMultiProduct ||
+      (
+        smartVisualMatch?.status === 'ok' &&
+        smartVisualMatch?.sceneMode === 'MULTI_PRODUCT'
+      )
     const visualStrong =
       !multiProductDetected &&
       smartVisualMatch?.status === 'ok' &&
@@ -429,6 +489,18 @@ async function runStoryVideoSmartShadow({
       smart_visual_choice: smartVisualMatch?.choice || 'NONE',
       smart_visual_confidence: smartVisualMatch?.confidence ?? null,
       smart_scene_mode: smartVisualMatch?.sceneMode || 'UNCERTAIN',
+      inventory_scene_mode: inventory?.sceneMode || 'UNCERTAIN',
+      inventory_item_count: inventoryItems.length,
+      inventory_declared_count: inventory?.declaredCount ?? null,
+      question_expected_count: expectedProductCount,
+      question_inventory_count_agree:
+        expectedProductCount == null
+          ? null
+          : expectedProductCount === (inventory?.declaredCount || inventoryItems.length),
+      item_search_candidate_counts: itemSearches.map((item) => item.produtos.length),
+      item_search_top_scores: itemSearches.map((item) =>
+        Number(item.produtos?.[0]?.score ?? 0)
+      ),
       multi_product_detected: multiProductDetected,
       multi_match_count: multiMatches.length,
       strong_multi_match_count: strongMultiMatches.length,
