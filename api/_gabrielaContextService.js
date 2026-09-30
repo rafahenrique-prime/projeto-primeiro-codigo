@@ -26,7 +26,7 @@
 import { getMemoryBlock } from './_profileMemory.js'
 import { formatarPrecoBR } from './_bagySyncMapper.js'
 
-const SHADOW_PRODUCTS_SELECT = 'id,bagy_product_id,nome,categoria_nome,preco,imagem_principal,link,codigo,marca,' +
+const SHADOW_PRODUCTS_SELECT = 'id,bagy_product_id,nome,categoria_nome,preco,imagem_principal,link,codigo,marca,selling_out_of_stock,' +
   'preco_tabela,preco_pix,' +
   'parcelamento_padrao_vezes,parcelamento_padrao_valor,parcelamento_padrao_com_juros,' +
   'parcelamento_max_vezes,parcelamento_max_valor,parcelamento_max_com_juros'
@@ -109,6 +109,8 @@ function normalizeCatalogProduct(row = {}) {
     link: row.link ?? null,
     codigo: row.codigo ?? null,
     marca: row.marca ?? null,
+    selling_out_of_stock:
+      row.selling_out_of_stock === true || row.selling_out_of_stock === 'true',
     preco_tabela: normalizeNumber(row.preco_tabela),
     preco_pix: normalizeNumber(row.preco_pix),
     parcelamento_padrao_vezes: row.parcelamento_padrao_vezes ?? null,
@@ -233,6 +235,181 @@ function variationMatchesSize(attributes, requestedSize) {
     : []
 
   return values.some((value) => normalizeAttrText(value) === target)
+}
+
+
+const COLOR_CANONICAL = new Map([
+  ['preta', 'preto'], ['pretas', 'preto'], ['pretos', 'preto'], ['preto', 'preto'],
+  ['branca', 'branco'], ['brancas', 'branco'], ['brancos', 'branco'], ['branco', 'branco'],
+  ['vermelha', 'vermelho'], ['vermelhas', 'vermelho'], ['vermelhos', 'vermelho'], ['vermelho', 'vermelho'],
+  ['amarela', 'amarelo'], ['amarelas', 'amarelo'], ['amarelos', 'amarelo'], ['amarelo', 'amarelo'],
+  ['cinza', 'cinza'], ['cinzas', 'cinza'],
+  ['azul', 'azul'], ['azuis', 'azul'],
+  ['verde', 'verde'], ['verdes', 'verde'],
+  ['rosa', 'rosa'], ['rosas', 'rosa'],
+  ['roxa', 'roxo'], ['roxas', 'roxo'], ['roxos', 'roxo'], ['roxo', 'roxo'],
+  ['bege', 'bege'], ['beges', 'bege'],
+  ['marrom', 'marrom'], ['marrons', 'marrom'],
+  ['vinho', 'vinho'], ['vinhos', 'vinho'],
+  ['laranja', 'laranja'], ['laranjas', 'laranja'],
+  ['dourada', 'dourado'], ['douradas', 'dourado'], ['dourados', 'dourado'], ['dourado', 'dourado'],
+  ['prateada', 'prateado'], ['prateadas', 'prateado'], ['prateados', 'prateado'], ['prateado', 'prateado'],
+])
+
+function canonicalColorToken(value) {
+  const token = normalizeAttrText(value).replace(/[^a-z0-9]+/g, '')
+  return COLOR_CANONICAL.get(token) || token
+}
+
+function textMatchesColor(value, requestedColor) {
+  if (!requestedColor) return true
+  const target = canonicalColorToken(requestedColor)
+  if (!target) return true
+
+  const tokens = normalizeAttrText(value)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+
+  return tokens.some((token) => canonicalColorToken(token) === target)
+}
+
+function variationMatchesColor(attributes, requestedColor) {
+  if (!requestedColor) return true
+  const values = attributes && typeof attributes === 'object'
+    ? Object.values(attributes)
+    : []
+  return values.some((value) => textMatchesColor(value, requestedColor))
+}
+
+/**
+ * Consulta em lote as variações dos candidatos e transforma em evidência
+ * factual de tamanho/cor/disponibilidade. Uma única chamada PostgREST,
+ * sem N+1 e sem fallback legado.
+ */
+export async function fetchShadowCatalogEvidence({
+  products = [],
+  requestedSize = null,
+  requestedColor = null,
+} = {}, deps = {}) {
+  const { supabaseConfig, fetchImpl, timeoutMs = 5000 } = deps
+  const safeProducts = Array.isArray(products)
+    ? products.filter((p) => p?.id).slice(0, 100)
+    : []
+
+  if (!supabaseConfig?.baseUrl || safeProducts.length === 0) {
+    return { ok: true, facts: {}, error_code: null }
+  }
+
+  const ids = [...new Set(safeProducts.map((p) => String(p.id)))]
+  const fetchFn = fetchImpl ?? fetch
+  const controller = new AbortController()
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const idsParam = encodeURIComponent(`(${ids.join(',')})`)
+    const url = `${supabaseConfig.baseUrl}/rest/v1/shadow_product_variations` +
+      `?shadow_product_id=in.${idsParam}` +
+      '&select=shadow_product_id,stock_quantity,attributes'
+
+    const res = await fetchFn(url, {
+      headers: supabaseConfig.headers,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutHandle)
+
+    if (!res.ok) {
+      return { ok: false, facts: {}, error_code: 'source_unavailable' }
+    }
+
+    const rows = await res.json().catch(() => null)
+    if (!Array.isArray(rows)) {
+      return { ok: false, facts: {}, error_code: 'source_invalid_response' }
+    }
+
+    const grouped = new Map()
+    for (const row of rows) {
+      const pid = String(row?.shadow_product_id || '')
+      if (!pid) continue
+      if (!grouped.has(pid)) grouped.set(pid, [])
+      grouped.get(pid).push(row)
+    }
+
+    const facts = {}
+
+    for (const product of safeProducts) {
+      const pid = String(product.id)
+      const allRows = grouped.get(pid) || []
+      const sizeRows = requestedSize
+        ? allRows.filter((row) => variationMatchesSize(row?.attributes, requestedSize))
+        : allRows
+
+      const sizeConfirmed = requestedSize ? sizeRows.length > 0 : null
+      const colorInName = requestedColor
+        ? textMatchesColor(product?.nome, requestedColor)
+        : true
+      const colorInVariation = requestedColor
+        ? allRows.some((row) => variationMatchesColor(row?.attributes, requestedColor))
+        : true
+      const colorConfirmed = requestedColor
+        ? Boolean(colorInName || colorInVariation)
+        : null
+
+      let relevantRows = sizeRows
+      if (requestedColor && !colorInName) {
+        relevantRows = relevantRows.filter((row) =>
+          variationMatchesColor(row?.attributes, requestedColor)
+        )
+      }
+
+      let status = 'UNKNOWN'
+      let reason = 'NO_VARIATIONS'
+
+      if (requestedSize && !sizeConfirmed) {
+        reason = 'SIZE_NOT_FOUND'
+      } else if (requestedColor && !colorConfirmed) {
+        reason = 'COLOR_NOT_FOUND'
+      } else if (product?.selling_out_of_stock === true) {
+        status = 'AVAILABLE'
+        reason = 'SELLING_OUT_OF_STOCK_ALLOWED'
+      } else if (relevantRows.length > 0) {
+        const quantities = relevantRows
+          .map((row) => normalizeNumber(row?.stock_quantity))
+          .filter((n) => n !== null)
+
+        if (quantities.some((n) => n > 0)) {
+          status = 'AVAILABLE'
+          reason = requestedSize ? 'SIZE_IN_STOCK' : 'PRODUCT_IN_STOCK'
+        } else if (
+          quantities.length === relevantRows.length &&
+          quantities.every((n) => n === 0)
+        ) {
+          status = 'OUT_OF_STOCK'
+          reason = requestedSize ? 'SIZE_OUT_OF_STOCK' : 'PRODUCT_OUT_OF_STOCK'
+        } else {
+          reason = 'STOCK_NOT_DETERMINISTIC'
+        }
+      }
+
+      facts[pid] = {
+        status,
+        reason,
+        sizeConfirmed,
+        colorConfirmed,
+        requestedSize,
+        requestedColor,
+      }
+    }
+
+    return { ok: true, facts, error_code: null }
+  } catch (err) {
+    clearTimeout(timeoutHandle)
+    return {
+      ok: false,
+      facts: {},
+      error_code: err?.name === 'AbortError' ? 'source_timeout' : 'source_unavailable',
+    }
+  }
 }
 
 /**
