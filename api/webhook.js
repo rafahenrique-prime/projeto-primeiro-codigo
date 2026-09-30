@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import { waitUntil } from '@vercel/functions'
 import { upsertIdentity } from './_profileIdentity.js'
 import { getMemoryBlock } from './_profileMemory.js'
-import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability } from './_gabrielaContextService.js'
+import { fetchProductsCatalog, fetchGabrielaKnowledge, formatarProdutoComercial, fetchShadowProductAvailability, fetchShadowCatalogEvidence } from './_gabrielaContextService.js'
 import { getStoryContext } from './_storyContext.js'
 import {
   identificarProdutoPorImagem,
@@ -63,6 +63,89 @@ export function normalizarBusca(texto) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+
+const CATALOG_STOP_WORDS = new Set([
+  ...STOP_WORDS,
+  'voces',
+  'esta', 'estao', 'disponiveis', 'disponibilidade',
+  'tamanho', 'tamanhos', 'tam', 'numero', 'numeracao',
+  'marca', 'marcas', 'preco', 'precos', 'valor', 'valores',
+  'opcao', 'opcoes', 'modelo', 'modelos',
+])
+
+const CATALOG_TOKEN_ALIASES = new Map([
+  ['camisetas', 'camiseta'],
+  ['pretas', 'preto'], ['preta', 'preto'], ['pretos', 'preto'],
+  ['brancas', 'branco'], ['branca', 'branco'], ['brancos', 'branco'],
+  ['vermelhas', 'vermelho'], ['vermelha', 'vermelho'], ['vermelhos', 'vermelho'],
+  ['amarelas', 'amarelo'], ['amarela', 'amarelo'], ['amarelos', 'amarelo'],
+  ['azuis', 'azul'], ['cinzas', 'cinza'], ['verdes', 'verde'],
+  ['rosas', 'rosa'], ['roxas', 'roxo'], ['roxa', 'roxo'], ['roxos', 'roxo'],
+  ['beges', 'bege'], ['marrons', 'marrom'], ['vinhos', 'vinho'],
+  ['laranjas', 'laranja'],
+])
+
+const CATALOG_COLOR_TOKENS = new Set([
+  'preto', 'branco', 'azul', 'cinza', 'verde', 'vermelho',
+  'amarelo', 'rosa', 'roxo', 'bege', 'marrom', 'vinho', 'laranja',
+  'dourado', 'prateado',
+])
+
+function canonicalCatalogToken(token) {
+  return CATALOG_TOKEN_ALIASES.get(token) || token
+}
+
+export function normalizarBuscaCatalogo(texto) {
+  return normalizarBusca(texto)
+    .split(' ')
+    .filter(Boolean)
+    .map(canonicalCatalogToken)
+    .join(' ')
+}
+
+export function extractRequestedColor(texto) {
+  const tokens = normalizarBuscaCatalogo(texto).split(' ').filter(Boolean)
+  return tokens.find((token) => CATALOG_COLOR_TOKENS.has(token)) || null
+}
+
+export function extrairKeywordsCatalogo(texto) {
+  const normalizado = normalizarBuscaCatalogo(texto)
+  const requestedSize = extractRequestedSize(texto)
+  const sizeToken = requestedSize ? normalizarBusca(requestedSize) : null
+
+  const palavras = normalizado.split(' ').filter((p) => {
+    if (!p || CATALOG_STOP_WORDS.has(p)) return false
+    if (sizeToken && p === sizeToken) return false
+    return p.length > 1
+  })
+
+  return palavras.length > 0 ? palavras.join(' ') : normalizado
+}
+
+export function calcularSimilaridadeCatalogo(texto1, texto2) {
+  const t1 = normalizarBuscaCatalogo(texto1)
+  const t2 = normalizarBuscaCatalogo(texto2)
+
+  if (!t1 || !t2) return 0
+  if (t1 === t2) return 100
+  if (t2.includes(t1) || t1.includes(t2)) return 80
+
+  const palavras1 = t1.split(' ').filter(Boolean)
+  const palavras2 = t2.split(' ').filter(Boolean)
+  const comuns = palavras1.filter((p) => palavras2.includes(p)).length
+
+  if (comuns > 0) {
+    return Math.round((comuns / Math.max(palavras1.length, palavras2.length)) * 70)
+  }
+
+  return 0
+}
+
+export function catalogIntentRequestsAvailability(texto) {
+  const value = normalizarBusca(texto)
+  return /\b(disponivel|disponiveis|disponibilidade|estoque)\b/.test(value)
 }
 
 // Extrai keywords relevantes removendo stop words
@@ -122,44 +205,92 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
     if (!catalogResult.ok) return { produtos: [], total: 0 }
 
     const produtos = catalogResult.products
+    const requestedSize = extractRequestedSize(pergunta)
+    const requestedColor = extractRequestedColor(pergunta)
+    const requiresAvailability = catalogIntentRequestsAvailability(pergunta)
 
-    // Extrai keywords da pergunta para melhorar a busca
-    const keywords = extrairKeywords(pergunta)
-    console.log(`[Webhook] 🔑 Keywords extraídas: "${keywords}" (de: "${pergunta}")`)
+    // Busca estruturada: linguagem comercial ("camisetas", "pretas", "preços",
+    // "tamanho M") é normalizada sem contaminar o ranking textual com filtros
+    // que vivem nas variações.
+    const keywords = extrairKeywordsCatalogo(pergunta)
+    console.log('[Webhook][catalog-intent]', JSON.stringify({
+      keywords,
+      requested_size: requestedSize,
+      requested_color: requestedColor,
+      requires_availability: requiresAvailability,
+    }))
 
     const todosComScore = produtos
       .map(p => ({
         ...p,
-        score: calcularSimilaridade(keywords, p.nome)
+        score: calcularSimilaridadeCatalogo(keywords, p.nome)
       }))
       .filter(p => p.score > 0)
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
 
-    const produtosComScore = todosComScore.slice(0, 5)
+    // O filtro factual usa até 100 candidatos e faz UMA única leitura em lote
+    // das variações. Isso evita N+1 e permite confirmar tamanho/cor/estoque.
+    const candidatePool = todosComScore.slice(0, 100)
+    const evidenceResult = await fetchShadowCatalogEvidence(
+      {
+        products: candidatePool,
+        requestedSize,
+        requestedColor,
+      },
+      {
+        supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
+      }
+    )
 
-    // Total de variações precisa ser do MESMO MODELO, não só da mesma marca.
-    // calcularSimilaridade() pontua com só 1 palavra em comum ("new balance 530"
-    // e "new balance 9060" compartilham "new"+"balance"), o que inflava o total
-    // somando cores de modelos diferentes (achado em 2026-07-04, conversa real:
-    // "164 variações" quando o real do 9060 é 38). Duas tentativas descartadas:
-    // exigir TODAS as keywords quebra com palavras soltas fora da STOP_WORDS
-    // (ex: "ver" batendo à toa em produtos com "Verde" no nome); usar o score
-    // relativo penaliza nomes de produto mais longos e undercounta. A solução:
-    // ancorar no(s) token(s) NUMÉRICO(S) da pergunta (9060, 530, 997...), que
-    // são os identificadores reais de modelo — exige-se só esses no nome do
-    // produto. Sem número na pergunta (ex: "tem tênis vans?"), não dá pra
-    // isolar modelo, então mantém o total antigo (soma todos os matches).
-    const keywordsArr = normalizarBusca(keywords).split(' ').filter(Boolean)
+    let candidatos = candidatePool.map((p) => {
+      const fact = evidenceResult.facts?.[String(p.id)] || null
+      return {
+        ...p,
+        availabilityStatus: fact?.status || 'UNKNOWN',
+        availabilityReason: fact?.reason || (evidenceResult.ok ? 'NO_EVIDENCE' : 'EVIDENCE_UNAVAILABLE'),
+        sizeConfirmed: fact?.sizeConfirmed ?? null,
+        colorConfirmed: fact?.colorConfirmed ?? null,
+        requestedSize,
+        requestedColor,
+      }
+    })
+
+    if (requestedSize) {
+      candidatos = candidatos.filter((p) => p.sizeConfirmed === true)
+    }
+    if (requestedColor) {
+      candidatos = candidatos.filter((p) => p.colorConfirmed === true)
+    }
+    if (requiresAvailability) {
+      candidatos = candidatos.filter((p) => p.availabilityStatus === 'AVAILABLE')
+    }
+
+    // Entre candidatos igualmente relevantes, prioriza disponibilidade
+    // comprovada; nunca transforma UNKNOWN em disponível.
+    const availabilityRank = { AVAILABLE: 0, UNKNOWN: 1, OUT_OF_STOCK: 2 }
+    candidatos.sort((a, b) =>
+      b.score - a.score ||
+      (availabilityRank[a.availabilityStatus] ?? 9) - (availabilityRank[b.availabilityStatus] ?? 9) ||
+      String(a.nome).localeCompare(String(b.nome), 'pt-BR')
+    )
+
+    const produtosComScore = candidatos.slice(0, 5)
+
+    const keywordsArr = normalizarBuscaCatalogo(keywords).split(' ').filter(Boolean)
     const numericos = keywordsArr.filter(k => /\d/.test(k))
-    const total = numericos.length > 0
-      ? produtos.filter(p => {
-          const nome = normalizarBusca(p.nome)
-          return numericos.every(k => nome.includes(k))
-        }).length
-      : todosComScore.length
+    const hasStructuredFilters = Boolean(requestedSize || requestedColor || requiresAvailability)
+    const total = hasStructuredFilters
+      ? candidatos.length
+      : numericos.length > 0
+        ? produtos.filter(p => {
+            const nome = normalizarBuscaCatalogo(p.nome)
+            return numericos.every(k => nome.includes(k))
+          }).length
+        : todosComScore.length
 
-    // Retry automático: até 5 tentativas com delay de 2s cada (total 10s)
-    if (produtosComScore.length === 0 && tentativa < 5) {
+    // Retry somente quando a busca textual não achou nada. Filtro factual
+    // zerado (ex.: tamanho sem estoque) é resposta válida e não deve repetir 5x.
+    if (candidatePool.length === 0 && tentativa < 5) {
       console.log(`[Webhook] ⏳ Tentativa ${tentativa}/5: 0 produtos. Aguardando 2s...`)
       await new Promise(resolve => setTimeout(resolve, 2000))
       return buscarProdutos(pergunta, tentativa + 1)
@@ -631,16 +762,30 @@ export function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
   // aparece na chave (nunca null/inventado/calculado) — ver a função pra regra
   // completa. `preco` continua exatamente como já era, sem alteração.
   if (produtos && produtos.length > 0) {
-    resposta.dados.produtos = produtos.map(p => ({
-      nome: p.nome,
-      categoria: p.categoria,
-      preco: p.preco,
-      imagem: p.imagem,
-      link: p.link,
-      disponibilidade: 'SIM',
-      relevancia: `${p.score}%`,
-      ...formatarProdutoComercial(p),
-    }))
+    resposta.dados.produtos = produtos.map(p => {
+      const disponibilidade =
+        p.availabilityStatus === 'AVAILABLE'
+          ? 'SIM — CONFIRMADA'
+          : p.availabilityStatus === 'OUT_OF_STOCK'
+            ? 'NÃO — SEM ESTOQUE'
+            : 'NÃO CONFIRMADA'
+
+      return {
+        nome: p.nome,
+        categoria: p.categoria,
+        preco: p.preco,
+        imagem: p.imagem,
+        link: p.link,
+        disponibilidade,
+        disponibilidadeMotivo: p.availabilityReason || null,
+        tamanhoSolicitado: p.requestedSize || null,
+        tamanhoConfirmado: p.sizeConfirmed === true,
+        corSolicitada: p.requestedColor || null,
+        corConfirmada: p.colorConfirmed === true,
+        relevancia: `${p.score}%`,
+        ...formatarProdutoComercial(p),
+      }
+    })
   }
 
   // Embute o total real de variações direto no campo que o treinamento
@@ -664,6 +809,13 @@ export function formatarRespostaGPT(dadosBusca, memoriaBlock = '') {
   // lá é frágil e imprevisível).
   if (memoriaBlock) {
     resposta.dados.informacao_adicional += `${memoriaBlock}\n\n`
+  }
+
+  const hasUnconfirmedAvailability = (produtos || []).some(
+    (p) => p.availabilityStatus === 'UNKNOWN'
+  )
+  if (hasUnconfirmedAvailability) {
+    resposta.dados.informacao_adicional += `REGRA DE DISPONIBILIDADE: produto com disponibilidade "NÃO CONFIRMADA" não pode ser apresentado como disponível em estoque. Informe que precisa confirmar antes de afirmar estoque/tamanho.\n\n`
   }
 
   // Adicionar informação da knowledge base
