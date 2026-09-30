@@ -68,6 +68,7 @@ export function normalizarBusca(texto) {
 
 const CATALOG_STOP_WORDS = new Set([
   ...STOP_WORDS,
+  'voces',
   'esta', 'estao', 'disponiveis', 'disponibilidade',
   'tamanho', 'tamanhos', 'tam', 'numero', 'numeracao',
   'marca', 'marcas', 'preco', 'precos', 'valor', 'valores',
