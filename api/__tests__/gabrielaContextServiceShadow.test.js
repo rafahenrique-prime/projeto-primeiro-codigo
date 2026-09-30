@@ -79,23 +79,11 @@ describe('fetchProductsCatalog — Mirror/Shadow como fonte principal', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
-  it('só usa products como fallback quando o Mirror falha tecnicamente', async () => {
+  it('Mirror falhou: fail-closed e NUNCA consulta products legado', async () => {
     const fetchImpl = vi.fn(async (url) => {
-      if (url.includes('/shadow_products?')) {
-        return response([], false, 503)
-      }
-      if (url.includes('/products?')) {
-        return response([{
-          id: 'legacy-1',
-          nome: 'Produto Legado',
-          categoria: 'Teste',
-          preco: 'R$ 10,00',
-          imagem: 'https://img/legacy.jpg',
-          link: 'https://loja/legacy',
-          codigo: 'LEG-1',
-        }])
-      }
-      throw new Error('URL inesperada')
+      expect(url).toContain('/rest/v1/shadow_products?')
+      expect(url).not.toContain('/rest/v1/products?')
+      return response([], false, 503)
     })
 
     const result = await fetchProductsCatalog({
@@ -103,16 +91,11 @@ describe('fetchProductsCatalog — Mirror/Shadow como fonte principal', () => {
       fetchImpl,
     })
 
-    expect(result.ok).toBe(true)
-    expect(result.source).toBe('products_fallback')
-    expect(result.primary_error_code).toBe('source_unavailable')
-    expect(result.products[0]).toMatchObject({
-      nome: 'Produto Legado',
-      categoria: 'Teste',
-      preco: 'R$ 10,00',
-      imagem: 'https://img/legacy.jpg',
-    })
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(result.ok).toBe(false)
+    expect(result.source).toBe('shadow_products')
+    expect(result.error_code).toBe('source_unavailable')
+    expect(result.products).toEqual([])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 })
 
