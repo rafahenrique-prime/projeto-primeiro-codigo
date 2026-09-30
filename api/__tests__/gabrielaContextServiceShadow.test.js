@@ -65,6 +65,25 @@ describe('fetchProductsCatalog — Mirror/Shadow como fonte principal', () => {
     })
   })
 
+  it('registra telemetria explícita catalog_source=shadow_products', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      const fetchImpl = vi.fn(async () => response([]))
+
+      await fetchProductsCatalog({
+        supabaseConfig: SUPABASE_CONFIG,
+        fetchImpl,
+      })
+
+      const serialized = logSpy.mock.calls.map((args) => args.join(' ')).join('\n')
+      expect(serialized).toContain('[Catalog][source]')
+      expect(serialized).toContain('"catalog_source":"shadow_products"')
+      expect(serialized).toContain('"ok":true')
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
   it('Mirror vazio é resposta válida e NÃO consulta products legado', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
