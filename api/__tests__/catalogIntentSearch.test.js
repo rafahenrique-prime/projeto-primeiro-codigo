@@ -90,8 +90,8 @@ describe('Catalog evidence — tamanho, cor e disponibilidade', () => {
     })
 
     expect(result.facts.on).toMatchObject({
-      status: 'AVAILABLE',
-      reason: 'SELLING_OUT_OF_STOCK_ALLOWED',
+      status: 'UNKNOWN',
+      reason: 'STOCK_NOT_DETERMINISTIC',
       sizeConfirmed: true,
       colorConfirmed: true,
     })
