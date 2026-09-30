@@ -4,6 +4,8 @@ import {
   extrairKeywordsCatalogo,
   extractRequestedColor,
   extractRequestedSize,
+  extractRequestedBrand,
+  productMatchesRequestedBrand,
   calcularSimilaridadeCatalogo,
   catalogIntentRequestsAvailability,
   formatarRespostaGPT,
@@ -43,6 +45,71 @@ describe('Catalog intent — normalização e filtros', () => {
     const onRunning = calcularSimilaridadeCatalogo(q, 'Camisetas On Running Treino - Preta')
 
     expect(boss).toBeGreaterThan(onRunning)
+  })
+
+
+  it('marca explícita vira restrição estruturada e usa a marca mais específica', () => {
+    const products = [
+      { nome: 'Camiseta Boss Preta', marca: 'BOSS' },
+      { nome: 'Camiseta Oversize Boss Preta', marca: 'HUGO' },
+      { nome: 'Camiseta Calvin Klein Preta', marca: 'Calvin Klein' },
+      { nome: 'Camisetas On Running Treino - Preta', marca: 'On Running' },
+      { nome: 'Camiseta Diesel Preta', marca: 'Diesel' },
+    ]
+
+    expect(extractRequestedBrand(
+      'Camiseta Calvin Klein preta tamanho M: disponibilidade confirmada e valor',
+      products
+    )).toBe('Calvin Klein')
+
+    expect(extractRequestedBrand(
+      'Camiseta On Running preta tamanho M: disponibilidade confirmada e preço',
+      products
+    )).toBe('On Running')
+
+    expect(extractRequestedBrand(
+      'Camiseta Boss Preta tamanho P: disponibilidade confirmada, preço, link e imagem',
+      products
+    )).toBe('BOSS')
+  })
+
+  it('filtro de marca aceita o nome da marca no título e rejeita outras marcas', () => {
+    const requestedBrand = 'BOSS'
+
+    expect(productMatchesRequestedBrand(
+      { nome: 'Camiseta Boss Preta', marca: 'BOSS' },
+      requestedBrand
+    )).toBe(true)
+
+    // Caso real: Oversize Boss está com marca HUGO, mas "Boss" está no nome.
+    expect(productMatchesRequestedBrand(
+      { nome: 'Camiseta Oversize Boss Preta', marca: 'HUGO' },
+      requestedBrand
+    )).toBe(true)
+
+    expect(productMatchesRequestedBrand(
+      { nome: 'Camiseta Básica Premium Calvin Klein', marca: 'Calvin Klein' },
+      requestedBrand
+    )).toBe(false)
+
+    expect(productMatchesRequestedBrand(
+      { nome: 'Camiseta Diesel Básica Premium', marca: 'Diesel' },
+      requestedBrand
+    )).toBe(false)
+  })
+
+  it('remove ruído acrescentado pela ação GPTMaker sem apagar produto/marca/cor', () => {
+    expect(
+      extrairKeywordsCatalogo(
+        'Camiseta Boss Preta tamanho P: disponibilidade confirmada, preço, link e imagem'
+      )
+    ).toBe('camiseta boss preto')
+
+    expect(
+      extrairKeywordsCatalogo(
+        'Listar camisetas Diesel disponíveis no tamanho M, com nomes e preços confirmados'
+      )
+    ).toBe('camiseta diesel')
   })
 })
 
