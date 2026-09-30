@@ -73,6 +73,8 @@ const CATALOG_STOP_WORDS = new Set([
   'tamanho', 'tamanhos', 'tam', 'numero', 'numeracao',
   'marca', 'marcas', 'preco', 'precos', 'valor', 'valores',
   'opcao', 'opcoes', 'modelo', 'modelos',
+  'confirmada', 'confirmado', 'confirmadas', 'confirmados', 'confirmar',
+  'link', 'imagem', 'imagens', 'listar', 'nome', 'nomes',
 ])
 
 const CATALOG_TOKEN_ALIASES = new Map([
@@ -108,6 +110,36 @@ export function normalizarBuscaCatalogo(texto) {
 export function extractRequestedColor(texto) {
   const tokens = normalizarBuscaCatalogo(texto).split(' ').filter(Boolean)
   return tokens.find((token) => CATALOG_COLOR_TOKENS.has(token)) || null
+}
+
+
+export function extractRequestedBrand(texto, products = []) {
+  const haystack = ` ${normalizarBuscaCatalogo(texto)} `
+  const brands = [...new Set(
+    (Array.isArray(products) ? products : [])
+      .map((p) => String(p?.marca || '').trim())
+      .filter(Boolean)
+  )]
+    .map((raw) => ({ raw, normalized: normalizarBuscaCatalogo(raw) }))
+    .filter((b) => b.normalized)
+    .sort((a, b) => b.normalized.length - a.normalized.length)
+
+  const matched = brands.find((brand) =>
+    haystack.includes(` ${brand.normalized} `)
+  )
+
+  return matched?.raw || null
+}
+
+export function productMatchesRequestedBrand(product, requestedBrand) {
+  if (!requestedBrand) return true
+  const target = normalizarBuscaCatalogo(requestedBrand)
+  if (!target) return true
+
+  const brand = normalizarBuscaCatalogo(product?.marca || '')
+  const name = ` ${normalizarBuscaCatalogo(product?.nome || '')} `
+
+  return brand === target || name.includes(` ${target} `)
 }
 
 export function extrairKeywordsCatalogo(texto) {
@@ -207,6 +239,7 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
     const produtos = catalogResult.products
     const requestedSize = extractRequestedSize(pergunta)
     const requestedColor = extractRequestedColor(pergunta)
+    const requestedBrand = extractRequestedBrand(pergunta, produtos)
     const requiresAvailability = catalogIntentRequestsAvailability(pergunta)
 
     // Busca estruturada: linguagem comercial ("camisetas", "pretas", "preços",
@@ -217,10 +250,15 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
       keywords,
       requested_size: requestedSize,
       requested_color: requestedColor,
+      requested_brand: requestedBrand,
       requires_availability: requiresAvailability,
     }))
 
-    const todosComScore = produtos
+    const produtosNoEscopoMarca = requestedBrand
+      ? produtos.filter((p) => productMatchesRequestedBrand(p, requestedBrand))
+      : produtos
+
+    const todosComScore = produtosNoEscopoMarca
       .map(p => ({
         ...p,
         score: calcularSimilaridadeCatalogo(keywords, p.nome)
@@ -236,6 +274,7 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
         products: candidatePool,
         requestedSize,
         requestedColor,
+        requestedBrand,
       },
       {
         supabaseConfig: { baseUrl: SUPABASE_URL, headers: sbHeaders },
@@ -278,11 +317,11 @@ export async function buscarProdutos(pergunta, tentativa = 1) {
 
     const keywordsArr = normalizarBuscaCatalogo(keywords).split(' ').filter(Boolean)
     const numericos = keywordsArr.filter(k => /\d/.test(k))
-    const hasStructuredFilters = Boolean(requestedSize || requestedColor || requiresAvailability)
+    const hasStructuredFilters = Boolean(requestedSize || requestedColor || requestedBrand || requiresAvailability)
     const total = hasStructuredFilters
       ? candidatos.length
       : numericos.length > 0
-        ? produtos.filter(p => {
+        ? produtosNoEscopoMarca.filter(p => {
             const nome = normalizarBuscaCatalogo(p.nome)
             return numericos.every(k => nome.includes(k))
           }).length
