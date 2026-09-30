@@ -369,9 +369,6 @@ export async function fetchShadowCatalogEvidence({
         reason = 'SIZE_NOT_FOUND'
       } else if (requestedColor && !colorConfirmed) {
         reason = 'COLOR_NOT_FOUND'
-      } else if (product?.selling_out_of_stock === true) {
-        status = 'AVAILABLE'
-        reason = 'SELLING_OUT_OF_STOCK_ALLOWED'
       } else if (relevantRows.length > 0) {
         const quantities = relevantRows
           .map((row) => normalizeNumber(row?.stock_quantity))
