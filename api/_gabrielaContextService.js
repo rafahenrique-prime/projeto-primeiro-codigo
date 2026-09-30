@@ -30,10 +30,6 @@ const SHADOW_PRODUCTS_SELECT = 'id,bagy_product_id,nome,categoria_nome,preco,ima
   'preco_tabela,preco_pix,' +
   'parcelamento_padrao_vezes,parcelamento_padrao_valor,parcelamento_padrao_com_juros,' +
   'parcelamento_max_vezes,parcelamento_max_valor,parcelamento_max_com_juros'
-const LEGACY_PRODUCTS_SELECT = 'id,nome,categoria,preco,imagem,link,codigo,marca,' +
-  'preco_tabela,preco_pix,' +
-  'parcelamento_padrao_vezes,parcelamento_padrao_valor_parcela,parcelamento_padrao_com_juros,' +
-  'parcelamento_max_vezes,parcelamento_valor_parcela,parcelamento_com_juros'
 const KNOWLEDGE_TITLE = 'knowledge_gabriela_supabase_completo'
 
 /**
@@ -191,32 +187,29 @@ export async function fetchProductsCatalog(deps = {}) {
   })
 
   if (shadow.ok) {
+    console.log('[Catalog][source]', JSON.stringify({
+      catalog_source: 'shadow_products',
+      ok: true,
+      error_code: null,
+    }))
     return shadow
   }
 
-  // Fallback apenas por indisponibilidade/erro técnico do Mirror.
-  // Mantém a Gaby operacional sem usar a tabela antiga como "segunda opinião"
-  // quando um produto simplesmente não existe no Mirror.
-  const legacy = await fetchCatalogTable({
-    table: 'products',
-    select: LEGACY_PRODUCTS_SELECT,
-    supabaseConfig,
-    fetchFn,
-    timeoutMs,
-  })
-
-  if (legacy.ok) {
-    return {
-      ...legacy,
-      source: 'products_fallback',
-      primary_error_code: shadow.error_code,
-    }
-  }
+  // Fail-closed: o Mirror/Shadow do IGNITE PRIME V2 é a ÚNICA fonte
+  // comercial permitida. Nunca recuar silenciosamente para products (V1),
+  // mesmo em indisponibilidade técnica, para evitar dados antigos no atendimento.
+  const errorCode = shadow.error_code || 'source_unavailable'
+  console.warn('[Catalog][source]', JSON.stringify({
+    catalog_source: 'shadow_products',
+    ok: false,
+    error_code: errorCode,
+  }))
 
   return {
     ok: false,
     products: [],
-    error_code: legacy.error_code || shadow.error_code || 'source_unavailable',
+    source: 'shadow_products',
+    error_code: errorCode,
   }
 }
 
