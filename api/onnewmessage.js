@@ -33,6 +33,7 @@ const CI_INSIGHT_SIGNAL_RETRY_DELAY_MS = 700
 // PRIME ALERTA V2.4 LAB — preview env refresh after secret configuration.
 // PRIME ALERTA V2.4 candidate preview refreshed after candidate secret.
 // PRIME ALERTA V2.4 candidate preview refreshed after candidate secret resync.
+// PRIME ALERTA V2.4 candidate preview refreshed after verified direct secret probe.
 // Não envia texto, telefone nem mídia. O endpoint Base44 consulta o próprio
 // GPTMaker e usa chat.humanTalk como fonte de verdade.
 const FAST_HANDOFF_SIGNAL_URL = 'https://igniteprime.base44.app/functions/operationalFastHandoffHumanStateSignal'
