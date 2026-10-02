@@ -100,8 +100,8 @@ function scheduleCiInsightSignal({ contextId, messageId, channel }) {
 
 async function postFastHandoffStateSignalOnce(payload) {
   const token =
-    typeof process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET === 'string'
-      ? process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET.trim()
+    typeof process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET === 'string'
+      ? process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET.trim()
       : ''
 
   if (!token || !payload?.contextId) {
@@ -172,8 +172,8 @@ export default async function handler(req, res) {
       ready: true,
       v24_humantalk_lab: true,
       fast_handoff_secret_configured:
-        typeof process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET === 'string' &&
-        process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET.trim().length > 0,
+        typeof process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET === 'string' &&
+        process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET.trim().length > 0,
     })
   }
 
