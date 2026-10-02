@@ -29,6 +29,7 @@ const CI_INSIGHT_SIGNAL_TIMEOUT_MS = 2500
 const CI_INSIGHT_SIGNAL_RETRY_DELAY_MS = 700
 
 // PRIME ALERTA V2.4 LAB — sinal de mudança de estado do chat.
+// PRIME ALERTA V2.4 LAB — preview env refresh after secret configuration.
 // Não envia texto, telefone nem mídia. O endpoint Base44 consulta o próprio
 // GPTMaker e usa chat.humanTalk como fonte de verdade.
 const FAST_HANDOFF_SIGNAL_URL = 'https://igniteprime.base44.app/functions/operationalFastHandoffHumanStateSignal'
