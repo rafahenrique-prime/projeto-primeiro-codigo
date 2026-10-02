@@ -111,7 +111,7 @@ async function postFastHandoffStateSignalOnce(payload) {
   const secretName =
     process.env.VERCEL_ENV === 'production'
       ? 'PRIME_FAST_HANDOFF_PRODUCTION_PILOT_SECRET'
-      : 'PRIME_FAST_HANDOFF_PREVIEW_SECRET'
+      : 'PRIME_FAST_HANDOFF_CANDIDATE_SECRET'
   const rawSecret = process.env[secretName]
   const token = typeof rawSecret === 'string' ? rawSecret.trim() : ''
 
