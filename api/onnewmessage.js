@@ -21,6 +21,7 @@
 // documents, nunca cria migration, nunca escreve fora do que
 // _profileLearning.js já faz (só size).
 
+import { createHash } from 'node:crypto'
 import { waitUntil } from '@vercel/functions'
 import { learnSizeFromMessage } from './_profileLearning.js'
 
@@ -35,6 +36,7 @@ const CI_INSIGHT_SIGNAL_RETRY_DELAY_MS = 700
 const FAST_HANDOFF_SIGNAL_URL = 'https://igniteprime.base44.app/functions/operationalFastHandoffHumanStateSignal'
 const FAST_HANDOFF_SIGNAL_TIMEOUT_MS = 12000
 const FAST_HANDOFF_SIGNAL_RETRY_DELAY_MS = 700
+const FAST_HANDOFF_PILOT_CONTEXT_HASH = '0da8aef8180c01cdd4f12f6eb2fd2367e72f27bf118963bcfa275feccf417f86'
 
 function logEvent(event) {
   console.log('[onnewmessage]', JSON.stringify({ event }))
@@ -99,11 +101,19 @@ function scheduleCiInsightSignal({ contextId, messageId, channel }) {
   }
 }
 
+function isFastHandoffPilotContext(contextId) {
+  if (typeof contextId !== 'string' || !contextId.trim()) return false
+  const hash = createHash('sha256').update(contextId.trim()).digest('hex')
+  return hash === FAST_HANDOFF_PILOT_CONTEXT_HASH
+}
+
 async function postFastHandoffStateSignalOnce(payload) {
-  const token =
-    typeof process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET === 'string'
-      ? process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET.trim()
-      : ''
+  const secretName =
+    process.env.VERCEL_ENV === 'production'
+      ? 'PRIME_FAST_HANDOFF_PRODUCTION_PILOT_SECRET'
+      : 'PRIME_FAST_HANDOFF_PREVIEW_SECRET'
+  const rawSecret = process.env[secretName]
+  const token = typeof rawSecret === 'string' ? rawSecret.trim() : ''
 
   if (!token || !payload?.contextId) {
     return 0
@@ -150,6 +160,8 @@ async function postFastHandoffStateSignal(payload) {
 }
 
 function scheduleFastHandoffStateSignal({ contextId, messageId, role, channel }) {
+  if (!isFastHandoffPilotContext(contextId)) return
+
   const task = postFastHandoffStateSignal({
     contextId,
     messageId,
@@ -167,15 +179,7 @@ function scheduleFastHandoffStateSignal({ contextId, messageId, role, channel })
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    return res.status(200).json({
-      ok: true,
-      route: 'onnewmessage',
-      ready: true,
-      v24_humantalk_lab: true,
-      fast_handoff_secret_configured:
-        typeof process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET === 'string' &&
-        process.env.PRIME_FAST_HANDOFF_PREVIEW_SECRET.trim().length > 0,
-    })
+    return res.status(200).json({ ok: true, route: 'onnewmessage', ready: true })
   }
 
   if (req.method !== 'POST') {
