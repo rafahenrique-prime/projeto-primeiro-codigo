@@ -166,7 +166,15 @@ function scheduleFastHandoffStateSignal({ contextId, messageId, role, channel })
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    return res.status(200).json({ ok: true, route: 'onnewmessage', ready: true })
+    return res.status(200).json({
+      ok: true,
+      route: 'onnewmessage',
+      ready: true,
+      v24_humantalk_lab: true,
+      fast_handoff_secret_configured:
+        typeof process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET === 'string' &&
+        process.env.PRIME_FAST_HANDOFF_WEBHOOK_SECRET.trim().length > 0,
+    })
   }
 
   if (req.method !== 'POST') {
