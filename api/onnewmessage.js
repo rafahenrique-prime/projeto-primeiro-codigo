@@ -33,7 +33,7 @@ const CI_INSIGHT_SIGNAL_RETRY_DELAY_MS = 700
 // Não envia texto, telefone nem mídia. O endpoint Base44 consulta o próprio
 // GPTMaker e usa chat.humanTalk como fonte de verdade.
 const FAST_HANDOFF_SIGNAL_URL = 'https://igniteprime.base44.app/functions/operationalFastHandoffHumanStateSignal'
-const FAST_HANDOFF_SIGNAL_TIMEOUT_MS = 2500
+const FAST_HANDOFF_SIGNAL_TIMEOUT_MS = 12000
 const FAST_HANDOFF_SIGNAL_RETRY_DELAY_MS = 700
 
 function logEvent(event) {
