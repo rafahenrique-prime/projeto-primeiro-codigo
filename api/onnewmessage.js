@@ -45,6 +45,63 @@ function logEvent(event) {
   console.log('[onnewmessage]', JSON.stringify({ event }))
 }
 
+// PRIME ALERTA V2.4 — onStartInteraction LAB probe.
+// Activated ONLY with ?prime_v24_lab=start_interaction.
+// No Base44 fan-out, no watch, no Telegram, no learning. It logs only
+// sanitized metadata so the GPTMaker payload can be understood without PII.
+const START_INTERACTION_LAB_AGENT_ID = '3F8F4F4957CAD0DB118EE6F7BEE6FBA9'
+
+function startInteractionLabMode(req) {
+  const raw = req?.query?.prime_v24_lab
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return value === 'start_interaction'
+}
+
+function hashShort(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  return createHash('sha256').update(value.trim()).digest('hex').slice(0, 20)
+}
+
+function cleanEnum(value, max = 80) {
+  if (typeof value !== 'string') return null
+  const v = value.trim()
+  return v ? v.slice(0, max) : null
+}
+
+function logStartInteractionLabProbe(body) {
+  const contextId =
+    typeof body.contextId === 'string' ? body.contextId :
+    typeof body.chatId === 'string' ? body.chatId :
+    null
+  const messageId =
+    typeof body.messageId === 'string' ? body.messageId :
+    typeof body.id === 'string' ? body.id :
+    null
+
+  console.log('[onnewmessage][onstartinteraction-lab]', JSON.stringify({
+    event: 'received',
+    keys: Object.keys(body).sort().slice(0, 40),
+    role: cleanEnum(body.role),
+    type: cleanEnum(body.type),
+    conversation_notification_type:
+      cleanEnum(body.conversationNotificationType) ||
+      cleanEnum(body.notificationType) ||
+      cleanEnum(body.event),
+    context_id_hash: hashShort(contextId),
+    message_id_hash: hashShort(messageId),
+    agent_id_is_lab:
+      typeof body.agentId === 'string' &&
+      body.agentId.trim() === START_INTERACTION_LAB_AGENT_ID,
+    has_agent_id: typeof body.agentId === 'string' && Boolean(body.agentId.trim()),
+    has_channel_id: typeof body.channelId === 'string' && Boolean(body.channelId.trim()),
+    has_recipient: typeof body.recipient === 'string' && Boolean(body.recipient.trim()),
+    has_contact_phone: typeof body.contactPhone === 'string' && Boolean(body.contactPhone.trim()),
+    has_message_text:
+      (typeof body.message === 'string' && Boolean(body.message.trim())) ||
+      (typeof body.text === 'string' && Boolean(body.text.trim())),
+  }))
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -181,8 +238,14 @@ function scheduleFastHandoffStateSignal({ contextId, messageId, role, channel })
 }
 
 export default async function handler(req, res) {
+  const startInteractionLab = startInteractionLabMode(req)
+
   if (req.method === 'GET') {
-    return res.status(200).json({ ok: true, route: 'onnewmessage', ready: true })
+    return res.status(200).json(
+      startInteractionLab
+        ? { ok: true, route: 'onnewmessage', lab_probe: 'start_interaction', ready: true, side_effects: false }
+        : { ok: true, route: 'onnewmessage', ready: true }
+    )
   }
 
   if (req.method !== 'POST') {
@@ -197,6 +260,17 @@ export default async function handler(req, res) {
     !Array.isArray(req.body)
       ? req.body
       : {}
+
+  if (startInteractionLab) {
+    logStartInteractionLabProbe(body)
+    return res.status(200).json({
+      ok: true,
+      route: 'onnewmessage',
+      lab_probe: 'start_interaction',
+      received: true,
+      side_effects: false,
+    })
+  }
 
   const role = typeof body.role === 'string' ? body.role.trim().toLowerCase() : null
   const contextId = typeof body.contextId === 'string' ? body.contextId.trim() : null
