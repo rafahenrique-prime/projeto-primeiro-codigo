@@ -409,6 +409,8 @@ export function buildProductUniverseDecision(input = {}) {
           source: best.source,
           source_item_id: best.source_item_id,
           name: best.name,
+          color: best.color,
+          canonical_family: best.canonical_family,
           match_type: best.match_type,
           confidence: best.confidence,
         }
