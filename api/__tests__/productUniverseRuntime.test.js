@@ -145,7 +145,7 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.canonical_family).toBe('NIKE_AIR_FORCE_1')
     expect(out.decision.size.state).toBe('OFFERABLE')
     expect(out.decision.price.state).toBe('UNKNOWN')
-    expect(out.decision.price.amount).toBe(399)
+    expect(out.decision.price.amount).toBeNull()
     expect(out.decision.photo.action).toBe('REQUEST_TEAM_PHOTO')
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
