@@ -200,6 +200,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'CAMPUS_MARROM_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Campus',
+          color: 'marrom',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'CAMPUS_BEGE_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Campus',
+          color: 'bege',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
