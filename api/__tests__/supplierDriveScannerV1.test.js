@@ -535,6 +535,45 @@ describe('Supplier Drive Scanner endpoint — travas', () => {
   })
 })
 
+describe('040_supplier_drive_scanner_scope_fix.sql — isolamento multi-folder', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(
+      here,
+      '../../supabase/migrations/040_supplier_drive_scanner_scope_fix.sql'
+    ),
+    'utf8'
+  )
+
+  it('state V2 e finalize V2 filtram também pelo folder id', () => {
+    expect(sql).toContain('public.lab_supplier_drive_state_v2')
+    expect(sql).toContain('public.lab_supplier_drive_finalize_v2')
+    expect((sql.match(/s\.drive_parent_id = p_drive_parent_id/g) || []).length)
+      .toBeGreaterThanOrEqual(2)
+  })
+
+  it('mantém RPCs antigas intactas e não concede acesso direto à tabela', () => {
+    const lower = sql.toLowerCase()
+    expect(lower).not.toContain('drop function public.lab_supplier_drive_state')
+    expect(lower).not.toContain('drop function public.lab_supplier_drive_finalize')
+    expect(lower).not.toContain(
+      'grant update on table public.supplier_shadow_products'
+    )
+  })
+
+  it('scanner chama RPC V2 enviando o folder id do scope', () => {
+    const source = fs.readFileSync(
+      path.resolve(here, '../_supplierDriveScanner.js'),
+      'utf8'
+    )
+
+    expect(source).toContain('/rpc/lab_supplier_drive_state_v2')
+    expect(source).toContain('/rpc/lab_supplier_drive_finalize_v2')
+    expect((source.match(/p_drive_parent_id: scope\.folder_id/g) || []).length)
+      .toBeGreaterThanOrEqual(2)
+  })
+})
+
 describe('037_supplier_drive_scanner_run_order_fix.sql — ordem de FK', () => {
   const here = path.dirname(fileURLToPath(import.meta.url))
   const sql = fs.readFileSync(
