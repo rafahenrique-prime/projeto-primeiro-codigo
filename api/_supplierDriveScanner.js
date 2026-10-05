@@ -231,7 +231,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_DUNK',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_DUNK',
     brand: 'Nike',
@@ -242,7 +242,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_DUNK_1',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_DUNK',
     brand: 'Nike',
@@ -253,7 +253,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_DUNK_2',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_DUNK',
     brand: 'Nike',
