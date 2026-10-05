@@ -121,7 +121,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NB530',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NEW_BALANCE_530',
     brand: 'New Balance',
@@ -132,7 +132,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NB530',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NEW_BALANCE_530',
     brand: 'New Balance',
