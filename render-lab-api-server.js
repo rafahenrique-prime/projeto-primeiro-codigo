@@ -222,6 +222,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'MIZUNO14_BRANCO_ROSA_42',
+      body: {
+        requested: {
+          brand: 'Mizuno',
+          model: 'Mizuno Pro 14',
+          color: 'branco / rosa',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'MIZUNO14_PRETO_AZUL_42',
+      body: {
+        requested: {
+          brand: 'Mizuno',
+          model: 'Mizuno Pro 14',
+          color: 'preto / azul',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
