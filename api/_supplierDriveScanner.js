@@ -187,7 +187,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_ADIDAS_CAMPUS',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'ADIDAS_CAMPUS',
     brand: 'Adidas',
@@ -198,7 +198,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_ADIDAS_CAMPUS',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'ADIDAS_CAMPUS',
     brand: 'Adidas',
