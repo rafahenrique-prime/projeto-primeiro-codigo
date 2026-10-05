@@ -163,6 +163,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1iFPdBLefpvnSSx3t70cByAQ4N3a7EIh-',
     drive_path: '/ADIDAS/Adidas samba',
   },
+  {
+    key: 'VIVIAN_ADIDAS_ADI2000',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'ADIDAS_ADI_2000',
+    brand: 'Adidas',
+    model: 'Adidas Adi 2000',
+    category: 'Tênis',
+    folder_id: '1d-w9yK7GFn1UjJ-VjGcm7ijYnuhrDmZA',
+    drive_path: '/Adidas/Adi 2000',
+  },
+  {
+    key: 'MIA_ADIDAS_ADI2000',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'ADIDAS_ADI_2000',
+    brand: 'Adidas',
+    model: 'Adidas Adi 2000',
+    category: 'Tênis',
+    folder_id: '1QnYHdCKOCOht0vbZPiqop_5TC9JFGbQk',
+    drive_path: '/ADIDAS/Adidas 2000',
+  },
 ])
 
 function clean(value) {

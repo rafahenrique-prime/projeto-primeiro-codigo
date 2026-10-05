@@ -169,6 +169,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('homologa Adidas Adi 2000 em VIVIAN e MIA, ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_ADI2000')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADI2000')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'ADIDAS_ADI_2000',
+      folder_id: '1d-w9yK7GFn1UjJ-VjGcm7ijYnuhrDmZA',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'ADIDAS_ADI_2000',
+      folder_id: '1QnYHdCKOCOht0vbZPiqop_5TC9JFGbQk',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
