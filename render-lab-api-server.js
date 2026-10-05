@@ -178,6 +178,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'ADI2000_BEGE_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adi 2000',
+          color: 'bege',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'ADI2000_MARROM_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adi 2000',
+          color: 'marrom',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
