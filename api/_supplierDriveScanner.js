@@ -53,6 +53,26 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1HKvbejvfbonM0JEhiGWsd0R08zhCbpBv',
     drive_path: '/New balance/Nb 9060',
   },
+  {
+    key: 'VIVIAN_MCQUEEN',
+    supplier: 'VIVIAN',
+    canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
+    brand: 'Alexander McQueen',
+    model: 'Alexander McQueen Oversized',
+    category: 'Tênis',
+    folder_id: '1mallMj4ThG_paDoRaUi_BL1FQbVfMDih',
+    drive_path: '/McQueen 38 ao 43',
+  },
+  {
+    key: 'MIA_MCQUEEN',
+    supplier: 'MIA',
+    canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
+    brand: 'Alexander McQueen',
+    model: 'Alexander McQueen Oversized',
+    category: 'Tênis',
+    folder_id: '1QPzSVop-kl4tR93pf3Zouh7w3dc2P8z3',
+    drive_path: '/Alexander McQueen',
+  },
 ])
 
 function clean(value) {
