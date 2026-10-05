@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  SCANNER_SCOPES,
   embeddedFolderUrl,
   parseEmbeddedFolderFileIds,
   classifyDiscoveredEntries,
@@ -78,6 +79,22 @@ function mockRes() {
 }
 
 describe('Supplier Drive Scanner V1 — funções puras', () => {
+  it('homologa McQueen em VIVIAN e MIA com a mesma família canônica', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_MCQUEEN')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_MCQUEEN')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
+      folder_id: '1mallMj4ThG_paDoRaUi_BL1FQbVfMDih',
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
+      folder_id: '1QPzSVop-kl4tR93pf3Zouh7w3dc2P8z3',
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
