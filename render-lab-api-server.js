@@ -134,6 +134,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'NB530_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'New Balance',
+          model: 'NB530',
+          color: 'branco',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'NB530_PRATA_42',
+      body: {
+        requested: {
+          brand: 'New Balance',
+          model: 'NB530',
+          color: 'prata',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
