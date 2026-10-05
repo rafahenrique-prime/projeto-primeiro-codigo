@@ -73,6 +73,16 @@ export const DEFAULT_FAMILY_RULES = [
       'Adidas Samba OG',
     ],
   },
+  {
+    family_id: 'ADIDAS_ADI_2000',
+    canonical_name: 'Adidas Adi 2000',
+    aliases: [
+      'Adi 2000',
+      'Adi2000',
+      'Adidas Adi 2000',
+      'Adidas 2000',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
