@@ -244,6 +244,39 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'DUNK_BRANCO_BEGE_AZUL_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Dunk',
+          color: 'branco / bege / azul',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'DUNK_PRETO_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Dunk Low',
+          color: 'preto / branco',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'DUNK_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'SB Dunk',
+          color: 'branco',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
