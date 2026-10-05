@@ -49,21 +49,28 @@ async function runBootSmoke() {
 
   const cases = [
     {
-      name: 'AIR_FORCE_1',
+      name: 'AIR_FORCE_PRETO_42',
       body: {
+        visual: {
+          brand: 'Nike',
+          model: 'Air Force 1',
+          color: 'branco',
+        },
         requested: {
           brand: 'Nike',
           model: 'Air Force 1',
+          color: 'preto',
           size: '42',
         },
       },
     },
     {
-      name: 'NB9060',
+      name: 'NB9060_PRETO_42',
       body: {
         requested: {
           brand: 'New Balance',
           model: '9060',
+          color: 'preto',
           size: '42',
         },
       },
