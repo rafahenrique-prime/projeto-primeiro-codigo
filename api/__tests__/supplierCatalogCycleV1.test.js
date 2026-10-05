@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(14)
-    expect(new Set(a).size).toBe(14)
-    expect(b).toHaveLength(14)
-    expect(new Set(b).size).toBe(14)
+    expect(a).toHaveLength(16)
+    expect(new Set(a).size).toBe(16)
+    expect(b).toHaveLength(16)
+    expect(new Set(b).size).toBe(16)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -348,10 +348,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Adidas Adi 2000 fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Adidas Adi 2000 homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
-    expect(daily).not.toContain('VIVIAN_ADIDAS_ADI2000')
-    expect(daily).not.toContain('MIA_ADIDAS_ADI2000')
+    expect(daily).toContain('VIVIAN_ADIDAS_ADI2000')
+    expect(daily).toContain('MIA_ADIDAS_ADI2000')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
