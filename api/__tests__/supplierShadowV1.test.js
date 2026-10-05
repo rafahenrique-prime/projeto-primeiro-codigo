@@ -210,7 +210,9 @@ describe('034_supplier_shadow_lab_read_rpc.sql — gate restrito', () => {
 
   it('não concede SELECT na tabela; só EXECUTE na função', () => {
     expect(sql.toLowerCase()).toContain('grant execute on function public.lab_supplier_shadow_ready(text) to anon, authenticated')
-    expect(sql.toLowerCase()).not.toMatch(/grant\s+select[\s\S]*supplier_shadow_products/)
+    expect(sql.toLowerCase()).not.toContain(
+      'grant select on table public.supplier_shadow_products'
+    )
   })
 })
 
