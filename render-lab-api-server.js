@@ -1,5 +1,6 @@
 import express from 'express'
 import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
+import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -22,6 +23,10 @@ app.get('/health', (_req, res) => {
 
 app.post('/api/gaby-lab-product-universe-v1', async (req, res) => {
   return productUniverseHandler(req, res)
+})
+
+app.post('/api/supplier-vision-worker-v1', async (req, res) => {
+  return supplierVisionWorkerHandler(req, res)
 })
 
 app.use((_req, res) => {
@@ -125,7 +130,73 @@ async function runBootSmoke() {
   }
 }
 
+async function runSupplierVisionBootSmoke() {
+  const enabled =
+    String(process.env.SUPPLIER_VISION_BOOT_SMOKE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const secret = String(process.env.LAB_PRODUCT_UNIVERSE_API_SECRET || '').trim()
+  if (!secret) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_VISION_BOOT_SMOKE',
+      ok: false,
+      error: 'LAB_API_SECRET_MISSING',
+    }))
+    return
+  }
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/supplier-vision-worker-v1`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+          'x-prime-lab-secret': secret,
+        },
+        body: JSON.stringify({
+          limit: 1,
+          dry_run: false,
+          confirm: 'VISION_WRITE_LAB',
+        }),
+      }
+    )
+
+    const payload = await res.json().catch(() => null)
+    const first = payload?.processed?.[0] || null
+
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_VISION_BOOT_SMOKE',
+      ok: res.ok && payload?.ok === true,
+      http_status: res.status,
+      queued: payload?.queued ?? null,
+      supplier: first?.supplier || null,
+      family: first?.family || null,
+      color: first?.color || null,
+      confidence: first?.confidence ?? null,
+      status: first?.status || null,
+      persisted: first?.persisted ?? null,
+      image_type: first?.image?.content_type || null,
+      image_bytes: first?.image?.bytes ?? null,
+      total_tokens: first?.usage?.total_tokens ?? null,
+      cost_usd: first?.usage?.cost_usd ?? null,
+      error: first?.error_code || payload?.error_code || payload?.error || null,
+    }))
+  } catch (error) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_VISION_BOOT_SMOKE',
+      ok: false,
+      error: error?.message || 'SMOKE_EXCEPTION',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
+  await runSupplierVisionBootSmoke()
 })
