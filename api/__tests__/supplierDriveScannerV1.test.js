@@ -223,7 +223,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Nike Dunk em VIVIAN e nas duas pastas MIA ainda fora do ciclo diário', () => {
+  it('Nike Dunk homologado fica ativo em VIVIAN e nas duas pastas MIA', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_DUNK')
     const mia1 = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_DUNK_1')
     const mia2 = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_DUNK_2')
@@ -232,19 +232,19 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'NIKE_DUNK',
       folder_id: '1x79nKJUbpuLkz37AlVJUI5O2XitLJ7PP',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia1).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_DUNK',
       folder_id: '1IMNZmL0prqqTVQLVpul2KpEurMIixC1s',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia2).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_DUNK',
       folder_id: '1yOvOsJ60h9Ts4A1jnjDNs0OEhYRJkVuW',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
