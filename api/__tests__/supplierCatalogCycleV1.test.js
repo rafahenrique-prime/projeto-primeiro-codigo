@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(12)
-    expect(new Set(a).size).toBe(12)
-    expect(b).toHaveLength(12)
-    expect(new Set(b).size).toBe(12)
+    expect(a).toHaveLength(14)
+    expect(new Set(a).size).toBe(14)
+    expect(b).toHaveLength(14)
+    expect(new Set(b).size).toBe(14)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -289,10 +289,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Adidas Samba fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Adidas Samba homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
-    expect(daily).not.toContain('VIVIAN_ADIDAS_SAMBA')
-    expect(daily).not.toContain('MIA_ADIDAS_SAMBA')
+    expect(daily).toContain('VIVIAN_ADIDAS_SAMBA')
+    expect(daily).toContain('MIA_ADIDAS_SAMBA')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,

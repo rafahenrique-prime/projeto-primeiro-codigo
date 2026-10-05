@@ -151,7 +151,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('homologa Adidas Samba em VIVIAN e MIA, ainda fora do ciclo diário', () => {
+  it('Adidas Samba homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_SAMBA')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_SAMBA')
 
@@ -159,13 +159,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'ADIDAS_SAMBA',
       folder_id: '1L8yAuF9eBxQiiASYAESzkz2wpQ1fpdQD',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ADIDAS_SAMBA',
       folder_id: '1iFPdBLefpvnSSx3t70cByAQ4N3a7EIh-',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
