@@ -41,6 +41,11 @@ const FAMILY_RULES = [
     canonical_name: 'Adidas Samba',
     aliases: ['Samba', 'Adidas Samba', 'Samba OG', 'Adidas Samba OG'],
   },
+  {
+    family_id: 'ADIDAS_ADI_2000',
+    canonical_name: 'Adidas Adi 2000',
+    aliases: ['Adi 2000', 'Adi2000', 'Adidas Adi 2000', 'Adidas 2000'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -653,6 +658,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
 
     expect(out.canonical_family).toBe('ADIDAS_SAMBA')
     expect(out.best_match.source).toBe('MIA')
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Adidas Adi 2000 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Adidas',
+        model: 'Adi 2000',
+        color: 'preto',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-adi2000-preto',
+          name: 'Adidas Adi 2000 Preto',
+          brand: 'Adidas',
+          model: 'Adidas Adi 2000',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-adi2000-preto',
+          name: 'Adidas Adi 2000 Preto',
+          brand: 'Adidas',
+          model: 'Adi2000',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ADIDAS_ADI_2000')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')
