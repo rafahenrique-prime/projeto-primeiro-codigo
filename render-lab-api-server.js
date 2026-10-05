@@ -101,6 +101,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'NB1000_PRETO_42',
+      body: {
+        requested: {
+          brand: 'New Balance',
+          model: 'NB1000',
+          color: 'preto',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'NB1000_CINZA_BEGE_42',
+      body: {
+        requested: {
+          brand: 'New Balance',
+          model: 'NB1000',
+          color: 'cinza / bege',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
