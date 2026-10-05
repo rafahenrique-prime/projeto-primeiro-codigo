@@ -37,7 +37,7 @@ as $$
   from public.supplier_shadow_products s
   where
     encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex') =
-      '1f5806d7b369090858b27a42ee91ba669248f1147fc3494369b3db4cbb33a002'
+      'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
     and s.supplier_key = p_supplier_key
     and s.canonical_family = p_canonical_family;
 $$;
@@ -75,7 +75,7 @@ declare
   v_status text;
 begin
   if encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex') <>
-     '1f5806d7b369090858b27a42ee91ba669248f1147fc3494369b3db4cbb33a002'
+     'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
   then
     return;
   end if;
@@ -250,7 +250,7 @@ declare
   v_count integer := 0;
 begin
   if encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex') <>
-     '1f5806d7b369090858b27a42ee91ba669248f1147fc3494369b3db4cbb33a002'
+     'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
   then
     return 0;
   end if;
@@ -290,7 +290,7 @@ set search_path = public, extensions
 as $$
 begin
   if encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex') <>
-     '1f5806d7b369090858b27a42ee91ba669248f1147fc3494369b3db4cbb33a002'
+     'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
   then
     return false;
   end if;
