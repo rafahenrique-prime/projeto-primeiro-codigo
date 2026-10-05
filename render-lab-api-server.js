@@ -218,6 +218,11 @@ async function runSupplierDriveScannerBootSmoke() {
     return
   }
 
+  const writeMode =
+    String(process.env.SUPPLIER_DRIVE_SCANNER_BOOT_WRITE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
   try {
     const res = await fetch(
       `http://127.0.0.1:${port}/api/supplier-drive-scanner-v1`,
@@ -229,7 +234,8 @@ async function runSupplierDriveScannerBootSmoke() {
           'x-prime-lab-secret': secret,
         },
         body: JSON.stringify({
-          dry_run: true,
+          dry_run: !writeMode,
+          confirm: writeMode ? 'DRIVE_SCAN_WRITE_LAB' : undefined,
           max_changes: 1,
           scope_keys: ['VIVIAN_AIR_FORCE_1'],
         }),
@@ -244,12 +250,16 @@ async function runSupplierDriveScannerBootSmoke() {
       ok: res.ok && payload?.ok === true,
       http_status: res.status,
       dry_run: payload?.dry_run ?? null,
+      write_mode: writeMode,
       scope: first?.key || null,
       scanned: first?.scanned ?? null,
       new_count: first?.new_count ?? null,
       changed_count: first?.changed_count ?? null,
       baseline_count: first?.baseline_count ?? null,
       unchanged_count: first?.unchanged_count ?? null,
+      selected_for_pending: first?.selected_for_pending ?? null,
+      deferred_changes: first?.deferred_changes ?? null,
+      deactivated: first?.deactivated ?? null,
       parse_complete: first?.parse_complete ?? null,
       error: first?.error_code || payload?.error_code || payload?.error || null,
     }))
