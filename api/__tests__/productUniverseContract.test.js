@@ -36,6 +36,11 @@ const FAMILY_RULES = [
     canonical_name: 'New Balance 530',
     aliases: ['NB530', 'NB 530', 'New Balance 530'],
   },
+  {
+    family_id: 'ADIDAS_SAMBA',
+    canonical_name: 'Adidas Samba',
+    aliases: ['Samba', 'Adidas Samba', 'Samba OG', 'Adidas Samba OG'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -562,6 +567,91 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('NEW_BALANCE_530')
+    expect(out.best_match.source).toBe('MIA')
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Adidas Samba branco na PRIME usa preço oficial confirmado', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Adidas',
+        model: 'Samba',
+        color: 'branco',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-samba-branco',
+          name: 'Tênis Samba Branco',
+          brand: 'ADIDAS',
+          model: 'Adidas Samba',
+          color: 'branco',
+          price: 299,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-samba-azul',
+          name: 'Adidas Samba Azul',
+          brand: 'Adidas',
+          model: 'Adidas Samba',
+          color: 'azul',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ADIDAS_SAMBA')
+    expect(out.best_match.source).toBe('PRIME')
+    expect(out.price.state).toBe('CONFIRMED')
+    expect(out.price.source).toBe('PRIME')
+    expect(out.price.amount).toBe(299)
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Adidas Samba cor só no fornecedor continua venda sem herdar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Adidas',
+        model: 'Samba OG',
+        color: 'azul',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-samba-branco',
+          name: 'Tênis Samba Branco',
+          brand: 'ADIDAS',
+          model: 'Adidas Samba',
+          color: 'branco',
+          price: 299,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-samba-azul',
+          name: 'Adidas Samba Azul',
+          brand: 'Adidas',
+          model: 'Adidas Samba',
+          color: 'azul',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ADIDAS_SAMBA')
     expect(out.best_match.source).toBe('MIA')
     expect(out.price.state).toBe('UNKNOWN')
     expect(out.price.amount).toBeNull()
