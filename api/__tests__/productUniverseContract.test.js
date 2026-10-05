@@ -382,7 +382,8 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
 
     expect(out.canonical_family).toBe('NEW_BALANCE_1000')
     expect(out.best_match.source).toBe('PRIME')
-    expect(out.price.state).toBe('PRIME')
+    expect(out.price.state).toBe('CONFIRMED')
+    expect(out.price.source).toBe('PRIME')
     expect(out.price.amount).toBe(355.31)
     expect(out.size.state).toBe('OFFERABLE')
     expect(out.commercial.action).toBe('CONTINUE_SALE')
