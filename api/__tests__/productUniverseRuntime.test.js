@@ -296,6 +296,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('NB1000 aliases normalizam sem criar herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'New Balance',
+        model: 'NB 1000 Reflection',
+        color: 'azul',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb1000-blue',
+          name: 'New Balance 1000 Azul',
+          brand: 'New Balance',
+          model: 'New Balance 1000',
+          color: 'azul',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NEW_BALANCE_1000')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
