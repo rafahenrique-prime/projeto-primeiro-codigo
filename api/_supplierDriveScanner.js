@@ -141,6 +141,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1zZiFpQH8uPAeG9_47CETtSf4XyVNHgle',
     drive_path: '/New balance/NB 530',
   },
+  {
+    key: 'VIVIAN_ADIDAS_SAMBA',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'ADIDAS_SAMBA',
+    brand: 'Adidas',
+    model: 'Adidas Samba',
+    category: 'Tênis',
+    folder_id: '1L8yAuF9eBxQiiASYAESzkz2wpQ1fpdQD',
+    drive_path: '/Adidas/Samba',
+  },
+  {
+    key: 'MIA_ADIDAS_SAMBA',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'ADIDAS_SAMBA',
+    brand: 'Adidas',
+    model: 'Adidas Samba',
+    category: 'Tênis',
+    folder_id: '1iFPdBLefpvnSSx3t70cByAQ4N3a7EIh-',
+    drive_path: '/ADIDAS/Adidas samba',
+  },
 ])
 
 function clean(value) {
