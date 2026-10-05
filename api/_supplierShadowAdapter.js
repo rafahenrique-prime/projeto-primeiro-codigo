@@ -75,6 +75,7 @@ export async function fetchSupplierShadowProducts(deps = {}) {
     fetchImpl = fetch,
     timeoutMs = 4500,
     limit = 2500,
+    rpcToken = null,
   } = deps
 
   if (!supabaseConfig?.baseUrl || !supabaseConfig?.headers) {
@@ -90,16 +91,21 @@ export async function fetchSupplierShadowProducts(deps = {}) {
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const url =
-      `${supabaseConfig.baseUrl}/rest/v1/supplier_shadow_products` +
-      `?select=${encodeURIComponent(SELECT)}` +
-      '&active=eq.true' +
-      '&analysis_status=eq.ready' +
-      `&limit=${limit}`
+    const useRpc = Boolean(rpcToken)
+    const url = useRpc
+      ? `${supabaseConfig.baseUrl}/rest/v1/rpc/lab_supplier_shadow_ready`
+      : (
+          `${supabaseConfig.baseUrl}/rest/v1/supplier_shadow_products` +
+          `?select=${encodeURIComponent(SELECT)}` +
+          '&active=eq.true' +
+          '&analysis_status=eq.ready' +
+          `&limit=${limit}`
+        )
 
     const res = await fetchImpl(url, {
-      method: 'GET',
+      method: useRpc ? 'POST' : 'GET',
       headers: supabaseConfig.headers,
+      body: useRpc ? JSON.stringify({ p_token: rpcToken }) : undefined,
       signal: controller.signal,
     })
 
@@ -130,6 +136,7 @@ export async function fetchSupplierShadowProducts(deps = {}) {
       rows,
       evidence: rows.map(supplierShadowRowToEvidence).filter(Boolean),
       error_code: null,
+      access_mode: rpcToken ? 'TOKEN_GATED_RPC' : 'SERVER_TABLE_READ',
     }
   } catch (error) {
     clearTimeout(timeoutHandle)

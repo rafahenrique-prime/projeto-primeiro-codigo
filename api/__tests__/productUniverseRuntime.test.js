@@ -503,6 +503,68 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
     expect(res.state.payload.source_status.VIVIAN.mode).toBe('REAL_SHADOW')
   })
 
+  it('Render LAB usa chave pública + token RPC sem SUPABASE_SECRET_KEY', async () => {
+    const calls = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, method: init.method, authorization: init?.headers?.Authorization })
+
+      if (url.includes('/shadow_products?')) {
+        return response([PRIME_AIR_FORCE_WHITE])
+      }
+
+      if (url.includes('/rpc/lab_supplier_shadow_ready')) {
+        expect(init.method).toBe('POST')
+        expect(JSON.parse(init.body)).toEqual({ p_token: 'rpc-lab-token' })
+        return response([{
+          id: 'supplier-via-rpc',
+          supplier_key: 'VIVIAN',
+          drive_file_id: 'drive-via-rpc',
+          drive_url: 'https://drive.google.com/file/d/drive-via-rpc/view',
+          file_name: '34 ao 39',
+          brand: 'Nike',
+          canonical_family: 'NIKE_AIR_FORCE_1',
+          detected_model: 'Nike Air Force 1',
+          category: 'Tênis',
+          visual_color: null,
+          vision_confidence: null,
+          analysis_status: 'ready',
+          active: true,
+        }])
+      }
+
+      throw new Error('URL inesperada: ' + url)
+    })
+    const res = mockRes()
+
+    await handleProductUniverseRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'test-lab-secret',
+      },
+      body: {
+        requested: { model: 'Air Force 1', size: '42' },
+      },
+    }, res, {
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+        SUPABASE_URL: 'https://public.supabase.co',
+        VITE_SUPABASE_URL: 'https://public.supabase.co',
+        VITE_SUPABASE_KEY: 'public-anon-key',
+        SUPPLIER_SHADOW_RPC_TOKEN: 'rpc-lab-token',
+      },
+      fetchImpl,
+      supabaseConfig: SB,
+      supabaseKey: 'mock-key',
+    })
+
+    expect(res.state.status).toBe(200)
+    expect(res.state.payload.source_status.VIVIAN.mode).toBe('REAL_SHADOW_RPC')
+    expect(res.state.payload.source_status.VIVIAN.candidates).toBe(1)
+    expect(calls.some((x) => x.url.includes('/rpc/lab_supplier_shadow_ready'))).toBe(true)
+  })
+
   it('quando habilitado e autorizado executa somente leitura e retorna decisão', async () => {
     const fetchImpl = vi.fn(async (url, init) => {
       expect(init.method).toBe('GET')

@@ -133,6 +133,41 @@ describe('Supplier Shadow V1 — adapter read-only', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
+  it('modo RPC usa POST + token e continua sem SELECT direto na tabela', async () => {
+    const fetchImpl = vi.fn(async (url, init) => {
+      expect(url).toContain('/rest/v1/rpc/lab_supplier_shadow_ready')
+      expect(init.method).toBe('POST')
+      expect(JSON.parse(init.body)).toEqual({ p_token: 'rpc-lab-token' })
+      expect(url).not.toContain('/supplier_shadow_products?')
+      return response([{
+        id: 'r1',
+        supplier_key: 'VIVIAN',
+        drive_file_id: 'drive-r1',
+        drive_url: 'https://drive.google.com/file/d/drive-r1/view',
+        file_name: '34 ao 39',
+        brand: 'Nike',
+        canonical_family: 'NIKE_AIR_FORCE_1',
+        detected_model: 'Nike Air Force 1',
+        category: 'Tênis',
+        visual_color: null,
+        vision_confidence: null,
+        analysis_status: 'ready',
+        active: true,
+      }])
+    })
+
+    const out = await fetchSupplierShadowProducts({
+      supabaseConfig: SB,
+      fetchImpl,
+      rpcToken: 'rpc-lab-token',
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.access_mode).toBe('TOKEN_GATED_RPC')
+    expect(out.evidence).toHaveLength(1)
+    expect(out.evidence[0].source).toBe('VIVIAN')
+  })
+
   it('falha da fonte não cria fallback nem evidência inventada', async () => {
     const fetchImpl = vi.fn(async () => response([], false, 503))
 
@@ -146,6 +181,38 @@ describe('Supplier Shadow V1 — adapter read-only', () => {
     expect(out.rows).toEqual([])
     expect(out.evidence).toEqual([])
     expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('034_supplier_shadow_lab_read_rpc.sql — gate restrito', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(here, '../../supabase/migrations/034_supplier_shadow_lab_read_rpc.sql'),
+    'utf8'
+  )
+
+  it('usa SECURITY DEFINER com search_path fixo', () => {
+    expect(sql.toLowerCase()).toContain('security definer')
+    expect(sql.toLowerCase()).toContain('set search_path = public, extensions')
+  })
+
+  it('retorna somente active+ready e limita volume', () => {
+    expect(sql).toContain('s.active = true')
+    expect(sql).toContain("s.analysis_status = 'ready'")
+    expect(sql.toLowerCase()).toContain('limit 2500')
+  })
+
+  it('não guarda token em texto claro e compara SHA-256', () => {
+    expect(sql).toContain("extensions.digest(coalesce(p_token, ''), 'sha256')")
+    expect(sql).toContain('c0dd71a627cab8e08c1710ac5b7228aaafc07674ea73c934fdaf6073d42ff035')
+    expect(sql).not.toContain('cYnjkVlln2VcBajekB2Gg8swFE-hqE7ulNL9NAZcAQo')
+  })
+
+  it('não concede SELECT na tabela; só EXECUTE na função', () => {
+    expect(sql.toLowerCase()).toContain('grant execute on function public.lab_supplier_shadow_ready(text) to anon, authenticated')
+    expect(sql.toLowerCase()).not.toContain(
+      'grant select on table public.supplier_shadow_products'
+    )
   })
 })
 

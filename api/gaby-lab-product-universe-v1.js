@@ -182,9 +182,9 @@ export async function handleProductUniverseRequest(
     deps.supplierFixtures ??
     supplierFixturesForRequest(body, env)
 
-  // Supplier Shadow é server-only: nunca usa VITE_SUPABASE_KEY.
-  // Sem SUPABASE_SECRET_KEY, a fonte real simplesmente fica indisponível
-  // e o runtime continua fail-closed usando apenas PRIME/fixtures LAB.
+  // Preferência 1: acesso server-only com SUPABASE_SECRET_KEY.
+  // Preferência 2 (Render LAB): RPC protegida por token próprio do LAB,
+  // usando somente a chave pública/anon para chegar ao PostgREST.
   const supplierSupabaseUrl =
     deps.supplierSupabaseConfig?.baseUrl ||
     env.SUPABASE_URL ||
@@ -193,6 +193,16 @@ export async function handleProductUniverseRequest(
   const supplierSecretKey =
     deps.supplierSecretKey ||
     env.SUPABASE_SECRET_KEY
+
+  const supplierRpcToken =
+    deps.supplierRpcToken ||
+    env.SUPPLIER_SHADOW_RPC_TOKEN ||
+    null
+
+  const supplierPublicKey =
+    deps.supplierPublicKey ||
+    env.VITE_SUPABASE_KEY ||
+    null
 
   const supplierSupabaseConfig =
     deps.supplierSupabaseConfig ||
@@ -206,7 +216,18 @@ export async function handleProductUniverseRequest(
               'Content-Type': 'application/json',
             },
           }
-        : null
+        : (
+          supplierSupabaseUrl && supplierRpcToken && supplierPublicKey
+            ? {
+                baseUrl: supplierSupabaseUrl,
+                headers: {
+                  apikey: supplierPublicKey,
+                  Authorization: `Bearer ${supplierPublicKey}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            : null
+        )
     )
 
   const result = await buildProductUniverseRuntime({
@@ -227,6 +248,7 @@ export async function handleProductUniverseRequest(
     primeLimit: deps.primeLimit,
     maxPrimeCandidates: deps.maxPrimeCandidates,
     supplierSupabaseConfig,
+    supplierRpcToken,
     supplierFetchImpl: deps.supplierFetchImpl,
     supplierTimeoutMs: deps.supplierTimeoutMs,
     supplierLimit: deps.supplierLimit,
