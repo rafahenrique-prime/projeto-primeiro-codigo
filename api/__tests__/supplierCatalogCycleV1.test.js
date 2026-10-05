@@ -434,3 +434,42 @@ describe('038_supplier_catalog_cycle_v1.sql — retry + ledger', () => {
     expect(sql).not.toContain('IB9B03gStbI59SOD4KFneY0rm6L0EZzLv9KCy2mR8_M')
   })
 })
+
+
+describe('039_supplier_catalog_cycle_schedule.sql — agendamento diário', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(
+      here,
+      '../../supabase/migrations/039_supplier_catalog_cycle_schedule.sql'
+    ),
+    'utf8'
+  )
+
+  it('agenda uma vez ao dia às 07:00 UTC = 04:00 BRT', () => {
+    expect(sql).toContain("'0 7 * * *'")
+    expect(sql).toContain("timezone('America/Sao_Paulo', now())")
+  })
+
+  it('limita o ciclo automático a 3 mudanças', () => {
+    expect(sql).toContain("'max_changes', 3")
+  })
+
+  it('usa Vault por nome e não grava token em plaintext', () => {
+    expect(sql).toContain("prime_supplier_cycle_url")
+    expect(sql).toContain("prime_supplier_cycle_token")
+    expect(sql).not.toContain('IB9B03gStbI59SOD4KFneY0rm6L0EZzLv9KCy2mR8_M')
+  })
+
+  it('chama somente o endpoint LAB e mantém confirmação explícita', () => {
+    expect(sql).toContain("'confirm', 'SUPPLIER_CATALOG_CYCLE_LAB'")
+    expect(sql).toContain("'trigger', 'supabase_cron'")
+    expect(sql).toContain('timeout_milliseconds := 240000')
+  })
+
+  it('remove agendamento anterior com o mesmo nome antes de recriar', () => {
+    expect(sql).toContain("jobname = 'prime-supplier-catalog-cycle-v1'")
+    expect(sql).toContain('cron.unschedule(v_job_id)')
+    expect(sql).toContain("'prime-supplier-catalog-cycle-v1'")
+  })
+})
