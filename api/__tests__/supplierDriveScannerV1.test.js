@@ -87,11 +87,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
       folder_id: '1mallMj4ThG_paDoRaUi_BL1FQbVfMDih',
+      cycle_enabled: false,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
       folder_id: '1QPzSVop-kl4tR93pf3Zouh7w3dc2P8z3',
+      cycle_enabled: false,
     })
   })
 
