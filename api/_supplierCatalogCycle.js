@@ -37,17 +37,20 @@ function dateFromCycleKey(cycleKey) {
 }
 
 export function rotatedScopeKeys(cycleKey) {
+  const enabledScopes = SCANNER_SCOPES.filter(
+    (scope) => scope.cycle_enabled !== false
+  )
   const date = dateFromCycleKey(cycleKey)
   const day = Math.floor(
     Date.parse(`${date}T00:00:00Z`) / 86400000
   )
 
-  const start = ((day % SCANNER_SCOPES.length) + SCANNER_SCOPES.length)
-    % SCANNER_SCOPES.length
+  const start = ((day % enabledScopes.length) + enabledScopes.length)
+    % enabledScopes.length
 
   return [
-    ...SCANNER_SCOPES.slice(start),
-    ...SCANNER_SCOPES.slice(0, start),
+    ...enabledScopes.slice(start),
+    ...enabledScopes.slice(0, start),
   ].map((scope) => scope.key)
 }
 
@@ -172,7 +175,27 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
     clean(input.cycle_key) ||
     `supplier-cycle-v1:${new Date().toISOString().slice(0, 10)}`
   const trigger = clean(input.trigger) || 'manual'
-  const scopeOrder = rotatedScopeKeys(cycleKey)
+  const requestedScopes = Array.isArray(input.scope_keys)
+    ? input.scope_keys.map(String)
+    : null
+
+  const allowedScopeKeys = new Set(SCANNER_SCOPES.map((scope) => scope.key))
+  if (
+    requestedScopes &&
+    requestedScopes.some((key) => !allowedScopeKeys.has(key))
+  ) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_SCOPE_INVALID',
+    }
+  }
+
+  const scopeOrder =
+    requestedScopes && requestedScopes.length > 0
+      ? requestedScopes
+      : rotatedScopeKeys(cycleKey)
 
   if (
     !deps.supabaseUrl ||

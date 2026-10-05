@@ -255,6 +255,47 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('McQueen aliases normalizam para fornecedor-only sem preço inventado', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Alexander McQueen',
+        model: 'McQueen',
+        color: 'branco',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-mcqueen',
+          name: 'Alexander McQueen Oversized Branco',
+          brand: 'Alexander McQueen',
+          model: 'McQueen Oversized',
+          color: 'branco',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-mcqueen',
+          name: 'Alexander McQueen Oversized Branco Preto',
+          brand: 'Alexander McQueen',
+          model: 'Alexander McQueen Oversized',
+          color: 'branco / preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('ALEXANDER_MCQUEEN_OVERSIZED')
+    expect(out.decision.coverage.PRIME).toBe(false)
+    expect(out.decision.coverage.supplier_count).toBe(2)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 

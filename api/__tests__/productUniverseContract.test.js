@@ -16,6 +16,11 @@ const FAMILY_RULES = [
     canonical_name: 'New Balance 9060',
     aliases: ['NB9060', '9060'],
   },
+  {
+    family_id: 'ALEXANDER_MCQUEEN_OVERSIZED',
+    canonical_name: 'Alexander McQueen Oversized',
+    aliases: ['Alexander McQueen', 'McQueen', 'McQueen Oversized'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -290,6 +295,50 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.commercial.product_state).toBe('OFFERABLE')
     expect(out.guardrails.supplier_presence_is_not_live_stock).toBe(true)
+  })
+
+  it('McQueen fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Alexander McQueen',
+        model: 'McQueen',
+        color: 'branco',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-mcqueen-1',
+          name: 'Alexander McQueen Oversized Branco',
+          brand: 'Alexander McQueen',
+          model: 'Alexander McQueen Oversized',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-mcqueen-1',
+          name: 'Alexander McQueen Oversized Branco Preto',
+          brand: 'Alexander McQueen',
+          model: 'Alexander McQueen Oversized',
+          color: 'branco / preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ALEXANDER_MCQUEEN_OVERSIZED')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.product_state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
   it('PRIME presente + tamanho não confirmado usa OFFERABLE pela política V1', () => {

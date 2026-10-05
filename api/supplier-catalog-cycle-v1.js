@@ -125,6 +125,7 @@ export async function handleSupplierCatalogCycleRequest(req, res, deps = {}) {
     cycle_key: body.cycle_key,
     trigger: body.trigger || 'supabase_cron',
     max_changes: body.max_changes,
+    scope_keys: body.scope_keys,
   }, {
     supabaseUrl,
     publicKey,
