@@ -379,6 +379,7 @@ export async function buildProductUniverseRuntime(input = {}, deps = {}) {
         fetchImpl: deps.supplierFetchImpl || deps.fetchImpl,
         timeoutMs: deps.supplierTimeoutMs || deps.timeoutMs,
         limit: deps.supplierLimit,
+        rpcToken: deps.supplierRpcToken || null,
       })
     : {
         ok: false,
@@ -441,14 +442,18 @@ export async function buildProductUniverseRuntime(input = {}, deps = {}) {
         error_code: primeResult.error_code || null,
       },
       VIVIAN: {
-        mode: deps.supplierSupabaseConfig ? 'REAL_SHADOW' : 'FIXTURE_ONLY',
+        mode: deps.supplierSupabaseConfig
+          ? (deps.supplierRpcToken ? 'REAL_SHADOW_RPC' : 'REAL_SHADOW')
+          : 'FIXTURE_ONLY',
         source_ok: supplierResult.ok,
         rows_read: supplierResult.rows?.filter((x) => x.supplier_key === 'VIVIAN').length || 0,
         candidates: supplierEvidence.filter((x) => x.source === 'VIVIAN').length,
         error_code: supplierResult.error_code || null,
       },
       MIA: {
-        mode: deps.supplierSupabaseConfig ? 'REAL_SHADOW' : 'FIXTURE_ONLY',
+        mode: deps.supplierSupabaseConfig
+          ? (deps.supplierRpcToken ? 'REAL_SHADOW_RPC' : 'REAL_SHADOW')
+          : 'FIXTURE_ONLY',
         source_ok: supplierResult.ok,
         rows_read: supplierResult.rows?.filter((x) => x.supplier_key === 'MIA').length || 0,
         candidates: supplierEvidence.filter((x) => x.source === 'MIA').length,
