@@ -90,6 +90,17 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'MCQUEEN_PRETO_42',
+      body: {
+        requested: {
+          brand: 'Alexander McQueen',
+          model: 'McQueen',
+          color: 'preto',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
@@ -121,6 +132,9 @@ async function runBootSmoke() {
         best_color: payload?.decision?.best_match?.color || null,
         best_match_type: payload?.decision?.best_match?.match_type || null,
         supplier_count: payload?.decision?.coverage?.supplier_count ?? null,
+        price_state: payload?.decision?.price?.state || null,
+        price_amount: payload?.decision?.price?.amount ?? null,
+        size_state: payload?.decision?.size?.state || null,
         vivian_mode: payload?.source_status?.VIVIAN?.mode || null,
         vivian_candidates: payload?.source_status?.VIVIAN?.candidates ?? null,
         mia_mode: payload?.source_status?.MIA?.mode || null,
