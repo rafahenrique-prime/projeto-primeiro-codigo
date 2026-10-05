@@ -46,6 +46,11 @@ const FAMILY_RULES = [
     canonical_name: 'Adidas Adi 2000',
     aliases: ['Adi 2000', 'Adi2000', 'Adidas Adi 2000', 'Adidas 2000'],
   },
+  {
+    family_id: 'ADIDAS_CAMPUS',
+    canonical_name: 'Adidas Campus',
+    aliases: ['Campus', 'Adidas Campus', 'Campus 00s', 'Adidas Campus 00s'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -699,6 +704,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('ADIDAS_ADI_2000')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Adidas Campus fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Adidas',
+        model: 'Campus',
+        color: 'bege',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-campus-bege',
+          name: 'Adidas Campus Bege',
+          brand: 'Adidas',
+          model: 'Adidas Campus',
+          color: 'bege',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-campus-bege',
+          name: 'Adidas Campus Bege',
+          brand: 'Adidas',
+          model: 'Campus 00s',
+          color: 'bege',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ADIDAS_CAMPUS')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
