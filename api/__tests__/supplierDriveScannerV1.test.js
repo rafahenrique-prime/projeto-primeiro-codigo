@@ -221,6 +221,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     ].join('')
 
     const upserts = []
+    const rpcSequence = []
 
     const fetchImpl = vi.fn(async (url, init = {}) => {
       if (url.includes('embeddedfolderview')) {
@@ -240,6 +241,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       }
 
       if (url.includes('/rpc/lab_supplier_drive_upsert')) {
+        rpcSequence.push('upsert')
         const body = JSON.parse(init.body)
         upserts.push(body.p_drive_file_id)
         return jsonResponse([{
@@ -251,10 +253,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       }
 
       if (url.includes('/rpc/lab_supplier_drive_finalize')) {
+        rpcSequence.push('finalize')
         return jsonResponse(0)
       }
 
       if (url.includes('/rpc/lab_supplier_drive_log_run')) {
+        const body = JSON.parse(init.body)
+        rpcSequence.push('log:' + body.p_status)
         return jsonResponse(true)
       }
 
@@ -274,6 +279,11 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
 
     expect(out.ok).toBe(true)
     expect(upserts).toHaveLength(2)
+    expect(rpcSequence[0]).toBe('log:running')
+    expect(rpcSequence).toContain('log:completed')
+    expect(rpcSequence.indexOf('log:running')).toBeLessThan(
+      rpcSequence.indexOf('upsert')
+    )
     expect(out.scopes[0].selected_for_pending).toBe(2)
     expect(out.scopes[0].deferred_changes).toBe(1)
     expect(out.remaining_change_budget).toBe(0)
@@ -352,6 +362,35 @@ describe('Supplier Drive Scanner endpoint — travas', () => {
     expect(res.state.status).toBe(400)
     expect(res.state.payload.error).toBe('INVALID_SCANNER_SCOPE')
     expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('037_supplier_drive_scanner_run_order_fix.sql — ordem de FK', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(
+      here,
+      '../../supabase/migrations/037_supplier_drive_scanner_run_order_fix.sql'
+    ),
+    'utf8'
+  )
+
+  it('permite criar o ledger como running antes dos produtos', () => {
+    expect(sql).toContain(
+      "p_status not in ('running', 'completed', 'partial', 'failed')"
+    )
+    expect(sql).toContain(
+      "case when p_status = 'running' then null else now() end"
+    )
+  })
+
+  it('continua protegido por hash e sem grant direto em tabela', () => {
+    expect(sql).toContain(
+      'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
+    )
+    expect(sql.toLowerCase()).not.toContain(
+      'grant insert on table public.supplier_shadow_sync_runs'
+    )
   })
 })
 
