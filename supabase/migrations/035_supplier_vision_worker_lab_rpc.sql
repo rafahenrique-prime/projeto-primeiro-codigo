@@ -113,8 +113,7 @@ begin
     indexed_at = case
       when p_analysis_status = 'ready' then now()
       else s.indexed_at
-    end,
-    updated_at = now()
+    end
   where s.id = p_id
   returning
     s.id,
