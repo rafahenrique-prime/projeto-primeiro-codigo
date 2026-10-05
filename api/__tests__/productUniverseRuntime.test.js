@@ -298,7 +298,10 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
 
     await handleProductUniverseRequest({
       method: 'POST',
-      headers: { 'x-prime-lab': 'GABY-LAB-COMERCIAL-V1' },
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'test-lab-secret',
+      },
       body: { requested: { model: 'Air Force 1' } },
     }, res, {
       env: {},
@@ -321,7 +324,10 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
       headers: {},
       body: { requested: { model: 'Air Force 1' } },
     }, res, {
-      env: { LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true' },
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+      },
       fetchImpl,
       supabaseConfig: SB,
       supabaseKey: 'mock-key',
@@ -332,19 +338,71 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('bloqueia explicitamente o ID da GABY OFICIAL', async () => {
+  it('runtime ligado falha fechado se segredo da API não estiver configurado', async () => {
     const fetchImpl = vi.fn()
     const res = mockRes()
 
     await handleProductUniverseRequest({
       method: 'POST',
       headers: { 'x-prime-lab': 'GABY-LAB-COMERCIAL-V1' },
+      body: { requested: { model: 'Air Force 1' } },
+    }, res, {
+      env: { LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true' },
+      fetchImpl,
+      supabaseConfig: SB,
+      supabaseKey: 'mock-key',
+    })
+
+    expect(res.state.status).toBe(503)
+    expect(res.state.payload.error).toBe('LAB_API_SECRET_MISSING')
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('runtime ligado rejeita segredo LAB incorreto antes de qualquer leitura', async () => {
+    const fetchImpl = vi.fn()
+    const res = mockRes()
+
+    await handleProductUniverseRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'wrong-secret',
+      },
+      body: { requested: { model: 'Air Force 1' } },
+    }, res, {
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+      },
+      fetchImpl,
+      supabaseConfig: SB,
+      supabaseKey: 'mock-key',
+    })
+
+    expect(res.state.status).toBe(403)
+    expect(res.state.payload.error).toBe('LAB_API_SECRET_INVALID')
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('bloqueia explicitamente o ID da GABY OFICIAL', async () => {
+    const fetchImpl = vi.fn()
+    const res = mockRes()
+
+    await handleProductUniverseRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'test-lab-secret',
+      },
       body: {
         agent_id: GABY_OFFICIAL_AGENT_ID,
         requested: { model: 'Air Force 1' },
       },
     }, res, {
-      env: { LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true' },
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+      },
       fetchImpl,
       supabaseConfig: SB,
       supabaseKey: 'mock-key',
@@ -415,13 +473,17 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
 
     await handleProductUniverseRequest({
       method: 'POST',
-      headers: { 'x-prime-lab': 'GABY-LAB-COMERCIAL-V1' },
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'test-lab-secret',
+      },
       body: {
         requested: { model: 'Air Force 1', size: '42' },
       },
     }, res, {
       env: {
         LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
         SUPABASE_URL: 'https://server.supabase.co',
         SUPABASE_SECRET_KEY: 'server-secret',
       },
@@ -451,12 +513,18 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
 
     await handleProductUniverseRequest({
       method: 'POST',
-      headers: { 'x-prime-lab': 'GABY-LAB-COMERCIAL-V1' },
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'test-lab-secret',
+      },
       body: {
         requested: { model: 'Air Force 1', color: 'branco', size: '42' },
       },
     }, res, {
-      env: { LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true' },
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+      },
       fetchImpl,
       supabaseConfig: SB,
       supabaseKey: 'mock-key',
