@@ -1,0 +1,436 @@
+import { describe, it, expect, vi } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import {
+  rotatedScopeKeys,
+  runSupplierCatalogCycle,
+} from '../_supplierCatalogCycle.js'
+
+import {
+  handleSupplierCatalogCycleRequest,
+} from '../supplier-catalog-cycle-v1.js'
+
+function mockRes() {
+  const state = { status: null, payload: null, headers: {} }
+  return {
+    state,
+    setHeader(name, value) {
+      state.headers[name] = value
+    },
+    status(code) {
+      state.status = code
+      return {
+        json(payload) {
+          state.payload = payload
+          return payload
+        },
+      }
+    },
+  }
+}
+
+const DEPS = {
+  supabaseUrl: 'https://mock.supabase.co',
+  publicKey: 'public-key',
+  scannerToken: 'scanner-token',
+  workerToken: 'worker-token',
+  cycleToken: 'cycle-token',
+}
+
+describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
+  it('rotaciona a primeira pasta a cada dia', () => {
+    const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
+    const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
+
+    expect(a).toHaveLength(4)
+    expect(new Set(a).size).toBe(4)
+    expect(b).toHaveLength(4)
+    expect(new Set(b).size).toBe(4)
+    expect(a[0]).not.toBe(b[0])
+  })
+
+  it('usa no máximo 3 mudanças e continua para outro scope se um não tiver delta', async () => {
+    const startFn = vi.fn(async () => ({
+      ok: true,
+      run_id: '11111111-1111-4111-8111-111111111111',
+      accepted: true,
+      status: 'running',
+    }))
+
+    const finishFn = vi.fn(async () => ({
+      ok: true,
+      error_code: null,
+    }))
+
+    let scanIndex = 0
+    const scannerFn = vi.fn(async ({ scope_keys }) => {
+      scanIndex += 1
+      const selected = scanIndex === 1 ? 0 : 1
+      return {
+        ok: true,
+        scopes: [{
+          key: scope_keys[0],
+          status: 'completed',
+          scanned: 10,
+          new_count: selected,
+          changed_count: 0,
+          baseline_count: 1,
+          unchanged_count: 8,
+          reactivated_count: 0,
+          selected_for_pending: selected,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+        }],
+      }
+    })
+
+    const visionFn = vi.fn(async ({ limit }) => {
+      expect(limit).toBe(3)
+      return {
+        ok: true,
+        queued: 3,
+        processed: [
+          {
+            supplier: 'VIVIAN',
+            family: 'NIKE_AIR_FORCE_1',
+            color: 'preto',
+            confidence: 0.96,
+            status: 'ready',
+            persisted: true,
+            error_code: null,
+            usage: { cost_usd: 0.0003 },
+          },
+          {
+            supplier: 'VIVIAN',
+            family: 'NEW_BALANCE_9060',
+            color: 'cinza',
+            confidence: 0.95,
+            status: 'ready',
+            persisted: true,
+            error_code: null,
+            usage: { cost_usd: 0.0003 },
+          },
+          {
+            supplier: 'MIA',
+            family: 'NIKE_AIR_FORCE_1',
+            color: 'branco',
+            confidence: 0.93,
+            status: 'ready',
+            persisted: true,
+            error_code: null,
+            usage: { cost_usd: 0.0003 },
+          },
+        ],
+      }
+    })
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-v1:2026-10-05',
+      trigger: 'test',
+      max_changes: 3,
+    }, {
+      ...DEPS,
+      startFn,
+      finishFn,
+      scannerFn,
+      visionFn,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(scannerFn).toHaveBeenCalledTimes(4)
+    expect(out.totals.selected_for_pending).toBe(3)
+    expect(out.totals.ready).toBe(3)
+    expect(out.totals.review).toBe(0)
+    expect(out.totals.error).toBe(0)
+    expect(out.totals.cost_usd).toBeCloseTo(0.0009, 8)
+    expect(out.side_effects).toEqual({
+      supplier_shadow_write: true,
+      vision_call: true,
+      cycle_ledger_write: true,
+      gptmaker_call: false,
+      customer_message: false,
+      gaby_official: false,
+    })
+    expect(finishFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('cycle_key duplicada não roda scanner nem Vision', async () => {
+    const scannerFn = vi.fn()
+    const visionFn = vi.fn()
+    const finishFn = vi.fn()
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-v1:2026-10-05',
+      trigger: 'test',
+      max_changes: 3,
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '22222222-2222-4222-8222-222222222222',
+        accepted: false,
+        status: 'completed',
+      })),
+      finishFn,
+      scannerFn,
+      visionFn,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.duplicate).toBe(true)
+    expect(scannerFn).not.toHaveBeenCalled()
+    expect(visionFn).not.toHaveBeenCalled()
+    expect(finishFn).not.toHaveBeenCalled()
+  })
+
+  it('erro de provider Vision fecha o ciclo como partial', async () => {
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-v1:2026-10-07',
+      trigger: 'test',
+      max_changes: 1,
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '33333333-3333-4333-8333-333333333333',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn: vi.fn(async ({ scope_keys }) => ({
+        ok: true,
+        scopes: [{
+          key: scope_keys[0],
+          status: 'completed',
+          scanned: 1,
+          new_count: 1,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 0,
+          reactivated_count: 0,
+          selected_for_pending: 1,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+        }],
+      })),
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'MIA',
+          family: 'NIKE_AIR_FORCE_1',
+          status: 'error',
+          persisted: false,
+          error_code: 'VISION_PROVIDER_ERROR',
+          usage: { cost_usd: null },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(false)
+    expect(out.status).toBe('partial')
+    expect(out.totals.error).toBe(1)
+    expect(out.error_code).toBe('CYCLE_PARTIAL')
+  })
+})
+
+describe('Supplier Catalog Cycle endpoint — segurança', () => {
+  it('fica OFF por padrão', async () => {
+    const res = mockRes()
+
+    await handleSupplierCatalogCycleRequest({
+      method: 'POST',
+      headers: {},
+      body: {},
+    }, res, { env: {} })
+
+    expect(res.state.status).toBe(404)
+    expect(res.state.payload.error).toBe('SUPPLIER_CATALOG_CYCLE_DISABLED')
+  })
+
+  it('token incorreto bloqueia antes de qualquer execução', async () => {
+    const res = mockRes()
+    const scannerFn = vi.fn()
+
+    await handleSupplierCatalogCycleRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-cycle-token': 'wrong',
+      },
+      body: {
+        confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
+      },
+    }, res, {
+      env: {
+        SUPPLIER_CATALOG_CYCLE_ENABLED: 'true',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'cycle-secret',
+      },
+      scannerFn,
+    })
+
+    expect(res.state.status).toBe(403)
+    expect(res.state.payload.error).toBe('SUPPLIER_CYCLE_TOKEN_INVALID')
+    expect(scannerFn).not.toHaveBeenCalled()
+  })
+
+  it('write real exige confirmação explícita', async () => {
+    const res = mockRes()
+    const scannerFn = vi.fn()
+
+    await handleSupplierCatalogCycleRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-cycle-token': 'cycle-secret',
+      },
+      body: {},
+    }, res, {
+      env: {
+        SUPPLIER_CATALOG_CYCLE_ENABLED: 'true',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'cycle-secret',
+      },
+      scannerFn,
+    })
+
+    expect(res.state.status).toBe(400)
+    expect(res.state.payload.error).toBe('SUPPLIER_CYCLE_CONFIRMATION_REQUIRED')
+    expect(scannerFn).not.toHaveBeenCalled()
+  })
+
+  it('endpoint autorizado executa ciclo injetado sem tocar GABY', async () => {
+    const res = mockRes()
+
+    await handleSupplierCatalogCycleRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-cycle-token': 'cycle-secret',
+      },
+      body: {
+        confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
+        cycle_key: 'supplier-cycle-test:2026-10-05',
+        trigger: 'test',
+        max_changes: 1,
+      },
+    }, res, {
+      env: {
+        SUPPLIER_CATALOG_CYCLE_ENABLED: 'true',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'cycle-secret',
+        SUPABASE_URL: 'https://mock.supabase.co',
+        VITE_SUPABASE_KEY: 'public-key',
+        SUPPLIER_DRIVE_SCANNER_TOKEN: 'scanner-token',
+        SUPPLIER_VISION_WORKER_TOKEN: 'worker-token',
+      },
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '44444444-4444-4444-8444-444444444444',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn: vi.fn(async ({ scope_keys }) => ({
+        ok: true,
+        scopes: [{
+          key: scope_keys[0],
+          status: 'completed',
+          scanned: 1,
+          new_count: 1,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 0,
+          reactivated_count: 0,
+          selected_for_pending: 1,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+        }],
+      })),
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'VIVIAN',
+          family: 'NIKE_AIR_FORCE_1',
+          color: 'preto',
+          confidence: 0.97,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(res.state.status).toBe(200)
+    expect(res.state.payload.ok).toBe(true)
+    expect(res.state.payload.side_effects.gaby_official).toBe(false)
+    expect(res.state.payload.side_effects.customer_message).toBe(false)
+  })
+})
+
+describe('038_supplier_catalog_cycle_v1.sql — retry + ledger', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(
+      here,
+      '../../supabase/migrations/038_supplier_catalog_cycle_v1.sql'
+    ),
+    'utf8'
+  )
+
+  it('adiciona contador e horário da tentativa Vision', () => {
+    expect(sql).toContain('vision_attempt_count integer not null default 0')
+    expect(sql).toContain('last_vision_attempt_at timestamptz')
+    expect(sql).toContain('vision_attempt_count = s.vision_attempt_count + 1')
+    expect(sql).toContain('last_vision_attempt_at = now()')
+  })
+
+  it('review automático limita a 2 tentativas com intervalo de 24 horas', () => {
+    expect(sql).toContain('s.vision_attempt_count < 2')
+    expect(sql).toContain("s.last_vision_attempt_at <= now() - interval '24 hours'")
+  })
+
+  it('mudança para pending reseta contador de Vision', () => {
+    expect(sql).toContain('new.vision_attempt_count := 0')
+    expect(sql).toContain('new.last_vision_attempt_at := null')
+    expect(sql).toContain('trg_supplier_vision_attempt_reset')
+  })
+
+  it('cria ledger do ciclo com cycle_key única e max 1..3', () => {
+    expect(sql).toContain('create table if not exists public.supplier_catalog_cycle_runs')
+    expect(sql).toContain('cycle_key text not null unique')
+    expect(sql).toContain('check (max_changes between 1 and 3)')
+  })
+
+  it('duplicate cycle é bloqueado por start RPC idempotente', () => {
+    expect(sql).toContain('on conflict (cycle_key) do nothing')
+    expect(sql).toContain('accepted := false')
+  })
+
+  it('RLS permanece fechada e sem grant direto na tabela', () => {
+    expect(sql).toContain(
+      'alter table public.supplier_catalog_cycle_runs enable row level security'
+    )
+    expect(sql).toContain(
+      'revoke all on table public.supplier_catalog_cycle_runs'
+    )
+    expect(sql.toLowerCase()).not.toContain(
+      'grant select on table public.supplier_catalog_cycle_runs'
+    )
+    expect(sql.toLowerCase()).not.toContain(
+      'grant insert on table public.supplier_catalog_cycle_runs'
+    )
+    expect(sql.toLowerCase()).not.toContain(
+      'grant update on table public.supplier_catalog_cycle_runs'
+    )
+  })
+
+  it('guarda apenas hash do token do ciclo', () => {
+    expect(sql).toContain(
+      'bd10d0ac064687a589531591e114671fdb37c1a37aa7fa64a506a1af05a8cd13'
+    )
+    expect(sql).not.toContain('IB9B03gStbI59SOD4KFneY0rm6L0EZzLv9KCy2mR8_M')
+  })
+})
