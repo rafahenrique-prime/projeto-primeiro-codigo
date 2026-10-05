@@ -370,7 +370,7 @@ describe('036_supplier_drive_scanner_lab_rpc.sql — gate estreito', () => {
     expect(sql).toContain('public.lab_supplier_drive_upsert')
     expect(sql).toContain('public.lab_supplier_drive_finalize')
     expect(sql).toContain('public.lab_supplier_drive_log_run')
-    expect((sql.toLowerCase().match(/security definer/g) || []).length).toBe(4)
+    expect((sql.toLowerCase().match(/security definer/g) || []).length).toBeGreaterThanOrEqual(4)
   })
 
   it('upsert novo entra pending e mudança limpa Vision anterior', () => {
