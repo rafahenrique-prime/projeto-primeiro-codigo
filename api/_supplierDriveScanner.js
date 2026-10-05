@@ -55,7 +55,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_MCQUEEN',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
     brand: 'Alexander McQueen',
@@ -66,7 +66,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_MCQUEEN',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'ALEXANDER_MCQUEEN_OVERSIZED',
     brand: 'Alexander McQueen',

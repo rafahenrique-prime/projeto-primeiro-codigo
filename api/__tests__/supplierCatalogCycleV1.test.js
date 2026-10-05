@@ -44,18 +44,18 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(4)
-    expect(new Set(a).size).toBe(4)
-    expect(b).toHaveLength(4)
-    expect(new Set(b).size).toBe(4)
+    expect(a).toHaveLength(6)
+    expect(new Set(a).size).toBe(6)
+    expect(b).toHaveLength(6)
+    expect(new Set(b).size).toBe(6)
     expect(a[0]).not.toBe(b[0])
   })
 
-  it('McQueen fica fora da rotação diária, mas pode ser homologado manualmente', async () => {
+  it('McQueen homologado entra na rotação diária e continua aceitando execução manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
 
-    expect(daily).not.toContain('VIVIAN_MCQUEEN')
-    expect(daily).not.toContain('MIA_MCQUEEN')
+    expect(daily).toContain('VIVIAN_MCQUEEN')
+    expect(daily).toContain('MIA_MCQUEEN')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
