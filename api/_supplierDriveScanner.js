@@ -515,11 +515,12 @@ export async function fetchScannerState(scope, deps = {}) {
   }
 
   const out = await rpc(
-    `${supabaseUrl}/rest/v1/rpc/lab_supplier_drive_state`,
+    `${supabaseUrl}/rest/v1/rpc/lab_supplier_drive_state_v2`,
     {
       p_token: scannerToken,
       p_supplier_key: scope.supplier,
       p_canonical_family: scope.canonical_family,
+      p_drive_parent_id: scope.folder_id,
     },
     deps,
   )
@@ -594,11 +595,12 @@ async function upsertScannerEntry(scope, item, runId, deps) {
 
 async function finalizeScannerScope(scope, seenIds, runId, deps) {
   const out = await rpc(
-    `${deps.supabaseUrl}/rest/v1/rpc/lab_supplier_drive_finalize`,
+    `${deps.supabaseUrl}/rest/v1/rpc/lab_supplier_drive_finalize_v2`,
     {
       p_token: deps.scannerToken,
       p_supplier_key: scope.supplier,
       p_canonical_family: scope.canonical_family,
+      p_drive_parent_id: scope.folder_id,
       p_seen_file_ids: seenIds,
       p_run_id: runId,
     },
