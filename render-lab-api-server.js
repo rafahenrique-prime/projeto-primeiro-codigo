@@ -1,6 +1,7 @@
 import express from 'express'
 import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
 import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
+import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -27,6 +28,10 @@ app.post('/api/gaby-lab-product-universe-v1', async (req, res) => {
 
 app.post('/api/supplier-vision-worker-v1', async (req, res) => {
   return supplierVisionWorkerHandler(req, res)
+})
+
+app.post('/api/supplier-drive-scanner-v1', async (req, res) => {
+  return supplierDriveScannerHandler(req, res)
 })
 
 app.use((_req, res) => {
@@ -195,8 +200,71 @@ async function runSupplierVisionBootSmoke() {
   }
 }
 
+async function runSupplierDriveScannerBootSmoke() {
+  const enabled =
+    String(process.env.SUPPLIER_DRIVE_SCANNER_BOOT_SMOKE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const secret = String(process.env.LAB_PRODUCT_UNIVERSE_API_SECRET || '').trim()
+  if (!secret) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_DRIVE_SCANNER_BOOT_SMOKE',
+      ok: false,
+      error: 'LAB_API_SECRET_MISSING',
+    }))
+    return
+  }
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/supplier-drive-scanner-v1`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+          'x-prime-lab-secret': secret,
+        },
+        body: JSON.stringify({
+          dry_run: true,
+          max_changes: 1,
+          scope_keys: ['VIVIAN_AIR_FORCE_1'],
+        }),
+      }
+    )
+
+    const payload = await res.json().catch(() => null)
+    const first = payload?.scopes?.[0] || null
+
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_DRIVE_SCANNER_BOOT_SMOKE',
+      ok: res.ok && payload?.ok === true,
+      http_status: res.status,
+      dry_run: payload?.dry_run ?? null,
+      scope: first?.key || null,
+      scanned: first?.scanned ?? null,
+      new_count: first?.new_count ?? null,
+      changed_count: first?.changed_count ?? null,
+      baseline_count: first?.baseline_count ?? null,
+      unchanged_count: first?.unchanged_count ?? null,
+      parse_complete: first?.parse_complete ?? null,
+      error: first?.error_code || payload?.error_code || payload?.error || null,
+    }))
+  } catch (error) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_DRIVE_SCANNER_BOOT_SMOKE',
+      ok: false,
+      error: error?.message || 'SMOKE_EXCEPTION',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
+  await runSupplierDriveScannerBootSmoke()
 })
