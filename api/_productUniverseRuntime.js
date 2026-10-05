@@ -41,6 +41,18 @@ export const DEFAULT_FAMILY_RULES = [
       'Alexander McQueen Oversized',
     ],
   },
+  {
+    family_id: 'NEW_BALANCE_1000',
+    canonical_name: 'New Balance 1000',
+    aliases: [
+      'NB1000',
+      'NB 1000',
+      'New Balance 1000',
+      'NB 1000 Reflection',
+      'New Balance 1000 Reflection',
+      '1000 Reflection',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [

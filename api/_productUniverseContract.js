@@ -241,29 +241,9 @@ function priceDecision(best, familyId, evidence, pricingRules) {
     }
   }
 
-  const primeSameFamilyPrices = evidence
-    .filter((x) =>
-      x.source === 'PRIME' &&
-      x.canonical_family === familyId &&
-      x.price !== null
-    )
-    .map((x) => x.price)
-
-  const distinctPrimePrices = [...new Set(primeSameFamilyPrices)]
-
-  if (distinctPrimePrices.length === 1 && best.match_type !== 'SIMILAR') {
-    return {
-      state: 'INHERITED_FAMILY_RULE',
-      amount: distinctPrimePrices[0],
-      source: 'PRIME_SAME_FAMILY_SINGLE_PRICE',
-      rule_id: null,
-    }
-  }
-
-  if (distinctPrimePrices.length > 1) {
-    return { state: 'CONFLICT', amount: null, source: 'PRIME', rule_id: null }
-  }
-
+  // Regra comercial PRIME:
+  // fornecedor NUNCA herda preço apenas porque existe um item PRIME
+  // da mesma família. Herança só é permitida por pricing_rule explícita.
   return { state: 'UNKNOWN', amount: null, source: null, rule_id: null }
 }
 

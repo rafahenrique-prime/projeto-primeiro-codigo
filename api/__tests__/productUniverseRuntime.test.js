@@ -118,7 +118,7 @@ describe('Product Universe Runtime V1 — leitura PRIME', () => {
 })
 
 describe('Product Universe Runtime V1 — universo PRIME + fornecedores controlados', () => {
-  it('Story branco + cliente pede preto 42: VIVIAN preto vence variante PRIME branca', async () => {
+  it('Story branco + cliente pede preto 42: VIVIAN vence variante PRIME, mas sem pricing_rule o preço fica UNKNOWN', async () => {
     const fetchImpl = vi.fn(async () => response([PRIME_AIR_FORCE_WHITE]))
 
     const out = await buildProductUniverseRuntime({
@@ -144,8 +144,8 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.best_match.source).toBe('VIVIAN')
     expect(out.decision.canonical_family).toBe('NIKE_AIR_FORCE_1')
     expect(out.decision.size.state).toBe('OFFERABLE')
-    expect(out.decision.price.state).toBe('INHERITED_FAMILY_RULE')
-    expect(out.decision.price.amount).toBe(399)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.price.amount).toBeNull()
     expect(out.decision.photo.action).toBe('REQUEST_TEAM_PHOTO')
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
@@ -291,6 +291,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.canonical_family).toBe('ALEXANDER_MCQUEEN_OVERSIZED')
     expect(out.decision.coverage.PRIME).toBe(false)
     expect(out.decision.coverage.supplier_count).toBe(2)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB1000 aliases normalizam sem criar herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'New Balance',
+        model: 'NB 1000 Reflection',
+        color: 'azul',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb1000-blue',
+          name: 'New Balance 1000 Azul',
+          brand: 'New Balance',
+          model: 'New Balance 1000',
+          color: 'azul',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NEW_BALANCE_1000')
+    expect(out.decision.coverage.supplier_count).toBe(1)
     expect(out.decision.price.state).toBe('UNKNOWN')
     expect(out.decision.size.state).toBe('OFFERABLE')
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')

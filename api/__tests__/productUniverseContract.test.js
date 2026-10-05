@@ -21,6 +21,11 @@ const FAMILY_RULES = [
     canonical_name: 'Alexander McQueen Oversized',
     aliases: ['Alexander McQueen', 'McQueen', 'McQueen Oversized'],
   },
+  {
+    family_id: 'NEW_BALANCE_1000',
+    canonical_name: 'New Balance 1000',
+    aliases: ['NB1000', 'NB 1000', 'New Balance 1000', 'NB 1000 Reflection', '1000 Reflection'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -338,6 +343,91 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')
     expect(out.commercial.product_state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB1000 cor exata na PRIME usa preço oficial e vence fornecedor', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'New Balance',
+        model: 'NB1000',
+        color: 'preto',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-nb1000-preto',
+          name: 'Tênis Nb 1000 Reflection Preto',
+          brand: 'New Balance',
+          model: 'NB 1000 Reflection',
+          color: 'preto',
+          price: 355.31,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-nb1000-preto',
+          name: 'New Balance 1000 Preto',
+          brand: 'New Balance',
+          model: 'New Balance 1000',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NEW_BALANCE_1000')
+    expect(out.best_match.source).toBe('PRIME')
+    expect(out.price.state).toBe('CONFIRMED')
+    expect(out.price.source).toBe('PRIME')
+    expect(out.price.amount).toBe(355.31)
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB1000 cor só no fornecedor continua venda sem herdar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'New Balance',
+        model: '1000 Reflection',
+        color: 'azul',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-nb1000-preto',
+          name: 'Tênis Nb 1000 Reflection Preto',
+          brand: 'New Balance',
+          model: 'NB 1000 Reflection',
+          color: 'preto',
+          price: 355.31,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb1000-azul',
+          name: 'New Balance 1000 Azul',
+          brand: 'New Balance',
+          model: 'New Balance 1000',
+          color: 'azul',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NEW_BALANCE_1000')
+    expect(out.best_match.source).toBe('MIA')
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
