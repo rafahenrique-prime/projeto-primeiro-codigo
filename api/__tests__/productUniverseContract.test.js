@@ -31,6 +31,11 @@ const FAMILY_RULES = [
     canonical_name: 'New Balance 2000',
     aliases: ['NB2000', 'NB 2000', 'New Balance 2000'],
   },
+  {
+    family_id: 'NEW_BALANCE_530',
+    canonical_name: 'New Balance 530',
+    aliases: ['NB530', 'NB 530', 'New Balance 530'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -473,6 +478,91 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.canonical_family).toBe('NEW_BALANCE_2000')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB530 cor exata na PRIME usa preço oficial confirmado', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'New Balance',
+        model: 'NB530',
+        color: 'branco',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-nb530-branco',
+          name: 'Tênis New Balance 530 Branco',
+          brand: 'New Balance',
+          model: 'New Balance 530',
+          color: 'branco',
+          price: 399.83,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-nb530-azul',
+          name: 'New Balance 530 Azul',
+          brand: 'New Balance',
+          model: 'New Balance 530',
+          color: 'azul',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NEW_BALANCE_530')
+    expect(out.best_match.source).toBe('PRIME')
+    expect(out.price.state).toBe('CONFIRMED')
+    expect(out.price.source).toBe('PRIME')
+    expect(out.price.amount).toBe(399.83)
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB530 cor só no fornecedor continua venda sem herdar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'New Balance',
+        model: 'NB 530',
+        color: 'azul',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-nb530-branco',
+          name: 'Tênis New Balance 530 Branco',
+          brand: 'New Balance',
+          model: 'New Balance 530',
+          color: 'branco',
+          price: 399.83,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb530-azul',
+          name: 'New Balance 530 Azul',
+          brand: 'New Balance',
+          model: 'NB530',
+          color: 'azul',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NEW_BALANCE_530')
+    expect(out.best_match.source).toBe('MIA')
     expect(out.price.state).toBe('UNKNOWN')
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')

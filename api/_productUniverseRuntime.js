@@ -58,6 +58,11 @@ export const DEFAULT_FAMILY_RULES = [
     canonical_name: 'New Balance 2000',
     aliases: ['NB2000', 'NB 2000', 'New Balance 2000'],
   },
+  {
+    family_id: 'NEW_BALANCE_530',
+    canonical_name: 'New Balance 530',
+    aliases: ['NB530', 'NB 530', 'New Balance 530'],
+  },
 ]
 
 const PRIME_SELECT = [
