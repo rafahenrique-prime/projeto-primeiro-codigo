@@ -105,6 +105,19 @@ export const DEFAULT_FAMILY_RULES = [
       'Mizuno Wave Prophecy 14',
     ],
   },
+  {
+    family_id: 'NIKE_DUNK',
+    canonical_name: 'Nike Dunk',
+    aliases: [
+      'Dunk',
+      'Nike Dunk',
+      'Dunk Low',
+      'Nike Dunk Low',
+      'SB Dunk',
+      'Nike SB Dunk',
+      'Nike SB Dunk Low',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [

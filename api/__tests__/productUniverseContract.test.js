@@ -56,6 +56,11 @@ const FAMILY_RULES = [
     canonical_name: 'Mizuno Wave Prophecy 14',
     aliases: ['Mizuno Pro 14', 'Pro 14', 'Mizuno Prophecy 14', 'Prophecy 14', 'Wave Prophecy 14'],
   },
+  {
+    family_id: 'NIKE_DUNK',
+    canonical_name: 'Nike Dunk',
+    aliases: ['Dunk', 'Nike Dunk', 'Dunk Low', 'Nike Dunk Low', 'SB Dunk', 'Nike SB Dunk'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -795,6 +800,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('MIZUNO_WAVE_PROPHECY_14')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Nike Dunk fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Nike',
+        model: 'Nike Dunk Low',
+        color: 'verde',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-dunk-green',
+          name: 'Nike Dunk Low Verde',
+          brand: 'Nike',
+          model: 'Nike Dunk',
+          color: 'verde',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-dunk-green',
+          name: 'Nike Dunk Verde',
+          brand: 'Nike',
+          model: 'Nike Dunk',
+          color: 'verde',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_DUNK')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
