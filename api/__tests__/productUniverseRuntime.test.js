@@ -182,6 +182,79 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('lê Supplier Shadow real e combina VIVIAN + MIA com a PRIME', async () => {
+    const fetchImpl = vi.fn(async (url, init) => {
+      expect(init.method).toBe('GET')
+
+      if (url.includes('/shadow_products?')) {
+        return response([PRIME_AIR_FORCE_WHITE])
+      }
+
+      if (url.includes('/supplier_shadow_products?')) {
+        expect(url).toContain('active=eq.true')
+        expect(url).toContain('analysis_status=eq.ready')
+        return response([
+          {
+            id: 'supplier-vivian-af1',
+            supplier_key: 'VIVIAN',
+            drive_file_id: 'drive-vivian-af1',
+            drive_url: 'https://drive.google.com/file/d/vivian-af1/view',
+            file_name: '34 ao 39',
+            brand: 'Nike',
+            canonical_family: 'NIKE_AIR_FORCE_1',
+            detected_model: 'Nike Air Force 1',
+            category: 'Tênis',
+            visual_color: null,
+            vision_confidence: null,
+            analysis_status: 'ready',
+            active: true,
+          },
+          {
+            id: 'supplier-mia-af1',
+            supplier_key: 'MIA',
+            drive_file_id: 'drive-mia-af1',
+            drive_url: 'https://drive.google.com/file/d/mia-af1/view',
+            file_name: '38 ao 43',
+            brand: 'Nike',
+            canonical_family: 'NIKE_AIR_FORCE_1',
+            detected_model: 'Nike Air Force 1',
+            category: 'Tênis',
+            visual_color: null,
+            vision_confidence: null,
+            analysis_status: 'ready',
+            active: true,
+          },
+        ])
+      }
+
+      throw new Error('URL inesperada: ' + url)
+    })
+
+    const supplierServerConfig = {
+      baseUrl: 'https://server.supabase.co',
+      headers: {
+        apikey: 'server-secret',
+        Authorization: 'Bearer server-secret',
+      },
+    }
+
+    const out = await buildProductUniverseRuntime({
+      requested: { brand: 'Nike', model: 'Air Force 1', size: '42' },
+    }, {
+      supabaseConfig: SB,
+      supplierSupabaseConfig: supplierServerConfig,
+      fetchImpl,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(out.source_status.VIVIAN.mode).toBe('REAL_SHADOW')
+    expect(out.source_status.MIA.mode).toBe('REAL_SHADOW')
+    expect(out.source_status.VIVIAN.rows_read).toBe(1)
+    expect(out.source_status.MIA.rows_read).toBe(1)
+    expect(out.decision.coverage.supplier_count).toBe(2)
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
@@ -307,6 +380,65 @@ describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
       LAB_PRODUCT_UNIVERSE_FIXTURES_ENABLED: 'true',
       VERCEL_ENV: 'production',
     })).toEqual([])
+  })
+
+  it('Supplier Shadow usa exclusivamente SUPABASE_SECRET_KEY no endpoint LAB', async () => {
+    const calls = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, authorization: init?.headers?.Authorization || init?.headers?.authorization })
+
+      if (url.includes('/shadow_products?')) {
+        return response([PRIME_AIR_FORCE_WHITE])
+      }
+
+      if (url.includes('/supplier_shadow_products?')) {
+        return response([{
+          id: 'supplier-v1',
+          supplier_key: 'VIVIAN',
+          drive_file_id: 'drive-v1',
+          drive_url: 'https://drive.google.com/file/d/drive-v1/view',
+          file_name: '34 ao 39',
+          brand: 'Nike',
+          canonical_family: 'NIKE_AIR_FORCE_1',
+          detected_model: 'Nike Air Force 1',
+          category: 'Tênis',
+          visual_color: null,
+          vision_confidence: null,
+          analysis_status: 'ready',
+          active: true,
+        }])
+      }
+
+      throw new Error('URL inesperada')
+    })
+    const res = mockRes()
+
+    await handleProductUniverseRequest({
+      method: 'POST',
+      headers: { 'x-prime-lab': 'GABY-LAB-COMERCIAL-V1' },
+      body: {
+        requested: { model: 'Air Force 1', size: '42' },
+      },
+    }, res, {
+      env: {
+        LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED: 'true',
+        SUPABASE_URL: 'https://server.supabase.co',
+        SUPABASE_SECRET_KEY: 'server-secret',
+      },
+      fetchImpl,
+      supabaseConfig: SB,
+      supabaseKey: 'mock-key',
+    })
+
+    expect(res.state.status).toBe(200)
+    expect(calls).toHaveLength(2)
+
+    const primeCall = calls.find((x) => x.url.includes('/shadow_products?'))
+    const supplierCall = calls.find((x) => x.url.includes('/supplier_shadow_products?'))
+
+    expect(primeCall.authorization).toBe('Bearer mock-key')
+    expect(supplierCall.authorization).toBe('Bearer server-secret')
+    expect(res.state.payload.source_status.VIVIAN.mode).toBe('REAL_SHADOW')
   })
 
   it('quando habilitado e autorizado executa somente leitura e retorna decisão', async () => {
