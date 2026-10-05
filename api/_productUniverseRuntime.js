@@ -53,6 +53,11 @@ export const DEFAULT_FAMILY_RULES = [
       '1000 Reflection',
     ],
   },
+  {
+    family_id: 'NEW_BALANCE_2000',
+    canonical_name: 'New Balance 2000',
+    aliases: ['NB2000', 'NB 2000', 'New Balance 2000'],
+  },
 ]
 
 const PRIME_SELECT = [

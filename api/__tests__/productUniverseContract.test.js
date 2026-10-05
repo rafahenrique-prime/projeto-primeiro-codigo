@@ -26,6 +26,11 @@ const FAMILY_RULES = [
     canonical_name: 'New Balance 1000',
     aliases: ['NB1000', 'NB 1000', 'New Balance 1000', 'NB 1000 Reflection', '1000 Reflection'],
   },
+  {
+    family_id: 'NEW_BALANCE_2000',
+    canonical_name: 'New Balance 2000',
+    aliases: ['NB2000', 'NB 2000', 'New Balance 2000'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -425,6 +430,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
 
     expect(out.canonical_family).toBe('NEW_BALANCE_1000')
     expect(out.best_match.source).toBe('MIA')
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('NB2000 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'New Balance',
+        model: 'NB2000',
+        color: 'cinza',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-nb2000',
+          name: 'New Balance 2000 Cinza',
+          brand: 'New Balance',
+          model: 'New Balance 2000',
+          color: 'cinza',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb2000',
+          name: 'New Balance 2000 Cinza Preto',
+          brand: 'New Balance',
+          model: 'New Balance 2000',
+          color: 'cinza / preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NEW_BALANCE_2000')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')
