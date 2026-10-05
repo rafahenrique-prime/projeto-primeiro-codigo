@@ -63,6 +63,16 @@ export const DEFAULT_FAMILY_RULES = [
     canonical_name: 'New Balance 530',
     aliases: ['NB530', 'NB 530', 'New Balance 530'],
   },
+  {
+    family_id: 'ADIDAS_SAMBA',
+    canonical_name: 'Adidas Samba',
+    aliases: [
+      'Samba',
+      'Adidas Samba',
+      'Samba OG',
+      'Adidas Samba OG',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
