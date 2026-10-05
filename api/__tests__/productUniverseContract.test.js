@@ -88,6 +88,45 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Story branco + pedido preto escolhe fornecedor preto antes do PRIME branco', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      visual: { brand: 'Nike', model: 'Air Force 1', color: 'branco' },
+      requested: { model: 'Air Force 1', color: 'preto', size: '42' },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-white',
+          name: 'Nike Air Force 1 Branco',
+          brand: 'Nike',
+          model: 'Air Force 1',
+          color: 'branco',
+          price: 399,
+          match_type: 'EXACT',
+        },
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-black',
+          name: 'Nike Air Force 1 Preto',
+          brand: 'Nike',
+          model: 'Air Force 1',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+          photo_ref: 'drive://vivian/af1-preto',
+        },
+      ],
+    })
+
+    expect(out.requested.color).toBe('preto')
+    expect(out.best_match.source).toBe('VIVIAN')
+    expect(out.best_match.name).toContain('Preto')
+    expect(out.price.state).toBe('INHERITED_FAMILY_RULE')
+    expect(out.price.amount).toBe(399)
+    expect(out.photo.action).toBe('REQUEST_TEAM_PHOTO')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('VIVIAN mesmo family vira OFFERABLE, nunca estoque local confirmado', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
@@ -230,6 +269,25 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.best_match.match_type).toBe('SIMILAR')
     expect(out.commercial.product_state).toBe('ALTERNATIVE')
     expect(out.commercial.action).toBe('ASK_SMART_QUESTION')
+  })
+
+  it('PRIME indisponível sozinho nunca autoriza STOP_CONFIRMED', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      requested: { model: 'AF1', color: 'preto', size: '42' },
+      evidence: [{
+        source: 'PRIME',
+        name: 'Air Force 1 Preto',
+        brand: 'Nike',
+        model: 'Air Force 1',
+        color: 'preto',
+        match_type: 'SAME_FAMILY',
+        confirmed_unavailable: true,
+      }],
+    })
+
+    expect(out.commercial.action).not.toBe('STOP_CONFIRMED')
+    expect(out.guardrails.false_out_of_stock_blocked).toBe(true)
   })
 
   it('STOP_CONFIRMED só aparece quando todas as fontes relevantes confirmam indisponibilidade', () => {
