@@ -328,6 +328,47 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('NB2000 aliases normalizam para fornecedor-only sem preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'New Balance',
+        model: 'NB 2000',
+        color: 'cinza',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-nb2000',
+          name: 'New Balance 2000 Cinza',
+          brand: 'New Balance',
+          model: 'New Balance 2000',
+          color: 'cinza',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb2000',
+          name: 'New Balance 2000 Cinza Preto',
+          brand: 'New Balance',
+          model: 'NB2000',
+          color: 'cinza / preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NEW_BALANCE_2000')
+    expect(out.decision.coverage.PRIME).toBe(false)
+    expect(out.decision.coverage.supplier_count).toBe(2)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
