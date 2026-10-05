@@ -156,6 +156,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'SAMBA_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Samba',
+          color: 'branco',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'SAMBA_BEGE_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Samba',
+          color: 'bege',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
