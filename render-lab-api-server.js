@@ -123,6 +123,17 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'NB2000_AZUL_42',
+      body: {
+        requested: {
+          brand: 'New Balance',
+          model: 'NB2000',
+          color: 'azul',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
