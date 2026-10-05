@@ -156,6 +156,33 @@ export async function handleProductUniverseRequest(
     deps.supplierFixtures ??
     supplierFixturesForRequest(body, env)
 
+  // Supplier Shadow é server-only: nunca usa VITE_SUPABASE_KEY.
+  // Sem SUPABASE_SECRET_KEY, a fonte real simplesmente fica indisponível
+  // e o runtime continua fail-closed usando apenas PRIME/fixtures LAB.
+  const supplierSupabaseUrl =
+    deps.supplierSupabaseConfig?.baseUrl ||
+    env.SUPABASE_URL ||
+    env.VITE_SUPABASE_URL
+
+  const supplierSecretKey =
+    deps.supplierSecretKey ||
+    env.SUPABASE_SECRET_KEY
+
+  const supplierSupabaseConfig =
+    deps.supplierSupabaseConfig ||
+    (
+      supplierSupabaseUrl && supplierSecretKey
+        ? {
+            baseUrl: supplierSupabaseUrl,
+            headers: {
+              apikey: supplierSecretKey,
+              Authorization: `Bearer ${supplierSecretKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        : null
+    )
+
   const result = await buildProductUniverseRuntime({
     query,
     visual,
@@ -173,6 +200,10 @@ export async function handleProductUniverseRequest(
     timeoutMs: deps.timeoutMs,
     primeLimit: deps.primeLimit,
     maxPrimeCandidates: deps.maxPrimeCandidates,
+    supplierSupabaseConfig,
+    supplierFetchImpl: deps.supplierFetchImpl,
+    supplierTimeoutMs: deps.supplierTimeoutMs,
+    supplierLimit: deps.supplierLimit,
     supplierFixtures,
     familyRules: deps.familyRules,
     pricingRules: deps.pricingRules,
