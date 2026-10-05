@@ -515,11 +515,33 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       unchanged_count: classified.filter(x => x.change_type === 'unchanged').length,
       selected_for_pending: 0,
       deferred_changes: 0,
+      write_failures: 0,
       deactivated: 0,
       parse_complete: listing.complete,
     }
 
     if (!dryRun) {
+      const started = await logScannerRun(
+        scope,
+        {
+          ...summary,
+          status: 'running',
+        },
+        runId,
+        deps,
+      )
+
+      if (!started.ok) {
+        summary.status = 'failed'
+        summary.write_failures = 1
+        results.push({
+          ...summary,
+          supplier: scope.supplier,
+          family: scope.canonical_family,
+          error_code: 'SCANNER_RUN_START_FAILED',
+        })
+        continue
+      }
       const priority = classified.filter(
         x => x.change_type === 'new' || x.change_type === 'changed'
       )
@@ -545,10 +567,14 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
           continue
         }
 
-        await upsertScannerEntry(scope, item, runId, deps)
+        const upserted = await upsertScannerEntry(scope, item, runId, deps)
+        if (!upserted.ok) {
+          summary.write_failures += 1
+          summary.status = 'partial'
+        }
       }
 
-      if (listing.complete) {
+      if (listing.complete && summary.write_failures === 0) {
         const finalized = await finalizeScannerScope(
           scope,
           classified.map(x => x.drive_file_id),
@@ -562,7 +588,11 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
         }
       }
 
-      await logScannerRun(scope, summary, runId, deps)
+      const finished = await logScannerRun(scope, summary, runId, deps)
+      if (!finished.ok) {
+        summary.status = 'partial'
+        summary.write_failures += 1
+      }
     }
 
     results.push({
@@ -573,7 +603,7 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
   }
 
   return {
-    ok: results.every(x => x.status !== 'failed'),
+    ok: results.every(x => x.status !== 'failed' && x.write_failures === 0),
     scanner_version: SUPPLIER_DRIVE_SCANNER_VERSION,
     dry_run: dryRun,
     max_changes: maxChanges,
