@@ -31,6 +31,16 @@ export const DEFAULT_FAMILY_RULES = [
     canonical_name: 'New Balance 9060',
     aliases: ['NB9060', 'New Balance 9060', '9060'],
   },
+  {
+    family_id: 'ALEXANDER_MCQUEEN_OVERSIZED',
+    canonical_name: 'Alexander McQueen Oversized',
+    aliases: [
+      'Alexander McQueen',
+      'McQueen',
+      'McQueen Oversized',
+      'Alexander McQueen Oversized',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
