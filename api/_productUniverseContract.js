@@ -138,11 +138,46 @@ function requestedColorRank(item, requestedColor) {
   if (!target) return 0
 
   const declared = normalizeText(item.color)
+  const name = normalizeText(item.name)
+  const model = normalizeText(item.model)
   const surface = normalizeText([item.name, item.model, item.color].filter(Boolean).join(' '))
 
-  if (declared === target || surface.includes(target)) return 0
-  if (!declared) return 1
-  return 2
+  // 0 = variante mais específica possível para a cor pedida.
+  // Ex.: "preto" deve vencer "preto / branco", que por sua vez deve
+  // vencer "branco / preto estampado".
+  if (declared === target) return 0
+
+  // O catálogo PRIME ainda não possui cor estruturada em todos os itens.
+  // Quando o próprio nome/modelo termina exatamente na cor pedida
+  // ("New Balance 9060 Preto"), tratamos como cor exata sem penalizar PRIME.
+  if (
+    (!declared) &&
+    (
+      name === target ||
+      model === target ||
+      name.endsWith(` ${target}`) ||
+      model.endsWith(` ${target}`)
+    )
+  ) {
+    return 0
+  }
+
+  // Cor principal declarada seguida de complemento:
+  // "preto / branco" para pedido "preto".
+  if (declared && declared.startsWith(`${target} `)) return 1
+
+  // Nome PRIME contém a cor, mas com complemento:
+  // "Preto com Branco".
+  if (!declared && surface.includes(target)) return 1
+
+  // Cor aparece como secundária:
+  // "branco / preto estampado" para pedido "preto".
+  if (declared && declared.includes(target)) return 2
+
+  // Sem cor conhecida não deve bater uma evidência explicitamente incompatível.
+  if (!declared) return 3
+
+  return 4
 }
 
 function requestedSizeRank(item, requestedSize) {

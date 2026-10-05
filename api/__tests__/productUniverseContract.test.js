@@ -129,6 +129,78 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('preto puro vence variante composta mesmo quando a composta vem de fonte prioritária', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      requested: { brand: 'Nike', model: 'Air Force 1', color: 'preto', size: '42' },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-composite',
+          name: 'Nike Air Force 1 Branco Preto Estampado',
+          brand: 'Nike',
+          model: 'Air Force 1',
+          color: 'branco / preto estampado',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-pure-black',
+          name: 'Nike Air Force 1 Preto',
+          brand: 'Nike',
+          model: 'Air Force 1',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.best_match.source).toBe('MIA')
+    expect(out.best_match.color).toBe('preto')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('PRIME com cor exata no nome mantém prioridade sobre fornecedor composto', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      requested: { brand: 'New Balance', model: '9060', color: 'preto', size: '42' },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-nb-black',
+          name: 'Tênis New Balance 9060 Preto',
+          brand: 'New Balance',
+          model: 'Tênis New Balance 9060 Preto',
+          price: 399.83,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-nb-black-white',
+          name: 'New Balance 9060 Preto Branco',
+          brand: 'New Balance',
+          model: 'New Balance 9060',
+          color: 'preto / branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+      family_rules: [
+        ...FAMILY_RULES,
+        {
+          family_id: 'NEW_BALANCE_9060',
+          canonical_name: 'New Balance 9060',
+          aliases: ['NB9060', '9060'],
+        },
+      ],
+    })
+
+    expect(out.best_match.source).toBe('PRIME')
+    expect(out.best_match.name).toContain('Preto')
+  })
+
   it('VIVIAN mesmo family vira OFFERABLE, nunca estoque local confirmado', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
