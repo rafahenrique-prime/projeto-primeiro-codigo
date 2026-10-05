@@ -223,6 +223,31 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Nike Dunk em VIVIAN e nas duas pastas MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_DUNK')
+    const mia1 = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_DUNK_1')
+    const mia2 = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_DUNK_2')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NIKE_DUNK',
+      folder_id: '1x79nKJUbpuLkz37AlVJUI5O2XitLJ7PP',
+      cycle_enabled: false,
+    })
+    expect(mia1).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_DUNK',
+      folder_id: '1IMNZmL0prqqTVQLVpul2KpEurMIixC1s',
+      cycle_enabled: false,
+    })
+    expect(mia2).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_DUNK',
+      folder_id: '1yOvOsJ60h9Ts4A1jnjDNs0OEhYRJkVuW',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
