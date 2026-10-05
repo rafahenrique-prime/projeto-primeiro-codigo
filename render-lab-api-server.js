@@ -2,6 +2,7 @@ import express from 'express'
 import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
 import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
+import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -32,6 +33,10 @@ app.post('/api/supplier-vision-worker-v1', async (req, res) => {
 
 app.post('/api/supplier-drive-scanner-v1', async (req, res) => {
   return supplierDriveScannerHandler(req, res)
+})
+
+app.post('/api/supplier-catalog-cycle-v1', async (req, res) => {
+  return supplierCatalogCycleHandler(req, res)
 })
 
 app.use((_req, res) => {
@@ -272,9 +277,76 @@ async function runSupplierDriveScannerBootSmoke() {
   }
 }
 
+async function runSupplierCatalogCycleBootSmoke() {
+  const enabled =
+    String(process.env.SUPPLIER_CATALOG_CYCLE_BOOT_SMOKE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const token = String(process.env.SUPPLIER_CATALOG_CYCLE_TOKEN || '').trim()
+  if (!token) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_CATALOG_CYCLE_BOOT_SMOKE',
+      ok: false,
+      error: 'SUPPLIER_CYCLE_TOKEN_MISSING',
+    }))
+    return
+  }
+
+  try {
+    const cycleKey =
+      'supplier-cycle-smoke:' +
+      new Date().toISOString().replace(/[:.]/g, '-')
+
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/supplier-catalog-cycle-v1`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-prime-cycle-token': token,
+        },
+        body: JSON.stringify({
+          confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
+          cycle_key: cycleKey,
+          trigger: 'boot_smoke',
+          max_changes: 1,
+        }),
+      }
+    )
+
+    const payload = await res.json().catch(() => null)
+
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_CATALOG_CYCLE_BOOT_SMOKE',
+      ok: res.ok && payload?.ok === true,
+      http_status: res.status,
+      cycle_key: payload?.cycle_key || null,
+      status: payload?.status || null,
+      selected_for_pending:
+        payload?.totals?.selected_for_pending ?? null,
+      ready: payload?.totals?.ready ?? null,
+      review: payload?.totals?.review ?? null,
+      error_count: payload?.totals?.error ?? null,
+      cost_usd: payload?.totals?.cost_usd ?? null,
+      duplicate: payload?.duplicate ?? null,
+      error: payload?.error_code || payload?.error || null,
+    }))
+  } catch (error) {
+    console.log(JSON.stringify({
+      event: 'SUPPLIER_CATALOG_CYCLE_BOOT_SMOKE',
+      ok: false,
+      error: error?.message || 'SMOKE_EXCEPTION',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
+  await runSupplierCatalogCycleBootSmoke()
 })
