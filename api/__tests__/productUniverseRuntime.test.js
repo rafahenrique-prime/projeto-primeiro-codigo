@@ -118,7 +118,7 @@ describe('Product Universe Runtime V1 — leitura PRIME', () => {
 })
 
 describe('Product Universe Runtime V1 — universo PRIME + fornecedores controlados', () => {
-  it('Story branco + cliente pede preto 42: VIVIAN preto vence variante PRIME branca', async () => {
+  it('Story branco + cliente pede preto 42: VIVIAN vence variante PRIME, mas sem pricing_rule o preço fica UNKNOWN', async () => {
     const fetchImpl = vi.fn(async () => response([PRIME_AIR_FORCE_WHITE]))
 
     const out = await buildProductUniverseRuntime({
@@ -144,7 +144,7 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.best_match.source).toBe('VIVIAN')
     expect(out.decision.canonical_family).toBe('NIKE_AIR_FORCE_1')
     expect(out.decision.size.state).toBe('OFFERABLE')
-    expect(out.decision.price.state).toBe('INHERITED_FAMILY_RULE')
+    expect(out.decision.price.state).toBe('UNKNOWN')
     expect(out.decision.price.amount).toBe(399)
     expect(out.decision.photo.action).toBe('REQUEST_TEAM_PHOTO')
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
