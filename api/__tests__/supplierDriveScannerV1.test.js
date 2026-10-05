@@ -187,6 +187,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Adidas Campus em VIVIAN e MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_CAMPUS')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_CAMPUS')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'ADIDAS_CAMPUS',
+      folder_id: '1fJezk1YShvFlJtQXu6zLMfXs_8e6pnZd',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'ADIDAS_CAMPUS',
+      folder_id: '1o_2ycQEQf2ddGXKDXpo4rORiNrrfYbnb',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
