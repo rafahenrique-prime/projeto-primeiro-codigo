@@ -497,6 +497,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Mizuno Pro 14 alias normaliza para Wave Prophecy 14 sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Mizuno',
+        model: 'Mizuno Pro 14',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-mizuno14-black',
+          name: 'Mizuno Wave Prophecy 14 Preto',
+          brand: 'Mizuno',
+          model: 'Wave Prophecy 14',
+          color: 'preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('MIZUNO_WAVE_PROPHECY_14')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
