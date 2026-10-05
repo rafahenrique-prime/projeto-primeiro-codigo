@@ -121,6 +121,8 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.requested.color).toBe('preto')
     expect(out.best_match.source).toBe('VIVIAN')
     expect(out.best_match.name).toContain('Preto')
+    expect(out.best_match.color).toBe('preto')
+    expect(out.best_match.canonical_family).toBe('NIKE_AIR_FORCE_1')
     expect(out.price.state).toBe('INHERITED_FAMILY_RULE')
     expect(out.price.amount).toBe(399)
     expect(out.photo.action).toBe('REQUEST_TEAM_PHOTO')
