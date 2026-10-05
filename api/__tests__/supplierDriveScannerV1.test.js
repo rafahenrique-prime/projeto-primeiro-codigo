@@ -205,6 +205,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Mizuno Prophecy 14 em VIVIAN e MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_MIZUNO_PROPHECY14')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_MIZUNO_PROPHECY14')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
+      folder_id: '11Tex-NcCScjJrZVEQoRRWzTTWoDV53_L',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
+      folder_id: '1az9Is_YZ2wTO4Ws9VLrRlBYaCPxSbjHQ',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'

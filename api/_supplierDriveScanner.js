@@ -207,6 +207,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1o_2ycQEQf2ddGXKDXpo4rORiNrrfYbnb',
     drive_path: '/ADIDAS/Adidas campus',
   },
+  {
+    key: 'VIVIAN_MIZUNO_PROPHECY14',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
+    brand: 'Mizuno',
+    model: 'Mizuno Wave Prophecy 14',
+    category: 'Tênis',
+    folder_id: '11Tex-NcCScjJrZVEQoRRWzTTWoDV53_L',
+    drive_path: '/Mizuno pro 14',
+  },
+  {
+    key: 'MIA_MIZUNO_PROPHECY14',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
+    brand: 'Mizuno',
+    model: 'Mizuno Wave Prophecy 14',
+    category: 'Tênis',
+    folder_id: '1az9Is_YZ2wTO4Ws9VLrRlBYaCPxSbjHQ',
+    drive_path: '/MIZUNO/Mizuno pro 14',
+  },
 ])
 
 function clean(value) {
