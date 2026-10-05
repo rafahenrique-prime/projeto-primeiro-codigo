@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(4)
-    expect(new Set(a).size).toBe(4)
-    expect(b).toHaveLength(4)
-    expect(new Set(b).size).toBe(4)
+    expect(a).toHaveLength(6)
+    expect(new Set(a).size).toBe(6)
+    expect(b).toHaveLength(6)
+    expect(new Set(b).size).toBe(6)
     expect(a[0]).not.toBe(b[0])
   })
 
