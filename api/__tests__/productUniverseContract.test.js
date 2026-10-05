@@ -51,6 +51,11 @@ const FAMILY_RULES = [
     canonical_name: 'Adidas Campus',
     aliases: ['Campus', 'Adidas Campus', 'Campus 00s', 'Adidas Campus 00s'],
   },
+  {
+    family_id: 'MIZUNO_WAVE_PROPHECY_14',
+    canonical_name: 'Mizuno Wave Prophecy 14',
+    aliases: ['Mizuno Pro 14', 'Pro 14', 'Mizuno Prophecy 14', 'Prophecy 14', 'Wave Prophecy 14'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -747,6 +752,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('ADIDAS_CAMPUS')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Mizuno Prophecy 14 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Mizuno',
+        model: 'Mizuno Pro 14',
+        color: 'preto',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-mizuno14-preto',
+          name: 'Mizuno Wave Prophecy 14 Preto',
+          brand: 'Mizuno',
+          model: 'Mizuno Wave Prophecy 14',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-mizuno14-preto',
+          name: 'Mizuno Pro 14 Preto',
+          brand: 'Mizuno',
+          model: 'Mizuno Pro 14',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('MIZUNO_WAVE_PROPHECY_14')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
