@@ -8,13 +8,15 @@
  * - não chama GPTMaker;
  * - não chama JEV;
  * - não envia mensagem;
- * - fornecedores entram apenas como evidência injetada pelo chamador LAB.
+ * - fornecedores reais são lidos do Supplier Shadow com credencial server-only;
+ * - fixtures continuam opcionais somente para testes controlados do LAB.
  */
 
 import {
   buildProductUniverseDecision,
   resolveCanonicalFamily,
 } from './_productUniverseContract.js'
+import { fetchSupplierShadowProducts } from './_supplierShadowAdapter.js'
 
 export const PRODUCT_UNIVERSE_RUNTIME_VERSION = '1.0.0-candidate'
 
@@ -371,11 +373,48 @@ export async function buildProductUniverseRuntime(input = {}, deps = {}) {
       })
     : []
 
-  const supplierEvidence = selectSupplierFixtureEvidence(
+  const supplierResult = deps.supplierSupabaseConfig
+    ? await fetchSupplierShadowProducts({
+        supabaseConfig: deps.supplierSupabaseConfig,
+        fetchImpl: deps.supplierFetchImpl || deps.fetchImpl,
+        timeoutMs: deps.supplierTimeoutMs || deps.timeoutMs,
+        limit: deps.supplierLimit,
+      })
+    : {
+        ok: false,
+        rows: [],
+        evidence: [],
+        error_code: 'SUPPLIER_SHADOW_DISABLED',
+      }
+
+  const realSupplierEvidence = supplierResult.ok
+    ? selectSupplierFixtureEvidence(
+        supplierResult.evidence,
+        input,
+        { familyRules }
+      )
+    : []
+
+  const fixtureEvidence = selectSupplierFixtureEvidence(
     deps.supplierFixtures || [],
     input,
     { familyRules }
   )
+
+  const seenSupplierEvidence = new Set()
+  const supplierEvidence = [...realSupplierEvidence, ...fixtureEvidence]
+    .filter((item) => {
+      const key = [
+        item.source,
+        item.source_item_id || '',
+        item.canonical_family || '',
+        item.name || '',
+        item.color || '',
+      ].join('|')
+      if (seenSupplierEvidence.has(key)) return false
+      seenSupplierEvidence.add(key)
+      return true
+    })
 
   const decision = buildProductUniverseDecision({
     query: input.query,
@@ -402,12 +441,18 @@ export async function buildProductUniverseRuntime(input = {}, deps = {}) {
         error_code: primeResult.error_code || null,
       },
       VIVIAN: {
-        mode: 'FIXTURE_ONLY',
+        mode: deps.supplierSupabaseConfig ? 'REAL_SHADOW' : 'FIXTURE_ONLY',
+        source_ok: supplierResult.ok,
+        rows_read: supplierResult.rows?.filter((x) => x.supplier_key === 'VIVIAN').length || 0,
         candidates: supplierEvidence.filter((x) => x.source === 'VIVIAN').length,
+        error_code: supplierResult.error_code || null,
       },
       MIA: {
-        mode: 'FIXTURE_ONLY',
+        mode: deps.supplierSupabaseConfig ? 'REAL_SHADOW' : 'FIXTURE_ONLY',
+        source_ok: supplierResult.ok,
+        rows_read: supplierResult.rows?.filter((x) => x.supplier_key === 'MIA').length || 0,
         candidates: supplierEvidence.filter((x) => x.source === 'MIA').length,
+        error_code: supplierResult.error_code || null,
       },
     },
     decision,
