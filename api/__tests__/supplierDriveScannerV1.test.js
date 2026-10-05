@@ -169,7 +169,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('homologa Adidas Adi 2000 em VIVIAN e MIA, ainda fora do ciclo diário', () => {
+  it('Adidas Adi 2000 homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_ADI2000')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADI2000')
 
@@ -177,13 +177,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'ADIDAS_ADI_2000',
       folder_id: '1d-w9yK7GFn1UjJ-VjGcm7ijYnuhrDmZA',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ADIDAS_ADI_2000',
       folder_id: '1QnYHdCKOCOht0vbZPiqop_5TC9JFGbQk',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
