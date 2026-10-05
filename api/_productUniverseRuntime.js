@@ -83,6 +83,16 @@ export const DEFAULT_FAMILY_RULES = [
       'Adidas 2000',
     ],
   },
+  {
+    family_id: 'ADIDAS_CAMPUS',
+    canonical_name: 'Adidas Campus',
+    aliases: [
+      'Campus',
+      'Adidas Campus',
+      'Campus 00s',
+      'Adidas Campus 00s',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [

@@ -465,6 +465,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Adidas Campus aliases normalizam sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Adidas',
+        model: 'Campus 00s',
+        color: 'bege',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-campus-beige',
+          name: 'Adidas Campus Bege',
+          brand: 'Adidas',
+          model: 'Adidas Campus',
+          color: 'bege',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('ADIDAS_CAMPUS')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 

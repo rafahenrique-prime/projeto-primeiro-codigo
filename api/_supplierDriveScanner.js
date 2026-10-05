@@ -185,6 +185,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1QnYHdCKOCOht0vbZPiqop_5TC9JFGbQk',
     drive_path: '/ADIDAS/Adidas 2000',
   },
+  {
+    key: 'VIVIAN_ADIDAS_CAMPUS',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'ADIDAS_CAMPUS',
+    brand: 'Adidas',
+    model: 'Adidas Campus',
+    category: 'Tênis',
+    folder_id: '1fJezk1YShvFlJtQXu6zLMfXs_8e6pnZd',
+    drive_path: '/Adidas/Campus',
+  },
+  {
+    key: 'MIA_ADIDAS_CAMPUS',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'ADIDAS_CAMPUS',
+    brand: 'Adidas',
+    model: 'Adidas Campus',
+    category: 'Tênis',
+    folder_id: '1o_2ycQEQf2ddGXKDXpo4rORiNrrfYbnb',
+    drive_path: '/ADIDAS/Adidas campus',
+  },
 ])
 
 function clean(value) {
