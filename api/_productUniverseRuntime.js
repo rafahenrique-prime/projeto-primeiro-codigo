@@ -93,6 +93,18 @@ export const DEFAULT_FAMILY_RULES = [
       'Adidas Campus 00s',
     ],
   },
+  {
+    family_id: 'MIZUNO_WAVE_PROPHECY_14',
+    canonical_name: 'Mizuno Wave Prophecy 14',
+    aliases: [
+      'Mizuno Pro 14',
+      'Pro 14',
+      'Mizuno Prophecy 14',
+      'Prophecy 14',
+      'Wave Prophecy 14',
+      'Mizuno Wave Prophecy 14',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
