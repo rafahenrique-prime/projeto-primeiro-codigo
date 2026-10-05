@@ -187,7 +187,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Adidas Campus em VIVIAN e MIA ainda fora do ciclo diário', () => {
+  it('Adidas Campus homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_CAMPUS')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_CAMPUS')
 
@@ -195,13 +195,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'ADIDAS_CAMPUS',
       folder_id: '1fJezk1YShvFlJtQXu6zLMfXs_8e6pnZd',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ADIDAS_CAMPUS',
       folder_id: '1o_2ycQEQf2ddGXKDXpo4rORiNrrfYbnb',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
