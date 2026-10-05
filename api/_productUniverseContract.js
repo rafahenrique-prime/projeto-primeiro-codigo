@@ -132,7 +132,38 @@ function inferMatchType(item, requestedFamily) {
   return 'UNKNOWN'
 }
 
-function compareEvidence(a, b) {
+function requestedColorRank(item, requestedColor) {
+  if (!requestedColor) return 0
+  const target = normalizeText(requestedColor)
+  if (!target) return 0
+
+  const declared = normalizeText(item.color)
+  const surface = normalizeText([item.name, item.model, item.color].filter(Boolean).join(' '))
+
+  if (declared === target || surface.includes(target)) return 0
+  if (!declared) return 1
+  return 2
+}
+
+function requestedSizeRank(item, requestedSize) {
+  if (!requestedSize) return 0
+  if (item.requested_size_confirmed === true) return 0
+  if (item.confirmed_unavailable === true) return 2
+  return 1
+}
+
+function compareEvidenceForRequest(a, b, requested = {}) {
+  // Regra comercial central: variante pedida pelo cliente vem antes da
+  // prioridade de fonte. Ex.: Story branco + "tem preto?" => evidência preta
+  // SAME_FAMILY pode vencer um item PRIME branco.
+  const colorA = requestedColorRank(a, requested.color)
+  const colorB = requestedColorRank(b, requested.color)
+  if (colorA !== colorB) return colorA - colorB
+
+  const sizeA = requestedSizeRank(a, requested.size)
+  const sizeB = requestedSizeRank(b, requested.size)
+  if (sizeA !== sizeB) return sizeA - sizeB
+
   const matchRank = { EXACT: 0, SAME_FAMILY: 1, SIMILAR: 2, UNKNOWN: 3 }
   const ma = matchRank[a.match_type] ?? 9
   const mb = matchRank[b.match_type] ?? 9
@@ -267,11 +298,18 @@ function commercialState(best, allEvidence, size, price) {
     ['EXACT', 'SAME_FAMILY'].includes(x.match_type)
   )
 
-  const everyRelevantConfirmedUnavailable =
-    relevant.length > 0 &&
-    relevant.every((x) => x.confirmed_unavailable === true)
+  const confirmedUnavailableSources = new Set(
+    relevant
+      .filter((x) => x.confirmed_unavailable === true)
+      .map((x) => x.source)
+  )
+  const allRelevantSourcesConfirmedUnavailable = SOURCE_PRIORITY.every((source) =>
+    confirmedUnavailableSources.has(source)
+  )
 
-  if (everyRelevantConfirmedUnavailable) {
+  // Fail-closed contra falso "não temos": STOP só existe quando PRIME,
+  // VIVIAN e MIA trouxeram evidência explícita de indisponibilidade.
+  if (allRelevantSourcesConfirmedUnavailable) {
     return {
       product_state: 'UNAVAILABLE_CONFIRMED',
       action: 'STOP_CONFIRMED',
@@ -342,7 +380,7 @@ export function buildProductUniverseDecision(input = {}) {
       ...item,
       match_type: inferMatchType(item, requestedFamily),
     }))
-    .sort(compareEvidence)
+    .sort((a, b) => compareEvidenceForRequest(a, b, requested))
 
   const exactOrFamily = evidence.filter((x) =>
     ['EXACT', 'SAME_FAMILY'].includes(x.match_type)
