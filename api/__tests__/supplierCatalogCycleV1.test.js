@@ -44,11 +44,72 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(6)
-    expect(new Set(a).size).toBe(6)
-    expect(b).toHaveLength(6)
-    expect(new Set(b).size).toBe(6)
+    expect(a).toHaveLength(4)
+    expect(new Set(a).size).toBe(4)
+    expect(b).toHaveLength(4)
+    expect(new Set(b).size).toBe(4)
     expect(a[0]).not.toBe(b[0])
+  })
+
+  it('McQueen fica fora da rotação diária, mas pode ser homologado manualmente', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
+
+    expect(daily).not.toContain('VIVIAN_MCQUEEN')
+    expect(daily).not.toContain('MIA_MCQUEEN')
+
+    const scannerFn = vi.fn(async ({ scope_keys }) => ({
+      ok: true,
+      scopes: [{
+        key: scope_keys[0],
+        status: 'completed',
+        scanned: 8,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 7,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:mcqueen-vivian',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['VIVIAN_MCQUEEN'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '55555555-5555-4555-8555-555555555555',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'VIVIAN',
+          family: 'ALEXANDER_MCQUEEN_OVERSIZED',
+          color: 'preto',
+          confidence: 0.96,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(scannerFn).toHaveBeenCalledTimes(1)
+    expect(out.scope_order).toEqual(['VIVIAN_MCQUEEN'])
+    expect(out.totals.ready).toBe(1)
   })
 
   it('usa no máximo 3 mudanças e continua para outro scope se um não tiver delta', async () => {
