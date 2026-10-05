@@ -16,6 +16,10 @@ export function isProductUniverseRuntimeEnabled(env = process.env) {
     .toLowerCase() === 'true'
 }
 
+export function labApiSecret(env = process.env) {
+  return String(env.LAB_PRODUCT_UNIVERSE_API_SECRET || '').trim()
+}
+
 export function canUseSupplierFixtures(env = process.env) {
   const enabled = String(env.LAB_PRODUCT_UNIVERSE_FIXTURES_ENABLED || '')
     .trim()
@@ -97,6 +101,28 @@ export async function handleProductUniverseRequest(
     return sendJson(res, 403, {
       ok: false,
       error: 'LAB_HEADER_REQUIRED',
+    })
+  }
+
+  const expectedSecret =
+    deps.labApiSecret ||
+    labApiSecret(env)
+
+  if (!expectedSecret) {
+    return sendJson(res, 503, {
+      ok: false,
+      error: 'LAB_API_SECRET_MISSING',
+    })
+  }
+
+  const receivedSecret =
+    headerValue(req, 'x-prime-lab-secret') ||
+    headerValue(req, 'X-Prime-Lab-Secret')
+
+  if (receivedSecret !== expectedSecret) {
+    return sendJson(res, 403, {
+      ok: false,
+      error: 'LAB_API_SECRET_INVALID',
     })
   }
 
