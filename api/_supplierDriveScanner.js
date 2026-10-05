@@ -75,6 +75,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1QPzSVop-kl4tR93pf3Zouh7w3dc2P8z3',
     drive_path: '/Alexander McQueen',
   },
+  {
+    key: 'VIVIAN_NB1000',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NEW_BALANCE_1000',
+    brand: 'New Balance',
+    model: 'New Balance 1000',
+    category: 'Tênis',
+    folder_id: '14ynD95iIaGHvu23LHdLkXLEp7epTnJiM',
+    drive_path: '/New balance/NB1000',
+  },
+  {
+    key: 'MIA_NB1000',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NEW_BALANCE_1000',
+    brand: 'New Balance',
+    model: 'New Balance 1000',
+    category: 'Tênis',
+    folder_id: '1CYvU5JNx1B8u20jEP3Ht8eaM7-OOf3iV',
+    drive_path: '/New balance/Nb 1000',
+  },
 ])
 
 function clean(value) {
