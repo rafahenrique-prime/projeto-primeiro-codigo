@@ -133,7 +133,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('homologa NB530 em VIVIAN e MIA, ainda fora do ciclo diário', () => {
+  it('NB530 homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NB530')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NB530')
 
@@ -141,13 +141,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'NEW_BALANCE_530',
       folder_id: '1JSyRh5EfpoiaU-_7zfOrOmgEXUJbaLRy',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NEW_BALANCE_530',
       folder_id: '1zZiFpQH8uPAeG9_47CETtSf4XyVNHgle',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
