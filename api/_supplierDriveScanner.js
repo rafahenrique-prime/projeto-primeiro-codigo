@@ -209,7 +209,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_MIZUNO_PROPHECY14',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
     brand: 'Mizuno',
@@ -220,7 +220,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_MIZUNO_PROPHECY14',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'MIZUNO_WAVE_PROPHECY_14',
     brand: 'Mizuno',
