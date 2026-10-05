@@ -97,6 +97,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('homologa NB1000 em VIVIAN e MIA, ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NB1000')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NB1000')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NEW_BALANCE_1000',
+      folder_id: '14ynD95iIaGHvu23LHdLkXLEp7epTnJiM',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NEW_BALANCE_1000',
+      folder_id: '1CYvU5JNx1B8u20jEP3Ht8eaM7-OOf3iV',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
