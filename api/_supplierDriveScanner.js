@@ -339,6 +339,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1OB4QRP73v_zfFsjMP4OvRfWh7_AtA5d8',
     drive_path: '/ADIDAS/Adizero’s',
   },
+  {
+    key: 'VIVIAN_NIKE_VOMERO',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NIKE_VOMERO',
+    brand: 'Nike',
+    model: 'Nike Vomero',
+    category: 'Tênis',
+    folder_id: '1-NnKNKysu8PBWusJ3GgkX3mYarAKzQnB',
+    drive_path: '/Nike/Zoom-X Vomero',
+  },
+  {
+    key: 'MIA_NIKE_VOMERO',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_VOMERO',
+    brand: 'Nike',
+    model: 'Nike Vomero',
+    category: 'Tênis',
+    folder_id: '1ZiVsxdCX95KZcZ-Bk_hKHAchOiqTB9X9',
+    drive_path: '/NIKE/Nike vomero',
+  },
 ])
 
 function clean(value) {
