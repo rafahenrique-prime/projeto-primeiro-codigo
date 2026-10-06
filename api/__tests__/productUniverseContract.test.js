@@ -71,6 +71,11 @@ const FAMILY_RULES = [
     canonical_name: 'Nike Bailleli',
     aliases: ['Bailleli', 'Nike Bailleli'],
   },
+  {
+    family_id: 'ADIDAS_ADIZERO',
+    canonical_name: 'Adidas Adizero',
+    aliases: ['Adizero', 'Adidas Adizero', 'Adizero 4', 'Adidas Adizero 4'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -939,6 +944,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('NIKE_BAILLELI')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Adidas Adizero fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Adidas',
+        model: 'Adizero',
+        color: 'amarelo',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-adizero-yellow',
+          name: 'Adidas Adizero Amarelo',
+          brand: 'Adidas',
+          model: 'Adidas Adizero',
+          color: 'amarelo',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-adizero-yellow',
+          name: 'Adidas Adizero Amarelo',
+          brand: 'Adidas',
+          model: 'Adidas Adizero',
+          color: 'amarelo',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('ADIDAS_ADIZERO')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
