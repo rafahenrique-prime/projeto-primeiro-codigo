@@ -374,7 +374,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_AIR_JORDAN_1',
     brand: 'Nike',
@@ -385,7 +385,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_AIR_JORDAN_1_LOW',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_AIR_JORDAN_1',
     brand: 'Nike',
@@ -396,7 +396,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_AIR_JORDAN_1_A',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_AIR_JORDAN_1',
     brand: 'Nike',
@@ -407,7 +407,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_AIR_JORDAN_1_B',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_AIR_JORDAN_1',
     brand: 'Nike',
