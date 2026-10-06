@@ -418,7 +418,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_AIR_JORDAN_3',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_AIR_JORDAN_3',
     brand: 'Nike',
