@@ -398,6 +398,17 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'AIR_JORDAN4_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Air Jordan 4',
+          color: 'branco',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
