@@ -81,6 +81,11 @@ const FAMILY_RULES = [
     canonical_name: 'Nike Vomero',
     aliases: ['Vomero', 'Nike Vomero', 'Air Zoom Vomero', 'Air Max Vomero', 'Vomero Premium'],
   },
+  {
+    family_id: 'NIKE_AIR_JORDAN_4',
+    canonical_name: 'Nike Air Jordan 4',
+    aliases: ['Air Jordan 4', 'Nike Air Jordan 4', 'Jordan 4', 'Nike Jordan 4', 'Air Jordan IV', 'Jordan IV'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -1035,6 +1040,44 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('NIKE_VOMERO')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Air Jordan 4 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Air Jordan 4', color: 'branco', size: '42' },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-jordan4-white',
+          name: 'Nike Air Jordan 4 Branco',
+          brand: 'Nike',
+          model: 'Nike Air Jordan 4',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-jordan4-white',
+          name: 'Nike Jordan 4 Branco',
+          brand: 'Nike',
+          model: 'Nike Jordan 4',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_AIR_JORDAN_4')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
