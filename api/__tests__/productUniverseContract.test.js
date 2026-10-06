@@ -1048,22 +1048,12 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
-  it('Air Jordan 4 fornecedor-only continua venda sem inventar preço', () => {
+  it('Air Jordan 4 MIA-only continua venda sem inventar preço', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
       pricing_rules: [],
       requested: { brand: 'Nike', model: 'Air Jordan 4', color: 'branco', size: '42' },
       evidence: [
-        {
-          source: 'VIVIAN',
-          source_item_id: 'vivian-jordan4-white',
-          name: 'Nike Air Jordan 4 Branco',
-          brand: 'Nike',
-          model: 'Nike Air Jordan 4',
-          color: 'branco',
-          supplier_presence: true,
-          match_type: 'SAME_FAMILY',
-        },
         {
           source: 'MIA',
           source_item_id: 'mia-jordan4-white',
@@ -1079,7 +1069,7 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
 
     expect(out.canonical_family).toBe('NIKE_AIR_JORDAN_4')
     expect(out.coverage.PRIME).toBe(false)
-    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.coverage.supplier_count).toBe(1)
     expect(out.price.state).toBe('UNKNOWN')
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')

@@ -334,16 +334,11 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Air Jordan 4 em MIA e VIVIAN candidata ainda fora do ciclo diário', () => {
+  it('prepara Air Jordan 4 somente em MIA e descarta Jordan Alto da VIVIAN', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_4')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_4')
 
-    expect(vivian).toMatchObject({
-      supplier: 'VIVIAN',
-      canonical_family: 'NIKE_AIR_JORDAN_4',
-      folder_id: '1RuhbQrS44JQkKVp-OyhH12d6O8MOruhZ',
-      cycle_enabled: false,
-    })
+    expect(vivian).toBeUndefined()
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_AIR_JORDAN_4',

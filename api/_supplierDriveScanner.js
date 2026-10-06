@@ -373,17 +373,6 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/NIKE/Nike vomero',
   },
   {
-    key: 'VIVIAN_NIKE_AIR_JORDAN_4',
-    cycle_enabled: false,
-    supplier: 'VIVIAN',
-    canonical_family: 'NIKE_AIR_JORDAN_4',
-    brand: 'Nike',
-    model: 'Nike Air Jordan 4',
-    category: 'Tênis',
-    folder_id: '1RuhbQrS44JQkKVp-OyhH12d6O8MOruhZ',
-    drive_path: '/Nike/Jordan Alto',
-  },
-  {
     key: 'MIA_NIKE_AIR_JORDAN_4',
     cycle_enabled: false,
     supplier: 'MIA',
