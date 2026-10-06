@@ -1081,6 +1081,28 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Jordan genérico de vestuário PRIME não vira Air Jordan 1', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Jordan', color: 'azul', size: 'M' },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-shirt-jordan',
+          name: 'Camisa Brasil Azul Masculina Jordan II',
+          brand: 'Nike',
+          model: 'Camisa Jordan',
+          color: 'azul',
+          price: 199,
+          match_type: 'SIMILAR',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).not.toBe('NIKE_AIR_JORDAN_1')
+  })
+
   it('Air Jordan 4 MIA-only continua venda sem inventar preço', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
