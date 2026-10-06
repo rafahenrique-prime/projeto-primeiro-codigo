@@ -763,10 +763,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Nike Vomero fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Nike Vomero Premium fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('VIVIAN_NIKE_VOMERO')
-    expect(daily).not.toContain('MIA_NIKE_VOMERO')
+    expect(daily).not.toContain('VIVIAN_NIKE_VOMERO_PREMIUM')
+    expect(daily).not.toContain('MIA_NIKE_VOMERO_PREMIUM')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
@@ -787,10 +787,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     }))
 
     const out = await runSupplierCatalogCycle({
-      cycle_key: 'supplier-cycle-homologation:nike-vomero-vivian',
+      cycle_key: 'supplier-cycle-homologation:nike-vomero-premium-vivian',
       trigger: 'manual_homologation',
       max_changes: 1,
-      scope_keys: ['VIVIAN_NIKE_VOMERO'],
+      scope_keys: ['VIVIAN_NIKE_VOMERO_PREMIUM'],
     }, {
       ...DEPS,
       startFn: vi.fn(async () => ({
@@ -806,7 +806,7 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
         queued: 1,
         processed: [{
           supplier: 'VIVIAN',
-          family: 'NIKE_VOMERO',
+          family: 'NIKE_VOMERO_PREMIUM',
           color: 'preto',
           confidence: 0.97,
           status: 'ready',
@@ -818,7 +818,7 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     })
 
     expect(out.ok).toBe(true)
-    expect(out.scope_order).toEqual(['VIVIAN_NIKE_VOMERO'])
+    expect(out.scope_order).toEqual(['VIVIAN_NIKE_VOMERO_PREMIUM'])
     expect(out.totals.ready).toBe(1)
   })
 
