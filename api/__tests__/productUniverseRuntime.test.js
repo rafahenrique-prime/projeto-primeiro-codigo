@@ -689,6 +689,53 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Air Max 90 normaliza de forma isolada sem confundir Air Max 95', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Air Max 90',
+        color: 'cinza',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [{
+        source: 'MIA',
+        source_item_id: 'mia-air-max-90-grey',
+        name: 'Nike Air Max 90 Cinza',
+        brand: 'Nike',
+        model: 'Nike Air Max 90',
+        color: 'cinza',
+      }],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_AIR_MAX_90')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.price.amount).toBeNull()
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+
+    const wrong = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Air Max 95',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [],
+    })
+
+    expect(wrong.decision.canonical_family).not.toBe('NIKE_AIR_MAX_90')
+    expect(wrong.decision.requested.model).toBe('Air Max 95')
+  })
+
   it('Jordan IV normaliza para Nike Air Jordan 4 sem herança de preço', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 

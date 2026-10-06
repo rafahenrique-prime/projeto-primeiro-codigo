@@ -171,6 +171,49 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.canonical_family).toBe('NIKE_VOMERO')
   })
 
+  it('Air Max 90 aceita label compatível e rejeita 95/97/270', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_90',
+      detected_model: 'Nike Air Max 90',
+    }
+
+    const ready = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_90',
+      model: 'Nike Air Max 90',
+      category: 'Tênis',
+      color: 'cinza / branco',
+      confidence: 0.97,
+      family_match: false,
+    })
+
+    expect(ready.status).toBe('ready')
+    expect(ready.error_code).toBeNull()
+    expect(ready.values.canonical_family).toBe('NIKE_AIR_MAX_90')
+
+    for (const model of [
+      'Nike Air Max 95',
+      'Nike Air Max 97',
+      'Nike Air Max 270',
+    ]) {
+      const out = validateVisionResult(row, {
+        brand: 'Nike',
+        canonical_family: model.replaceAll(' ', '_').toUpperCase(),
+        model,
+        category: 'Tênis',
+        color: 'preto',
+        confidence: 0.99,
+        family_match: false,
+      })
+
+      expect(out.status).toBe('review')
+      expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+      expect(out.values.canonical_family).toBe('NIKE_AIR_MAX_90')
+    }
+  })
+
   it('Air Jordan 1 aceita subfamília Low sem aceitar Jordan genérico', () => {
     const row = {
       ...ROW,
