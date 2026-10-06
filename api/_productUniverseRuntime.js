@@ -147,13 +147,15 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
-    family_id: 'NIKE_VOMERO',
-    canonical_name: 'Nike Vomero',
+    family_id: 'NIKE_VOMERO_PREMIUM',
+    canonical_name: 'Nike Vomero Premium',
     aliases: [
-      'Vomero',
-      'Nike Vomero',
-      'Zoom-X Vomero',
-      'Nike Zoom-X Vomero',
+      'Vomero Premium',
+      'Nike Vomero Premium',
+      'ZoomX Vomero Premium',
+      'Zoom-X Vomero Premium',
+      'Nike ZoomX Vomero Premium',
+      'Nike Zoom-X Vomero Premium',
     ],
   },
 ]
