@@ -116,6 +116,14 @@ export function validateVisionResult(row = {}, parsed = {}) {
       value.includes('jordan 1')
     )
 
+  const jordan3Compatible =
+    expectedFamilyNormalized === 'nike air jordan 3' &&
+    expectedBrandNormalized === 'nike' &&
+    parsedBrand === 'nike' &&
+    [parsedFamily, parsedModel].some(value =>
+      value.includes('jordan 3')
+    )
+
   const jordan4Compatible =
     expectedFamilyNormalized === 'nike air jordan 4' &&
     expectedBrandNormalized === 'nike' &&
@@ -129,6 +137,7 @@ export function validateVisionResult(row = {}, parsed = {}) {
     parsedFamily === expectedFamilyNormalized ||
     vomeroCompatible ||
     jordan1Compatible ||
+    jordan3Compatible ||
     jordan4Compatible
 
   const color = clean(parsed.color)
