@@ -334,7 +334,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('Air Max 90 MIA fica preparado fora do ciclo diário durante homologação', () => {
+  it('Air Max 90 MIA homologado fica ativo no ciclo diário', () => {
     const scope = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_MAX_90')
 
     expect(scope).toMatchObject({
@@ -345,7 +345,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       category: 'Tênis',
       folder_id: '1BpoXdM6wjFPPVM1REJqR7BnHcw8xByff',
       drive_path: '/NIKE/Nike Air Max 90',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
