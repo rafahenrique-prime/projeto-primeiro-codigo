@@ -689,6 +689,37 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Air Max 95 normaliza de forma isolada sem herdar preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Air Max 95',
+        color: 'branco',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [{
+        source: 'MIA',
+        source_item_id: 'mia-air-max-95-white',
+        name: 'Nike Air Max 95 Branco',
+        brand: 'Nike',
+        model: 'Nike Air Max 95',
+        color: 'branco',
+      }],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_AIR_MAX_95')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.price.amount).toBeNull()
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('Air Max 90 normaliza de forma isolada sem confundir Air Max 95', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
