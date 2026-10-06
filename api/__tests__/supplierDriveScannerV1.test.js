@@ -248,7 +248,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Nike Court Vision em VIVIAN e MIA ainda fora do ciclo diário', () => {
+  it('Nike Court Vision homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_COURT_VISION')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_COURT_VISION')
 
@@ -256,13 +256,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'NIKE_COURT_VISION',
       folder_id: '1eciTi8cC2jiVpUSYWqerMmVwlocHSrs3',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_COURT_VISION',
       folder_id: '1CVOO30487L5Lz4M91URFeQVG_iPy6uaM',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
