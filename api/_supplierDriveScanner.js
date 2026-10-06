@@ -341,7 +341,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_VOMERO_ZOOMX',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_VOMERO',
     brand: 'Nike',
@@ -352,7 +352,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_VOMERO_PREMIUM',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_VOMERO',
     brand: 'Nike',
@@ -363,7 +363,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_VOMERO',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_VOMERO',
     brand: 'Nike',

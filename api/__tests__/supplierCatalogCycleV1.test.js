@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(30)
-    expect(new Set(a).size).toBe(30)
-    expect(b).toHaveLength(30)
-    expect(new Set(b).size).toBe(30)
+    expect(a).toHaveLength(33)
+    expect(new Set(a).size).toBe(33)
+    expect(b).toHaveLength(33)
+    expect(new Set(b).size).toBe(33)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -763,11 +763,11 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Nike Vomero fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Nike Vomero homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('VIVIAN_NIKE_VOMERO_ZOOMX')
-    expect(daily).not.toContain('VIVIAN_NIKE_VOMERO_PREMIUM')
-    expect(daily).not.toContain('MIA_NIKE_VOMERO')
+    expect(daily).toContain('VIVIAN_NIKE_VOMERO_ZOOMX')
+    expect(daily).toContain('VIVIAN_NIKE_VOMERO_PREMIUM')
+    expect(daily).toContain('MIA_NIKE_VOMERO')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
