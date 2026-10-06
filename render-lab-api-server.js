@@ -365,6 +365,39 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'VOMERO_PRETO_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Vomero',
+          color: 'preto / branco',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'VOMERO_ROSA_AMARELO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Vomero Premium',
+          color: 'rosa / amarelo',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'VOMERO_MARROM_DOURADO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Air Max Vomero',
+          color: 'marrom / dourado',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
