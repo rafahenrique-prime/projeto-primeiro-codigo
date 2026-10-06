@@ -593,6 +593,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Bailleli normaliza para Nike Bailleli sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Bailleli',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-bailleli-black',
+          name: 'Nike Bailleli Preto',
+          brand: 'Nike',
+          model: 'Nike Bailleli',
+          color: 'preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_BAILLELI')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
