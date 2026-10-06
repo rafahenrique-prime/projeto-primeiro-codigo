@@ -171,6 +171,52 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.canonical_family).toBe('NIKE_VOMERO')
   })
 
+  it('Air Jordan 4 aceita label de subfamília que contém Jordan 4', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_4',
+      detected_model: 'Nike Air Jordan 4',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_JORDAN_4_RETRO',
+      model: 'Nike Air Jordan 4 Retro',
+      category: 'Tênis',
+      color: 'branco / azul marinho / cinza',
+      confidence: 0.95,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('ready')
+    expect(out.error_code).toBeNull()
+    expect(out.values.canonical_family).toBe('NIKE_AIR_JORDAN_4')
+  })
+
+  it('Air Jordan 4 não aceita Jordan 3', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_4',
+      detected_model: 'Nike Air Jordan 4',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_3',
+      model: 'Nike Air Jordan 3',
+      category: 'Tênis',
+      color: 'branco',
+      confidence: 0.99,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('review')
+    expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+    expect(out.values.canonical_family).toBe('NIKE_AIR_JORDAN_4')
+  })
+
   it('família divergente vai para review e não troca canonical_family', () => {
     const out = validateVisionResult(ROW, {
       brand: 'Nike',
