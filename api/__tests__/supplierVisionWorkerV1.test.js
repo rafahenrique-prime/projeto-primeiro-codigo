@@ -171,6 +171,54 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.canonical_family).toBe('NIKE_VOMERO')
   })
 
+  it('Air Jordan 1 aceita subfamília Low sem aceitar Jordan genérico', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_1',
+      detected_model: 'Nike Air Jordan 1',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_1_LOW',
+      model: 'Nike Air Jordan 1 Low',
+      category: 'Tênis',
+      color: 'branco / cinza / preto',
+      confidence: 0.97,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('ready')
+    expect(out.error_code).toBeNull()
+    expect(out.values.canonical_family).toBe('NIKE_AIR_JORDAN_1')
+  })
+
+  it('Air Jordan 1 não aceita Jordan 3 nem Jordan 4', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_1',
+      detected_model: 'Nike Air Jordan 1',
+    }
+
+    for (const model of ['Nike Air Jordan 3', 'Nike Air Jordan 4']) {
+      const out = validateVisionResult(row, {
+        brand: 'Nike',
+        canonical_family: model.includes('3') ? 'NIKE_AIR_JORDAN_3' : 'NIKE_AIR_JORDAN_4',
+        model,
+        category: 'Tênis',
+        color: 'branco',
+        confidence: 0.99,
+        family_match: false,
+      })
+
+      expect(out.status).toBe('review')
+      expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+      expect(out.values.canonical_family).toBe('NIKE_AIR_JORDAN_1')
+    }
+  })
+
   it('Air Jordan 4 aceita label de subfamília que contém Jordan 4', () => {
     const row = {
       ...ROW,
