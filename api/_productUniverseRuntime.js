@@ -128,6 +128,14 @@ export const DEFAULT_FAMILY_RULES = [
       'Nike Court Vision Low',
     ],
   },
+  {
+    family_id: 'NIKE_BAILLELI',
+    canonical_name: 'Nike Bailleli',
+    aliases: [
+      'Bailleli',
+      'Nike Bailleli',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
