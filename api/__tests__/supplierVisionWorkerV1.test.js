@@ -219,6 +219,45 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     }
   })
 
+  it('Air Jordan 3 aceita label Retro e rejeita Jordan 1/4', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_JORDAN_3',
+      detected_model: 'Nike Air Jordan 3',
+    }
+
+    const ready = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_JORDAN_3_RETRO',
+      model: 'Nike Air Jordan 3 Retro',
+      category: 'Tênis',
+      color: 'branco / vermelho / cinza',
+      confidence: 0.97,
+      family_match: false,
+    })
+
+    expect(ready.status).toBe('ready')
+    expect(ready.error_code).toBeNull()
+    expect(ready.values.canonical_family).toBe('NIKE_AIR_JORDAN_3')
+
+    for (const model of ['Nike Air Jordan 1', 'Nike Air Jordan 4']) {
+      const out = validateVisionResult(row, {
+        brand: 'Nike',
+        canonical_family: model.includes('1') ? 'NIKE_AIR_JORDAN_1' : 'NIKE_AIR_JORDAN_4',
+        model,
+        category: 'Tênis',
+        color: 'branco',
+        confidence: 0.99,
+        family_match: false,
+      })
+
+      expect(out.status).toBe('review')
+      expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+      expect(out.values.canonical_family).toBe('NIKE_AIR_JORDAN_3')
+    }
+  })
+
   it('Air Jordan 4 aceita label de subfamília que contém Jordan 4', () => {
     const row = {
       ...ROW,
