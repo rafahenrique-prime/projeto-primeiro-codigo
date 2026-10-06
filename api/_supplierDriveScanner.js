@@ -286,7 +286,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'VIVIAN_NIKE_BAILLELI',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_BAILLELI',
     brand: 'Nike',
@@ -297,7 +297,7 @@ export const SCANNER_SCOPES = Object.freeze([
   },
   {
     key: 'MIA_NIKE_BAILLELI',
-    cycle_enabled: false,
+    cycle_enabled: true,
     supplier: 'MIA',
     canonical_family: 'NIKE_BAILLELI',
     brand: 'Nike',

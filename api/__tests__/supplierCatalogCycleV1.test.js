@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(25)
-    expect(new Set(a).size).toBe(25)
-    expect(b).toHaveLength(25)
-    expect(new Set(b).size).toBe(25)
+    expect(a).toHaveLength(27)
+    expect(new Set(a).size).toBe(27)
+    expect(b).toHaveLength(27)
+    expect(new Set(b).size).toBe(27)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -644,10 +644,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Nike Bailleli fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Nike Bailleli homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('VIVIAN_NIKE_BAILLELI')
-    expect(daily).not.toContain('MIA_NIKE_BAILLELI')
+    expect(daily).toContain('VIVIAN_NIKE_BAILLELI')
+    expect(daily).toContain('MIA_NIKE_BAILLELI')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,

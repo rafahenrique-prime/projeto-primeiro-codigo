@@ -266,7 +266,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Nike Bailleli em VIVIAN e MIA ainda fora do ciclo diário', () => {
+  it('Nike Bailleli homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_BAILLELI')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_BAILLELI')
 
@@ -274,13 +274,13 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'NIKE_BAILLELI',
       folder_id: '16cMQ1r71UzUabAj9P_OvlPetduuHBLLf',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_BAILLELI',
       folder_id: '13hi1d_LysbINJ8L-hTOoQ2N-gGcXJU6b',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
