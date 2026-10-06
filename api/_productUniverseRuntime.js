@@ -146,6 +146,16 @@ export const DEFAULT_FAMILY_RULES = [
       'Adidas Adizero 4',
     ],
   },
+  {
+    family_id: 'NIKE_VOMERO',
+    canonical_name: 'Nike Vomero',
+    aliases: [
+      'Vomero',
+      'Nike Vomero',
+      'Zoom-X Vomero',
+      'Nike Zoom-X Vomero',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
