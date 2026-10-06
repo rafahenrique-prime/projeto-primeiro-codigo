@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(27)
-    expect(new Set(a).size).toBe(27)
-    expect(b).toHaveLength(27)
-    expect(new Set(b).size).toBe(27)
+    expect(a).toHaveLength(30)
+    expect(new Set(a).size).toBe(30)
+    expect(b).toHaveLength(30)
+    expect(new Set(b).size).toBe(30)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -703,11 +703,11 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Adidas Adizero fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Adidas Adizero homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('VIVIAN_ADIDAS_ADIZERO')
-    expect(daily).not.toContain('MIA_ADIDAS_ADIZERO_1')
-    expect(daily).not.toContain('MIA_ADIDAS_ADIZERO_2')
+    expect(daily).toContain('VIVIAN_ADIDAS_ADIZERO')
+    expect(daily).toContain('MIA_ADIDAS_ADIZERO_1')
+    expect(daily).toContain('MIA_ADIDAS_ADIZERO_2')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
