@@ -3,7 +3,6 @@ import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
 import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
-import { analyzeSupplierImage } from './api/_supplierVisionWorker.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -463,77 +462,6 @@ async function runBootSmoke() {
   }
 }
 
-async function runAirJordan1VisionDebugBoot() {
-  const enabled =
-    String(process.env.AIR_JORDAN1_VISION_DEBUG_BOOT || '')
-      .trim()
-      .toLowerCase() === 'true'
-
-  if (!enabled) return
-
-  const rows = [
-    {
-      label: 'VIVIAN_JORDAN_ALTO_SAMPLE',
-      supplier_key: 'VIVIAN',
-      drive_file_id: '1TZZjpoXNMk44oT8lfhbZKwAQgVEA5YEl',
-      brand: 'Nike',
-      canonical_family: 'NIKE_AIR_JORDAN_1',
-      detected_model: 'Nike Air Jordan 1',
-      category: 'Tênis',
-    },
-    {
-      label: 'VIVIAN_JORDAN_LOW_SAMPLE',
-      supplier_key: 'VIVIAN',
-      drive_file_id: '1Oy-vggz08beDMueK0WovEVW7jqDjnqMB',
-      brand: 'Nike',
-      canonical_family: 'NIKE_AIR_JORDAN_1',
-      detected_model: 'Nike Air Jordan 1',
-      category: 'Tênis',
-    },
-    {
-      label: 'MIA_JORDAN_A_SAMPLE',
-      supplier_key: 'MIA',
-      drive_file_id: '1ZTJJCvBkpGaaC9duCXF16nKThjQoQH_j',
-      brand: 'Nike',
-      canonical_family: 'NIKE_AIR_JORDAN_1',
-      detected_model: 'Nike Air Jordan 1',
-      category: 'Tênis',
-    },
-    {
-      label: 'MIA_JORDAN_B_SAMPLE',
-      supplier_key: 'MIA',
-      drive_file_id: '1QLnunnhdNrJWEzo8OuPLyPJ8vxkm43zG',
-      brand: 'Nike',
-      canonical_family: 'NIKE_AIR_JORDAN_1',
-      detected_model: 'Nike Air Jordan 1',
-      category: 'Tênis',
-    },
-  ]
-
-  for (const row of rows) {
-    try {
-      const out = await analyzeSupplierImage(row)
-      console.log(JSON.stringify({
-        event: 'AIR_JORDAN1_VISION_DEBUG',
-        label: row.label,
-        ok: out?.ok === true,
-        parsed: out?.parsed || null,
-        validation: out?.validation || null,
-        image: out?.image || null,
-        usage: out?.usage || null,
-        error: out?.error_code || null,
-      }))
-    } catch (error) {
-      console.log(JSON.stringify({
-        event: 'AIR_JORDAN1_VISION_DEBUG',
-        label: row.label,
-        ok: false,
-        error: error?.message || 'DEBUG_EXCEPTION',
-      }))
-    }
-  }
-}
-
 async function runSupplierVisionBootSmoke() {
   const enabled =
     String(process.env.SUPPLIER_VISION_BOOT_SMOKE || '')
@@ -740,7 +668,6 @@ async function runSupplierCatalogCycleBootSmoke() {
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
-  await runAirJordan1VisionDebugBoot()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
   await runSupplierCatalogCycleBootSmoke()
