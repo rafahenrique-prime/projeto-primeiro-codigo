@@ -248,6 +248,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Nike Court Vision em VIVIAN e MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_COURT_VISION')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_COURT_VISION')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NIKE_COURT_VISION',
+      folder_id: '1eciTi8cC2jiVpUSYWqerMmVwlocHSrs3',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_COURT_VISION',
+      folder_id: '1CVOO30487L5Lz4M91URFeQVG_iPy6uaM',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'

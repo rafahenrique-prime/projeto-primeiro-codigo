@@ -118,6 +118,16 @@ export const DEFAULT_FAMILY_RULES = [
       'Nike SB Dunk Low',
     ],
   },
+  {
+    family_id: 'NIKE_COURT_VISION',
+    canonical_name: 'Nike Court Vision',
+    aliases: [
+      'Court Vision',
+      'Nike Court Vision',
+      'Court Vision Low',
+      'Nike Court Vision Low',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [

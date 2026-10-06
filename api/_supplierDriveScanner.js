@@ -262,6 +262,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1yOvOsJ60h9Ts4A1jnjDNs0OEhYRJkVuW',
     drive_path: '/NIKE/Nike dunk',
   },
+  {
+    key: 'VIVIAN_NIKE_COURT_VISION',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NIKE_COURT_VISION',
+    brand: 'Nike',
+    model: 'Nike Court Vision',
+    category: 'Tênis',
+    folder_id: '1eciTi8cC2jiVpUSYWqerMmVwlocHSrs3',
+    drive_path: '/Nike/Court Vision',
+  },
+  {
+    key: 'MIA_NIKE_COURT_VISION',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_COURT_VISION',
+    brand: 'Nike',
+    model: 'Nike Court Vision',
+    category: 'Tênis',
+    folder_id: '1CVOO30487L5Lz4M91URFeQVG_iPy6uaM',
+    drive_path: '/NIKE/Nike Court Vision',
+  },
 ])
 
 function clean(value) {

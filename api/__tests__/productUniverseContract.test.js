@@ -61,6 +61,11 @@ const FAMILY_RULES = [
     canonical_name: 'Nike Dunk',
     aliases: ['Dunk', 'Nike Dunk', 'Dunk Low', 'Nike Dunk Low', 'SB Dunk', 'Nike SB Dunk'],
   },
+  {
+    family_id: 'NIKE_COURT_VISION',
+    canonical_name: 'Nike Court Vision',
+    aliases: ['Court Vision', 'Nike Court Vision', 'Court Vision Low', 'Nike Court Vision Low'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -843,6 +848,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('NIKE_DUNK')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Nike Court Vision fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Nike',
+        model: 'Court Vision',
+        color: 'branco',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-court-vision-white',
+          name: 'Nike Court Vision Branco',
+          brand: 'Nike',
+          model: 'Nike Court Vision',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-court-vision-white',
+          name: 'Nike Court Vision Low Branco',
+          brand: 'Nike',
+          model: 'Nike Court Vision Low',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_COURT_VISION')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
