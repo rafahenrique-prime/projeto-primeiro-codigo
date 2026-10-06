@@ -94,9 +94,24 @@ export function validateVisionResult(row = {}, parsed = {}) {
     ? Math.max(0, Math.min(confidenceRaw, 1))
     : null
 
+  const parsedFamily = normalizeText(parsed.canonical_family)
+  const parsedModel = normalizeText(parsed.model)
+  const parsedBrand = normalizeText(parsed.brand || expectedBrand)
+  const expectedFamilyNormalized = normalizeText(expectedFamily)
+  const expectedBrandNormalized = normalizeText(expectedBrand)
+
+  const vomeroCompatible =
+    expectedFamilyNormalized === 'nike vomero' &&
+    expectedBrandNormalized === 'nike' &&
+    parsedBrand === 'nike' &&
+    [parsedFamily, parsedModel].some(value =>
+      value.split(' ').includes('vomero')
+    )
+
   const familyMatch =
     parsed.family_match === true ||
-    normalizeText(parsed.canonical_family) === normalizeText(expectedFamily)
+    parsedFamily === expectedFamilyNormalized ||
+    vomeroCompatible
 
   const color = clean(parsed.color)
   const model = clean(parsed.model)

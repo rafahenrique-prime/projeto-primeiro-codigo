@@ -102,6 +102,75 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.vision_confidence).toBe(0.94)
   })
 
+  it('Nike Air Zoom Vomero é compatível com canonical NIKE_VOMERO', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_VOMERO',
+      detected_model: 'Nike Vomero',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_ZOOM_VOMERO',
+      model: 'Nike Air Zoom Vomero',
+      category: 'Tênis',
+      color: 'rosa / amarelo',
+      confidence: 0.95,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('ready')
+    expect(out.error_code).toBeNull()
+    expect(out.values.canonical_family).toBe('NIKE_VOMERO')
+  })
+
+  it('Nike Air Max Vomero é compatível com canonical NIKE_VOMERO', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_VOMERO',
+      detected_model: 'Nike Vomero',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_VOMERO',
+      model: 'Nike Vomero',
+      category: 'Tênis',
+      color: 'laranja / marrom',
+      confidence: 0.95,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('ready')
+    expect(out.error_code).toBeNull()
+    expect(out.values.canonical_family).toBe('NIKE_VOMERO')
+  })
+
+  it('NIKE_VOMERO não aceita outro modelo Nike sem token Vomero', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_VOMERO',
+      detected_model: 'Nike Vomero',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_90',
+      model: 'Nike Air Max 90',
+      category: 'Tênis',
+      color: 'preto',
+      confidence: 0.99,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('review')
+    expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+    expect(out.values.canonical_family).toBe('NIKE_VOMERO')
+  })
+
   it('família divergente vai para review e não troca canonical_family', () => {
     const out = validateVisionResult(ROW, {
       brand: 'Nike',
