@@ -309,7 +309,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Nike Vomero em duas pastas VIVIAN e uma MIA fora do ciclo diário', () => {
+  it('Nike Vomero homologado fica ativo em duas pastas VIVIAN e uma MIA', () => {
     const zoomx = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_VOMERO_ZOOMX')
     const premium = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_VOMERO_PREMIUM')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_VOMERO')
@@ -318,19 +318,19 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'NIKE_VOMERO',
       folder_id: '1-NnKNKysu8PBWusJ3GgkX3mYarAKzQnB',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(premium).toMatchObject({
       supplier: 'VIVIAN',
       canonical_family: 'NIKE_VOMERO',
       folder_id: '1UvIaSRhIX9HjJcAG2fFJD88MQsuVeX6W',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'NIKE_VOMERO',
       folder_id: '1ZiVsxdCX95KZcZ-Bk_hKHAchOiqTB9X9',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
