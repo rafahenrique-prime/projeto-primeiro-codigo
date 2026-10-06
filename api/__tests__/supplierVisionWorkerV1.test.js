@@ -171,6 +171,29 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.canonical_family).toBe('NIKE_VOMERO')
   })
 
+  it('Air Max 95 aceita label compatível', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_95',
+      detected_model: 'Nike Air Max 95',
+    }
+
+    const out = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_95',
+      model: 'Nike Air Max 95',
+      category: 'Tênis',
+      color: 'branco',
+      confidence: 0.98,
+      family_match: false,
+    })
+
+    expect(out.status).toBe('ready')
+    expect(out.error_code).toBeNull()
+    expect(out.values.canonical_family).toBe('NIKE_AIR_MAX_95')
+  })
+
   it('Air Max 90 aceita label compatível e rejeita 95/97/270', () => {
     const row = {
       ...ROW,
