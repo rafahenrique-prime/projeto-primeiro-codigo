@@ -3,6 +3,7 @@ import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
 import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
+import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -20,6 +21,7 @@ app.get('/health', (_req, res) => {
       String(process.env.LAB_PRODUCT_UNIVERSE_RUNTIME_ENABLED || '')
         .trim()
         .toLowerCase() === 'true',
+    supplier_homologation_harness_v1: true,
   })
 })
 
@@ -37,6 +39,10 @@ app.post('/api/supplier-drive-scanner-v1', async (req, res) => {
 
 app.post('/api/supplier-catalog-cycle-v1', async (req, res) => {
   return supplierCatalogCycleHandler(req, res)
+})
+
+app.post('/api/supplier-homologation-harness-v1', async (req, res) => {
+  return supplierHomologationHarnessHandler(req, res)
 })
 
 app.use((_req, res) => {
