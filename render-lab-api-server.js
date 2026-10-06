@@ -4,6 +4,7 @@ import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
+import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -684,6 +685,7 @@ async function runSupplierCatalogCycleBootSmoke() {
 
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
+  await runSupplierHomologationHarnessBoot()
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
