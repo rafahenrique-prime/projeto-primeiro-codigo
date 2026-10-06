@@ -162,6 +162,18 @@ export const DEFAULT_FAMILY_RULES = [
       'Nike Vomero Premium',
     ],
   },
+  {
+    family_id: 'NIKE_AIR_JORDAN_4',
+    canonical_name: 'Nike Air Jordan 4',
+    aliases: [
+      'Air Jordan 4',
+      'Nike Air Jordan 4',
+      'Jordan 4',
+      'Nike Jordan 4',
+      'Air Jordan IV',
+      'Jordan IV',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
