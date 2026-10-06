@@ -334,6 +334,21 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('Air Max 90 MIA fica preparado fora do ciclo diário durante homologação', () => {
+    const scope = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_MAX_90')
+
+    expect(scope).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_AIR_MAX_90',
+      brand: 'Nike',
+      model: 'Nike Air Max 90',
+      category: 'Tênis',
+      folder_id: '1BpoXdM6wjFPPVM1REJqR7BnHcw8xByff',
+      drive_path: '/NIKE/Nike Air Max 90',
+      cycle_enabled: false,
+    })
+  })
+
   it('Air Jordan 1 homologado fica ativo nas quatro pastas aprovadas', () => {
     const keys = [
       'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
