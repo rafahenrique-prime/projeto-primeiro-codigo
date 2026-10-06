@@ -689,6 +689,36 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Jordan IV normaliza para Nike Air Jordan 4 sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Jordan IV',
+        color: 'branco',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [{
+        source: 'MIA',
+        source_item_id: 'mia-jordan4-white',
+        name: 'Nike Air Jordan 4 Branco',
+        brand: 'Nike',
+        model: 'Nike Air Jordan 4',
+        color: 'branco',
+      }],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_AIR_JORDAN_4')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
