@@ -76,6 +76,11 @@ const FAMILY_RULES = [
     canonical_name: 'Adidas Adizero',
     aliases: ['Adizero', 'Adidas Adizero', 'Adizero 4', 'Adidas Adizero 4'],
   },
+  {
+    family_id: 'NIKE_VOMERO',
+    canonical_name: 'Nike Vomero',
+    aliases: ['Vomero', 'Nike Vomero', 'Zoom-X Vomero', 'Nike Zoom-X Vomero'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -987,6 +992,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('ADIDAS_ADIZERO')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Nike Vomero fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Nike',
+        model: 'Vomero',
+        color: 'preto',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-vomero-black',
+          name: 'Nike Vomero Preto',
+          brand: 'Nike',
+          model: 'Nike Vomero',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-vomero-black',
+          name: 'Nike Vomero Preto',
+          brand: 'Nike',
+          model: 'Nike Vomero',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_VOMERO')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
