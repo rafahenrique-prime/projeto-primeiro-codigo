@@ -170,8 +170,6 @@ export const DEFAULT_FAMILY_RULES = [
       'Nike Air Jordan 1',
       'Jordan 1',
       'Nike Jordan 1',
-      'Air Jordan I',
-      'Jordan I',
       'AJ1',
       'Air Jordan 1 Low',
       'Jordan 1 Low',

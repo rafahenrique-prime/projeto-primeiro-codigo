@@ -84,7 +84,7 @@ const FAMILY_RULES = [
   {
     family_id: 'NIKE_AIR_JORDAN_1',
     canonical_name: 'Nike Air Jordan 1',
-    aliases: ['Air Jordan 1', 'Nike Air Jordan 1', 'Jordan 1', 'Nike Jordan 1', 'Air Jordan I', 'Jordan I', 'AJ1', 'Air Jordan 1 Low', 'Jordan 1 Low', 'Air Jordan 1 Mid', 'Jordan 1 Mid', 'Air Jordan 1 High', 'Jordan 1 High'],
+    aliases: ['Air Jordan 1', 'Nike Air Jordan 1', 'Jordan 1', 'Nike Jordan 1', 'AJ1', 'Air Jordan 1 Low', 'Jordan 1 Low', 'Air Jordan 1 Mid', 'Jordan 1 Mid', 'Air Jordan 1 High', 'Jordan 1 High'],
   },
   {
     family_id: 'NIKE_AIR_JORDAN_4',
