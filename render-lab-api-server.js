@@ -321,6 +321,50 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'ADIZERO_ROXO_LARANJA_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adizero',
+          color: 'roxo / laranja',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'ADIZERO_BRANCO_PRATA_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adizero',
+          color: 'branco / prata',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'ADIZERO_VERDE_LIMAO_VERMELHO_AZUL_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adizero',
+          color: 'verde limão / vermelho / azul',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'ADIZERO_AMARELO_42',
+      body: {
+        requested: {
+          brand: 'Adidas',
+          model: 'Adizero',
+          color: 'amarelo',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
