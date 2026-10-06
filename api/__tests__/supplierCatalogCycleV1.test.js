@@ -888,6 +888,64 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
+  it('Air Jordan 3 MIA fica fora da rotação diária, mas aceita homologação manual controlada', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
+    expect(daily).not.toContain('MIA_NIKE_AIR_JORDAN_3')
+
+    const scannerFn = vi.fn(async ({ scope_keys }) => ({
+      ok: true,
+      scopes: [{
+        key: scope_keys[0],
+        status: 'completed',
+        scanned: 7,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 6,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:air-jordan-3-mia',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['MIA_NIKE_AIR_JORDAN_3'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: 'a3a3a3a3-a3a3-4a3a-8a3a-a3a3a3a3a3a3',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'MIA',
+          family: 'NIKE_AIR_JORDAN_3',
+          color: 'branco / vermelho',
+          confidence: 0.97,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scope_order).toEqual(['MIA_NIKE_AIR_JORDAN_3'])
+    expect(out.totals.ready).toBe(1)
+  })
+
   it('Air Jordan 4 MIA-only homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
     expect(daily).toContain('MIA_NIKE_AIR_JORDAN_4')
