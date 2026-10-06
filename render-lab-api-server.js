@@ -5,6 +5,7 @@ import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
+import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -686,6 +687,7 @@ async function runSupplierCatalogCycleBootSmoke() {
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierHomologationHarnessBoot()
+  await runSupplierHomologationPromotionBoot({ baseUrl: `http://127.0.0.1:${port}` })
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
