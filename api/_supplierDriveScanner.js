@@ -372,6 +372,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1ZiVsxdCX95KZcZ-Bk_hKHAchOiqTB9X9',
     drive_path: '/NIKE/Nike vomero',
   },
+  {
+    key: 'VIVIAN_NIKE_AIR_JORDAN_4',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NIKE_AIR_JORDAN_4',
+    brand: 'Nike',
+    model: 'Nike Air Jordan 4',
+    category: 'Tênis',
+    folder_id: '1RuhbQrS44JQkKVp-OyhH12d6O8MOruhZ',
+    drive_path: '/Nike/Jordan Alto',
+  },
+  {
+    key: 'MIA_NIKE_AIR_JORDAN_4',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_AIR_JORDAN_4',
+    brand: 'Nike',
+    model: 'Nike Air Jordan 4',
+    category: 'Tênis',
+    folder_id: '1KwZIczcVyhFqM-baVYivENrUgDicjG3F',
+    drive_path: '/NIKE/Nike jordan 4',
+  },
 ])
 
 function clean(value) {
