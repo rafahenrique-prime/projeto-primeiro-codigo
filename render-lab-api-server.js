@@ -3,6 +3,7 @@ import productUniverseHandler from './api/gaby-lab-product-universe-v1.js'
 import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
+import { analyzeSupplierImage } from './api/_supplierVisionWorker.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -418,6 +419,59 @@ async function runBootSmoke() {
   }
 }
 
+async function runVomeroPremiumVisionDebugBoot() {
+  const enabled =
+    String(process.env.VOMERO_PREMIUM_VISION_DEBUG_BOOT || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const rows = [
+    {
+      label: 'VIVIAN_PREMIUM_SAMPLE',
+      supplier_key: 'VIVIAN',
+      drive_file_id: '1HtI5ACGLrM3ipSyXfLkT676gwe9n79Xy',
+      brand: 'Nike',
+      canonical_family: 'NIKE_VOMERO_PREMIUM',
+      detected_model: 'Nike Vomero Premium',
+      category: 'Tênis',
+    },
+    {
+      label: 'MIA_PREMIUM_SAMPLE',
+      supplier_key: 'MIA',
+      drive_file_id: '1EjWvqycWKI_GjnibR6z-iGeluUfUZ0pp',
+      brand: 'Nike',
+      canonical_family: 'NIKE_VOMERO_PREMIUM',
+      detected_model: 'Nike Vomero Premium',
+      category: 'Tênis',
+    },
+  ]
+
+  for (const row of rows) {
+    try {
+      const out = await analyzeSupplierImage(row)
+      console.log(JSON.stringify({
+        event: 'VOMERO_PREMIUM_VISION_DEBUG',
+        label: row.label,
+        ok: out?.ok === true,
+        parsed: out?.parsed || null,
+        validation: out?.validation || null,
+        image: out?.image || null,
+        usage: out?.usage || null,
+        error: out?.error_code || null,
+      }))
+    } catch (error) {
+      console.log(JSON.stringify({
+        event: 'VOMERO_PREMIUM_VISION_DEBUG',
+        label: row.label,
+        ok: false,
+        error: error?.message || 'DEBUG_EXCEPTION',
+      }))
+    }
+  }
+}
+
 async function runSupplierVisionBootSmoke() {
   const enabled =
     String(process.env.SUPPLIER_VISION_BOOT_SMOKE || '')
@@ -624,6 +678,7 @@ async function runSupplierCatalogCycleBootSmoke() {
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
+  await runVomeroPremiumVisionDebugBoot()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
   await runSupplierCatalogCycleBootSmoke()
