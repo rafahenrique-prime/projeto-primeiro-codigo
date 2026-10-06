@@ -108,10 +108,19 @@ export function validateVisionResult(row = {}, parsed = {}) {
       value.split(' ').includes('vomero')
     )
 
+  const jordan4Compatible =
+    expectedFamilyNormalized === 'nike air jordan 4' &&
+    expectedBrandNormalized === 'nike' &&
+    parsedBrand === 'nike' &&
+    [parsedFamily, parsedModel].some(value =>
+      value.includes('jordan 4')
+    )
+
   const familyMatch =
     parsed.family_match === true ||
     parsedFamily === expectedFamilyNormalized ||
-    vomeroCompatible
+    vomeroCompatible ||
+    jordan4Compatible
 
   const color = clean(parsed.color)
   const model = clean(parsed.model)
