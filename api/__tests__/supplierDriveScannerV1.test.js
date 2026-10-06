@@ -334,7 +334,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Air Jordan 1 em quatro pastas candidatas, todas fora do ciclo diário', () => {
+  it('Air Jordan 1 homologado fica ativo nas quatro pastas aprovadas', () => {
     const keys = [
       'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
       'VIVIAN_NIKE_AIR_JORDAN_1_LOW',
@@ -351,7 +351,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
         brand: 'Nike',
         model: 'Nike Air Jordan 1',
         category: 'Tênis',
-        cycle_enabled: false,
+        cycle_enabled: true,
       })
     }
 
