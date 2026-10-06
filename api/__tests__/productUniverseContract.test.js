@@ -66,6 +66,11 @@ const FAMILY_RULES = [
     canonical_name: 'Nike Court Vision',
     aliases: ['Court Vision', 'Nike Court Vision', 'Court Vision Low', 'Nike Court Vision Low'],
   },
+  {
+    family_id: 'NIKE_BAILLELI',
+    canonical_name: 'Nike Bailleli',
+    aliases: ['Bailleli', 'Nike Bailleli'],
+  },
 ]
 
 const PRICE_RULES = [
@@ -891,6 +896,49 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).toBe('NIKE_COURT_VISION')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(2)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Nike Bailleli fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: {
+        brand: 'Nike',
+        model: 'Bailleli',
+        color: 'preto',
+        size: '42',
+      },
+      evidence: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-bailleli-black',
+          name: 'Nike Bailleli Preto',
+          brand: 'Nike',
+          model: 'Nike Bailleli',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+        {
+          source: 'MIA',
+          source_item_id: 'mia-bailleli-black',
+          name: 'Nike Bailleli Preto',
+          brand: 'Nike',
+          model: 'Nike Bailleli',
+          color: 'preto',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_BAILLELI')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')

@@ -284,6 +284,28 @@ export const SCANNER_SCOPES = Object.freeze([
     folder_id: '1CVOO30487L5Lz4M91URFeQVG_iPy6uaM',
     drive_path: '/NIKE/Nike Court Vision',
   },
+  {
+    key: 'VIVIAN_NIKE_BAILLELI',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NIKE_BAILLELI',
+    brand: 'Nike',
+    model: 'Nike Bailleli',
+    category: 'Tênis',
+    folder_id: '16cMQ1r71UzUabAj9P_OvlPetduuHBLLf',
+    drive_path: '/Nike/Nike Bailleli',
+  },
+  {
+    key: 'MIA_NIKE_BAILLELI',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_BAILLELI',
+    brand: 'Nike',
+    model: 'Nike Bailleli',
+    category: 'Tênis',
+    folder_id: '13hi1d_LysbINJ8L-hTOoQ2N-gGcXJU6b',
+    drive_path: '/NIKE/NIKE BAILLELI',
+  },
 ])
 
 function clean(value) {
