@@ -561,6 +561,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Court Vision Low normaliza para Nike Court Vision sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Court Vision Low',
+        color: 'branco',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-court-vision-white',
+          name: 'Nike Court Vision Low Branco',
+          brand: 'Nike',
+          model: 'Nike Court Vision Low',
+          color: 'branco',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_COURT_VISION')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
