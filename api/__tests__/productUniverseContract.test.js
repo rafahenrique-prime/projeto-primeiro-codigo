@@ -1053,6 +1053,34 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Air Jordan 1 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Air Jordan 1 Low', color: 'cinza', size: '42' },
+      evidence: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-jordan1-low-gray',
+          name: 'Nike Air Jordan 1 Low Cinza',
+          brand: 'Nike',
+          model: 'Nike Air Jordan 1 Low',
+          color: 'cinza',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_AIR_JORDAN_1')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(1)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('Air Jordan 4 MIA-only continua venda sem inventar preço', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
