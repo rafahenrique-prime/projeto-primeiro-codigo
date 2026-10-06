@@ -277,6 +277,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'COURT_VISION_BEGE_PRETO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Court Vision',
+          color: 'bege / preto',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'COURT_VISION_BEGE_DOURADO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Court Vision Low',
+          color: 'bege / dourado',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
