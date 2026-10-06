@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(34)
-    expect(new Set(a).size).toBe(34)
-    expect(b).toHaveLength(34)
-    expect(new Set(b).size).toBe(34)
+    expect(a).toHaveLength(38)
+    expect(new Set(a).size).toBe(38)
+    expect(b).toHaveLength(38)
+    expect(new Set(b).size).toBe(38)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -823,7 +823,7 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Air Jordan 1 fica fora da rotação diária durante homologação, mas aceita ciclo manual controlado', async () => {
+  it('Air Jordan 1 homologado entra na rotação diária e continua aceitando ciclo manual controlado', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
     for (const key of [
       'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
@@ -831,7 +831,7 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
       'MIA_NIKE_AIR_JORDAN_1_A',
       'MIA_NIKE_AIR_JORDAN_1_B',
     ]) {
-      expect(daily).not.toContain(key)
+      expect(daily).toContain(key)
     }
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
