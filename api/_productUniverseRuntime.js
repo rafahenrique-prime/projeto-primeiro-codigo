@@ -136,6 +136,16 @@ export const DEFAULT_FAMILY_RULES = [
       'Nike Bailleli',
     ],
   },
+  {
+    family_id: 'ADIDAS_ADIZERO',
+    canonical_name: 'Adidas Adizero',
+    aliases: [
+      'Adizero',
+      'Adidas Adizero',
+      'Adizero 4',
+      'Adidas Adizero 4',
+    ],
+  },
 ]
 
 const PRIME_SELECT = [
