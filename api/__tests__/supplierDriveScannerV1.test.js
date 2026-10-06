@@ -284,7 +284,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Adidas Adizero em VIVIAN e nas duas pastas MIA ainda fora do ciclo diário', () => {
+  it('Adidas Adizero homologado fica ativo em VIVIAN e nas duas pastas MIA', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_ADIZERO')
     const mia1 = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADIZERO_1')
     const mia2 = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADIZERO_2')
@@ -293,19 +293,19 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'VIVIAN',
       canonical_family: 'ADIDAS_ADIZERO',
       folder_id: '1QRVksvJUdlXcJyefTxiFbqiifA9vhW88',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia1).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ADIDAS_ADIZERO',
       folder_id: '12EnsbWo6tWJ1g60deARNpCupkjgnVhmY',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
     expect(mia2).toMatchObject({
       supplier: 'MIA',
       canonical_family: 'ADIDAS_ADIZERO',
       folder_id: '1OB4QRP73v_zfFsjMP4OvRfWh7_AtA5d8',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
