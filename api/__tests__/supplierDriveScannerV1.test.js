@@ -284,6 +284,31 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Adidas Adizero em VIVIAN e nas duas pastas MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_ADIDAS_ADIZERO')
+    const mia1 = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADIZERO_1')
+    const mia2 = SCANNER_SCOPES.find(x => x.key === 'MIA_ADIDAS_ADIZERO_2')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'ADIDAS_ADIZERO',
+      folder_id: '1QRVksvJUdlXcJyefTxiFbqiifA9vhW88',
+      cycle_enabled: false,
+    })
+    expect(mia1).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'ADIDAS_ADIZERO',
+      folder_id: '12EnsbWo6tWJ1g60deARNpCupkjgnVhmY',
+      cycle_enabled: false,
+    })
+    expect(mia2).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'ADIDAS_ADIZERO',
+      folder_id: '1OB4QRP73v_zfFsjMP4OvRfWh7_AtA5d8',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'
