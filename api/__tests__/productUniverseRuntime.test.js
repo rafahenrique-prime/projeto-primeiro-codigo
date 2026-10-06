@@ -729,17 +729,11 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     }, {
       supabaseConfig: SB,
       fetchImpl,
-      supplierFixtures: [{
-        source: 'MIA',
-        source_item_id: 'mia-air-max-90-black',
-        name: 'Nike Air Max 90 Preto',
-        brand: 'Nike',
-        model: 'Nike Air Max 90',
-        color: 'preto',
-      }],
+      supplierFixtures: [],
     })
 
     expect(wrong.decision.canonical_family).not.toBe('NIKE_AIR_MAX_90')
+    expect(wrong.decision.requested.model).toBe('Air Max 95')
   })
 
   it('Jordan IV normaliza para Nike Air Jordan 4 sem herança de preço', async () => {
