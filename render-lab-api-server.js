@@ -299,6 +299,28 @@ async function runBootSmoke() {
         },
       },
     },
+    {
+      name: 'BAILLELI_ROSA_BRANCO_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Bailleli',
+          color: 'rosa / branco',
+          size: '42',
+        },
+      },
+    },
+    {
+      name: 'BAILLELI_VERDE_MENTA_BRANCO_ROSA_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Bailleli',
+          color: 'verde menta / branco / rosa',
+          size: '42',
+        },
+      },
+    },
   ]
 
   for (const testCase of cases) {
