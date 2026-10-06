@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(38)
-    expect(new Set(a).size).toBe(38)
-    expect(b).toHaveLength(38)
-    expect(new Set(b).size).toBe(38)
+    expect(a).toHaveLength(39)
+    expect(new Set(a).size).toBe(39)
+    expect(b).toHaveLength(39)
+    expect(new Set(b).size).toBe(39)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -888,9 +888,9 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Air Jordan 3 MIA fica fora da rotação diária, mas aceita homologação manual controlada', async () => {
+  it('Air Jordan 3 MIA homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('MIA_NIKE_AIR_JORDAN_3')
+    expect(daily).toContain('MIA_NIKE_AIR_JORDAN_3')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,

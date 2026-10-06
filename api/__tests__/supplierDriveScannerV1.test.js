@@ -363,7 +363,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     ])
   })
 
-  it('Air Jordan 3 MIA fica preparado fora do ciclo diário durante homologação', () => {
+  it('Air Jordan 3 MIA homologado fica ativo no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_3')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_3')
 
@@ -375,7 +375,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       model: 'Nike Air Jordan 3',
       folder_id: '1N0V_O47vTIFZfnXUpGebTSChCUwEg9R1',
       drive_path: '/NIKE/Nike jordan 3',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
