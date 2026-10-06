@@ -657,6 +657,38 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Zoom-X Vomero normaliza para Nike Vomero sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Zoom-X Vomero',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-vomero-black',
+          name: 'Nike Zoom-X Vomero Preto',
+          brand: 'Nike',
+          model: 'Nike Vomero',
+          color: 'preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_VOMERO')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('zero resultado em todas as fontes pede pergunta inteligente, não encerra venda', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
