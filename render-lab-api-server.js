@@ -399,6 +399,17 @@ async function runBootSmoke() {
       },
     },
     {
+      name: 'AIR_JORDAN1_BRANCO_AZUL_42',
+      body: {
+        requested: {
+          brand: 'Nike',
+          model: 'Nike Air Jordan 1',
+          color: 'branco / azul marinho / cinza',
+          size: '42',
+        },
+      },
+    },
+    {
       name: 'AIR_JORDAN4_BRANCO_42',
       body: {
         requested: {
@@ -665,93 +676,10 @@ async function runSupplierCatalogCycleBootSmoke() {
   }
 }
 
-async function runAirJordan1ShadowGateBoot() {
-  const enabled =
-    String(process.env.AIR_JORDAN1_SHADOW_GATE_BOOT || '')
-      .trim()
-      .toLowerCase() === 'true'
-
-  if (!enabled) return
-
-  const token = String(process.env.SUPPLIER_CATALOG_CYCLE_TOKEN || '').trim()
-  if (!token) {
-    console.log(JSON.stringify({
-      event: 'AIR_JORDAN1_SHADOW_GATE',
-      ok: false,
-      error: 'SUPPLIER_CYCLE_TOKEN_MISSING',
-    }))
-    return
-  }
-
-  const gates = [
-    {
-      label: 'VIVIAN_ALTO_GATE1',
-      cycle_key: 'supplier-cycle-homologation:air-jordan-1-vivian-alto-gate1',
-      scope_key: 'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
-    },
-    {
-      label: 'MIA_A_GATE1',
-      cycle_key: 'supplier-cycle-homologation:air-jordan-1-mia-a-gate1',
-      scope_key: 'MIA_NIKE_AIR_JORDAN_1_A',
-    },
-  ]
-
-  for (const gate of gates) {
-    try {
-      const res = await fetch(
-        `http://127.0.0.1:${port}/api/supplier-catalog-cycle-v1`,
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-prime-cycle-token': token,
-          },
-          body: JSON.stringify({
-            confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
-            cycle_key: gate.cycle_key,
-            trigger: 'manual_homologation',
-            max_changes: 1,
-            scope_keys: [gate.scope_key],
-          }),
-        }
-      )
-
-      const payload = await res.json().catch(() => null)
-
-      console.log(JSON.stringify({
-        event: 'AIR_JORDAN1_SHADOW_GATE',
-        label: gate.label,
-        ok: res.ok && payload?.ok === true,
-        http_status: res.status,
-        cycle_key: payload?.cycle_key || gate.cycle_key,
-        status: payload?.status || null,
-        scope_order: payload?.scope_order || null,
-        selected_for_pending:
-          payload?.totals?.selected_for_pending ?? null,
-        ready: payload?.totals?.ready ?? null,
-        review: payload?.totals?.review ?? null,
-        error_count: payload?.totals?.error ?? null,
-        cost_usd: payload?.totals?.cost_usd ?? null,
-        duplicate: payload?.duplicate ?? null,
-        error: payload?.error_code || payload?.error || null,
-      }))
-    } catch (error) {
-      console.log(JSON.stringify({
-        event: 'AIR_JORDAN1_SHADOW_GATE',
-        label: gate.label,
-        ok: false,
-        cycle_key: gate.cycle_key,
-        error: error?.message || 'SHADOW_GATE_EXCEPTION',
-      }))
-    }
-  }
-}
-
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
-  await runAirJordan1ShadowGateBoot()
   await runSupplierCatalogCycleBootSmoke()
 })
