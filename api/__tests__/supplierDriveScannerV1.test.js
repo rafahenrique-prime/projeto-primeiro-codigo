@@ -363,6 +363,22 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     ])
   })
 
+  it('Air Jordan 3 MIA fica preparado fora do ciclo diário durante homologação', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_3')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_3')
+
+    expect(vivian).toBeUndefined()
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_AIR_JORDAN_3',
+      brand: 'Nike',
+      model: 'Nike Air Jordan 3',
+      folder_id: '1N0V_O47vTIFZfnXUpGebTSChCUwEg9R1',
+      drive_path: '/NIKE/Nike jordan 3',
+      cycle_enabled: false,
+    })
+  })
+
   it('Air Jordan 4 homologado fica ativo somente em MIA e Jordan Alto da VIVIAN segue descartado', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_4')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_4')

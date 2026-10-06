@@ -180,6 +180,19 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_AIR_JORDAN_3',
+    canonical_name: 'Nike Air Jordan 3',
+    aliases: [
+      'Air Jordan 3',
+      'Nike Air Jordan 3',
+      'Jordan 3',
+      'Nike Jordan 3',
+      'AJ3',
+      'Air Jordan 3 Retro',
+      'Jordan 3 Retro',
+    ],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_4',
     canonical_name: 'Nike Air Jordan 4',
     aliases: [

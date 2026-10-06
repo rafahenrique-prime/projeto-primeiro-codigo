@@ -87,6 +87,11 @@ const FAMILY_RULES = [
     aliases: ['Air Jordan 1', 'Nike Air Jordan 1', 'Jordan 1', 'Nike Jordan 1', 'AJ1', 'Air Jordan 1 Low', 'Jordan 1 Low', 'Air Jordan 1 Mid', 'Jordan 1 Mid', 'Air Jordan 1 High', 'Jordan 1 High'],
   },
   {
+    family_id: 'NIKE_AIR_JORDAN_3',
+    canonical_name: 'Nike Air Jordan 3',
+    aliases: ['Air Jordan 3', 'Nike Air Jordan 3', 'Jordan 3', 'Nike Jordan 3', 'AJ3', 'Air Jordan 3 Retro', 'Jordan 3 Retro'],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_4',
     canonical_name: 'Nike Air Jordan 4',
     aliases: ['Air Jordan 4', 'Nike Air Jordan 4', 'Jordan 4', 'Nike Jordan 4', 'Air Jordan IV', 'Jordan IV'],
@@ -1101,6 +1106,34 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     })
 
     expect(out.canonical_family).not.toBe('NIKE_AIR_JORDAN_1')
+  })
+
+  it('Air Jordan 3 MIA-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Air Jordan 3', color: 'branco', size: '42' },
+      evidence: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-jordan3-white',
+          name: 'Nike Air Jordan 3 Branco',
+          brand: 'Nike',
+          model: 'Nike Air Jordan 3',
+          color: 'branco',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_AIR_JORDAN_3')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(1)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
   it('Air Jordan 4 MIA-only continua venda sem inventar preço', () => {

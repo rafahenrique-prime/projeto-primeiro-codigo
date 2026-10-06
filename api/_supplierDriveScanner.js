@@ -417,6 +417,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/NIKE/Nike jordan',
   },
   {
+    key: 'MIA_NIKE_AIR_JORDAN_3',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_AIR_JORDAN_3',
+    brand: 'Nike',
+    model: 'Nike Air Jordan 3',
+    category: 'Tênis',
+    folder_id: '1N0V_O47vTIFZfnXUpGebTSChCUwEg9R1',
+    drive_path: '/NIKE/Nike jordan 3',
+  },
+  {
     key: 'MIA_NIKE_AIR_JORDAN_4',
     cycle_enabled: true,
     supplier: 'MIA',
