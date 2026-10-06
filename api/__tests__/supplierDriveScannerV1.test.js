@@ -334,7 +334,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('prepara Air Jordan 4 somente em MIA e descarta Jordan Alto da VIVIAN', () => {
+  it('Air Jordan 4 homologado fica ativo somente em MIA e Jordan Alto da VIVIAN segue descartado', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_4')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_4')
 
@@ -343,7 +343,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       supplier: 'MIA',
       canonical_family: 'NIKE_AIR_JORDAN_4',
       folder_id: '1KwZIczcVyhFqM-baVYivENrUgDicjG3F',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
