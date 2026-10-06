@@ -174,6 +174,17 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_AIR_MAX_95',
+    canonical_name: 'Nike Air Max 95',
+    aliases: [
+      'Air Max 95',
+      'Nike Air Max 95',
+      'AM95',
+      'Airmax 95',
+      'Nike Airmax 95',
+    ],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_1',
     canonical_name: 'Nike Air Jordan 1',
     aliases: [

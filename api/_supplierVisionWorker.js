@@ -108,6 +108,14 @@ export function validateVisionResult(row = {}, parsed = {}) {
       value.split(' ').includes('vomero')
     )
 
+  const airMax95Compatible =
+    expectedFamilyNormalized === 'nike air max 95' &&
+    expectedBrandNormalized === 'nike' &&
+    parsedBrand === 'nike' &&
+    [parsedFamily, parsedModel].some(value =>
+      value.includes('air max 95')
+    )
+
   const airMax90Compatible =
     expectedFamilyNormalized === 'nike air max 90' &&
     expectedBrandNormalized === 'nike' &&
@@ -145,6 +153,7 @@ export function validateVisionResult(row = {}, parsed = {}) {
     parsedFamily === expectedFamilyNormalized ||
     vomeroCompatible ||
     airMax90Compatible ||
+    airMax95Compatible ||
     jordan1Compatible ||
     jordan3Compatible ||
     jordan4Compatible
