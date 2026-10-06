@@ -823,9 +823,9 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Air Jordan 4 MIA-only fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+  it('Air Jordan 4 MIA-only homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('MIA_NIKE_AIR_JORDAN_4')
+    expect(daily).toContain('MIA_NIKE_AIR_JORDAN_4')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
