@@ -334,6 +334,35 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Air Jordan 1 em quatro pastas candidatas, todas fora do ciclo diário', () => {
+    const keys = [
+      'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
+      'VIVIAN_NIKE_AIR_JORDAN_1_LOW',
+      'MIA_NIKE_AIR_JORDAN_1_A',
+      'MIA_NIKE_AIR_JORDAN_1_B',
+    ]
+
+    const scopes = keys.map(key => SCANNER_SCOPES.find(x => x.key === key))
+
+    expect(scopes.every(Boolean)).toBe(true)
+    for (const scope of scopes) {
+      expect(scope).toMatchObject({
+        canonical_family: 'NIKE_AIR_JORDAN_1',
+        brand: 'Nike',
+        model: 'Nike Air Jordan 1',
+        category: 'Tênis',
+        cycle_enabled: false,
+      })
+    }
+
+    expect(scopes.map(x => x.folder_id)).toEqual([
+      '1RuhbQrS44JQkKVp-OyhH12d6O8MOruhZ',
+      '1weIu77Vgv5KFY6oLE2Ai5Le2Gw12smLJ',
+      '1FH9ZMCFxuq2dyWgxUIbhpvQ4FwnRxvgl',
+      '1MDw8lv0JqbeO8zTm3VXfoy_dmHo1AYit',
+    ])
+  })
+
   it('Air Jordan 4 homologado fica ativo somente em MIA e Jordan Alto da VIVIAN segue descartado', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_AIR_JORDAN_4')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_JORDAN_4')
