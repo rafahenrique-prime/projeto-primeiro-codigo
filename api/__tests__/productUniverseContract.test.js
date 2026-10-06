@@ -77,9 +77,9 @@ const FAMILY_RULES = [
     aliases: ['Adizero', 'Adidas Adizero', 'Adizero 4', 'Adidas Adizero 4'],
   },
   {
-    family_id: 'NIKE_VOMERO_PREMIUM',
-    canonical_name: 'Nike Vomero Premium',
-    aliases: ['Vomero Premium', 'Nike Vomero Premium', 'ZoomX Vomero Premium', 'Zoom-X Vomero Premium'],
+    family_id: 'NIKE_VOMERO',
+    canonical_name: 'Nike Vomero',
+    aliases: ['Vomero', 'Nike Vomero', 'Air Zoom Vomero', 'Air Max Vomero', 'Vomero Premium'],
   },
 ]
 
@@ -1000,13 +1000,13 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.commercial.action).toBe('CONTINUE_SALE')
   })
 
-  it('Nike Vomero Premium fornecedor-only continua venda sem inventar preço', () => {
+  it('Nike Vomero fornecedor-only continua venda sem inventar preço', () => {
     const out = buildProductUniverseDecision({
       ...BASE,
       pricing_rules: [],
       requested: {
         brand: 'Nike',
-        model: 'Vomero Premium',
+        model: 'Vomero',
         color: 'preto',
         size: '42',
       },
@@ -1014,9 +1014,9 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
         {
           source: 'VIVIAN',
           source_item_id: 'vivian-vomero-black',
-          name: 'Nike Vomero Premium Preto',
+          name: 'Nike Vomero Preto',
           brand: 'Nike',
-          model: 'Nike Vomero Premium',
+          model: 'Nike Vomero',
           color: 'preto',
           supplier_presence: true,
           match_type: 'SAME_FAMILY',
@@ -1026,7 +1026,7 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
           source_item_id: 'mia-vomero-black',
           name: 'Nike Vomero Preto',
           brand: 'Nike',
-          model: 'Nike Vomero Premium',
+          model: 'Nike Vomero',
           color: 'preto',
           supplier_presence: true,
           match_type: 'SAME_FAMILY',
@@ -1034,7 +1034,7 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
       ],
     })
 
-    expect(out.canonical_family).toBe('NIKE_VOMERO_PREMIUM')
+    expect(out.canonical_family).toBe('NIKE_VOMERO')
     expect(out.coverage.PRIME).toBe(false)
     expect(out.coverage.supplier_count).toBe(2)
     expect(out.price.state).toBe('UNKNOWN')
