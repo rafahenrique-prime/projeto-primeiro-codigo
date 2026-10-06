@@ -82,6 +82,11 @@ const FAMILY_RULES = [
     aliases: ['Vomero', 'Nike Vomero', 'Air Zoom Vomero', 'Air Max Vomero', 'Vomero Premium'],
   },
   {
+    family_id: 'NIKE_AIR_JORDAN_1',
+    canonical_name: 'Nike Air Jordan 1',
+    aliases: ['Air Jordan 1', 'Nike Air Jordan 1', 'Jordan 1', 'Nike Jordan 1', 'Air Jordan I', 'Jordan I', 'AJ1', 'Air Jordan 1 Low', 'Jordan 1 Low', 'Air Jordan 1 Mid', 'Jordan 1 Mid', 'Air Jordan 1 High', 'Jordan 1 High'],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_4',
     canonical_name: 'Nike Air Jordan 4',
     aliases: ['Air Jordan 4', 'Nike Air Jordan 4', 'Jordan 4', 'Nike Jordan 4', 'Air Jordan IV', 'Jordan IV'],
@@ -1046,6 +1051,56 @@ describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
     expect(out.price.amount).toBeNull()
     expect(out.size.state).toBe('OFFERABLE')
     expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Air Jordan 1 fornecedor-only continua venda sem inventar preço', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Air Jordan 1 Low', color: 'cinza', size: '42' },
+      evidence: [
+        {
+          source: 'MIA',
+          source_item_id: 'mia-jordan1-low-gray',
+          name: 'Nike Air Jordan 1 Low Cinza',
+          brand: 'Nike',
+          model: 'Nike Air Jordan 1 Low',
+          color: 'cinza',
+          supplier_presence: true,
+          match_type: 'SAME_FAMILY',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_AIR_JORDAN_1')
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(1)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.size.state).toBe('OFFERABLE')
+    expect(out.commercial.action).toBe('CONTINUE_SALE')
+  })
+
+  it('Jordan genérico de vestuário PRIME não vira Air Jordan 1', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [],
+      requested: { brand: 'Nike', model: 'Jordan', color: 'azul', size: 'M' },
+      evidence: [
+        {
+          source: 'PRIME',
+          source_item_id: 'prime-shirt-jordan',
+          name: 'Camisa Brasil Azul Masculina Jordan II',
+          brand: 'Nike',
+          model: 'Camisa Jordan',
+          color: 'azul',
+          price: 199,
+          match_type: 'SIMILAR',
+        },
+      ],
+    })
+
+    expect(out.canonical_family).not.toBe('NIKE_AIR_JORDAN_1')
   })
 
   it('Air Jordan 4 MIA-only continua venda sem inventar preço', () => {

@@ -823,6 +823,71 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
+  it('Air Jordan 1 fica fora da rotação diária durante homologação, mas aceita ciclo manual controlado', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
+    for (const key of [
+      'VIVIAN_NIKE_AIR_JORDAN_1_ALTO',
+      'VIVIAN_NIKE_AIR_JORDAN_1_LOW',
+      'MIA_NIKE_AIR_JORDAN_1_A',
+      'MIA_NIKE_AIR_JORDAN_1_B',
+    ]) {
+      expect(daily).not.toContain(key)
+    }
+
+    const scannerFn = vi.fn(async ({ scope_keys }) => ({
+      ok: true,
+      scopes: [{
+        key: scope_keys[0],
+        status: 'completed',
+        scanned: 27,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 26,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:air-jordan-1-vivian-alto',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['VIVIAN_NIKE_AIR_JORDAN_1_ALTO'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: 'a1a1a1a1-a1a1-4a1a-8a1a-a1a1a1a1a1a1',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'VIVIAN',
+          family: 'NIKE_AIR_JORDAN_1',
+          color: 'preto / azul',
+          confidence: 0.95,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scope_order).toEqual(['VIVIAN_NIKE_AIR_JORDAN_1_ALTO'])
+    expect(out.totals.ready).toBe(1)
+  })
+
   it('Air Jordan 4 MIA-only homologado entra na rotação diária e continua aceitando ciclo manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
     expect(daily).toContain('MIA_NIKE_AIR_JORDAN_4')
