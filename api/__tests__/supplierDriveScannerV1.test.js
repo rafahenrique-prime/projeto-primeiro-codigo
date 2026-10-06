@@ -309,6 +309,24 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('prepara Nike Vomero em VIVIAN e MIA ainda fora do ciclo diário', () => {
+    const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NIKE_VOMERO')
+    const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_VOMERO')
+
+    expect(vivian).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NIKE_VOMERO',
+      folder_id: '1-NnKNKysu8PBWusJ3GgkX3mYarAKzQnB',
+      cycle_enabled: false,
+    })
+    expect(mia).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_VOMERO',
+      folder_id: '1ZiVsxdCX95KZcZ-Bk_hKHAchOiqTB9X9',
+      cycle_enabled: false,
+    })
+  })
+
   it('monta URL pública da pasta homologada', () => {
     expect(embeddedFolderUrl('folder-123')).toBe(
       'https://drive.google.com/embeddedfolderview?id=folder-123#grid'

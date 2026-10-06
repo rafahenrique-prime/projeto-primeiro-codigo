@@ -763,6 +763,65 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
+  it('Nike Vomero fica fora da rotação diária durante homologação, mas aceita ciclo manual', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
+    expect(daily).not.toContain('VIVIAN_NIKE_VOMERO')
+    expect(daily).not.toContain('MIA_NIKE_VOMERO')
+
+    const scannerFn = vi.fn(async ({ scope_keys }) => ({
+      ok: true,
+      scopes: [{
+        key: scope_keys[0],
+        status: 'completed',
+        scanned: 21,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 20,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:nike-vomero-vivian',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['VIVIAN_NIKE_VOMERO'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: 'cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'VIVIAN',
+          family: 'NIKE_VOMERO',
+          color: 'preto',
+          confidence: 0.97,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scope_order).toEqual(['VIVIAN_NIKE_VOMERO'])
+    expect(out.totals.ready).toBe(1)
+  })
+
   it('usa no máximo 3 mudanças e continua para outro scope se um não tiver delta', async () => {
     const startFn = vi.fn(async () => ({
       ok: true,
