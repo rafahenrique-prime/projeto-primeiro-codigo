@@ -76,6 +76,16 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NEW_BALANCE_204L',
+    canonical_name: 'New Balance 204L',
+    aliases: [
+      'NB204L',
+      'NB 204L',
+      'New Balance 204L',
+      '204L',
+    ],
+  },
+  {
     family_id: 'ADIDAS_SAMBA',
     canonical_name: 'Adidas Samba',
     aliases: [
