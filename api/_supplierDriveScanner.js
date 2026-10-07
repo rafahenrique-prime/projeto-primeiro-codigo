@@ -373,6 +373,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/NIKE/Nike vomero',
   },
   {
+    key: 'MIA_NIKE_AIR_MAX_270',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_AIR_MAX_270',
+    brand: 'Nike',
+    model: 'Nike Air Max 270',
+    category: 'Tênis',
+    folder_id: '1g5UHL3b3a2Ah-eDrKMY5yx9KV64HXQhO',
+    drive_path: '/NIKE/Nike Air Max 270',
+  },
+  {
     key: 'MIA_NIKE_AIR_MAX_97',
     cycle_enabled: true,
     supplier: 'MIA',

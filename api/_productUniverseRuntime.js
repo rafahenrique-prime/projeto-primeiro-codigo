@@ -196,6 +196,17 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_AIR_MAX_270',
+    canonical_name: 'Nike Air Max 270',
+    aliases: [
+      'Air Max 270',
+      'Nike Air Max 270',
+      'AM270',
+      'Airmax 270',
+      'Nike Airmax 270',
+    ],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_1',
     canonical_name: 'Nike Air Jordan 1',
     aliases: [
