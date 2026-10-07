@@ -401,6 +401,41 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('FuelCell Rebel V4 normaliza separado das demais famílias New Balance', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'New Balance',
+        model: 'FuelCell Rebel V4',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-fuelcell-rebel-v4-black',
+          name: 'New Balance FuelCell Rebel V4 Preto',
+          brand: 'New Balance',
+          model: 'New Balance FuelCell Rebel V4',
+          color: 'preto',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family)
+      .toBe('NEW_BALANCE_FUELCELL_REBEL_V4')
+    expect(out.decision.canonical_family).not.toBe('NEW_BALANCE_530')
+    expect(out.decision.canonical_family).not.toBe('NEW_BALANCE_9060')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('Adidas Samba aliases normalizam sem herança de preço', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 

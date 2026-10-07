@@ -142,6 +142,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/New balance/NB 530',
   },
   {
+    key: 'VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+    brand: 'New Balance',
+    model: 'New Balance FuelCell Rebel V4',
+    category: 'Tênis',
+    folder_id: '1bxJDuwgl1LMxaO79FgY-T84OENstX63M',
+    drive_path: '/Tênis - New Balance/Fuelcell Rebel V4',
+  },
+  {
     key: 'VIVIAN_ADIDAS_SAMBA',
     cycle_enabled: true,
     supplier: 'VIVIAN',
