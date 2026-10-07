@@ -51,6 +51,76 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(a[0]).not.toBe(b[0])
   })
 
+  it('FuelCell Rebel V4 piloto fica fora da rotação diária e aceita ciclo manual', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
+    expect(daily).not.toContain('VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4')
+
+    const scannerFn = vi.fn(async ({
+      scope_keys,
+      preserve_ready_same_id,
+    }) => {
+      expect(scope_keys).toEqual([
+        'VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4',
+      ])
+      expect(preserve_ready_same_id).toBe(true)
+
+      return {
+        ok: true,
+        scopes: [{
+          key: scope_keys[0],
+          status: 'completed',
+          scanned: 15,
+          new_count: 1,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 14,
+          reactivated_count: 0,
+          selected_for_pending: 1,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+        }],
+      }
+    })
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:fuelcell-rebel-v4-vivian-pilot',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '14141414-1414-4141-8141-141414141414',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'VIVIAN',
+          family: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+          color: 'preto',
+          confidence: 0.95,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scope_order).toEqual([
+      'VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4',
+    ])
+    expect(out.totals.ready).toBe(1)
+  })
+
   it('Court Borough piloto fica fora da rotação diária mas aceita promoção manual controlada', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     expect(daily).not.toContain('VIVIAN_NIKE_COURT_BOROUGH')
