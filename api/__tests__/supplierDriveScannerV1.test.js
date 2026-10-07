@@ -334,7 +334,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
-  it('Air Max 270 MIA fica preparado fora do ciclo diário durante homologação', () => {
+  it('Air Max 270 MIA homologado fica ativo no ciclo diário', () => {
     const scope = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_MAX_270')
 
     expect(scope).toMatchObject({
@@ -344,7 +344,7 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       model: 'Nike Air Max 270',
       category: 'Tênis',
       drive_path: '/NIKE/Nike Air Max 270',
-      cycle_enabled: false,
+      cycle_enabled: true,
     })
   })
 
