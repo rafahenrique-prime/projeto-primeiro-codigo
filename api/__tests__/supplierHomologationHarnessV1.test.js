@@ -8,6 +8,7 @@ import {
   SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV,
   buildVisionComparePrompt,
   visionCompareOutputBudget,
+  visionCompareTimeoutBudget,
   handleSupplierHomologationHarnessRequest,
   runSupplierHomologationHarness,
 } from '../supplier-homologation-harness-v1.js'
@@ -182,6 +183,8 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(prompt).toContain('"evidence_against"')
     expect(prompt).not.toContain('expected_family')
     expect(visionCompareOutputBudget(compare)).toBe(650)
+    expect(visionCompareTimeoutBudget(compare)).toBe(20000)
+    expect(visionCompareTimeoutBudget(compare, 15000)).toBe(15000)
 
     const compareAnalyzeFn = vi.fn(async sample => ({
       ok: true,
@@ -243,14 +246,16 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
 
     expect(prompt).not.toContain('NIKE_COURT_BOROUGH_VS_COURT_VISION_V2')
     expect(prompt).not.toContain('atacadores elásticos')
-    expect(visionCompareOutputBudget({
+    const genericCompare = {
       brand: 'Nike',
       category: 'Tênis',
       candidates: [
         { canonical_family: 'NIKE_AIR_JORDAN_3', model: 'Nike Air Jordan 3' },
         { canonical_family: 'NIKE_AIR_JORDAN_4', model: 'Nike Air Jordan 4' },
       ],
-    })).toBe(300)
+    }
+    expect(visionCompareOutputBudget(genericCompare)).toBe(300)
+    expect(visionCompareTimeoutBudget(genericCompare)).toBeUndefined()
   })
 
   it('vision_compare permite modo de precisão com Gemini 2.5 Flash', async () => {
