@@ -12,8 +12,13 @@ import {
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.1.0'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.2.0'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
+export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
+  'google/gemini-2.5-flash-lite',
+  'google/gemini-2.5-flash',
+]
+
 
 function clean(value) {
   return String(value ?? '').trim()
@@ -52,6 +57,14 @@ function sendJson(res, status, payload) {
     return res.end(JSON.stringify(payload))
   }
   return payload
+}
+
+function normalizeVisionModel(value) {
+  const model = clean(value)
+  if (!model) return null
+  return SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS.includes(model)
+    ? model
+    : false
 }
 
 function normalizeMode(value) {
@@ -461,6 +474,18 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
   const compare = input.compare || {}
   const samples = Array.isArray(input.samples) ? input.samples : []
   const productUniverse = input.product_universe || {}
+  const requestedVisionModel = normalizeVisionModel(input.vision_model)
+
+  if (requestedVisionModel === false) {
+    return {
+      ok: false,
+      error: 'HARNESS_VISION_MODEL_INVALID',
+      harness_version: SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
+      allowed_vision_models: SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS,
+    }
+  }
+
+  const selectedVisionModel = requestedVisionModel || deps.visionModel
 
   if (wantsVision) {
     const error = visionInputError(samples, expected)
@@ -514,7 +539,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const startedAt = Date.now()
       const out = await analyzeFn(row, {
         visionProxyUrl: deps.visionProxyUrl,
-        visionModel: deps.visionModel,
+        visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
       })
@@ -562,7 +587,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const startedAt = Date.now()
       const out = await compareAnalyzeFn(sample, compare, {
         visionProxyUrl: deps.visionProxyUrl,
-        visionModel: deps.visionModel,
+        visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
       })
@@ -668,6 +693,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
     ok: true,
     harness_version: SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
     mode,
+    vision_model: selectedVisionModel || DEFAULT_VISION_MODEL,
     verdict: passes.every(Boolean) ? 'PASS' : 'REVIEW',
     side_effects: {
       supplier_shadow_write: false,

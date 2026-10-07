@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
   SUPPLIER_HOMOLOGATION_MAX_SAMPLES,
+  SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS,
   buildVisionComparePrompt,
   handleSupplierHomologationHarnessRequest,
   runSupplierHomologationHarness,
@@ -211,6 +212,67 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(out.comparison.review).toBe(0)
     expect(out.comparison.pass).toBe(true)
     expect(compareAnalyzeFn).toHaveBeenCalledTimes(2)
+  })
+
+  it('vision_compare permite modo de precisão com Gemini 2.5 Flash', async () => {
+    const compareAnalyzeFn = vi.fn(async () => ({
+      ok: true,
+      chosen_family: 'NIKE_COURT_BOROUGH',
+      chosen_model: 'Nike Court Borough',
+      confidence: 0.97,
+      color: 'branco',
+      error_code: null,
+      usage: { cost_usd: 0.0008 },
+    }))
+
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision_compare',
+      vision_model: 'google/gemini-2.5-flash',
+      compare: {
+        brand: 'Nike',
+        category: 'Tênis',
+        candidates: [
+          {
+            canonical_family: 'NIKE_COURT_BOROUGH',
+            model: 'Nike Court Borough',
+          },
+          {
+            canonical_family: 'NIKE_COURT_VISION',
+            model: 'Nike Court Vision',
+          },
+        ],
+      },
+      samples: [{
+        supplier_key: 'VIVIAN',
+        drive_file_id: 'borough-precision-1',
+        expected_family: 'NIKE_COURT_BOROUGH',
+      }],
+    }, { compareAnalyzeFn })
+
+    expect(out.ok).toBe(true)
+    expect(out.verdict).toBe('PASS')
+    expect(out.vision_model).toBe('google/gemini-2.5-flash')
+    expect(compareAnalyzeFn).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.objectContaining({
+        visionModel: 'google/gemini-2.5-flash',
+      })
+    )
+  })
+
+  it('rejeita modelo Vision fora da allowlist do Harness', async () => {
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision_compare',
+      vision_model: 'provider/modelo-nao-permitido',
+      compare: {},
+      samples: [],
+    })
+
+    expect(out.ok).toBe(false)
+    expect(out.error).toBe('HARNESS_VISION_MODEL_INVALID')
+    expect(out.allowed_vision_models)
+      .toEqual(SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS)
   })
 
   it('vision_compare vira REVIEW quando escolhe a família concorrente', async () => {
