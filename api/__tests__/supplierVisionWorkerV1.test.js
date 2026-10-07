@@ -10,6 +10,7 @@ import {
   parseVisionJson,
   validateVisionResult,
   fetchVisionQueue,
+  analyzeSupplierImage,
   runSupplierVisionWorker,
 } from '../_supplierVisionWorker.js'
 
@@ -111,6 +112,53 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
       p_limit: 2,
       p_drive_file_ids: ['drive-a', 'drive-b'],
     })
+  })
+
+  it('repassa x-prime-lab-secret somente quando o proxy protegido exige', async () => {
+    const calls = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, headers: init?.headers, body: init?.body })
+
+      if (url.includes('lh3.googleusercontent.com')) {
+        return imageResponse([255, 216, 255, 217], 'image/jpeg')
+      }
+
+      if (url.includes('/api/supplier-harness-ocr-proxy')) {
+        expect(init.headers).toMatchObject({
+          'Content-Type': 'application/json',
+          'x-prime-lab-secret': 'lab-secret',
+        })
+        return jsonResponse({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                brand: 'Nike',
+                canonical_family: 'NIKE_AIR_FORCE_1',
+                model: 'Nike Air Force 1',
+                category: 'Tênis',
+                color: 'preto',
+                confidence: 0.95,
+                family_match: true,
+              }),
+            },
+          }],
+          usage: { cost: 0.0001 },
+        })
+      }
+
+      throw new Error('URL inesperada: ' + url)
+    })
+
+    const out = await analyzeSupplierImage(ROW, {
+      visionProxyUrl:
+        'https://ignite-prime-render-lab-api.onrender.com/api/supplier-harness-ocr-proxy',
+      visionProxySecret: 'lab-secret',
+      fetchImpl,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.validation.status).toBe('ready')
+    expect(calls).toHaveLength(2)
   })
 
   it('Court Borough recebe guidance específico contra Court Vision sem afetar famílias normais', () => {
