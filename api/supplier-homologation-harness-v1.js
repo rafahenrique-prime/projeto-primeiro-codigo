@@ -12,7 +12,7 @@ import {
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.3.0'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.3.1'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
 export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
   'google/gemini-2.5-flash-lite',
@@ -158,6 +158,12 @@ export function buildKnownPairVisionGuidance(compare = {}) {
 
 export function visionCompareOutputBudget(compare = {}) {
   return buildKnownPairVisionGuidance(compare).length > 0 ? 650 : 300
+}
+
+export function visionCompareTimeoutBudget(compare = {}, requestedTimeoutMs) {
+  const requested = Number(requestedTimeoutMs)
+  if (Number.isFinite(requested) && requested > 0) return requested
+  return buildKnownPairVisionGuidance(compare).length > 0 ? 20000 : undefined
 }
 
 function visionUsage(json = null) {
@@ -664,7 +670,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
           resolveSupplierHomologationVisionProxy(deps.env || process.env),
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
-        timeoutMs: deps.visionTimeoutMs,
+        timeoutMs: visionCompareTimeoutBudget(compare, deps.visionTimeoutMs),
         visionProxySecret:
           deps.visionProxySecret ||
           labApiSecret(deps.env || process.env),
