@@ -12,7 +12,7 @@ import {
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.2.0'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.3.0'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
 export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
   'google/gemini-2.5-flash-lite',
@@ -132,6 +132,30 @@ function normalizedCompareCandidates(compare = {}) {
   return rows
 }
 
+export function buildKnownPairVisionGuidance(compare = {}) {
+  const candidates = normalizedCompareCandidates(compare)
+  const keys = new Set(
+    candidates.map(item => normalizeKey(item.canonical_family))
+  )
+
+  const isCourtPair =
+    keys.has('NIKE_COURT_BOROUGH') &&
+    keys.has('NIKE_COURT_VISION') &&
+    keys.size === 2
+
+  if (!isCourtPair) return []
+
+  return [
+    'precision_protocol: NIKE_COURT_BOROUGH_VS_COURT_VISION_V2',
+    'Antes de escolher, inspecione separadamente: (1) proporção e volume da biqueira, (2) desenho dos painéis laterais/eyestay, (3) integração do Swoosh com os painéis, (4) geometria do colar e calcanhar, (5) proporção da lateral da sola.',
+    'Sinais genéricos NÃO são suficientes sozinhos: cor, logo Nike, couro/sintético, perfurações e cupsole aparecem nas duas famílias.',
+    'Court Borough: procure como tendência uma biqueira visualmente mais espaçosa/volumosa e uma construção geral mais encorpada/robusta. Em versões infantis, atacadores elásticos, tira aderente ou pull tab podem reforçar Borough, mas a ausência deles não elimina Borough.',
+    'Court Vision: procure como tendência uma silhueta mais limpa e de perfil baixo, com leitura visual mais enxuta de sneaker lifestyle inspirado no basquete dos anos 80.',
+    'Não decida por um único sinal fraco. Para confidence >= 0.80, exija pelo menos 2 sinais estruturais independentes coerentes e nenhuma contradição forte. Caso contrário, use canonical_family="UNKNOWN".',
+    'Faça a decisão pela geometria visível desta foto; não use cor ou memória de colorway como atalho.',
+  ]
+}
+
 function visionCompareInputError(samples, compare = {}) {
   if (!Array.isArray(samples) || samples.length < 1) {
     return 'HARNESS_SAMPLES_REQUIRED'
@@ -173,6 +197,7 @@ export function buildVisionComparePrompt(compare = {}) {
       `${index + 1}. canonical_family=${item.canonical_family}; model=${item.model}`
     )
     .join('\n')
+  const precisionGuidance = buildKnownPairVisionGuidance(compare)
 
   return [
     'Você analisa uma foto de produto de moda/calçado para um catálogo interno.',
@@ -185,12 +210,16 @@ export function buildVisionComparePrompt(compare = {}) {
     `category_hint: ${clean(compare.category) || 'unknown'}`,
     'candidate_options:',
     options,
+    ...(precisionGuidance.length ? ['', 'precision_guidance:', ...precisionGuidance] : []),
     '',
     'Formato obrigatório:',
-    '{"brand":"...","canonical_family":"...","model":"...","category":"...","color":"...","confidence":0.00}',
+    '{"observations":{"toe":"...","side_panels":"...","swoosh":"...","collar_heel":"...","sole":"..."},"evidence_for":"...","evidence_against":"...","brand":"...","canonical_family":"...","model":"...","category":"...","color":"...","confidence":0.00}',
     '',
     'canonical_family: use exatamente um canonical_family da lista ou "UNKNOWN".',
     'model: use o model correspondente à opção escolhida ou "UNKNOWN".',
+    'observations: descreva apenas o que realmente está visível, sem inventar detalhes ocultos.',
+    'evidence_for: cite de forma curta os sinais visuais que sustentam a escolha.',
+    'evidence_against: cite qualquer sinal que contradiga a escolha; se houver contradição forte, reduza a confiança.',
     'color: descrição curta em português; cor principal primeiro.',
     'confidence: número de 0 a 1 sobre a escolha entre as opções.',
   ].join('\n')
