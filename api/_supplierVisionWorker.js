@@ -8,7 +8,7 @@
  * Não decide preço/estoque/tamanho e não conversa com cliente.
  */
 
-export const SUPPLIER_VISION_WORKER_VERSION = '1.0.1'
+export const SUPPLIER_VISION_WORKER_VERSION = '1.0.2'
 export const DEFAULT_VISION_MODEL = 'google/gemini-2.5-flash-lite'
 export const DEFAULT_VISION_PROXY =
   'https://ignite-webhook.vercel.app/api/system-tools?tool=ocr-openrouter'
@@ -443,6 +443,7 @@ export function buildSupplierVisionPrompt(row = {}) {
 export async function analyzeSupplierImage(row, {
   visionProxyUrl = DEFAULT_VISION_PROXY,
   visionModel = DEFAULT_VISION_MODEL,
+  visionProxySecret = '',
   fetchImpl = fetch,
   timeoutMs = 12000,
 } = {}) {
@@ -474,7 +475,12 @@ export async function analyzeSupplierImage(row, {
       max_tokens: 350,
       temperature: 0.1,
     },
-    { 'Content-Type': 'application/json' },
+    {
+      'Content-Type': 'application/json',
+      ...(clean(visionProxySecret)
+        ? { 'x-prime-lab-secret': clean(visionProxySecret) }
+        : {}),
+    },
     fetchImpl,
     timeoutMs,
   )
@@ -632,6 +638,7 @@ export async function runSupplierVisionWorker(input = {}, deps = {}) {
     const analysis = await analyzeSupplierImage(row, {
       visionProxyUrl: deps.visionProxyUrl,
       visionModel: deps.visionModel,
+      visionProxySecret: deps.visionProxySecret,
       fetchImpl,
       timeoutMs: deps.visionTimeoutMs,
     })
