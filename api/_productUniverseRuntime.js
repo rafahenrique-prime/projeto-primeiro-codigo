@@ -64,6 +64,18 @@ export const DEFAULT_FAMILY_RULES = [
     aliases: ['NB530', 'NB 530', 'New Balance 530'],
   },
   {
+    family_id: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+    canonical_name: 'New Balance FuelCell Rebel V4',
+    aliases: [
+      'FuelCell Rebel V4',
+      'Fuelcell Rebel V4',
+      'New Balance FuelCell Rebel V4',
+      'New Balance Fuelcell Rebel V4',
+      'NB FuelCell Rebel V4',
+      'Rebel V4',
+    ],
+  },
+  {
     family_id: 'ADIDAS_SAMBA',
     canonical_name: 'Adidas Samba',
     aliases: [
