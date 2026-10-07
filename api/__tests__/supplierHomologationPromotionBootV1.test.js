@@ -41,7 +41,7 @@ describe('Supplier Homologation Promotion Gate V1', () => {
       SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
         run_key: 'bad-batch',
         scope_key: 'MIA_NIKE_AIR_JORDAN_3',
-        max_changes: 11,
+        max_changes: 4,
       }),
     })).toMatchObject({
       ok: false,
@@ -129,15 +129,15 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     expect(logText).not.toContain('cycle-secret')
   })
 
-  it('aceita lote explícito de até 10 e só aprova se todo selecionado ficar ready', async () => {
+  it('aceita lote explícito de até 3 e só aprova se todo selecionado ficar ready', async () => {
     const fetchImpl = vi.fn(async (_url, init) => {
       const body = JSON.parse(init.body)
 
       expect(body).toEqual({
         confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
-        cycle_key: 'supplier-cycle-homologation:court-borough-batch10',
+        cycle_key: 'supplier-cycle-homologation:court-borough-batch3',
         trigger: 'manual_homologation',
-        max_changes: 10,
+        max_changes: 3,
         scope_keys: ['VIVIAN_NIKE_COURT_BOROUGH'],
       })
 
@@ -149,11 +149,11 @@ describe('Supplier Homologation Promotion Gate V1', () => {
           cycle_key: body.cycle_key,
           status: 'completed',
           totals: {
-            selected_for_pending: 10,
-            ready: 10,
+            selected_for_pending: 3,
+            ready: 3,
             review: 0,
             error: 0,
-            cost_usd: 0.003,
+            cost_usd: 0.0009,
           },
           duplicate: false,
         }),
@@ -164,9 +164,9 @@ describe('Supplier Homologation Promotion Gate V1', () => {
       env: {
         SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_ENABLED: 'true',
         SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
-          run_key: 'court-borough-batch10',
+          run_key: 'court-borough-batch3',
           scope_key: 'VIVIAN_NIKE_COURT_BOROUGH',
-          max_changes: 10,
+          max_changes: 3,
         }),
         SUPPLIER_CATALOG_CYCLE_TOKEN: 'secret',
       },
@@ -176,11 +176,11 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     })
 
     expect(out.ok).toBe(true)
-    expect(out.max_changes).toBe(10)
+    expect(out.max_changes).toBe(3)
     expect(out.event).toMatchObject({
-      max_changes: 10,
-      selected_for_pending: 10,
-      ready: 10,
+      max_changes: 3,
+      selected_for_pending: 3,
+      ready: 3,
       review: 0,
       error_count: 0,
     })
