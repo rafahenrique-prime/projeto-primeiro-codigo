@@ -8,7 +8,7 @@
  * Não decide preço/estoque/tamanho e não conversa com cliente.
  */
 
-export const SUPPLIER_VISION_WORKER_VERSION = '1.0.0'
+export const SUPPLIER_VISION_WORKER_VERSION = '1.0.1'
 export const DEFAULT_VISION_MODEL = 'google/gemini-2.5-flash-lite'
 export const DEFAULT_VISION_PROXY =
   'https://ignite-webhook.vercel.app/api/system-tools?tool=ocr-openrouter'
@@ -378,7 +378,22 @@ export async function fetchDriveImage(fileId, {
   }
 }
 
-function visionPrompt(row) {
+export function supplierVisionGuidance(row = {}) {
+  if (clean(row.canonical_family) !== 'NIKE_COURT_BOROUGH') return []
+
+  return [
+    'precision_protocol: NIKE_COURT_BOROUGH_CONFIRMATION_V2',
+    'Antes de marcar family_match=true, confirme sinais estruturais de Court Borough e descarte confusão com Nike Court Vision.',
+    'Inspecione principalmente: volume/proporção da biqueira, desenho dos painéis laterais/eyestay, integração do Swoosh, geometria do colar/calcanhar e proporção da lateral da sola.',
+    'Cor, logo Nike, material sintético/couro, perfurações e cupsole NÃO bastam sozinhos para confirmar a família.',
+    'Court Borough tende a leitura mais encorpada/robusta e biqueira visualmente mais espaçosa; Court Vision tende a silhueta mais limpa e de perfil baixo.',
+    'Para family_match=true e confidence>=0.80, exija pelo menos 2 sinais estruturais coerentes e nenhuma contradição forte. Em dúvida, family_match=false.',
+  ]
+}
+
+export function buildSupplierVisionPrompt(row = {}) {
+  const guidance = supplierVisionGuidance(row)
+
   return [
     'Você analisa uma foto de produto de moda/calçado para um catálogo interno.',
     'Responda SOMENTE JSON válido, sem markdown.',
@@ -390,6 +405,7 @@ function visionPrompt(row) {
     `expected_family: ${clean(row.canonical_family) || 'unknown'}`,
     `expected_model: ${clean(row.detected_model) || 'unknown'}`,
     `expected_category: ${clean(row.category) || 'unknown'}`,
+    ...(guidance.length ? ['', 'precision_guidance:', ...guidance] : []),
     '',
     'Formato obrigatório:',
     '{"brand":"...","canonical_family":"...","model":"...","category":"...","color":"...","confidence":0.00,"family_match":true}',
@@ -427,7 +443,7 @@ export async function analyzeSupplierImage(row, {
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text: visionPrompt(row) },
+          { type: 'text', text: buildSupplierVisionPrompt(row) },
           { type: 'image_url', image_url: { url: image.data_url } },
         ],
       }],

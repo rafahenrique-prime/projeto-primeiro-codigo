@@ -263,6 +263,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/NIKE/Nike dunk',
   },
   {
+    key: 'VIVIAN_NIKE_COURT_BOROUGH',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NIKE_COURT_BOROUGH',
+    brand: 'Nike',
+    model: 'Nike Court Borough',
+    category: 'Tênis',
+    folder_id: '1sar6MQbNFRV9A72_hVAOqlV8Fv1-axPF',
+    drive_path: '/Tênis - Nike/Court Borough',
+  },
+  {
     key: 'VIVIAN_NIKE_COURT_VISION',
     cycle_enabled: true,
     supplier: 'VIVIAN',

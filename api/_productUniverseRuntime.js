@@ -129,6 +129,16 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_COURT_BOROUGH',
+    canonical_name: 'Nike Court Borough',
+    aliases: [
+      'Court Borough',
+      'Nike Court Borough',
+      'Court Borough Low',
+      'Nike Court Borough Low',
+    ],
+  },
+  {
     family_id: 'NIKE_BAILLELI',
     canonical_name: 'Nike Bailleli',
     aliases: [

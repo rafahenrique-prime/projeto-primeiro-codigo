@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildDriveRenditionUrl,
+  buildSupplierVisionPrompt,
+  supplierVisionGuidance,
   parseVisionJson,
   validateVisionResult,
   runSupplierVisionWorker,
@@ -79,6 +81,24 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(buildDriveRenditionUrl('abc123')).toBe(
       'https://lh3.googleusercontent.com/d/abc123=w1600'
     )
+  })
+
+  it('Court Borough recebe guidance específico contra Court Vision sem afetar famílias normais', () => {
+    const borough = {
+      ...ROW,
+      canonical_family: 'NIKE_COURT_BOROUGH',
+      detected_model: 'Nike Court Borough',
+    }
+
+    const guidance = supplierVisionGuidance(borough)
+    const prompt = buildSupplierVisionPrompt(borough)
+
+    expect(guidance.length).toBeGreaterThan(0)
+    expect(prompt).toContain('NIKE_COURT_BOROUGH_CONFIRMATION_V2')
+    expect(prompt).toContain('Nike Court Vision')
+    expect(prompt).toContain('pelo menos 2 sinais estruturais coerentes')
+    expect(buildSupplierVisionPrompt(ROW))
+      .not.toContain('NIKE_COURT_BOROUGH_CONFIRMATION_V2')
   })
 
   it('parseia JSON puro', () => {
