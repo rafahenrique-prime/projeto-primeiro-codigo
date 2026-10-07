@@ -153,6 +153,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/Tênis - New Balance/Fuelcell Rebel V4',
   },
   {
+    key: 'VIVIAN_NEW_BALANCE_204L',
+    cycle_enabled: false,
+    supplier: 'VIVIAN',
+    canonical_family: 'NEW_BALANCE_204L',
+    brand: 'New Balance',
+    model: 'New Balance 204L',
+    category: 'Tênis',
+    folder_id: '1Yc9gE8hrtsUoRxYGEeMOMlJYQkOh5P6y',
+    drive_path: '/Tênis - New Balance/NB204L',
+  },
+  {
     key: 'VIVIAN_ADIDAS_SAMBA',
     cycle_enabled: true,
     supplier: 'VIVIAN',
