@@ -30,6 +30,27 @@ export function buildComparisonBootDiagnostics(result = {}) {
   }))
 }
 
+export function buildVisionBootDiagnostics(result = {}) {
+  const rows = Array.isArray(result?.vision?.results)
+    ? result.vision.results
+    : []
+
+  return rows.slice(0, 6).map((item, index) => ({
+    index: Number.isInteger(item?.index) ? item.index : index,
+    label: clean(item?.label) || null,
+    status: clean(item?.status) || null,
+    error_code: clean(item?.error_code) || null,
+    confidence:
+      typeof item?.validation?.values?.vision_confidence === 'number'
+        ? item.validation.values.vision_confidence
+        : null,
+    cost_usd:
+      typeof item?.usage?.cost_usd === 'number'
+        ? item.usage.cost_usd
+        : null,
+  }))
+}
+
 export function isSupplierHomologationHarnessBootEnabled(env = process.env) {
   return clean(env.SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED)
     .toLowerCase() === 'true'
@@ -97,6 +118,7 @@ export async function runSupplierHomologationHarnessBoot({
   runHarnessFn = runSupplierHomologationHarness,
   logger = console,
   harnessDeps = {},
+  baseUrl = null,
 } = {}) {
   if (!isSupplierHomologationHarnessBootEnabled(env)) {
     return {
@@ -129,8 +151,16 @@ export async function runSupplierHomologationHarnessBoot({
   let result
 
   try {
+    const localVisionProxyUrl =
+      clean(baseUrl) && !clean(harnessDeps?.visionProxyUrl)
+        ? `${clean(baseUrl).replace(/\/$/, '')}/api/supplier-harness-ocr-proxy`
+        : null
+
     result = await runHarnessFn(parsed.input, {
       ...harnessDeps,
+      ...(localVisionProxyUrl
+        ? { visionProxyUrl: localVisionProxyUrl }
+        : {}),
       env,
     })
   } catch (error) {
@@ -155,6 +185,7 @@ export async function runSupplierHomologationHarnessBoot({
     vision_review: result?.vision?.review ?? null,
     vision_errors: result?.vision?.errors ?? null,
     vision_cost_usd: result?.vision?.cost_usd ?? null,
+    vision_diagnostics: buildVisionBootDiagnostics(result),
     comparison_total: result?.comparison?.total ?? null,
     comparison_matched: result?.comparison?.matched ?? null,
     comparison_review: result?.comparison?.review ?? null,
