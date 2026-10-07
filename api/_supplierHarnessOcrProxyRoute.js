@@ -26,12 +26,19 @@ export async function handleSupplierHarnessOcrProxy(
     return res.status(401).json({ error: 'não autorizado' })
   }
 
-  req.query = {
-    ...(req.query || {}),
-    tool: 'ocr-openrouter',
+  // Express 5 expõe req.query como getter somente leitura.
+  // Não mutamos a requisição real; criamos um envelope mínimo só para a tool OCR.
+  const proxiedReq = {
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    query: {
+      ...(req.query || {}),
+      tool: 'ocr-openrouter',
+    },
   }
 
-  return systemToolsFn(req, res)
+  return systemToolsFn(proxiedReq, res)
 }
 
 export default handleSupplierHarnessOcrProxy
