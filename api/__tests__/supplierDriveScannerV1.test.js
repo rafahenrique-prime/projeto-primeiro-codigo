@@ -113,6 +113,26 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('FuelCell Rebel V4 VIVIAN entra como piloto manual na pasta central correta', () => {
+    const scope = SCANNER_SCOPES.find(
+      x => x.key === 'VIVIAN_NEW_BALANCE_FUELCELL_REBEL_V4'
+    )
+
+    expect(scope).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+      brand: 'New Balance',
+      model: 'New Balance FuelCell Rebel V4',
+      folder_id: '1bxJDuwgl1LMxaO79FgY-T84OENstX63M',
+      drive_path: '/Tênis - New Balance/Fuelcell Rebel V4',
+      cycle_enabled: false,
+    })
+
+    expect(SCANNER_SCOPES.some(
+      x => x.key === 'MIA_NEW_BALANCE_FUELCELL_REBEL_V4'
+    )).toBe(false)
+  })
+
   it('NB1000 homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NB1000')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NB1000')
