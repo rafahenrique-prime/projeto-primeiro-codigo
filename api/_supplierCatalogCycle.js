@@ -271,6 +271,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
         ? Math.max(1, maxChanges - selectedTotal)
         : 1,
       scope_keys: [scopeKey],
+      preserve_ready_same_id: manualSingleScope,
     }, {
       supabaseUrl: deps.supabaseUrl,
       publicKey: deps.publicKey,
