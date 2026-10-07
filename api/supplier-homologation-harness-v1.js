@@ -22,9 +22,19 @@ export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
 export const SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY =
   'https://ignite-prime-render-lab-api.onrender.com/api/supplier-harness-ocr-proxy'
 
+export const SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV =
+  'SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL'
+
 
 function clean(value) {
   return String(value ?? '').trim()
+}
+
+export function resolveSupplierHomologationVisionProxy(env = process.env) {
+  return (
+    clean(env?.[SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV]) ||
+    SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY
+  )
 }
 
 function headerValue(req, name) {
@@ -556,7 +566,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const out = await analyzeFn(row, {
         visionProxyUrl:
           deps.visionProxyUrl ||
-          SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
+          resolveSupplierHomologationVisionProxy(deps.env || process.env),
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
@@ -609,7 +619,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const out = await compareAnalyzeFn(sample, compare, {
         visionProxyUrl:
           deps.visionProxyUrl ||
-          SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
+          resolveSupplierHomologationVisionProxy(deps.env || process.env),
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
