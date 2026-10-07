@@ -593,6 +593,39 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Court Borough normaliza separado de Court Vision sem herança de preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Court Borough',
+        color: 'branco',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-court-borough-white',
+          name: 'Nike Court Borough Branco',
+          brand: 'Nike',
+          model: 'Nike Court Borough',
+          color: 'branco',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_COURT_BOROUGH')
+    expect(out.decision.canonical_family).not.toBe('NIKE_COURT_VISION')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('Bailleli normaliza para Nike Bailleli sem herança de preço', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
