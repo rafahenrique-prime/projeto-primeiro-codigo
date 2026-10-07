@@ -21,6 +21,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
 
     const runKey = clean(parsed.run_key)
     const scopeKey = clean(parsed.scope_key)
+    const requestedMaxChanges = Number(parsed.max_changes ?? 1)
 
     if (!runKey) {
       return { ok: false, error: 'PROMOTION_BOOT_RUN_KEY_REQUIRED', input: null }
@@ -34,6 +35,13 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
     if (scopeKey.length > 160) {
       return { ok: false, error: 'PROMOTION_BOOT_SCOPE_KEY_TOO_LONG', input: null }
     }
+    if (
+      !Number.isInteger(requestedMaxChanges) ||
+      requestedMaxChanges < 1 ||
+      requestedMaxChanges > 10
+    ) {
+      return { ok: false, error: 'PROMOTION_BOOT_MAX_CHANGES_INVALID', input: null }
+    }
 
     return {
       ok: true,
@@ -41,6 +49,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
       input: {
         run_key: runKey,
         scope_key: scopeKey,
+        max_changes: requestedMaxChanges,
         cycle_key: `supplier-cycle-homologation:${runKey}`,
       },
     }
