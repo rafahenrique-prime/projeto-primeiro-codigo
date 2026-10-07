@@ -97,6 +97,22 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('Court Borough VIVIAN entra como piloto manual e fica fora da rotação diária por enquanto', () => {
+    const scope = SCANNER_SCOPES.find(
+      x => x.key === 'VIVIAN_NIKE_COURT_BOROUGH'
+    )
+
+    expect(scope).toMatchObject({
+      supplier: 'VIVIAN',
+      canonical_family: 'NIKE_COURT_BOROUGH',
+      brand: 'Nike',
+      model: 'Nike Court Borough',
+      folder_id: '1sar6MQbNFRV9A72_hVAOqlV8Fv1-axPF',
+      drive_path: '/Tênis - Nike/Court Borough',
+      cycle_enabled: false,
+    })
+  })
+
   it('NB1000 homologado fica ativo em VIVIAN e MIA no ciclo diário', () => {
     const vivian = SCANNER_SCOPES.find(x => x.key === 'VIVIAN_NB1000')
     const mia = SCANNER_SCOPES.find(x => x.key === 'MIA_NB1000')
