@@ -135,7 +135,7 @@ export async function runSupplierHomologationPromotionBoot({
           confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
           cycle_key: parsed.input.cycle_key,
           trigger: 'manual_homologation',
-          max_changes: 1,
+          max_changes: parsed.input.max_changes,
           scope_keys: [parsed.input.scope_key],
         }),
       }
@@ -160,11 +160,18 @@ export async function runSupplierHomologationPromotionBoot({
     event: 'SUPPLIER_HOMOLOGATION_PROMOTION_BOOT',
     run_key: parsed.input.run_key,
     scope_key: parsed.input.scope_key,
+    max_changes: parsed.input.max_changes,
     ok:
       !transportError &&
       payload?.ok === true &&
       (
-        Number(payload?.totals?.ready || 0) === 1 ||
+        (
+          Number(payload?.totals?.selected_for_pending || 0) > 0 &&
+          Number(payload?.totals?.ready || 0) ===
+            Number(payload?.totals?.selected_for_pending || 0) &&
+          Number(payload?.totals?.review || 0) === 0 &&
+          Number(payload?.totals?.error || 0) === 0
+        ) ||
         payload?.duplicate === true
       ),
     http_status: httpStatus,
@@ -192,6 +199,7 @@ export async function runSupplierHomologationPromotionBoot({
     skipped: false,
     run_key: parsed.input.run_key,
     scope_key: parsed.input.scope_key,
+    max_changes: parsed.input.max_changes,
     event,
     payload,
   }
