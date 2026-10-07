@@ -280,6 +280,7 @@ export async function fetchVisionQueue({
   publicKey,
   workerToken,
   limit = 1,
+  driveFileIds = [],
   fetchImpl = fetch,
   timeoutMs = 4500,
 }) {
@@ -287,9 +288,32 @@ export async function fetchVisionQueue({
     return { ok: false, rows: [], error_code: 'WORKER_RPC_CONFIG_MISSING' }
   }
 
+  const selectedIds = [
+    ...new Set(
+      (Array.isArray(driveFileIds) ? driveFileIds : [])
+        .map(clean)
+        .filter(Boolean)
+    ),
+  ]
+
+  const scoped = selectedIds.length > 0
+  const rpcName = scoped
+    ? 'lab_supplier_vision_queue_selected'
+    : 'lab_supplier_vision_queue'
+  const rpcBody = scoped
+    ? {
+        p_token: workerToken,
+        p_limit: clampLimit(limit),
+        p_drive_file_ids: selectedIds,
+      }
+    : {
+        p_token: workerToken,
+        p_limit: clampLimit(limit),
+      }
+
   const result = await postJson(
-    `${supabaseUrl}/rest/v1/rpc/lab_supplier_vision_queue`,
-    { p_token: workerToken, p_limit: clampLimit(limit) },
+    `${supabaseUrl}/rest/v1/rpc/${rpcName}`,
+    rpcBody,
     {
       apikey: publicKey,
       Authorization: `Bearer ${publicKey}`,
@@ -561,6 +585,7 @@ export async function runSupplierVisionWorker(input = {}, deps = {}) {
     publicKey,
     workerToken,
     limit,
+    driveFileIds: input.drive_file_ids,
     fetchImpl,
     timeoutMs: deps.rpcTimeoutMs,
   })

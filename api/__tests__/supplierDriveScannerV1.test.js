@@ -687,6 +687,9 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     )
     expect(out.scopes[0].selected_for_pending).toBe(2)
     expect(out.scopes[0].deferred_changes).toBe(1)
+    expect(out.scopes[0]._selected_drive_file_ids).toEqual(upserts)
+    expect(JSON.stringify(out.scopes[0]))
+      .not.toContain('_selected_drive_file_ids')
     expect(out.remaining_change_budget).toBe(0)
     expect(out.side_effects).toEqual({
       supplier_shadow_write: true,

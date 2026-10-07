@@ -9,6 +9,7 @@ import {
   supplierVisionGuidance,
   parseVisionJson,
   validateVisionResult,
+  fetchVisionQueue,
   runSupplierVisionWorker,
 } from '../_supplierVisionWorker.js'
 
@@ -81,6 +82,35 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(buildDriveRenditionUrl('abc123')).toBe(
       'https://lh3.googleusercontent.com/d/abc123=w1600'
     )
+  })
+
+  it('fila por IDs usa RPC selecionado e não a fila global', async () => {
+    const calls = []
+    const fetchImpl = vi.fn(async (url, init) => {
+      calls.push({ url, body: JSON.parse(init.body) })
+      return jsonResponse([ROW])
+    })
+
+    const out = await fetchVisionQueue({
+      supabaseUrl: 'https://mock.supabase.co',
+      publicKey: 'public-key',
+      workerToken: 'worker-token',
+      limit: 2,
+      driveFileIds: ['drive-a', 'drive-b', 'drive-a'],
+      fetchImpl,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url)
+      .toContain('/rpc/lab_supplier_vision_queue_selected')
+    expect(calls[0].url)
+      .not.toMatch(/\/rpc\/lab_supplier_vision_queue$/)
+    expect(calls[0].body).toEqual({
+      p_token: 'worker-token',
+      p_limit: 2,
+      p_drive_file_ids: ['drive-a', 'drive-b'],
+    })
   })
 
   it('Court Borough recebe guidance específico contra Court Vision sem afetar famílias normais', () => {

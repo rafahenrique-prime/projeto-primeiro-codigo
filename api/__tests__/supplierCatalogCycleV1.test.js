@@ -109,6 +109,130 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
+  it('Court Borough em lote manual envia ao Vision somente os IDs exatos selecionados', async () => {
+    const selectedIds = ['court-1', 'court-2', 'court-3']
+
+    const scannerFn = vi.fn(async ({ max_changes, scope_keys }) => {
+      expect(max_changes).toBe(3)
+      expect(scope_keys).toEqual(['VIVIAN_NIKE_COURT_BOROUGH'])
+
+      return {
+        ok: true,
+        scopes: [{
+          key: scope_keys[0],
+          status: 'completed',
+          scanned: 11,
+          new_count: 9,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 2,
+          reactivated_count: 0,
+          selected_for_pending: 3,
+          deferred_changes: 6,
+          deactivated: 0,
+          write_failures: 0,
+          _selected_drive_file_ids: selectedIds,
+        }],
+      }
+    })
+
+    const visionFn = vi.fn(async input => {
+      expect(input).toEqual({
+        limit: 3,
+        dry_run: false,
+        drive_file_ids: selectedIds,
+      })
+
+      return {
+        ok: true,
+        queued: 3,
+        processed: selectedIds.map((id, index) => ({
+          id,
+          supplier: 'VIVIAN',
+          family: 'NIKE_COURT_BOROUGH',
+          color: index === 0 ? 'preto' : 'branco',
+          confidence: 0.95,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        })),
+      }
+    })
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:court-borough-batch3',
+      trigger: 'manual_homologation',
+      max_changes: 3,
+      scope_keys: ['VIVIAN_NIKE_COURT_BOROUGH'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '12121212-1212-4121-8121-121212121212',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.totals).toMatchObject({
+      selected_for_pending: 3,
+      ready: 3,
+      review: 0,
+      error: 0,
+    })
+    expect(visionFn).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(out.scanner)).not.toContain('court-1')
+  })
+
+  it('lote manual bloqueia Vision se perder correlação dos IDs selecionados', async () => {
+    const visionFn = vi.fn()
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:court-borough-mismatch',
+      trigger: 'manual_homologation',
+      max_changes: 3,
+      scope_keys: ['VIVIAN_NIKE_COURT_BOROUGH'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '13131313-1313-4131-8131-131313131313',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn: vi.fn(async () => ({
+        ok: true,
+        scopes: [{
+          key: 'VIVIAN_NIKE_COURT_BOROUGH',
+          status: 'completed',
+          scanned: 11,
+          new_count: 9,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 2,
+          reactivated_count: 0,
+          selected_for_pending: 3,
+          deferred_changes: 6,
+          deactivated: 0,
+          write_failures: 0,
+          _selected_drive_file_ids: ['court-1', 'court-2'],
+        }],
+      })),
+      visionFn,
+    })
+
+    expect(out.ok).toBe(false)
+    expect(out.status).toBe('partial')
+    expect(out.error_code).toBe('CYCLE_PARTIAL')
+    expect(visionFn).not.toHaveBeenCalled()
+  })
+
   it('McQueen homologado entra na rotação diária e continua aceitando execução manual', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
 

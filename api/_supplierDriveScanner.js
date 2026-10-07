@@ -972,6 +972,7 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       deactivated: 0,
       parse_complete: listing.complete,
     }
+    let selectedDriveFileIds = []
 
     if (!dryRun) {
       const started = await logScannerRun(
@@ -1006,6 +1007,7 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
 
       summary.selected_for_pending = selected.size
       summary.deferred_changes = Math.max(0, priority.length - selected.size)
+      selectedDriveFileIds = [...selected]
       remainingChanges -= selected.size
 
       // Always baseline/refresh existing rows. Only new/changed rows selected
@@ -1048,11 +1050,18 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       }
     }
 
-    results.push({
+    const resultRow = {
       ...summary,
       supplier: scope.supplier,
       family: scope.canonical_family,
+    }
+    Object.defineProperty(resultRow, '_selected_drive_file_ids', {
+      value: selectedDriveFileIds,
+      enumerable: false,
+      configurable: false,
+      writable: false,
     })
+    results.push(resultRow)
   }
 
   return {
