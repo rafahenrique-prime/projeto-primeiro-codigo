@@ -38,7 +38,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
     if (
       !Number.isInteger(requestedMaxChanges) ||
       requestedMaxChanges < 1 ||
-      requestedMaxChanges > 10
+      requestedMaxChanges > 3
     ) {
       return { ok: false, error: 'PROMOTION_BOOT_MAX_CHANGES_INVALID', input: null }
     }
