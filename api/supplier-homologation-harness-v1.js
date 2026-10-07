@@ -1,4 +1,10 @@
-import { analyzeSupplierImage } from './_supplierVisionWorker.js'
+import {
+  analyzeSupplierImage,
+  DEFAULT_VISION_MODEL,
+  DEFAULT_VISION_PROXY,
+  fetchDriveImage,
+  parseVisionJson,
+} from './_supplierVisionWorker.js'
 import {
   GABY_OFFICIAL_AGENT_ID,
   LAB_HEADER_VALUE,
@@ -6,7 +12,7 @@ import {
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.0.0'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.1.0'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
 
 function clean(value) {
@@ -50,7 +56,7 @@ function sendJson(res, status, payload) {
 
 function normalizeMode(value) {
   const mode = clean(value).toLowerCase() || 'vision'
-  return ['vision', 'product_universe', 'full'].includes(mode)
+  return ['vision', 'vision_compare', 'product_universe', 'full'].includes(mode)
     ? mode
     : null
 }
@@ -66,6 +72,228 @@ function normalizedSample(sample = {}, expected = {}) {
     ),
     detected_model: clean(sample.model || expected.model),
     category: clean(sample.category || expected.category),
+  }
+}
+
+function normalizeKey(value) {
+  return clean(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function normalizedCompareCandidates(compare = {}) {
+  const seen = new Set()
+  const rows = []
+
+  for (const item of Array.isArray(compare.candidates) ? compare.candidates : []) {
+    const canonicalFamily = clean(item?.canonical_family)
+    const model = clean(item?.model)
+    if (!canonicalFamily || !model) continue
+
+    const key = normalizeKey(canonicalFamily)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+
+    rows.push({
+      canonical_family: canonicalFamily,
+      model,
+    })
+  }
+
+  return rows
+}
+
+function visionCompareInputError(samples, compare = {}) {
+  if (!Array.isArray(samples) || samples.length < 1) {
+    return 'HARNESS_SAMPLES_REQUIRED'
+  }
+  if (samples.length > SUPPLIER_HOMOLOGATION_MAX_SAMPLES) {
+    return 'HARNESS_SAMPLE_LIMIT_EXCEEDED'
+  }
+
+  const candidates = normalizedCompareCandidates(compare)
+  if (candidates.length < 2) return 'HARNESS_COMPARE_CANDIDATES_REQUIRED'
+  if (candidates.length > 6) return 'HARNESS_COMPARE_CANDIDATE_LIMIT_EXCEEDED'
+
+  const allowed = new Set(
+    candidates.map(item => normalizeKey(item.canonical_family))
+  )
+
+  for (const sample of samples) {
+    const supplier = clean(sample?.supplier_key)
+    if (!['VIVIAN', 'MIA'].includes(supplier)) {
+      return 'HARNESS_SUPPLIER_INVALID'
+    }
+    if (!clean(sample?.drive_file_id)) {
+      return 'HARNESS_DRIVE_FILE_ID_REQUIRED'
+    }
+
+    const expectedFamily = normalizeKey(sample?.expected_family)
+    if (!expectedFamily || !allowed.has(expectedFamily)) {
+      return 'HARNESS_COMPARE_EXPECTED_FAMILY_INVALID'
+    }
+  }
+
+  return null
+}
+
+export function buildVisionComparePrompt(compare = {}) {
+  const candidates = normalizedCompareCandidates(compare)
+  const options = candidates
+    .map((item, index) =>
+      `${index + 1}. canonical_family=${item.canonical_family}; model=${item.model}`
+    )
+    .join('\n')
+
+  return [
+    'Você analisa uma foto de produto de moda/calçado para um catálogo interno.',
+    'Faça uma comparação CEGA entre as opções abaixo.',
+    'Nenhuma opção é a resposta esperada; escolha somente pelo que aparece visualmente na foto.',
+    'Se a imagem não permitir diferenciar com segurança, responda canonical_family como "UNKNOWN".',
+    'Responda SOMENTE JSON válido, sem markdown.',
+    '',
+    `brand_hint: ${clean(compare.brand) || 'unknown'}`,
+    `category_hint: ${clean(compare.category) || 'unknown'}`,
+    'candidate_options:',
+    options,
+    '',
+    'Formato obrigatório:',
+    '{"brand":"...","canonical_family":"...","model":"...","category":"...","color":"...","confidence":0.00}',
+    '',
+    'canonical_family: use exatamente um canonical_family da lista ou "UNKNOWN".',
+    'model: use o model correspondente à opção escolhida ou "UNKNOWN".',
+    'color: descrição curta em português; cor principal primeiro.',
+    'confidence: número de 0 a 1 sobre a escolha entre as opções.',
+  ].join('\n')
+}
+
+async function postVisionCompare(url, body, fetchImpl, timeoutMs) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+    const json = await res.json().catch(() => null)
+    return { ok: Boolean(res.ok), status: Number(res.status) || null, json }
+  } catch (error) {
+    clearTimeout(timer)
+    return {
+      ok: false,
+      status: null,
+      json: null,
+      error_code:
+        error?.name === 'AbortError' ? 'VISION_COMPARE_TIMEOUT' : 'VISION_COMPARE_NETWORK_ERROR',
+    }
+  }
+}
+
+export async function analyzeSupplierImageBlindCompare(
+  sample = {},
+  compare = {},
+  {
+    visionProxyUrl = DEFAULT_VISION_PROXY,
+    visionModel = DEFAULT_VISION_MODEL,
+    fetchImpl = fetch,
+    timeoutMs = 12000,
+  } = {}
+) {
+  const image = await fetchDriveImage(clean(sample.drive_file_id), {
+    fetchImpl,
+    timeoutMs: Math.min(timeoutMs, 8000),
+  })
+
+  if (!image.ok) {
+    return {
+      ok: false,
+      error_code: image.error_code,
+      chosen_family: null,
+      confidence: null,
+    }
+  }
+
+  const result = await postVisionCompare(
+    visionProxyUrl,
+    {
+      model: visionModel,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: buildVisionComparePrompt(compare) },
+          { type: 'image_url', image_url: { url: image.data_url } },
+        ],
+      }],
+      max_tokens: 300,
+      temperature: 0.1,
+    },
+    fetchImpl,
+    timeoutMs,
+  )
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error_code: result.error_code || 'VISION_COMPARE_PROVIDER_ERROR',
+      chosen_family: null,
+      confidence: null,
+    }
+  }
+
+  const parsed = parseVisionJson(result.json?.choices?.[0]?.message?.content)
+  if (!parsed) {
+    return {
+      ok: false,
+      error_code: 'VISION_COMPARE_INVALID_JSON',
+      chosen_family: null,
+      confidence: null,
+    }
+  }
+
+  const candidates = normalizedCompareCandidates(compare)
+  const allowed = new Map(
+    candidates.map(item => [normalizeKey(item.canonical_family), item])
+  )
+  const chosenKey = normalizeKey(parsed.canonical_family)
+  const chosen = allowed.get(chosenKey) || null
+  const confidenceRaw = Number(parsed.confidence)
+  const confidence = Number.isFinite(confidenceRaw)
+    ? Math.max(0, Math.min(confidenceRaw, 1))
+    : null
+
+  return {
+    ok: true,
+    parsed,
+    chosen_family: chosen?.canonical_family || null,
+    chosen_model: chosen?.model || null,
+    confidence,
+    color: clean(parsed.color) || null,
+    error_code:
+      !chosen
+        ? 'VISION_COMPARE_UNKNOWN'
+        : confidence == null || confidence < 0.80
+          ? 'VISION_COMPARE_LOW_CONFIDENCE'
+          : null,
+    usage: {
+      input_tokens: result.json?.usage?.prompt_tokens ?? null,
+      output_tokens: result.json?.usage?.completion_tokens ?? null,
+      total_tokens: result.json?.usage?.total_tokens ?? null,
+      cost_usd:
+        typeof result.json?.usage?.cost === 'number'
+          ? result.json.usage.cost
+          : null,
+    },
+    image: {
+      content_type: image.content_type,
+      bytes: image.bytes,
+    },
   }
 }
 
@@ -225,15 +453,28 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
   }
 
   const wantsVision = mode === 'vision' || mode === 'full'
+  const wantsVisionCompare = mode === 'vision_compare'
   const wantsProductUniverse =
     mode === 'product_universe' || mode === 'full'
 
   const expected = input.expected || {}
+  const compare = input.compare || {}
   const samples = Array.isArray(input.samples) ? input.samples : []
   const productUniverse = input.product_universe || {}
 
   if (wantsVision) {
     const error = visionInputError(samples, expected)
+    if (error) {
+      return {
+        ok: false,
+        error,
+        harness_version: SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
+      }
+    }
+  }
+
+  if (wantsVisionCompare) {
+    const error = visionCompareInputError(samples, compare)
     if (error) {
       return {
         ok: false,
@@ -255,6 +496,8 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
   }
 
   const analyzeFn = deps.analyzeFn || analyzeSupplierImage
+  const compareAnalyzeFn =
+    deps.compareAnalyzeFn || analyzeSupplierImageBlindCompare
   const productUniverseFn =
     deps.productUniverseFn ||
     (config => runProductUniverseViaHandler(config, {
@@ -311,6 +554,72 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
     }
   }
 
+  let comparison = null
+  if (wantsVisionCompare) {
+    const results = []
+    for (let index = 0; index < samples.length; index += 1) {
+      const sample = samples[index]
+      const startedAt = Date.now()
+      const out = await compareAnalyzeFn(sample, compare, {
+        visionProxyUrl: deps.visionProxyUrl,
+        visionModel: deps.visionModel,
+        fetchImpl: deps.fetchImpl,
+        timeoutMs: deps.visionTimeoutMs,
+      })
+
+      const expectedFamily = clean(sample.expected_family)
+      const match =
+        out?.ok === true &&
+        out?.error_code == null &&
+        normalizeKey(out?.chosen_family) === normalizeKey(expectedFamily)
+
+      results.push({
+        index,
+        label: clean(sample.label) || `sample-${index + 1}`,
+        supplier: clean(sample.supplier_key),
+        drive_file_id: clean(sample.drive_file_id),
+        expected_family: expectedFamily || null,
+        chosen_family: out?.chosen_family || null,
+        chosen_model: out?.chosen_model || null,
+        confidence: out?.confidence ?? null,
+        color: out?.color || null,
+        match,
+        status: match ? 'ready' : 'review',
+        error_code:
+          match
+            ? null
+            : out?.error_code || 'VISION_COMPARE_MISMATCH',
+        parsed: out?.parsed || null,
+        usage: out?.usage || null,
+        image: out?.image || null,
+        duration_ms: Date.now() - startedAt,
+      })
+    }
+
+    const matched = results.filter(item => item.match === true).length
+    const review = results.filter(item => item.status === 'review').length
+    const errors = results.filter(item =>
+      item.error_code &&
+      !['VISION_COMPARE_MISMATCH', 'VISION_COMPARE_LOW_CONFIDENCE', 'VISION_COMPARE_UNKNOWN']
+        .includes(item.error_code)
+    ).length
+
+    comparison = {
+      total: results.length,
+      matched,
+      review,
+      errors,
+      cost_usd: Number(sumCost(results).toFixed(8)),
+      pass:
+        results.length > 0 &&
+        matched === results.length &&
+        review === 0 &&
+        errors === 0,
+      candidates: normalizedCompareCandidates(compare),
+      results,
+    }
+  }
+
   let productUniverseResult = null
   if (wantsProductUniverse) {
     const raw = await productUniverseFn(productUniverse)
@@ -351,6 +660,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
 
   const passes = [
     ...(wantsVision ? [vision?.pass === true] : []),
+    ...(wantsVisionCompare ? [comparison?.pass === true] : []),
     ...(wantsProductUniverse ? [productUniverseResult?.pass === true] : []),
   ]
 
@@ -368,6 +678,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       cron_activation: false,
     },
     vision,
+    comparison,
     product_universe: productUniverseResult,
   }
 }
