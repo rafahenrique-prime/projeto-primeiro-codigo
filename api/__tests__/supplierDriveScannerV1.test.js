@@ -802,6 +802,129 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
       gaby_official: false,
     })
   })
+
+  it('limita o lote manual aos drive_file_ids autorizados e não finaliza a pasta', async () => {
+    const allowedIds = ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY","1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH","1RAy4Iw4fu3vouvtHGwMsmA3HNq-5tXnw"]
+    const siblingIds = [
+      '10XbAt9xFfVPfdcCIbu2BPgvHbqHq45M_',
+      '1G9ZzRL0sdcZecohtO7MqJhFrEU7dWIUW',
+    ]
+    const allIds = [allowedIds[0], ...siblingIds, ...allowedIds.slice(1)]
+    const upserts = []
+    const fingerprinted = []
+    const finalized = []
+
+    expect(SCANNER_SCOPES.find(x => x.key === 'MIA_PUMA_180'))
+      .toMatchObject({
+        supplier: 'MIA',
+        canonical_family: 'PUMA_180',
+        folder_id: '1nhliTQ8-WNfgpkyzZDfRBWzVqdIrobXD',
+        cycle_enabled: false,
+      })
+
+    const fetchImpl = vi.fn(async (url, init = {}) => {
+      if (url.includes('embeddedfolderview')) {
+        return htmlResponse(allIds.map(id => `<div id="entry-${id}"></div>`).join(''))
+      }
+      if (url.includes('lh3.googleusercontent.com')) {
+        fingerprinted.push(url.match(/\/d\/([^=]+)/)?.[1])
+        return headResponse({
+          etag: '"etag"',
+          'content-length': '321',
+          'content-type': 'image/jpeg',
+        })
+      }
+      if (url.includes('/rpc/lab_supplier_drive_state_v2')) {
+        return jsonResponse([])
+      }
+      if (url.includes('/rpc/lab_supplier_drive_log_run')) {
+        return jsonResponse(true)
+      }
+      if (url.includes('/rpc/lab_supplier_drive_upsert')) {
+        const body = JSON.parse(init.body)
+        upserts.push(body.p_drive_file_id)
+        return jsonResponse([{
+          id: '00000000-0000-4000-8000-000000000001',
+          change_type: 'new',
+          analysis_status: 'pending',
+          active: true,
+        }])
+      }
+      if (url.includes('/rpc/lab_supplier_drive_finalize_v2')) {
+        finalized.push(url)
+        return jsonResponse(0)
+      }
+      throw new Error('URL inesperada: ' + url)
+    })
+
+    const out = await scanSupplierDrive({
+      dry_run: false,
+      max_changes: 3,
+      scope_keys: ['MIA_PUMA_180'],
+      preserve_ready_same_id: true,
+      drive_file_ids: allowedIds,
+    }, {
+      supabaseUrl: 'https://mock.supabase.co',
+      publicKey: 'public-key',
+      scannerToken: 'scanner-token',
+      fetchImpl,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scopes[0]).toMatchObject({
+      scanned: 3,
+      new_count: 3,
+      selected_for_pending: 3,
+      deactivated: 0,
+      requested_drive_file_ids: allowedIds,
+      selected_drive_file_ids: allowedIds,
+    })
+    expect(fingerprinted).toEqual(allowedIds)
+    expect(upserts).toEqual(allowedIds)
+    expect(finalized).toHaveLength(0)
+    expect(out.side_effects.gaby_official).toBe(false)
+  })
+
+  it('rejeita IDs que não pertencem à pasta antes de qualquer write', async () => {
+    const presentIds = [
+      '17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY',
+      '1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH',
+    ]
+    const requestedIds = [
+      ...presentIds,
+      '1MissingFile_abcdefghijklmno',
+    ]
+    const fetchImpl = vi.fn(async url => {
+      if (url.includes('embeddedfolderview')) {
+        return htmlResponse(
+          presentIds.map(id => `<div id="entry-${id}"></div>`).join('')
+        )
+      }
+      throw new Error('nenhum outro acesso deveria ocorrer: ' + url)
+    })
+
+    const out = await scanSupplierDrive({
+      dry_run: false,
+      max_changes: 3,
+      scope_keys: ['MIA_PUMA_180'],
+      preserve_ready_same_id: true,
+      drive_file_ids: requestedIds,
+    }, {
+      supabaseUrl: 'https://mock.supabase.co',
+      publicKey: 'public-key',
+      scannerToken: 'scanner-token',
+      fetchImpl,
+    })
+
+    expect(out.ok).toBe(false)
+    expect(out.scopes[0]).toMatchObject({
+      status: 'failed',
+      error_code: 'SCANNER_DRIVE_FILE_ID_NOT_IN_SCOPE',
+      missing_drive_file_ids: ['1MissingFile_abcdefghijklmno'],
+    })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
 })
 
 describe('Supplier Drive Scanner endpoint — travas', () => {

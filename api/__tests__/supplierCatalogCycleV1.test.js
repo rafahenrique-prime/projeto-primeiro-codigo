@@ -330,6 +330,113 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(JSON.stringify(out.scanner)).not.toContain('court-1')
   })
 
+  it('ciclo manual encaminha e registra somente os drive_file_ids autorizados', async () => {
+    const selectedIds = ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY","1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH","1RAy4Iw4fu3vouvtHGwMsmA3HNq-5tXnw"]
+
+    const scannerFn = vi.fn(async input => {
+      expect(input).toMatchObject({
+        max_changes: 3,
+        scope_keys: ['MIA_PUMA_180'],
+        preserve_ready_same_id: true,
+        drive_file_ids: selectedIds,
+      })
+      return {
+        ok: true,
+        scopes: [{
+          key: 'MIA_PUMA_180',
+          status: 'completed',
+          scanned: 3,
+          new_count: 3,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 0,
+          reactivated_count: 0,
+          selected_for_pending: 3,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+          _selected_drive_file_ids: selectedIds,
+        }],
+      }
+    })
+    const visionFn = vi.fn(async input => {
+      expect(input).toEqual({
+        limit: 3,
+        dry_run: false,
+        drive_file_ids: selectedIds,
+      })
+      return {
+        ok: true,
+        queued: 3,
+        processed: selectedIds.map((id, index) => ({
+          id: `shadow-${index + 1}`,
+          drive_file_id: id,
+          supplier: 'MIA',
+          family: 'PUMA_180',
+          color: 'preto',
+          confidence: 0.96,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0002 },
+        })),
+      }
+    })
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:mia-puma-180-exact-20261007',
+      trigger: 'manual_homologation',
+      max_changes: 3,
+      scope_keys: ['MIA_PUMA_180'],
+      drive_file_ids: selectedIds,
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '81818181-8181-4181-8181-818181818181',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.totals).toMatchObject({
+      selected_for_pending: 3,
+      ready: 3,
+      review: 0,
+      error: 0,
+    })
+    expect(scannerFn).toHaveBeenCalledTimes(1)
+    expect(visionFn).toHaveBeenCalledTimes(1)
+    expect(out.scanner.runs[0]).toMatchObject({
+      requested_drive_file_ids: selectedIds,
+      selected_drive_file_ids: selectedIds,
+    })
+  })
+
+  it('rejeita IDs repetidos antes de iniciar o ciclo', async () => {
+    const startFn = vi.fn()
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:mia-puma-180-duplicate',
+      trigger: 'manual_homologation',
+      max_changes: 3,
+      scope_keys: ['MIA_PUMA_180'],
+      drive_file_ids: ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY", "17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY"],
+    }, {
+      ...DEPS,
+      startFn,
+    })
+
+    expect(out).toMatchObject({
+      ok: false,
+      error_code: 'CYCLE_DRIVE_FILE_IDS_INVALID',
+    })
+    expect(startFn).not.toHaveBeenCalled()
+  })
+
   it('lote manual bloqueia Vision se perder correlação dos IDs selecionados', async () => {
     const visionFn = vi.fn()
 
@@ -1934,6 +2041,87 @@ describe('Supplier Catalog Cycle endpoint — segurança', () => {
     expect(res.state.payload.side_effects.gaby_official).toBe(false)
     expect(res.state.payload.side_effects.customer_message).toBe(false)
   })
+  it('endpoint encaminha allowlist exata ao scanner e ao worker', async () => {
+    const selectedIds = ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY","1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH","1RAy4Iw4fu3vouvtHGwMsmA3HNq-5tXnw"]
+    const res = mockRes()
+    const scannerFn = vi.fn(async input => {
+      expect(input.drive_file_ids).toEqual(selectedIds)
+      return {
+        ok: true,
+        scopes: [{
+          key: 'MIA_PUMA_180',
+          status: 'completed',
+          scanned: 3,
+          new_count: 3,
+          changed_count: 0,
+          baseline_count: 0,
+          unchanged_count: 0,
+          reactivated_count: 0,
+          selected_for_pending: 3,
+          deferred_changes: 0,
+          deactivated: 0,
+          write_failures: 0,
+          _selected_drive_file_ids: selectedIds,
+        }],
+      }
+    })
+    const visionFn = vi.fn(async input => {
+      expect(input.drive_file_ids).toEqual(selectedIds)
+      return {
+        ok: true,
+        queued: 3,
+        processed: selectedIds.map((id, index) => ({
+          id: `shadow-${index + 1}`,
+          drive_file_id: id,
+          supplier: 'MIA',
+          family: 'PUMA_180',
+          color: 'preto',
+          confidence: 0.96,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0002 },
+        })),
+      }
+    })
+
+    await handleSupplierCatalogCycleRequest({
+      method: 'POST',
+      headers: { 'x-prime-cycle-token': 'cycle-secret' },
+      body: {
+        confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
+        cycle_key: 'supplier-cycle-homologation:mia-puma-180-route-exact',
+        trigger: 'manual_homologation',
+        max_changes: 3,
+        scope_keys: ['MIA_PUMA_180'],
+        drive_file_ids: selectedIds,
+      },
+    }, res, {
+      env: {
+        SUPPLIER_CATALOG_CYCLE_ENABLED: 'true',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'cycle-secret',
+        SUPABASE_URL: 'https://mock.supabase.co',
+        VITE_SUPABASE_KEY: 'public-key',
+        SUPPLIER_DRIVE_SCANNER_TOKEN: 'scanner-token',
+        SUPPLIER_VISION_WORKER_TOKEN: 'worker-token',
+      },
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '82828282-8282-4282-8282-828282828282',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn,
+    })
+
+    expect(res.state.status).toBe(200)
+    expect(res.state.payload.ok).toBe(true)
+    expect(res.state.payload.totals.ready).toBe(3)
+    expect(res.state.payload.side_effects.gaby_official).toBe(false)
+  })
+
 })
 
 describe('038_supplier_catalog_cycle_v1.sql — retry + ledger', () => {

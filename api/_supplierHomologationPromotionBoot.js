@@ -22,6 +22,25 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
     const runKey = clean(parsed.run_key)
     const scopeKey = clean(parsed.scope_key)
     const requestedMaxChanges = Number(parsed.max_changes ?? 1)
+    const driveFileIdsProvided = parsed.drive_file_ids != null
+    const driveFileIds = Array.isArray(parsed.drive_file_ids)
+      ? parsed.drive_file_ids.map(clean)
+      : null
+
+    if (driveFileIdsProvided && (
+      !Array.isArray(parsed.drive_file_ids) ||
+      driveFileIds.length === 0 ||
+      driveFileIds.length > requestedMaxChanges ||
+      driveFileIds.length > 3 ||
+      new Set(driveFileIds).size !== driveFileIds.length ||
+      driveFileIds.some(id => !/^[A-Za-z0-9_-]{10,}$/.test(id))
+    )) {
+      return {
+        ok: false,
+        error: 'PROMOTION_BOOT_DRIVE_FILE_IDS_INVALID',
+        input: null,
+      }
+    }
 
     if (!runKey) {
       return { ok: false, error: 'PROMOTION_BOOT_RUN_KEY_REQUIRED', input: null }
@@ -51,6 +70,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
         scope_key: scopeKey,
         max_changes: requestedMaxChanges,
         cycle_key: `supplier-cycle-homologation:${runKey}`,
+        ...(driveFileIdsProvided ? { drive_file_ids: driveFileIds } : {}),
       },
     }
   } catch {
@@ -137,6 +157,9 @@ export async function runSupplierHomologationPromotionBoot({
           trigger: 'manual_homologation',
           max_changes: parsed.input.max_changes,
           scope_keys: [parsed.input.scope_key],
+          ...(parsed.input.drive_file_ids
+            ? { drive_file_ids: parsed.input.drive_file_ids }
+            : {}),
         }),
       }
     )
@@ -161,6 +184,7 @@ export async function runSupplierHomologationPromotionBoot({
     run_key: parsed.input.run_key,
     scope_key: parsed.input.scope_key,
     max_changes: parsed.input.max_changes,
+    drive_file_ids: parsed.input.drive_file_ids || null,
     ok:
       !transportError &&
       payload?.ok === true &&

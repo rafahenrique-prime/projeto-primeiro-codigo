@@ -49,6 +49,32 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     })
   })
 
+  it('rejeita IDs explícitos duplicados ou acima do orçamento', () => {
+    expect(parseSupplierHomologationPromotionBootInput({
+      SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
+        run_key: 'duplicate-ids',
+        scope_key: 'MIA_PUMA_180',
+        max_changes: 3,
+        drive_file_ids: ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY", "17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY"],
+      }),
+    })).toMatchObject({
+      ok: false,
+      error: 'PROMOTION_BOOT_DRIVE_FILE_IDS_INVALID',
+    })
+
+    expect(parseSupplierHomologationPromotionBootInput({
+      SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
+        run_key: 'ids-over-budget',
+        scope_key: 'MIA_PUMA_180',
+        max_changes: 2,
+        drive_file_ids: ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY","1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH","1RAy4Iw4fu3vouvtHGwMsmA3HNq-5tXnw"],
+      }),
+    })).toMatchObject({
+      ok: false,
+      error: 'PROMOTION_BOOT_DRIVE_FILE_IDS_INVALID',
+    })
+  })
+
   it('não executa quando OFF', async () => {
     const fetchImpl = vi.fn()
     const logger = { log: vi.fn() }
@@ -130,6 +156,7 @@ describe('Supplier Homologation Promotion Gate V1', () => {
   })
 
   it('aceita lote explícito de até 3 e só aprova se todo selecionado ficar ready', async () => {
+    const driveFileIds = ["17sbb1gKDUTHRZ-tKvwt-Gc1T1lyctANY","1LcMOWxayUwhyPmJPFt1UZbwXPiu4wlvH","1RAy4Iw4fu3vouvtHGwMsmA3HNq-5tXnw"]
     const fetchImpl = vi.fn(async (_url, init) => {
       const body = JSON.parse(init.body)
 
@@ -139,6 +166,7 @@ describe('Supplier Homologation Promotion Gate V1', () => {
         trigger: 'manual_homologation',
         max_changes: 3,
         scope_keys: ['VIVIAN_NIKE_COURT_BOROUGH'],
+        drive_file_ids: driveFileIds,
       })
 
       return {
@@ -167,6 +195,7 @@ describe('Supplier Homologation Promotion Gate V1', () => {
           run_key: 'court-borough-batch3',
           scope_key: 'VIVIAN_NIKE_COURT_BOROUGH',
           max_changes: 3,
+          drive_file_ids: driveFileIds,
         }),
         SUPPLIER_CATALOG_CYCLE_TOKEN: 'secret',
       },

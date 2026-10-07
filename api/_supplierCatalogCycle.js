@@ -178,6 +178,18 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   const requestedScopes = Array.isArray(input.scope_keys)
     ? input.scope_keys.map(String)
     : null
+  const driveFileIdsProvided = input.drive_file_ids != null
+  const requestedDriveFileIds = Array.isArray(input.drive_file_ids)
+    ? input.drive_file_ids.map(clean)
+    : null
+  const driveFileIdsInvalid = driveFileIdsProvided && (
+    !Array.isArray(input.drive_file_ids) ||
+    requestedDriveFileIds.length === 0 ||
+    requestedDriveFileIds.length > maxChanges ||
+    requestedDriveFileIds.length > 3 ||
+    new Set(requestedDriveFileIds).size !== requestedDriveFileIds.length ||
+    requestedDriveFileIds.some(id => !/^[A-Za-z0-9_-]{10,}$/.test(id))
+  )
 
   const allowedScopeKeys = new Set(SCANNER_SCOPES.map((scope) => scope.key))
   if (
@@ -200,7 +212,22 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   const manualSingleScope =
     trigger === 'manual_homologation' &&
     requestedScopes?.length === 1
-  const manualScopedBatch = manualSingleScope && maxChanges > 1
+
+  if (
+    driveFileIdsProvided &&
+    (!manualSingleScope || driveFileIdsInvalid)
+  ) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_DRIVE_FILE_IDS_INVALID',
+    }
+  }
+
+  const manualScopedBatch =
+    manualSingleScope &&
+    (maxChanges > 1 || requestedDriveFileIds !== null)
 
   if (
     !deps.supabaseUrl ||
@@ -272,6 +299,9 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
         : 1,
       scope_keys: [scopeKey],
       preserve_ready_same_id: manualSingleScope,
+      ...(requestedDriveFileIds !== null
+        ? { drive_file_ids: requestedDriveFileIds }
+        : {}),
     }, {
       supabaseUrl: deps.supabaseUrl,
       publicKey: deps.publicKey,
@@ -294,6 +324,12 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
     scannerRuns.push({
       key: scopeKey,
+      ...(requestedDriveFileIds !== null
+        ? {
+            requested_drive_file_ids: requestedDriveFileIds,
+            selected_drive_file_ids: selectedIds,
+          }
+        : {}),
       ok: scan?.ok === true,
       status: scope?.status || null,
       scanned: Number(scope?.scanned) || 0,
@@ -314,10 +350,16 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
     }
   }
 
+  const selectedOutsideRequestedIds =
+    requestedDriveFileIds !== null &&
+    selectedDriveFileIds.some(id => !requestedDriveFileIds.includes(id))
   const scopedSelectionMismatch =
     manualScopedBatch &&
     selectedTotal > 0 &&
-    selectedDriveFileIds.length !== selectedTotal
+    (
+      selectedDriveFileIds.length !== selectedTotal ||
+      selectedOutsideRequestedIds
+    )
 
   let vision = null
   if (manualScopedBatch && selectedTotal === 0) {

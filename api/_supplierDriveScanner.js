@@ -940,6 +940,29 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
   const requestedKeys = Array.isArray(input.scope_keys)
     ? new Set(input.scope_keys.map(String))
     : null
+  const driveFileIdsProvided = input.drive_file_ids != null
+  const requestedDriveFileIds = Array.isArray(input.drive_file_ids)
+    ? input.drive_file_ids.map(clean)
+    : null
+  const invalidDriveFileSelection = driveFileIdsProvided && (
+    !Array.isArray(input.drive_file_ids) ||
+    requestedDriveFileIds.length === 0 ||
+    requestedDriveFileIds.length > maxChanges ||
+    requestedDriveFileIds.length > 3 ||
+    new Set(requestedDriveFileIds).size !== requestedDriveFileIds.length ||
+    requestedDriveFileIds.some(id => !/^[A-Za-z0-9_-]{10,}$/.test(id)) ||
+    !preserveReadySameId ||
+    requestedKeys?.size !== 1
+  )
+
+  if (invalidDriveFileSelection) {
+    return {
+      ok: false,
+      error_code: 'SCANNER_DRIVE_FILE_IDS_INVALID',
+      dry_run: dryRun,
+      scopes: [],
+    }
+  }
 
   const scopes = SCANNER_SCOPES.filter(
     (scope) => !requestedKeys || requestedKeys.has(scope.key)
@@ -978,6 +1001,35 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       continue
     }
 
+    const availableDriveFileIds = new Set(
+      listing.entries.map(entry => clean(entry.drive_file_id))
+    )
+    const missingDriveFileIds =
+      requestedDriveFileIds === null
+        ? []
+        : requestedDriveFileIds.filter(id => !availableDriveFileIds.has(id))
+
+    if (missingDriveFileIds.length > 0) {
+      results.push({
+        key: scope.key,
+        supplier: scope.supplier,
+        family: scope.canonical_family,
+        status: 'failed',
+        error_code: 'SCANNER_DRIVE_FILE_ID_NOT_IN_SCOPE',
+        requested_drive_file_ids: requestedDriveFileIds,
+        missing_drive_file_ids: missingDriveFileIds,
+        scanned: 0,
+      })
+      continue
+    }
+
+    const entries =
+      requestedDriveFileIds === null
+        ? listing.entries
+        : listing.entries.filter(entry =>
+            requestedDriveFileIds.includes(clean(entry.drive_file_id))
+          )
+
     const state = await fetchScannerState(scope, deps)
     if (!state.ok) {
       results.push({
@@ -986,13 +1038,13 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
         family: scope.canonical_family,
         status: 'failed',
         error_code: state.error_code,
-        scanned: listing.entries.length,
+        scanned: entries.length,
       })
       continue
     }
 
     const fingerprints = new Map()
-    for (const entry of listing.entries) {
+    for (const entry of entries) {
       const fp = await fingerprintDriveFile(entry.drive_file_id, {
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.fingerprintTimeoutMs,
@@ -1004,7 +1056,7 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
     }
 
     const classified = classifyDiscoveredEntries(
-      listing.entries,
+      entries,
       state.rows,
       fingerprints,
       { preserveReadySameId },
@@ -1025,6 +1077,9 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       write_failures: 0,
       deactivated: 0,
       parse_complete: listing.complete,
+      ...(requestedDriveFileIds !== null
+        ? { requested_drive_file_ids: requestedDriveFileIds }
+        : {}),
     }
     let selectedDriveFileIds = []
 
@@ -1062,6 +1117,9 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       summary.selected_for_pending = selected.size
       summary.deferred_changes = Math.max(0, priority.length - selected.size)
       selectedDriveFileIds = [...selected]
+      if (requestedDriveFileIds !== null) {
+        summary.selected_drive_file_ids = [...selectedDriveFileIds]
+      }
       remainingChanges -= selected.size
 
       // Always baseline/refresh existing rows. Only new/changed rows selected
@@ -1083,7 +1141,11 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
         }
       }
 
-      if (listing.complete && summary.write_failures === 0) {
+      if (
+        requestedDriveFileIds === null &&
+        listing.complete &&
+        summary.write_failures === 0
+      ) {
         const finalized = await finalizeScannerScope(
           scope,
           classified.map(x => x.drive_file_id),
