@@ -175,6 +175,53 @@ describe('Supplier Homologation Harness Boot V1', () => {
     })
   })
 
+  it('proxy explícito do ambiente tem prioridade sobre o fallback local', async () => {
+    const runHarnessFn = vi.fn(async (_input, deps) => ({
+      ok: true,
+      mode: 'vision',
+      verdict: 'PASS',
+      vision: {
+        total: 1,
+        ready: 1,
+        review: 0,
+        errors: 0,
+        cost_usd: 0.0003,
+        results: [],
+      },
+      deps,
+    }))
+
+    await runSupplierHomologationHarnessBoot({
+      env: {
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED: 'true',
+        SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL:
+          'https://ignite-webhook.vercel.app/api/system-tools?tool=ocr-openrouter',
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_INPUT: JSON.stringify({
+          run_key: 'env-proxy-v1',
+          mode: 'vision',
+          expected: {
+            canonical_family: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+          },
+          samples: [{
+            supplier_key: 'VIVIAN',
+            drive_file_id: 'secret-drive-id',
+          }],
+        }),
+      },
+      baseUrl: 'http://127.0.0.1:10000',
+      runHarnessFn,
+      logger: { log: vi.fn() },
+    })
+
+    const deps = runHarnessFn.mock.calls[0][1]
+    expect(deps).not.toHaveProperty(
+      'visionProxyUrl',
+      'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+    )
+    expect(deps.env.SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL)
+      .toContain('ignite-webhook.vercel.app')
+  })
+
   it('resume diagnostics de Vision sem expor drive_file_id ou payload', () => {
     const diagnostics = buildVisionBootDiagnostics({
       vision: {
