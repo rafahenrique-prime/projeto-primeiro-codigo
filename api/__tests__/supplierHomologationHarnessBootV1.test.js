@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   isSupplierHomologationHarnessBootEnabled,
   parseSupplierHomologationHarnessBootInput,
+  buildComparisonBootDiagnostics,
   runSupplierHomologationHarnessBoot,
 } from '../_supplierHomologationHarnessBoot.js'
 
@@ -129,6 +130,39 @@ describe('Supplier Homologation Harness Boot V1', () => {
       vision_errors: 0,
     })
     expect(logText).not.toContain('drive-secret-file-id')
+  })
+
+  it('resume diagnostics de comparação com campos mínimos', () => {
+    const diagnostics = buildComparisonBootDiagnostics({
+      comparison: {
+        results: [{
+          index: 0,
+          label: 'BOROUGH',
+          drive_file_id: 'x',
+          expected_family: 'NIKE_COURT_BOROUGH',
+          chosen_family: null,
+          confidence: null,
+          error_code: 'VISION_COMPARE_INVALID_JSON',
+          provider_status: 200,
+          usage: { output_tokens: 650, cost_usd: 0.0017 },
+          parsed: { raw: 'y' },
+        }],
+      },
+    })
+
+    expect(diagnostics).toEqual([{
+      index: 0,
+      label: 'BOROUGH',
+      expected_family: 'NIKE_COURT_BOROUGH',
+      chosen_family: null,
+      confidence: null,
+      error_code: 'VISION_COMPARE_INVALID_JSON',
+      provider_status: 200,
+      output_tokens: 650,
+      cost_usd: 0.0017,
+    }])
+    expect(diagnostics[0]).not.toHaveProperty('drive_file_id')
+    expect(diagnostics[0]).not.toHaveProperty('parsed')
   })
 
   it('erro do Harness vira evento controlado', async () => {
