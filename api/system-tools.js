@@ -1983,12 +1983,12 @@ const OPENROUTER_EMERGENCY_VISION_MODELS = [
 ]
 
 // Allowlist paga, curada manualmente (nunca "todo modelo pago do catálogo") — só pra
-// identificação de produto por foto (OCR/visão). Validado com teste real em 2026-08-30
-// (mesma imagem de Story homologada): HTTP PASS, ~3.84s, custo ~US$0.00035/chamada,
-// qualidade suficiente pra virar keyword de busca de catálogo. Único item por enquanto;
-// adicionar novo modelo aqui exige o mesmo tipo de validação real, nunca só "parece bom".
+// identificação de produto por foto (OCR/visão). Flash Lite segue como padrão homologado;
+// Flash normal é permitido apenas como opção explícita de precisão para casos ambíguos do
+// Harness LAB. Adicionar novo modelo aqui exige validação real, nunca só "parece bom".
 const OCR_PAID_ALLOWLIST = [
   { id: 'google/gemini-2.5-flash-lite', name: 'Google: Gemini 2.5 Flash Lite', contextLength: 1048576 },
+  { id: 'google/gemini-2.5-flash', name: 'Google: Gemini 2.5 Flash', contextLength: 1048576 },
 ]
 
 let openrouterModelsCache = null // { text, vision, fetchedAt }
