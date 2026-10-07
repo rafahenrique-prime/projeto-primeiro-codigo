@@ -112,9 +112,14 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
   it('Court Borough em lote manual envia ao Vision somente os IDs exatos selecionados', async () => {
     const selectedIds = ['court-1', 'court-2', 'court-3']
 
-    const scannerFn = vi.fn(async ({ max_changes, scope_keys }) => {
+    const scannerFn = vi.fn(async ({
+      max_changes,
+      scope_keys,
+      preserve_ready_same_id,
+    }) => {
       expect(max_changes).toBe(3)
       expect(scope_keys).toEqual(['VIVIAN_NIKE_COURT_BOROUGH'])
+      expect(preserve_ready_same_id).toBe(true)
 
       return {
         ok: true,
