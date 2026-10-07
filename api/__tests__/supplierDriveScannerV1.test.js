@@ -560,6 +560,23 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('fingerprint ausente não vira mudança no classificador', () => {
+    const out = classifyDiscoveredEntries(
+      [{ drive_file_id: 'ready-with-hash' }],
+      [{
+        drive_file_id: 'ready-with-hash',
+        content_hash: 'known-hash',
+        active: true,
+        analysis_status: 'ready',
+        visual_color: 'preto',
+      }],
+      new Map(),
+    )
+
+    expect(out).toHaveLength(1)
+    expect(out[0].change_type).toBe('unchanged')
+  })
+
   it('dry-run lê pasta + fingerprints + estado e não chama write RPCs', async () => {
     const html = [
       '<div id="entry-1FileA_abcdefghijklmno"></div>',
@@ -891,5 +908,40 @@ describe('036_supplier_drive_scanner_lab_rpc.sql — gate estreito', () => {
       'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
     )
     expect(sql).not.toContain('WRGsZBZgeSxeBPYtsFTsI-rkX4nUKKowspcss-akUBE')
+  })
+})
+
+
+describe('043_supplier_drive_missing_fingerprint_guard.sql — preserva READY', () => {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const sql = fs.readFileSync(
+    path.resolve(
+      here,
+      '../../supabase/migrations/043_supplier_drive_missing_fingerprint_guard.sql'
+    ),
+    'utf8'
+  )
+
+  it('só trata hash como changed quando o fingerprint novo existe', () => {
+    expect(sql).toContain('p_content_hash is not null')
+    expect(sql).toContain(
+      "coalesce(v_existing.content_hash, '') <> p_content_hash"
+    )
+    expect(sql).not.toContain(
+      "coalesce(v_existing.content_hash, '') <> coalesce(p_content_hash, '')"
+    )
+  })
+
+  it('preserva gate LAB e não cria grants diretos em tabela', () => {
+    expect(sql).toContain(
+      'bc459883461a5e73cd69087a379d2beed351d46c51de23a673719c5c021984bd'
+    )
+    const lower = sql.toLowerCase()
+    expect(lower).not.toContain(
+      'grant update on table public.supplier_shadow_products'
+    )
+    expect(lower).not.toContain(
+      'grant insert on table public.supplier_shadow_products'
+    )
   })
 })
