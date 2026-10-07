@@ -6,6 +6,30 @@ function clean(value) {
   return String(value ?? '').trim()
 }
 
+export function buildComparisonBootDiagnostics(result = {}) {
+  const rows = Array.isArray(result?.comparison?.results)
+    ? result.comparison.results
+    : []
+
+  return rows.slice(0, 6).map((item, index) => ({
+    index: Number.isInteger(item?.index) ? item.index : index,
+    label: clean(item?.label) || null,
+    expected_family: clean(item?.expected_family) || null,
+    chosen_family: clean(item?.chosen_family) || null,
+    confidence:
+      typeof item?.confidence === 'number'
+        ? item.confidence
+        : null,
+    error_code: clean(item?.error_code) || null,
+    provider_status: item?.provider_status ?? null,
+    output_tokens: item?.usage?.output_tokens ?? null,
+    cost_usd:
+      typeof item?.usage?.cost_usd === 'number'
+        ? item.usage.cost_usd
+        : null,
+  }))
+}
+
 export function isSupplierHomologationHarnessBootEnabled(env = process.env) {
   return clean(env.SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED)
     .toLowerCase() === 'true'
@@ -136,6 +160,7 @@ export async function runSupplierHomologationHarnessBoot({
     comparison_review: result?.comparison?.review ?? null,
     comparison_errors: result?.comparison?.errors ?? null,
     comparison_cost_usd: result?.comparison?.cost_usd ?? null,
+    comparison_diagnostics: buildComparisonBootDiagnostics(result),
     product_universe_pass:
       result?.product_universe?.pass ?? null,
     canonical_family:
