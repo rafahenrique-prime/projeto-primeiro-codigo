@@ -44,10 +44,10 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     const a = rotatedScopeKeys('supplier-cycle-v1:2026-10-05')
     const b = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
 
-    expect(a).toHaveLength(43)
-    expect(new Set(a).size).toBe(43)
-    expect(b).toHaveLength(43)
-    expect(new Set(b).size).toBe(43)
+    expect(a).toHaveLength(44)
+    expect(new Set(a).size).toBe(44)
+    expect(b).toHaveLength(44)
+    expect(new Set(b).size).toBe(44)
     expect(a[0]).not.toBe(b[0])
   })
 
@@ -823,9 +823,9 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
-  it('Air Max DN fica fora da rotação diária durante homologação, mas aceita ciclo manual controlado', async () => {
+  it('Air Max DN MIA homologado entra na rotação diária e continua aceitando ciclo manual controlado', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
-    expect(daily).not.toContain('MIA_NIKE_AIR_MAX_DN')
+    expect(daily).toContain('MIA_NIKE_AIR_MAX_DN')
 
     const scannerFn = vi.fn(async ({ scope_keys }) => ({
       ok: true,
