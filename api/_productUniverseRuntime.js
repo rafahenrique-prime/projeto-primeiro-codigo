@@ -207,6 +207,17 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_AIR_MAX_DN',
+    canonical_name: 'Nike Air Max DN',
+    aliases: [
+      'Air Max DN',
+      'Nike Air Max DN',
+      'Nike DN',
+      'Airmax DN',
+      'Nike Airmax DN',
+    ],
+  },
+  {
     family_id: 'NIKE_AIR_JORDAN_1',
     canonical_name: 'Nike Air Jordan 1',
     aliases: [
