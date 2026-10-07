@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
   SUPPLIER_HOMOLOGATION_MAX_SAMPLES,
+  buildVisionComparePrompt,
   handleSupplierHomologationHarnessRequest,
   runSupplierHomologationHarness,
 } from '../supplier-homologation-harness-v1.js'
@@ -147,6 +148,136 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(out.vision.review).toBe(1)
     expect(out.vision.results[0].error_code).toBe('VISION_FAMILY_MISMATCH')
     expect(out.side_effects.supplier_shadow_write).toBe(false)
+  })
+
+  it('vision_compare compara famílias sem vazar a resposta esperada no prompt', async () => {
+    const compare = {
+      brand: 'Nike',
+      category: 'Tênis',
+      candidates: [
+        {
+          canonical_family: 'NIKE_COURT_BOROUGH',
+          model: 'Nike Court Borough',
+        },
+        {
+          canonical_family: 'NIKE_COURT_VISION',
+          model: 'Nike Court Vision',
+        },
+      ],
+    }
+
+    const prompt = buildVisionComparePrompt(compare)
+    expect(prompt).toContain('NIKE_COURT_BOROUGH')
+    expect(prompt).toContain('NIKE_COURT_VISION')
+    expect(prompt).not.toContain('expected_family')
+
+    const compareAnalyzeFn = vi.fn(async sample => ({
+      ok: true,
+      chosen_family: sample.expected_family,
+      chosen_model:
+        sample.expected_family === 'NIKE_COURT_BOROUGH'
+          ? 'Nike Court Borough'
+          : 'Nike Court Vision',
+      confidence: 0.96,
+      color: 'branco / preto',
+      error_code: null,
+      usage: { cost_usd: 0.0003 },
+      image: { content_type: 'image/jpeg', bytes: 12345 },
+    }))
+
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision_compare',
+      compare,
+      samples: [
+        {
+          label: 'BOROUGH',
+          supplier_key: 'VIVIAN',
+          drive_file_id: 'borough-1',
+          expected_family: 'NIKE_COURT_BOROUGH',
+        },
+        {
+          label: 'VISION',
+          supplier_key: 'MIA',
+          drive_file_id: 'vision-1',
+          expected_family: 'NIKE_COURT_VISION',
+        },
+      ],
+    }, { compareAnalyzeFn })
+
+    expect(out.ok).toBe(true)
+    expect(out.verdict).toBe('PASS')
+    expect(out.comparison.total).toBe(2)
+    expect(out.comparison.matched).toBe(2)
+    expect(out.comparison.review).toBe(0)
+    expect(out.comparison.pass).toBe(true)
+    expect(compareAnalyzeFn).toHaveBeenCalledTimes(2)
+  })
+
+  it('vision_compare vira REVIEW quando escolhe a família concorrente', async () => {
+    const compareAnalyzeFn = vi.fn(async () => ({
+      ok: true,
+      chosen_family: 'NIKE_COURT_VISION',
+      chosen_model: 'Nike Court Vision',
+      confidence: 0.97,
+      color: 'branco',
+      error_code: null,
+      usage: { cost_usd: 0.0003 },
+    }))
+
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision_compare',
+      compare: {
+        brand: 'Nike',
+        category: 'Tênis',
+        candidates: [
+          {
+            canonical_family: 'NIKE_COURT_BOROUGH',
+            model: 'Nike Court Borough',
+          },
+          {
+            canonical_family: 'NIKE_COURT_VISION',
+            model: 'Nike Court Vision',
+          },
+        ],
+      },
+      samples: [{
+        supplier_key: 'VIVIAN',
+        drive_file_id: 'borough-1',
+        expected_family: 'NIKE_COURT_BOROUGH',
+      }],
+    }, { compareAnalyzeFn })
+
+    expect(out.ok).toBe(true)
+    expect(out.verdict).toBe('REVIEW')
+    expect(out.comparison.matched).toBe(0)
+    expect(out.comparison.review).toBe(1)
+    expect(out.comparison.results[0]).toMatchObject({
+      expected_family: 'NIKE_COURT_BOROUGH',
+      chosen_family: 'NIKE_COURT_VISION',
+      match: false,
+      status: 'review',
+      error_code: 'VISION_COMPARE_MISMATCH',
+    })
+  })
+
+  it('vision_compare exige ao menos duas famílias e expected_family válida', async () => {
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision_compare',
+      compare: {
+        candidates: [{
+          canonical_family: 'NIKE_COURT_BOROUGH',
+          model: 'Nike Court Borough',
+        }],
+      },
+      samples: [{
+        supplier_key: 'VIVIAN',
+        drive_file_id: 'borough-1',
+        expected_family: 'NIKE_COURT_BOROUGH',
+      }],
+    }, { compareAnalyzeFn: vi.fn() })
+
+    expect(out.ok).toBe(false)
+    expect(out.error).toBe('HARNESS_COMPARE_CANDIDATES_REQUIRED')
   })
 
   it('modo full valida Vision + expectativas do Product Universe', async () => {
