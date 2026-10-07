@@ -197,6 +197,10 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       ? requestedScopes
       : rotatedScopeKeys(cycleKey)
 
+  const manualSingleScope =
+    trigger === 'manual_homologation' &&
+    requestedScopes?.length === 1
+
   if (
     !deps.supabaseUrl ||
     !deps.publicKey ||
@@ -253,6 +257,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   }
 
   const scannerRuns = []
+  const selectedDriveFileIds = []
   let selectedTotal = 0
   let scannerFailed = false
 
@@ -261,7 +266,9 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
     const scan = await scannerFn({
       dry_run: false,
-      max_changes: 1,
+      max_changes: manualSingleScope
+        ? Math.max(1, maxChanges - selectedTotal)
+        : 1,
       scope_keys: [scopeKey],
     }, {
       supabaseUrl: deps.supabaseUrl,
@@ -275,7 +282,13 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
     const scope = scan?.scopes?.[0] || null
     const selected = Number(scope?.selected_for_pending) || 0
+    const selectedIds = Array.isArray(scope?._selected_drive_file_ids)
+      ? scope._selected_drive_file_ids.map(clean).filter(Boolean)
+      : []
     selectedTotal += selected
+    if (manualSingleScope) {
+      selectedDriveFileIds.push(...selectedIds)
+    }
 
     scannerRuns.push({
       key: scopeKey,
@@ -299,19 +312,43 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
     }
   }
 
-  const vision = await visionFn({
-    limit: maxChanges,
-    dry_run: false,
-  }, {
-    supabaseUrl: deps.supabaseUrl,
-    publicKey: deps.publicKey,
-    workerToken: deps.workerToken,
-    fetchImpl: deps.fetchImpl,
-    rpcTimeoutMs: deps.rpcTimeoutMs,
-    visionTimeoutMs: deps.visionTimeoutMs,
-    visionProxyUrl: deps.visionProxyUrl,
-    visionModel: deps.visionModel,
-  })
+  const scopedSelectionMismatch =
+    manualSingleScope &&
+    selectedTotal > 0 &&
+    selectedDriveFileIds.length !== selectedTotal
+
+  let vision = null
+  if (manualSingleScope && selectedTotal === 0) {
+    vision = {
+      ok: true,
+      queued: 0,
+      processed: [],
+    }
+  } else if (scopedSelectionMismatch) {
+    vision = {
+      ok: false,
+      queued: 0,
+      processed: [],
+      error_code: 'CYCLE_SCOPED_SELECTION_MISMATCH',
+    }
+  } else {
+    vision = await visionFn({
+      limit: manualSingleScope ? selectedTotal : maxChanges,
+      dry_run: false,
+      ...(manualSingleScope
+        ? { drive_file_ids: selectedDriveFileIds }
+        : {}),
+    }, {
+      supabaseUrl: deps.supabaseUrl,
+      publicKey: deps.publicKey,
+      workerToken: deps.workerToken,
+      fetchImpl: deps.fetchImpl,
+      rpcTimeoutMs: deps.rpcTimeoutMs,
+      visionTimeoutMs: deps.visionTimeoutMs,
+      visionProxyUrl: deps.visionProxyUrl,
+      visionModel: deps.visionModel,
+    })
+  }
 
   const processed = Array.isArray(vision?.processed)
     ? vision.processed
