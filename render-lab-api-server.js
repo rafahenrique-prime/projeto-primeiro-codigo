@@ -4,6 +4,7 @@ import supplierVisionWorkerHandler from './api/supplier-vision-worker-v1.js'
 import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
+import supplierHarnessOcrProxyHandler from './api/_supplierHarnessOcrProxyRoute.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 
@@ -45,6 +46,10 @@ app.post('/api/supplier-catalog-cycle-v1', async (req, res) => {
 
 app.post('/api/supplier-homologation-harness-v1', async (req, res) => {
   return supplierHomologationHarnessHandler(req, res)
+})
+
+app.post('/api/supplier-harness-ocr-proxy', async (req, res) => {
+  return supplierHarnessOcrProxyHandler(req, res)
 })
 
 app.use((_req, res) => {
