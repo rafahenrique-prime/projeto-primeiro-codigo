@@ -125,6 +125,7 @@ export async function runSupplierHomologationHarnessBoot({
     ok: result?.ok === true,
     verdict: result?.verdict || null,
     mode: result?.mode || parsed.input?.mode || null,
+    vision_model: result?.vision_model || parsed.input?.vision_model || null,
     vision_total: result?.vision?.total ?? null,
     vision_ready: result?.vision?.ready ?? null,
     vision_review: result?.vision?.review ?? null,
