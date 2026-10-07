@@ -5,6 +5,7 @@ import {
   SUPPLIER_HOMOLOGATION_MAX_SAMPLES,
   SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS,
   SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
+  SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV,
   buildVisionComparePrompt,
   handleSupplierHomologationHarnessRequest,
   runSupplierHomologationHarness,
@@ -250,7 +251,11 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       }],
     }, {
       compareAnalyzeFn,
-      env: { LAB_PRODUCT_UNIVERSE_API_SECRET: 'lab-secret' },
+      env: {
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'lab-secret',
+        [SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV]:
+          'https://preview.example/api/system-tools?tool=ocr-openrouter',
+      },
     })
 
     expect(out.ok).toBe(true)
@@ -261,7 +266,8 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       expect.any(Object),
       expect.objectContaining({
         visionModel: 'google/gemini-2.5-flash',
-        visionProxyUrl: SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
+        visionProxyUrl:
+          'https://preview.example/api/system-tools?tool=ocr-openrouter',
         visionProxySecret: 'lab-secret',
       })
     )
