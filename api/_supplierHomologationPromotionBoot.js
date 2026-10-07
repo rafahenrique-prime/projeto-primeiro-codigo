@@ -21,6 +21,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
 
     const runKey = clean(parsed.run_key)
     const scopeKey = clean(parsed.scope_key)
+    const requestedMaxChanges = Number(parsed.max_changes ?? 1)
 
     if (!runKey) {
       return { ok: false, error: 'PROMOTION_BOOT_RUN_KEY_REQUIRED', input: null }
@@ -34,6 +35,13 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
     if (scopeKey.length > 160) {
       return { ok: false, error: 'PROMOTION_BOOT_SCOPE_KEY_TOO_LONG', input: null }
     }
+    if (
+      !Number.isInteger(requestedMaxChanges) ||
+      requestedMaxChanges < 1 ||
+      requestedMaxChanges > 10
+    ) {
+      return { ok: false, error: 'PROMOTION_BOOT_MAX_CHANGES_INVALID', input: null }
+    }
 
     return {
       ok: true,
@@ -41,6 +49,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
       input: {
         run_key: runKey,
         scope_key: scopeKey,
+        max_changes: requestedMaxChanges,
         cycle_key: `supplier-cycle-homologation:${runKey}`,
       },
     }
@@ -126,7 +135,7 @@ export async function runSupplierHomologationPromotionBoot({
           confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
           cycle_key: parsed.input.cycle_key,
           trigger: 'manual_homologation',
-          max_changes: 1,
+          max_changes: parsed.input.max_changes,
           scope_keys: [parsed.input.scope_key],
         }),
       }
@@ -151,11 +160,18 @@ export async function runSupplierHomologationPromotionBoot({
     event: 'SUPPLIER_HOMOLOGATION_PROMOTION_BOOT',
     run_key: parsed.input.run_key,
     scope_key: parsed.input.scope_key,
+    max_changes: parsed.input.max_changes,
     ok:
       !transportError &&
       payload?.ok === true &&
       (
-        Number(payload?.totals?.ready || 0) === 1 ||
+        (
+          Number(payload?.totals?.selected_for_pending || 0) > 0 &&
+          Number(payload?.totals?.ready || 0) ===
+            Number(payload?.totals?.selected_for_pending || 0) &&
+          Number(payload?.totals?.review || 0) === 0 &&
+          Number(payload?.totals?.error || 0) === 0
+        ) ||
         payload?.duplicate === true
       ),
     http_status: httpStatus,
@@ -183,6 +199,7 @@ export async function runSupplierHomologationPromotionBoot({
     skipped: false,
     run_key: parsed.input.run_key,
     scope_key: parsed.input.scope_key,
+    max_changes: parsed.input.max_changes,
     event,
     payload,
   }

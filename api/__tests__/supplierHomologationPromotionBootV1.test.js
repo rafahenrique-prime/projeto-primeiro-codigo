@@ -33,7 +33,19 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     expect(parsed.input).toEqual({
       run_key: 'air-jordan-3-mia-gate1',
       scope_key: 'MIA_NIKE_AIR_JORDAN_3',
+      max_changes: 1,
       cycle_key: 'supplier-cycle-homologation:air-jordan-3-mia-gate1',
+    })
+
+    expect(parseSupplierHomologationPromotionBootInput({
+      SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
+        run_key: 'bad-batch',
+        scope_key: 'MIA_NIKE_AIR_JORDAN_3',
+        max_changes: 11,
+      }),
+    })).toMatchObject({
+      ok: false,
+      error: 'PROMOTION_BOOT_MAX_CHANGES_INVALID',
     })
   })
 
@@ -57,7 +69,7 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     expect(logger.log).not.toHaveBeenCalled()
   })
 
-  it('força exatamente max_changes=1 e um único scope', async () => {
+  it('mantém max_changes=1 por padrão e um único scope', async () => {
     const fetchImpl = vi.fn(async (_url, init) => {
       const body = JSON.parse(init.body)
 
@@ -115,6 +127,63 @@ describe('Supplier Homologation Promotion Gate V1', () => {
 
     const logText = logger.log.mock.calls[0][0]
     expect(logText).not.toContain('cycle-secret')
+  })
+
+  it('aceita lote explícito de até 10 e só aprova se todo selecionado ficar ready', async () => {
+    const fetchImpl = vi.fn(async (_url, init) => {
+      const body = JSON.parse(init.body)
+
+      expect(body).toEqual({
+        confirm: 'SUPPLIER_CATALOG_CYCLE_LAB',
+        cycle_key: 'supplier-cycle-homologation:court-borough-batch10',
+        trigger: 'manual_homologation',
+        max_changes: 10,
+        scope_keys: ['VIVIAN_NIKE_COURT_BOROUGH'],
+      })
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          cycle_key: body.cycle_key,
+          status: 'completed',
+          totals: {
+            selected_for_pending: 10,
+            ready: 10,
+            review: 0,
+            error: 0,
+            cost_usd: 0.003,
+          },
+          duplicate: false,
+        }),
+      }
+    })
+
+    const out = await runSupplierHomologationPromotionBoot({
+      env: {
+        SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_ENABLED: 'true',
+        SUPPLIER_HOMOLOGATION_PROMOTION_BOOT_INPUT: JSON.stringify({
+          run_key: 'court-borough-batch10',
+          scope_key: 'VIVIAN_NIKE_COURT_BOROUGH',
+          max_changes: 10,
+        }),
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'secret',
+      },
+      fetchImpl,
+      baseUrl: 'http://127.0.0.1:10000',
+      logger: { log: vi.fn() },
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.max_changes).toBe(10)
+    expect(out.event).toMatchObject({
+      max_changes: 10,
+      selected_for_pending: 10,
+      ready: 10,
+      review: 0,
+      error_count: 0,
+    })
   })
 
   it('cycle_key fixo permite tratar repetição como sucesso idempotente', async () => {
