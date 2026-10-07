@@ -248,7 +248,10 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
         drive_file_id: 'borough-precision-1',
         expected_family: 'NIKE_COURT_BOROUGH',
       }],
-    }, { compareAnalyzeFn })
+    }, {
+      compareAnalyzeFn,
+      env: { LAB_PRODUCT_UNIVERSE_API_SECRET: 'lab-secret' },
+    })
 
     expect(out.ok).toBe(true)
     expect(out.verdict).toBe('PASS')
@@ -259,6 +262,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       expect.objectContaining({
         visionModel: 'google/gemini-2.5-flash',
         visionProxyUrl: SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
+        visionProxySecret: 'lab-secret',
       })
     )
   })
