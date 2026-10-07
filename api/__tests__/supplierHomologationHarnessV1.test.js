@@ -172,6 +172,13 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     const prompt = buildVisionComparePrompt(compare)
     expect(prompt).toContain('NIKE_COURT_BOROUGH')
     expect(prompt).toContain('NIKE_COURT_VISION')
+    expect(prompt).toContain('NIKE_COURT_BOROUGH_VS_COURT_VISION_V2')
+    expect(prompt).toContain('biqueira')
+    expect(prompt).toContain('painéis laterais/eyestay')
+    expect(prompt).toContain('pelo menos 2 sinais estruturais independentes')
+    expect(prompt).toContain('"observations"')
+    expect(prompt).toContain('"evidence_for"')
+    expect(prompt).toContain('"evidence_against"')
     expect(prompt).not.toContain('expected_family')
 
     const compareAnalyzeFn = vi.fn(async sample => ({
@@ -214,6 +221,26 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(out.comparison.review).toBe(0)
     expect(out.comparison.pass).toBe(true)
     expect(compareAnalyzeFn).toHaveBeenCalledTimes(2)
+  })
+
+  it('não injeta guidance Court em comparações de outras famílias', () => {
+    const prompt = buildVisionComparePrompt({
+      brand: 'Nike',
+      category: 'Tênis',
+      candidates: [
+        {
+          canonical_family: 'NIKE_AIR_JORDAN_3',
+          model: 'Nike Air Jordan 3',
+        },
+        {
+          canonical_family: 'NIKE_AIR_JORDAN_4',
+          model: 'Nike Air Jordan 4',
+        },
+      ],
+    })
+
+    expect(prompt).not.toContain('NIKE_COURT_BOROUGH_VS_COURT_VISION_V2')
+    expect(prompt).not.toContain('atacadores elásticos')
   })
 
   it('vision_compare permite modo de precisão com Gemini 2.5 Flash', async () => {
