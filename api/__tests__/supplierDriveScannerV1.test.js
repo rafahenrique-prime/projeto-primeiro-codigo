@@ -577,6 +577,52 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     expect(out[0].change_type).toBe('unchanged')
   })
 
+  it('homologação manual preserva READY pelo mesmo file id mesmo se o CDN mudar o fingerprint', () => {
+    const out = classifyDiscoveredEntries(
+      [{ drive_file_id: 'ready-same-id' }],
+      [{
+        drive_file_id: 'ready-same-id',
+        content_hash: 'stable-approved-hash',
+        active: true,
+        analysis_status: 'ready',
+        visual_color: 'preto',
+      }],
+      new Map([
+        ['ready-same-id', 'volatile-cdn-hash'],
+      ]),
+      { preserveReadySameId: true },
+    )
+
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      drive_file_id: 'ready-same-id',
+      change_type: 'unchanged',
+      fingerprint: 'stable-approved-hash',
+    })
+  })
+
+  it('fora da homologação manual um novo fingerprint válido continua sendo detectado como mudança', () => {
+    const out = classifyDiscoveredEntries(
+      [{ drive_file_id: 'ready-same-id' }],
+      [{
+        drive_file_id: 'ready-same-id',
+        content_hash: 'old-hash',
+        active: true,
+        analysis_status: 'ready',
+        visual_color: 'preto',
+      }],
+      new Map([
+        ['ready-same-id', 'new-hash'],
+      ]),
+    )
+
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      change_type: 'changed',
+      fingerprint: 'new-hash',
+    })
+  })
+
   it('dry-run lê pasta + fingerprints + estado e não chama write RPCs', async () => {
     const html = [
       '<div id="entry-1FileA_abcdefghijklmno"></div>',

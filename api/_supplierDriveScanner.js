@@ -774,7 +774,12 @@ export async function fetchScannerState(scope, deps = {}) {
   }
 }
 
-export function classifyDiscoveredEntries(entries, stateRows, fingerprints) {
+export function classifyDiscoveredEntries(
+  entries,
+  stateRows,
+  fingerprints,
+  { preserveReadySameId = false } = {},
+) {
   const state = new Map(
     (stateRows || []).map((row) => [String(row.drive_file_id), row])
   )
@@ -784,8 +789,22 @@ export function classifyDiscoveredEntries(entries, stateRows, fingerprints) {
     const fp = fingerprints.get(String(entry.drive_file_id)) || null
 
     let change_type = 'new'
+    let effectiveFingerprint = fp
+
     if (current) {
-      if (!current.content_hash) {
+      const preserveReady =
+        preserveReadySameId &&
+        current.analysis_status === 'ready'
+
+      if (preserveReady) {
+        effectiveFingerprint = current.content_hash || fp
+        change_type =
+          current.active === false
+            ? 'reactivated'
+            : current.content_hash
+              ? 'unchanged'
+              : 'baseline'
+      } else if (!current.content_hash) {
         change_type =
           current.analysis_status === 'ready' &&
           current.visual_color
@@ -800,7 +819,7 @@ export function classifyDiscoveredEntries(entries, stateRows, fingerprints) {
 
     return {
       ...entry,
-      fingerprint: fp,
+      fingerprint: effectiveFingerprint,
       current,
       change_type,
     }
@@ -884,6 +903,7 @@ async function logScannerRun(scope, summary, runId, deps) {
 export async function scanSupplierDrive(input = {}, deps = {}) {
   const dryRun = input.dry_run !== false
   const maxChanges = boundedInt(input.max_changes, 3, 1, 3)
+  const preserveReadySameId = input.preserve_ready_same_id === true
   const requestedKeys = Array.isArray(input.scope_keys)
     ? new Set(input.scope_keys.map(String))
     : null
@@ -954,6 +974,7 @@ export async function scanSupplierDrive(input = {}, deps = {}) {
       listing.entries,
       state.rows,
       fingerprints,
+      { preserveReadySameId },
     )
 
     const summary = {
