@@ -14,6 +14,17 @@ export const SUPPLIER_DRIVE_SCANNER_VERSION = '1.0.0'
 
 export const SCANNER_SCOPES = Object.freeze([
   {
+    key: 'MIA_PUMA_180',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'PUMA_180',
+    brand: 'Puma',
+    model: 'Puma 180',
+    category: 'Tênis',
+    folder_id: '1nhliTQ8-WNfgpkyzZDfRBWzVqdIrobXD',
+    drive_path: '/PUMA/Puma 180',
+  },
+  {
     key: 'VIVIAN_AIR_FORCE_1',
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_AIR_FORCE_1',
