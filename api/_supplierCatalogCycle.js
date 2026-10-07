@@ -200,6 +200,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   const manualSingleScope =
     trigger === 'manual_homologation' &&
     requestedScopes?.length === 1
+  const manualScopedBatch = manualSingleScope && maxChanges > 1
 
   if (
     !deps.supabaseUrl ||
@@ -266,7 +267,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
     const scan = await scannerFn({
       dry_run: false,
-      max_changes: manualSingleScope
+      max_changes: manualScopedBatch
         ? Math.max(1, maxChanges - selectedTotal)
         : 1,
       scope_keys: [scopeKey],
@@ -286,7 +287,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       ? scope._selected_drive_file_ids.map(clean).filter(Boolean)
       : []
     selectedTotal += selected
-    if (manualSingleScope) {
+    if (manualScopedBatch) {
       selectedDriveFileIds.push(...selectedIds)
     }
 
@@ -313,12 +314,12 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   }
 
   const scopedSelectionMismatch =
-    manualSingleScope &&
+    manualScopedBatch &&
     selectedTotal > 0 &&
     selectedDriveFileIds.length !== selectedTotal
 
   let vision = null
-  if (manualSingleScope && selectedTotal === 0) {
+  if (manualScopedBatch && selectedTotal === 0) {
     vision = {
       ok: true,
       queued: 0,
@@ -333,9 +334,9 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
     }
   } else {
     vision = await visionFn({
-      limit: manualSingleScope ? selectedTotal : maxChanges,
+      limit: manualScopedBatch ? selectedTotal : maxChanges,
       dry_run: false,
-      ...(manualSingleScope
+      ...(manualScopedBatch
         ? { drive_file_ids: selectedDriveFileIds }
         : {}),
     }, {
