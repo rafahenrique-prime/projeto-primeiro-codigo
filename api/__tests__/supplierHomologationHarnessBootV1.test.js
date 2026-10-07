@@ -4,6 +4,7 @@ import {
   isSupplierHomologationHarnessBootEnabled,
   parseSupplierHomologationHarnessBootInput,
   buildComparisonBootDiagnostics,
+  buildVisionBootDiagnostics,
   runSupplierHomologationHarnessBoot,
 } from '../_supplierHomologationHarnessBoot.js'
 
@@ -130,6 +131,78 @@ describe('Supplier Homologation Harness Boot V1', () => {
       vision_errors: 0,
     })
     expect(logText).not.toContain('drive-secret-file-id')
+  })
+
+  it('usa proxy local quando baseUrl é fornecido no boot', async () => {
+    const runHarnessFn = vi.fn(async () => ({
+      ok: true,
+      mode: 'vision',
+      verdict: 'PASS',
+      vision: {
+        total: 1,
+        ready: 1,
+        review: 0,
+        errors: 0,
+        cost_usd: 0.0003,
+        results: [],
+      },
+    }))
+
+    await runSupplierHomologationHarnessBoot({
+      env: {
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED: 'true',
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_INPUT: JSON.stringify({
+          run_key: 'local-proxy-v1',
+          mode: 'vision',
+          expected: {
+            canonical_family: 'NEW_BALANCE_FUELCELL_REBEL_V4',
+          },
+          samples: [{
+            supplier_key: 'VIVIAN',
+            drive_file_id: 'secret-drive-id',
+          }],
+        }),
+      },
+      baseUrl: 'http://127.0.0.1:10000/',
+      runHarnessFn,
+      logger: { log: vi.fn() },
+    })
+
+    expect(runHarnessFn).toHaveBeenCalledTimes(1)
+    expect(runHarnessFn.mock.calls[0][1]).toMatchObject({
+      visionProxyUrl:
+        'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+    })
+  })
+
+  it('resume diagnostics de Vision sem expor drive_file_id ou payload', () => {
+    const diagnostics = buildVisionBootDiagnostics({
+      vision: {
+        results: [{
+          index: 0,
+          label: 'HEIF_1',
+          drive_file_id: 'secret-drive-id',
+          status: 'review',
+          error_code: 'VISION_PROXY_HTTP_503',
+          validation: {
+            values: { vision_confidence: 0.72 },
+          },
+          usage: { cost_usd: 0.0004 },
+          parsed: { raw: 'secret' },
+        }],
+      },
+    })
+
+    expect(diagnostics).toEqual([{
+      index: 0,
+      label: 'HEIF_1',
+      status: 'review',
+      error_code: 'VISION_PROXY_HTTP_503',
+      confidence: 0.72,
+      cost_usd: 0.0004,
+    }])
+    expect(diagnostics[0]).not.toHaveProperty('drive_file_id')
+    expect(diagnostics[0]).not.toHaveProperty('parsed')
   })
 
   it('resume diagnostics de comparação com campos mínimos', () => {

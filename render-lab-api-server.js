@@ -697,7 +697,9 @@ async function runSupplierCatalogCycleBootSmoke() {
 
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
-  await runSupplierHomologationHarnessBoot()
+  await runSupplierHomologationHarnessBoot({
+    baseUrl: `http://127.0.0.1:${port}`,
+  })
   await runSupplierHomologationPromotionBoot({ baseUrl: `http://127.0.0.1:${port}` })
   await runBootSmoke()
   await runSupplierVisionBootSmoke()
