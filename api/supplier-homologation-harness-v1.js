@@ -12,11 +12,12 @@ import {
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.2.0'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.2.1'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
+// Deve espelhar os modelos que o proxy OCR de produção realmente aceita.
+// O proxy atual só tem Gemini 2.5 Flash Lite na allowlist paga.
 export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
   'google/gemini-2.5-flash-lite',
-  'google/gemini-2.5-flash',
 ]
 
 
