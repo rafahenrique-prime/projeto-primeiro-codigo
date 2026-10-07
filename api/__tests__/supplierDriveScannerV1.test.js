@@ -334,6 +334,20 @@ describe('Supplier Drive Scanner V1 — funções puras', () => {
     })
   })
 
+  it('Air Max DN MIA fica preparado fora do ciclo diário durante homologação', () => {
+    const scope = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_MAX_DN')
+
+    expect(scope).toMatchObject({
+      supplier: 'MIA',
+      canonical_family: 'NIKE_AIR_MAX_DN',
+      brand: 'Nike',
+      model: 'Nike Air Max DN',
+      category: 'Tênis',
+      drive_path: '/NIKE/Nike DN',
+      cycle_enabled: false,
+    })
+  })
+
   it('Air Max 270 MIA homologado fica ativo no ciclo diário', () => {
     const scope = SCANNER_SCOPES.find(x => x.key === 'MIA_NIKE_AIR_MAX_270')
 

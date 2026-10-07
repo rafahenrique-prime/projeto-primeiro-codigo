@@ -171,6 +171,50 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(out.values.canonical_family).toBe('NIKE_VOMERO')
   })
 
+  it('Air Max DN aceita label compatível e rejeita famílias Air Max numeradas', () => {
+    const row = {
+      ...ROW,
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_DN',
+      detected_model: 'Nike Air Max DN',
+    }
+
+    const ready = validateVisionResult(row, {
+      brand: 'Nike',
+      canonical_family: 'NIKE_AIR_MAX_DN',
+      model: 'Nike Air Max DN',
+      category: 'Tênis',
+      color: 'preto',
+      confidence: 0.98,
+      family_match: false,
+    })
+
+    expect(ready.status).toBe('ready')
+    expect(ready.error_code).toBeNull()
+    expect(ready.values.canonical_family).toBe('NIKE_AIR_MAX_DN')
+
+    for (const model of [
+      'Nike Air Max 90',
+      'Nike Air Max 95',
+      'Nike Air Max 97',
+      'Nike Air Max 270',
+    ]) {
+      const out = validateVisionResult(row, {
+        brand: 'Nike',
+        canonical_family: model.replaceAll(' ', '_').toUpperCase(),
+        model,
+        category: 'Tênis',
+        color: 'preto',
+        confidence: 0.99,
+        family_match: false,
+      })
+
+      expect(out.status).toBe('review')
+      expect(out.error_code).toBe('VISION_FAMILY_MISMATCH')
+      expect(out.values.canonical_family).toBe('NIKE_AIR_MAX_DN')
+    }
+  })
+
   it('Air Max 270 aceita label compatível e rejeita 90/95/97', () => {
     const row = {
       ...ROW,

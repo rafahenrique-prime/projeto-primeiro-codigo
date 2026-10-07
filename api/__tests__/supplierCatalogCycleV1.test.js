@@ -823,6 +823,64 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     expect(out.totals.ready).toBe(1)
   })
 
+  it('Air Max DN fica fora da rotação diária durante homologação, mas aceita ciclo manual controlado', async () => {
+    const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
+    expect(daily).not.toContain('MIA_NIKE_AIR_MAX_DN')
+
+    const scannerFn = vi.fn(async ({ scope_keys }) => ({
+      ok: true,
+      scopes: [{
+        key: scope_keys[0],
+        status: 'completed',
+        scanned: 13,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 12,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:air-max-dn-mia',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['MIA_NIKE_AIR_MAX_DN'],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: 'd0d0d0d0-d0d0-40d0-80d0-d0d0d0d0d0d0',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn: vi.fn(async () => ({ ok: true })),
+      scannerFn,
+      visionFn: vi.fn(async () => ({
+        ok: true,
+        queued: 1,
+        processed: [{
+          supplier: 'MIA',
+          family: 'NIKE_AIR_MAX_DN',
+          color: 'preto',
+          confidence: 0.98,
+          status: 'ready',
+          persisted: true,
+          error_code: null,
+          usage: { cost_usd: 0.0003 },
+        }],
+      })),
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.scope_order).toEqual(['MIA_NIKE_AIR_MAX_DN'])
+    expect(out.totals.ready).toBe(1)
+  })
+
   it('Air Max 270 MIA homologado entra na rotação diária e continua aceitando ciclo manual controlado', async () => {
     const daily = rotatedScopeKeys('supplier-cycle-v1:2026-10-06')
     expect(daily).toContain('MIA_NIKE_AIR_MAX_270')

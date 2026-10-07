@@ -689,6 +689,59 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('Air Max DN normaliza de forma isolada sem herdar preço', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'Air Max DN',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [{
+        source: 'MIA',
+        source_item_id: 'mia-air-max-dn-black',
+        name: 'Nike Air Max DN Preto',
+        brand: 'Nike',
+        model: 'Nike Air Max DN',
+        color: 'preto',
+      }],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_AIR_MAX_DN')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.price.amount).toBeNull()
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+
+    const shortQuery = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'Nike',
+        model: 'DN',
+        color: 'preto',
+        size: '42',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [{
+        source: 'MIA',
+        source_item_id: 'mia-air-max-dn-short-query',
+        name: 'Nike Air Max DN Preto',
+        brand: 'Nike',
+        model: 'Nike Air Max DN',
+        color: 'preto',
+      }],
+    })
+
+    expect(shortQuery.decision.canonical_family).toBe('NIKE_AIR_MAX_DN')
+  })
+
   it('Air Max 270 normaliza de forma isolada sem herdar preço', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
