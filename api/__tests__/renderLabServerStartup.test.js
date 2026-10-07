@@ -61,6 +61,16 @@ describe('Render LAB API server — startup smoke', () => {
       ])
 
       expect(stdout).toContain(`PRIME LAB API listening on port ${port}`)
+
+      const health = await fetch(`http://127.0.0.1:${port}/health`)
+      expect(health.status).toBe(200)
+
+      const payload = await health.json()
+      expect(payload).toMatchObject({
+        ok: true,
+        service: 'ignite-prime-render-lab-api',
+        mode: 'LAB_ONLY',
+      })
     } finally {
       if (!child.killed) child.kill('SIGTERM')
       await Promise.race([
