@@ -140,6 +140,8 @@ export async function handleSupplierCatalogCycleRequest(req, res, deps = {}) {
     visionTimeoutMs: deps.visionTimeoutMs,
     visionProxyUrl: deps.visionProxyUrl,
     visionModel: deps.visionModel,
+    visionProxySecret:
+      deps.visionProxySecret || env.LAB_PRODUCT_UNIVERSE_API_SECRET,
     startFn: deps.startFn,
     finishFn: deps.finishFn,
     scannerFn: deps.scannerFn,

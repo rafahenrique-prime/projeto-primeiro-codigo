@@ -2154,8 +2154,9 @@ describe('Supplier Catalog Cycle endpoint — segurança', () => {
         }],
       }
     })
-    const visionFn = vi.fn(async input => {
+    const visionFn = vi.fn(async (input, options) => {
       expect(input.drive_file_ids).toEqual(selectedIds)
+      expect(options.visionProxySecret).toBe('lab-vision-secret')
       return {
         ok: true,
         queued: 3,
@@ -2193,6 +2194,7 @@ describe('Supplier Catalog Cycle endpoint — segurança', () => {
         VITE_SUPABASE_KEY: 'public-key',
         SUPPLIER_DRIVE_SCANNER_TOKEN: 'scanner-token',
         SUPPLIER_VISION_WORKER_TOKEN: 'worker-token',
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'lab-vision-secret',
       },
       startFn: vi.fn(async () => ({
         ok: true,

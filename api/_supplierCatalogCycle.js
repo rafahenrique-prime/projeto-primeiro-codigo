@@ -393,6 +393,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       visionTimeoutMs: deps.visionTimeoutMs,
       visionProxyUrl: resolveRenderLabVisionProxyUrl(),
       visionModel: DEFAULT_VISION_MODEL,
+      visionProxySecret: deps.visionProxySecret,
     })
   }
 
