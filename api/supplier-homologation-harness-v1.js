@@ -19,6 +19,9 @@ export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
   'google/gemini-2.5-flash',
 ]
 
+export const SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY =
+  'https://ignite-prime-render-lab-api.onrender.com/api/system-tools?tool=ocr-openrouter'
+
 
 function clean(value) {
   return String(value ?? '').trim()
@@ -538,7 +541,9 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const row = normalizedSample(samples[index], expected)
       const startedAt = Date.now()
       const out = await analyzeFn(row, {
-        visionProxyUrl: deps.visionProxyUrl,
+        visionProxyUrl:
+          deps.visionProxyUrl ||
+          SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
@@ -586,7 +591,9 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const sample = samples[index]
       const startedAt = Date.now()
       const out = await compareAnalyzeFn(sample, compare, {
-        visionProxyUrl: deps.visionProxyUrl,
+        visionProxyUrl:
+          deps.visionProxyUrl ||
+          SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
