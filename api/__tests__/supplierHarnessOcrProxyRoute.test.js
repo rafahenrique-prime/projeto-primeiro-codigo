@@ -53,19 +53,33 @@ describe('Supplier Harness OCR proxy route', () => {
     expect(systemToolsFn).not.toHaveBeenCalled()
   })
 
-  it('encaminha somente como ocr-openrouter quando autenticado', async () => {
+  it('encaminha somente como ocr-openrouter mesmo com req.query somente leitura', async () => {
     const res = mockRes()
-    const systemToolsFn = vi.fn(async (req, outRes) => {
-      expect(req.query.tool).toBe('ocr-openrouter')
+    const originalQuery = { tool: 'outra-coisa' }
+    const req = {
+      method: 'POST',
+      headers: { 'x-prime-lab-secret': 'lab-secret' },
+      body: { model: 'google/gemini-2.5-flash' },
+    }
+
+    Object.defineProperty(req, 'query', {
+      get() {
+        return originalQuery
+      },
+      enumerable: true,
+      configurable: false,
+    })
+
+    const systemToolsFn = vi.fn(async (forwardedReq, outRes) => {
+      expect(forwardedReq).not.toBe(req)
+      expect(forwardedReq.query.tool).toBe('ocr-openrouter')
+      expect(forwardedReq.body).toBe(req.body)
+      expect(req.query).toBe(originalQuery)
       return outRes.status(200).json({ ok: true })
     })
 
     await handleSupplierHarnessOcrProxy(
-      {
-        method: 'POST',
-        headers: { 'x-prime-lab-secret': 'lab-secret' },
-        query: { tool: 'outra-coisa' },
-      },
+      req,
       res,
       {
         env: { LAB_PRODUCT_UNIVERSE_API_SECRET: 'lab-secret' },
