@@ -151,8 +151,12 @@ export async function runSupplierHomologationHarnessBoot({
   let result
 
   try {
+    const configuredVisionProxyUrl =
+      clean(harnessDeps?.visionProxyUrl) ||
+      clean(env?.SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL)
+
     const localVisionProxyUrl =
-      clean(baseUrl) && !clean(harnessDeps?.visionProxyUrl)
+      clean(baseUrl) && !configuredVisionProxyUrl
         ? `${clean(baseUrl).replace(/\/$/, '')}/api/supplier-harness-ocr-proxy`
         : null
 
