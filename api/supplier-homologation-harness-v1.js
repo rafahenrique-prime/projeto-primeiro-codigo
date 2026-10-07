@@ -613,6 +613,9 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
+        visionProxySecret:
+          deps.visionProxySecret ||
+          labApiSecret(deps.env || process.env),
       })
 
       const expectedFamily = clean(sample.expected_family)
