@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   isSupplierHomologationHarnessBootEnabled,
   parseSupplierHomologationHarnessBootInput,
+  buildComparisonBootDiagnostics,
   runSupplierHomologationHarnessBoot,
 } from '../_supplierHomologationHarnessBoot.js'
 
