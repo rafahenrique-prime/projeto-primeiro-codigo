@@ -214,7 +214,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(compareAnalyzeFn).toHaveBeenCalledTimes(2)
   })
 
-  it('vision_compare permite modo de precisão com Gemini 2.5 Flash', async () => {
+  it('vision_compare só aceita modelo compatível com o proxy OCR atual', async () => {
     const compareAnalyzeFn = vi.fn(async () => ({
       ok: true,
       chosen_family: 'NIKE_COURT_BOROUGH',
@@ -227,7 +227,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
 
     const out = await runSupplierHomologationHarness({
       mode: 'vision_compare',
-      vision_model: 'google/gemini-2.5-flash',
+      vision_model: 'google/gemini-2.5-flash-lite',
       compare: {
         brand: 'Nike',
         category: 'Tênis',
@@ -251,12 +251,12 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
 
     expect(out.ok).toBe(true)
     expect(out.verdict).toBe('PASS')
-    expect(out.vision_model).toBe('google/gemini-2.5-flash')
+    expect(out.vision_model).toBe('google/gemini-2.5-flash-lite')
     expect(compareAnalyzeFn).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
       expect.objectContaining({
-        visionModel: 'google/gemini-2.5-flash',
+        visionModel: 'google/gemini-2.5-flash-lite',
       })
     )
   })
