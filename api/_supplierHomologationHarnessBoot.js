@@ -130,6 +130,11 @@ export async function runSupplierHomologationHarnessBoot({
     vision_review: result?.vision?.review ?? null,
     vision_errors: result?.vision?.errors ?? null,
     vision_cost_usd: result?.vision?.cost_usd ?? null,
+    comparison_total: result?.comparison?.total ?? null,
+    comparison_matched: result?.comparison?.matched ?? null,
+    comparison_review: result?.comparison?.review ?? null,
+    comparison_errors: result?.comparison?.errors ?? null,
+    comparison_cost_usd: result?.comparison?.cost_usd ?? null,
     product_universe_pass:
       result?.product_universe?.pass ?? null,
     canonical_family:
