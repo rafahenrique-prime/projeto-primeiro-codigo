@@ -156,6 +156,22 @@ export function buildKnownPairVisionGuidance(compare = {}) {
   ]
 }
 
+export function visionCompareOutputBudget(compare = {}) {
+  return buildKnownPairVisionGuidance(compare).length > 0 ? 650 : 300
+}
+
+function visionUsage(json = null) {
+  return {
+    input_tokens: json?.usage?.prompt_tokens ?? null,
+    output_tokens: json?.usage?.completion_tokens ?? null,
+    total_tokens: json?.usage?.total_tokens ?? null,
+    cost_usd:
+      typeof json?.usage?.cost === 'number'
+        ? json.usage.cost
+        : null,
+  }
+}
+
 function visionCompareInputError(samples, compare = {}) {
   if (!Array.isArray(samples) || samples.length < 1) {
     return 'HARNESS_SAMPLES_REQUIRED'
@@ -298,7 +314,7 @@ export async function analyzeSupplierImageBlindCompare(
           { type: 'image_url', image_url: { url: image.data_url } },
         ],
       }],
-      max_tokens: 300,
+      max_tokens: visionCompareOutputBudget(compare),
       temperature: 0.1,
     },
     fetchImpl,
@@ -312,6 +328,8 @@ export async function analyzeSupplierImageBlindCompare(
       error_code: result.error_code || 'VISION_COMPARE_PROVIDER_ERROR',
       chosen_family: null,
       confidence: null,
+      provider_status: result.status ?? null,
+      usage: visionUsage(result.json),
     }
   }
 
@@ -322,6 +340,8 @@ export async function analyzeSupplierImageBlindCompare(
       error_code: 'VISION_COMPARE_INVALID_JSON',
       chosen_family: null,
       confidence: null,
+      provider_status: result.status ?? null,
+      usage: visionUsage(result.json),
     }
   }
 
@@ -349,15 +369,8 @@ export async function analyzeSupplierImageBlindCompare(
         : confidence == null || confidence < 0.80
           ? 'VISION_COMPARE_LOW_CONFIDENCE'
           : null,
-    usage: {
-      input_tokens: result.json?.usage?.prompt_tokens ?? null,
-      output_tokens: result.json?.usage?.completion_tokens ?? null,
-      total_tokens: result.json?.usage?.total_tokens ?? null,
-      cost_usd:
-        typeof result.json?.usage?.cost === 'number'
-          ? result.json.usage.cost
-          : null,
-    },
+    provider_status: result.status ?? null,
+    usage: visionUsage(result.json),
     image: {
       content_type: image.content_type,
       bytes: image.bytes,
@@ -679,6 +692,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
           match
             ? null
             : out?.error_code || 'VISION_COMPARE_MISMATCH',
+        provider_status: out?.provider_status ?? null,
         parsed: out?.parsed || null,
         usage: out?.usage || null,
         image: out?.image || null,
