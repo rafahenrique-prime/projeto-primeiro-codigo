@@ -436,6 +436,39 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
     expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
   })
 
+  it('NB204L normaliza como família New Balance própria', async () => {
+    const fetchImpl = vi.fn(async () => response([]))
+
+    const out = await buildProductUniverseRuntime({
+      requested: {
+        brand: 'New Balance',
+        model: 'NB204L',
+        color: 'branco',
+        size: '38',
+      },
+    }, {
+      supabaseConfig: SB,
+      fetchImpl,
+      supplierFixtures: [
+        {
+          source: 'VIVIAN',
+          source_item_id: 'vivian-nb204l-white',
+          name: 'New Balance 204L Branco',
+          brand: 'New Balance',
+          model: 'New Balance 204L',
+          color: 'branco',
+        },
+      ],
+    })
+
+    expect(out.decision.canonical_family).toBe('NEW_BALANCE_204L')
+    expect(out.decision.canonical_family).not.toBe('NEW_BALANCE_530')
+    expect(out.decision.coverage.supplier_count).toBe(1)
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.size.state).toBe('OFFERABLE')
+    expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+  })
+
   it('Adidas Samba aliases normalizam sem herança de preço', async () => {
     const fetchImpl = vi.fn(async () => response([]))
 
