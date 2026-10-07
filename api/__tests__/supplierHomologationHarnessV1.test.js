@@ -4,6 +4,7 @@ import {
   SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
   SUPPLIER_HOMOLOGATION_MAX_SAMPLES,
   SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS,
+  SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
   buildVisionComparePrompt,
   handleSupplierHomologationHarnessRequest,
   runSupplierHomologationHarness,
@@ -257,6 +258,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       expect.any(Object),
       expect.objectContaining({
         visionModel: 'google/gemini-2.5-flash',
+        visionProxyUrl: SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY,
       })
     )
   })
