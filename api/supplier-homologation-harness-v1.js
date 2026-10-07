@@ -20,7 +20,7 @@ export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
 ]
 
 export const SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY =
-  'https://ignite-prime-render-lab-api.onrender.com/api/system-tools?tool=ocr-openrouter'
+  'https://ignite-prime-render-lab-api.onrender.com/api/supplier-harness-ocr-proxy'
 
 
 function clean(value) {
@@ -186,14 +186,25 @@ export function buildVisionComparePrompt(compare = {}) {
   ].join('\n')
 }
 
-async function postVisionCompare(url, body, fetchImpl, timeoutMs) {
+async function postVisionCompare(
+  url,
+  body,
+  fetchImpl,
+  timeoutMs,
+  visionProxySecret = ''
+) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const res = await fetchImpl(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(visionProxySecret
+          ? { 'x-prime-lab-secret': visionProxySecret }
+          : {}),
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     })
@@ -220,6 +231,7 @@ export async function analyzeSupplierImageBlindCompare(
     visionModel = DEFAULT_VISION_MODEL,
     fetchImpl = fetch,
     timeoutMs = 12000,
+    visionProxySecret = '',
   } = {}
 ) {
   const image = await fetchDriveImage(clean(sample.drive_file_id), {
@@ -252,6 +264,7 @@ export async function analyzeSupplierImageBlindCompare(
     },
     fetchImpl,
     timeoutMs,
+    visionProxySecret,
   )
 
   if (!result.ok) {
@@ -547,6 +560,9 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
+        visionProxySecret:
+          deps.visionProxySecret ||
+          labApiSecret(deps.env || process.env),
       })
 
       results.push({
