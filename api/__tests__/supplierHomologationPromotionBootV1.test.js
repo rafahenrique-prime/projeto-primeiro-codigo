@@ -122,6 +122,24 @@ describe('Supplier Homologation Promotion Gate V1', () => {
             error: 0,
             cost_usd: 0.0003,
           },
+          vision: {
+            processed: [{
+              drive_file_id: 'puma-promo-audit-id',
+              status: 'ready',
+              audit: {
+                drive_file_id: 'puma-promo-audit-id',
+                model_effective: 'google/gemini-2.5-flash-lite',
+                proxy_route:
+                  'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+                prompt_version: 'supplier-vision-prompt-v1.0.0',
+                model_json: { canonical_family: 'PUMA_180' },
+                validation_status: 'ready',
+                confidence: 0.96,
+                cost_usd: 0.0003,
+                image_sha256: 'image-sha256',
+              },
+            }],
+          },
           duplicate: false,
         }),
       }
@@ -152,6 +170,15 @@ describe('Supplier Homologation Promotion Gate V1', () => {
     })
 
     const logText = logger.log.mock.calls[0][0]
+    expect(out.event.vision_diagnostics).toMatchObject([{
+      drive_file_id: 'puma-promo-audit-id',
+      status: 'ready',
+      audit: {
+        model_effective: 'google/gemini-2.5-flash-lite',
+        prompt_version: 'supplier-vision-prompt-v1.0.0',
+        image_sha256: 'image-sha256',
+      },
+    }])
     expect(logText).not.toContain('cycle-secret')
   })
 

@@ -7,6 +7,7 @@ import {
   rotatedScopeKeys,
   runSupplierCatalogCycle,
 } from '../_supplierCatalogCycle.js'
+import { resolveRenderLabVisionProxyUrl } from '../_supplierVisionWorker.js'
 
 import {
   handleSupplierCatalogCycleRequest,
@@ -417,6 +418,94 @@ describe('Supplier Catalog Cycle V1 — rotação e orçamento', () => {
     })
   })
 
+
+  it('persists a identidade visual no resumo do ciclo existente e usa o proxy LAB', async () => {
+    const driveFileId = 'puma-audit-cycle-id'
+    const audit = {
+      drive_file_id: driveFileId,
+      context: {
+        supplier: 'MIA',
+        brand: 'Puma',
+        canonical_family: 'PUMA_180',
+        model: 'Puma 180',
+        category: 'Tênis',
+      },
+      model_effective: 'google/gemini-2.5-flash-lite',
+      proxy_route: resolveRenderLabVisionProxyUrl(),
+      prompt_version: 'supplier-vision-prompt-v1.0.0',
+      model_json: { canonical_family: 'PUMA_180' },
+      validation_status: 'ready',
+      confidence: 0.96,
+      cost_usd: 0.0003,
+      image_sha256: 'image-sha256',
+    }
+    const finishFn = vi.fn(async () => ({ ok: true }))
+    const scannerFn = vi.fn(async () => ({
+      ok: true,
+      scopes: [{
+        key: 'MIA_PUMA_180',
+        status: 'completed',
+        scanned: 1,
+        new_count: 1,
+        changed_count: 0,
+        baseline_count: 0,
+        unchanged_count: 0,
+        reactivated_count: 0,
+        selected_for_pending: 1,
+        deferred_changes: 0,
+        deactivated: 0,
+        write_failures: 0,
+        _selected_drive_file_ids: [driveFileId],
+      }],
+    }))
+    const visionFn = vi.fn(async () => ({
+      ok: true,
+      queued: 1,
+      processed: [{
+        id: 'shadow-puma-audit',
+        drive_file_id: driveFileId,
+        supplier: 'MIA',
+        family: 'PUMA_180',
+        color: 'preto / branco',
+        confidence: 0.96,
+        status: 'ready',
+        persisted: true,
+        error_code: null,
+        usage: { cost_usd: 0.0003 },
+        audit,
+      }],
+    }))
+
+    const out = await runSupplierCatalogCycle({
+      cycle_key: 'supplier-cycle-homologation:puma-audit-ledger',
+      trigger: 'manual_homologation',
+      max_changes: 1,
+      scope_keys: ['MIA_PUMA_180'],
+      drive_file_ids: [driveFileId],
+    }, {
+      ...DEPS,
+      startFn: vi.fn(async () => ({
+        ok: true,
+        run_id: '91919191-9191-4191-8191-919191919191',
+        accepted: true,
+        status: 'running',
+      })),
+      finishFn,
+      scannerFn,
+      visionFn,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(visionFn.mock.calls[0][1]).toMatchObject({
+      visionProxyUrl: resolveRenderLabVisionProxyUrl(),
+      visionModel: 'google/gemini-2.5-flash-lite',
+    })
+    expect(finishFn.mock.calls[0][1].vision.processed[0]).toMatchObject({
+      drive_file_id: driveFileId,
+      audit,
+    })
+    expect(out.vision.processed[0].audit).toEqual(audit)
+  })
   it('rejeita IDs repetidos antes de iniciar o ciclo', async () => {
     const startFn = vi.fn()
     const out = await runSupplierCatalogCycle({

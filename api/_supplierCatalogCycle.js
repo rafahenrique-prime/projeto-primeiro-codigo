@@ -15,6 +15,8 @@ import {
 } from './_supplierDriveScanner.js'
 
 import {
+  DEFAULT_VISION_MODEL,
+  resolveRenderLabVisionProxyUrl,
   runSupplierVisionWorker,
 } from './_supplierVisionWorker.js'
 
@@ -389,8 +391,8 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       fetchImpl: deps.fetchImpl,
       rpcTimeoutMs: deps.rpcTimeoutMs,
       visionTimeoutMs: deps.visionTimeoutMs,
-      visionProxyUrl: deps.visionProxyUrl,
-      visionModel: deps.visionModel,
+      visionProxyUrl: resolveRenderLabVisionProxyUrl(),
+      visionModel: DEFAULT_VISION_MODEL,
     })
   }
 
@@ -412,9 +414,13 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
   const costUsd = processed.reduce(
     (sum, item) => sum + (
-      Number.isFinite(Number(item?.usage?.cost_usd))
-        ? Number(item.usage.cost_usd)
-        : 0
+      typeof item?.usage?.cost_usd === 'number' &&
+      Number.isFinite(item.usage.cost_usd)
+        ? item.usage.cost_usd
+        : typeof item?.audit?.cost_usd === 'number' &&
+            Number.isFinite(item.audit.cost_usd)
+          ? item.audit.cost_usd
+          : 0
     ),
     0,
   )
@@ -434,6 +440,8 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       ok: vision?.ok === true,
       queued: Number(vision?.queued) || 0,
       processed: processed.map((item) => ({
+        drive_file_id:
+          item.drive_file_id || item.audit?.drive_file_id || null,
         supplier: item.supplier || null,
         family: item.family || null,
         color: item.color || null,
@@ -442,9 +450,14 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
         persisted: item.persisted === true,
         error_code: item.error_code || null,
         cost_usd:
-          Number.isFinite(Number(item?.usage?.cost_usd))
-            ? Number(item.usage.cost_usd)
-            : null,
+          typeof item?.usage?.cost_usd === 'number' &&
+          Number.isFinite(item.usage.cost_usd)
+            ? item.usage.cost_usd
+            : typeof item?.audit?.cost_usd === 'number' &&
+                Number.isFinite(item.audit.cost_usd)
+              ? item.audit.cost_usd
+              : null,
+        audit: item.audit || null,
       })),
     },
     vision_ready_count: readyCount,

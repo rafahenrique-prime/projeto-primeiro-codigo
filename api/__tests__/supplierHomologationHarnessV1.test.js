@@ -125,6 +125,57 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     })
   })
 
+
+  it('preenche o contexto MIA/PUMA pelo scope canônico antes do gate', async () => {
+    const analyzeFn = vi.fn(async row => readyVision(row))
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision',
+      expected: { canonical_family: 'PUMA_180' },
+      samples: [{
+        supplier_key: 'MIA',
+        drive_file_id: 'puma-scope-test-id',
+      }],
+    }, {
+      analyzeFn,
+      visionProxyUrl: 'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+    })
+
+    expect(out.ok).toBe(true)
+    expect(analyzeFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supplier_key: 'MIA',
+        brand: 'Puma',
+        canonical_family: 'PUMA_180',
+        detected_model: 'Puma 180',
+        category: 'Tênis',
+      }),
+      expect.objectContaining({
+        visionProxyUrl:
+          'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+      })
+    )
+  })
+
+  it('bloqueia metadados de gate que contradizem o scope da família', async () => {
+    const analyzeFn = vi.fn()
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision',
+      expected: {
+        brand: 'Puma',
+        canonical_family: 'PUMA_180',
+        model: 'Puma Speedcat',
+        category: 'Tênis',
+      },
+      samples: [{
+        supplier_key: 'MIA',
+        drive_file_id: 'puma-scope-test-id',
+      }],
+    }, { analyzeFn })
+
+    expect(out.ok).toBe(false)
+    expect(out.error).toBe('HARNESS_VISION_SCOPE_METADATA_MISMATCH')
+    expect(analyzeFn).not.toHaveBeenCalled()
+  })
   it('família divergente vira REVIEW sem tentar corrigir ou gravar', async () => {
     const analyzeFn = vi.fn(async row => ({
       ...readyVision(row),
@@ -309,10 +360,26 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       expect.objectContaining({
         visionModel: 'google/gemini-2.5-flash',
         visionProxyUrl:
-          'https://preview.example/api/system-tools?tool=ocr-openrouter',
+          'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
         visionProxySecret: 'lab-secret',
       })
     )
+  })
+
+  it('fixa o modelo do gate standard no mesmo Gemini Flash Lite do worker', async () => {
+    const out = await runSupplierHomologationHarness({
+      mode: 'vision',
+      vision_model: 'google/gemini-2.5-flash',
+      expected: { canonical_family: 'PUMA_180' },
+      samples: [{
+        supplier_key: 'MIA',
+        drive_file_id: 'puma-model-pin-test-id',
+      }],
+    })
+
+    expect(out.ok).toBe(false)
+    expect(out.error).toBe('HARNESS_VISION_MODEL_MUST_MATCH_WORKER_DEFAULT')
+    expect(out.required_vision_model).toBe('google/gemini-2.5-flash-lite')
   })
 
   it('rejeita modelo Vision fora da allowlist do Harness', async () => {
@@ -575,6 +642,66 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     expect(official.state.payload.error).toBe('GABY_OFFICIAL_BLOCKED')
   })
 
+
+  it('endpoint registra a identidade de cada gate sem incluir o segredo LAB', async () => {
+    const res = mockRes()
+    const logger = { log: vi.fn() }
+    const audit = {
+      drive_file_id: 'audit-file-id',
+      context: {
+        supplier: 'VIVIAN',
+        brand: 'Nike',
+        canonical_family: 'NIKE_AIR_JORDAN_3',
+        model: 'Nike Air Jordan 3',
+        category: 'Tênis',
+      },
+      model_effective: 'google/gemini-2.5-flash-lite',
+      proxy_route:
+        'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+      prompt_version: 'supplier-vision-prompt-v1.0.0',
+      model_json: { canonical_family: 'NIKE_AIR_JORDAN_3' },
+      validation_status: 'ready',
+      confidence: 0.97,
+      cost_usd: 0.0003,
+      image_sha256: 'image-sha256',
+    }
+    const analyzeFn = vi.fn(async row => ({
+      ...readyVision(row),
+      audit,
+    }))
+
+    await handleSupplierHomologationHarnessRequest({
+      method: 'POST',
+      headers: {
+        'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+        'x-prime-lab-secret': 'lab-secret',
+      },
+      body: {
+        ...AJ3_INPUT,
+        run_key: 'gate-audit-v1',
+        samples: [AJ3_INPUT.samples[0]],
+      },
+    }, res, {
+      labApiSecret: 'lab-secret',
+      analyzeFn,
+      logger,
+    })
+
+    expect(res.state.status).toBe(200)
+    expect(logger.log).toHaveBeenCalledTimes(1)
+    const event = JSON.parse(logger.log.mock.calls[0][0])
+    expect(event).toMatchObject({
+      event: 'SUPPLIER_HOMOLOGATION_VISION_ANALYSIS',
+      run_key: 'gate-audit-v1',
+      vision_diagnostics: [{
+        drive_file_id: 'audit-file-id',
+        model_effective: 'google/gemini-2.5-flash-lite',
+        validation_status: 'ready',
+        image_sha256: 'image-sha256',
+      }],
+    })
+    expect(logger.log.mock.calls[0][0]).not.toContain('lab-secret')
+  })
   it('endpoint válido retorna 200 e nunca exige confirmação de write', async () => {
     const res = mockRes()
     const analyzeFn = vi.fn(async row => readyVision(row))

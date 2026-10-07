@@ -175,7 +175,7 @@ describe('Supplier Homologation Harness Boot V1', () => {
     })
   })
 
-  it('proxy explícito do ambiente tem prioridade sobre o fallback local', async () => {
+  it('ignora proxy externo do ambiente e força o proxy local do Render LAB', async () => {
     const runHarnessFn = vi.fn(async (_input, deps) => ({
       ok: true,
       mode: 'vision',
@@ -214,41 +214,73 @@ describe('Supplier Homologation Harness Boot V1', () => {
     })
 
     const deps = runHarnessFn.mock.calls[0][1]
-    expect(deps).not.toHaveProperty(
-      'visionProxyUrl',
-      'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
-    )
+    expect(deps).toMatchObject({
+      visionProxyUrl:
+        'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+    })
     expect(deps.env.SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL)
       .toContain('ignite-webhook.vercel.app')
   })
 
-  it('resume diagnostics de Vision sem expor drive_file_id ou payload', () => {
+  it('registra identidade e JSON estruturado da análise Vision no diagnóstico', () => {
+    const audit = {
+      drive_file_id: 'exact-drive-file-id',
+      context: {
+        supplier: 'MIA',
+        brand: 'Puma',
+        canonical_family: 'PUMA_180',
+        model: 'Puma 180',
+        category: 'Tênis',
+      },
+      model_requested: 'google/gemini-2.5-flash-lite',
+      model_effective: 'google/gemini-2.5-flash-lite',
+      proxy_route:
+        'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+      prompt_version: 'supplier-vision-prompt-v1.0.0',
+      prompt_sha256: 'prompt-hash',
+      model_json: { canonical_family: 'UNKNOWN', confidence: 0.72 },
+      validation_status: 'review',
+      validation_error_code: 'VISION_FAMILY_MISMATCH',
+      confidence: 0.72,
+      cost_usd: 0.0004,
+      image_sha256: 'image-hash',
+      image_bytes: 12345,
+      image_content_type: 'image/jpeg',
+      execution_identity: { sha256: 'execution-hash' },
+    }
     const diagnostics = buildVisionBootDiagnostics({
       vision: {
         results: [{
           index: 0,
           label: 'HEIF_1',
-          drive_file_id: 'secret-drive-id',
+          drive_file_id: 'ignored-fallback',
           status: 'review',
-          error_code: 'VISION_PROXY_HTTP_503',
+          error_code: 'VISION_FAMILY_MISMATCH',
           validation: {
             values: { vision_confidence: 0.72 },
           },
           usage: { cost_usd: 0.0004 },
-          parsed: { raw: 'secret' },
+          audit,
         }],
       },
     })
 
-    expect(diagnostics).toEqual([{
-      index: 0,
-      label: 'HEIF_1',
+    expect(diagnostics).toHaveLength(1)
+    expect(diagnostics[0]).toMatchObject({
+      drive_file_id: 'exact-drive-file-id',
       status: 'review',
-      error_code: 'VISION_PROXY_HTTP_503',
+      error_code: 'VISION_FAMILY_MISMATCH',
       confidence: 0.72,
       cost_usd: 0.0004,
-    }])
-    expect(diagnostics[0]).not.toHaveProperty('drive_file_id')
+      audit: {
+        model_effective: 'google/gemini-2.5-flash-lite',
+        proxy_route:
+          'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+        prompt_version: 'supplier-vision-prompt-v1.0.0',
+        image_sha256: 'image-hash',
+        model_json: { canonical_family: 'UNKNOWN', confidence: 0.72 },
+      },
+    })
     expect(diagnostics[0]).not.toHaveProperty('parsed')
   })
 

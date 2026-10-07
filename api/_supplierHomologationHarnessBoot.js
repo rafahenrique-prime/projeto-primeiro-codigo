@@ -1,6 +1,9 @@
 import {
   runSupplierHomologationHarness,
 } from './supplier-homologation-harness-v1.js'
+import {
+  resolveRenderLabVisionProxyUrl,
+} from './_supplierVisionWorker.js'
 
 function clean(value) {
   return String(value ?? '').trim()
@@ -38,16 +41,23 @@ export function buildVisionBootDiagnostics(result = {}) {
   return rows.slice(0, 6).map((item, index) => ({
     index: Number.isInteger(item?.index) ? item.index : index,
     label: clean(item?.label) || null,
-    status: clean(item?.status) || null,
-    error_code: clean(item?.error_code) || null,
+    drive_file_id: clean(item?.audit?.drive_file_id || item?.drive_file_id) || null,
+    status: clean(item?.audit?.validation_status || item?.status) || null,
+    error_code:
+      clean(item?.audit?.validation_error_code || item?.error_code) || null,
     confidence:
-      typeof item?.validation?.values?.vision_confidence === 'number'
-        ? item.validation.values.vision_confidence
-        : null,
+      typeof item?.audit?.confidence === 'number'
+        ? item.audit.confidence
+        : typeof item?.validation?.values?.vision_confidence === 'number'
+          ? item.validation.values.vision_confidence
+          : null,
     cost_usd:
-      typeof item?.usage?.cost_usd === 'number'
-        ? item.usage.cost_usd
-        : null,
+      typeof item?.audit?.cost_usd === 'number'
+        ? item.audit.cost_usd
+        : typeof item?.usage?.cost_usd === 'number'
+          ? item.usage.cost_usd
+          : null,
+    audit: item?.audit || null,
   }))
 }
 
@@ -151,20 +161,18 @@ export async function runSupplierHomologationHarnessBoot({
   let result
 
   try {
-    const configuredVisionProxyUrl =
-      clean(harnessDeps?.visionProxyUrl) ||
-      clean(env?.SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL)
-
-    const localVisionProxyUrl =
-      clean(baseUrl) && !configuredVisionProxyUrl
-        ? `${clean(baseUrl).replace(/\/$/, '')}/api/supplier-harness-ocr-proxy`
-        : null
+    let renderLabPort = env?.PORT
+    if (clean(baseUrl)) {
+      try {
+        renderLabPort = new URL(clean(baseUrl)).port || renderLabPort
+      } catch {}
+    }
+    const selectedVisionProxyUrl =
+      resolveRenderLabVisionProxyUrl(renderLabPort)
 
     result = await runHarnessFn(parsed.input, {
       ...harnessDeps,
-      ...(localVisionProxyUrl
-        ? { visionProxyUrl: localVisionProxyUrl }
-        : {}),
+      visionProxyUrl: selectedVisionProxyUrl,
       env,
     })
   } catch (error) {

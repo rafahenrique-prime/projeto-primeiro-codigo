@@ -12,6 +12,8 @@ import {
   fetchVisionQueue,
   analyzeSupplierImage,
   runSupplierVisionWorker,
+  SUPPLIER_VISION_PROMPT_VERSION,
+  resolveRenderLabVisionProxyUrl,
 } from '../_supplierVisionWorker.js'
 
 import {
@@ -161,6 +163,70 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
     expect(calls).toHaveLength(2)
   })
 
+
+  it('audita o proxy LAB, modelo, prompt e hash do arquivo sem credenciais', async () => {
+    const imageBytes = [255, 216, 255, 217]
+    const proxyUrl = resolveRenderLabVisionProxyUrl(10000)
+    const fetchImpl = vi.fn(async (url, init) => {
+      if (url.includes('lh3.googleusercontent.com')) {
+        return imageResponse(imageBytes, 'image/jpeg')
+      }
+      if (url === proxyUrl) {
+        return jsonResponse({
+          model: 'google/gemini-2.5-flash-lite',
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                brand: 'Nike',
+                canonical_family: 'NIKE_AIR_FORCE_1',
+                model: 'Nike Air Force 1',
+                category: 'Tênis',
+                color: 'preto',
+                confidence: 0.95,
+                family_match: true,
+                access_token: 'ghp_12345678901234567890',
+                note: 'ghp_12345678901234567890',
+              }),
+            },
+          }],
+          usage: { cost: 0.0001 },
+        })
+      }
+      throw new Error('URL inesperada: ' + url)
+    })
+
+    const out = await analyzeSupplierImage(ROW, {
+      visionProxyUrl: proxyUrl,
+      visionProxySecret: 'lab-secret',
+      fetchImpl,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(out.audit).toMatchObject({
+      drive_file_id: ROW.drive_file_id,
+      context: {
+        supplier: 'VIVIAN',
+        brand: 'Nike',
+        canonical_family: 'NIKE_AIR_FORCE_1',
+        model: 'Nike Air Force 1',
+        category: 'Tênis',
+      },
+      model_requested: 'google/gemini-2.5-flash-lite',
+      model_effective: 'google/gemini-2.5-flash-lite',
+      proxy_route: proxyUrl,
+      prompt_version: SUPPLIER_VISION_PROMPT_VERSION,
+      validation_status: 'ready',
+      confidence: 0.95,
+      cost_usd: 0.0001,
+      image_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+    })
+    expect(out.audit.execution_identity.sha256)
+      .toMatch(/^[a-f0-9]{64}$/)
+    expect(out.audit.model_json).not.toHaveProperty('access_token')
+    expect(out.audit.model_json.note).toBe('[REDACTED]')
+    expect(JSON.stringify(out.audit)).not.toContain('lab-secret')
+    expect(JSON.stringify(out.audit)).not.toContain('ghp_12345678901234567890')
+  })
   it('Court Borough recebe guidance específico contra Court Vision sem afetar famílias normais', () => {
     const borough = {
       ...ROW,
@@ -630,7 +696,7 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
         return imageResponse([255, 216, 255, 217], 'image/jpeg')
       }
 
-      if (url.includes('tool=ocr-openrouter')) {
+      if (url.includes('/api/supplier-harness-ocr-proxy')) {
         const body = JSON.parse(init.body)
         expect(body.model).toBe('google/gemini-2.5-flash-lite')
         expect(body.messages[0].content[1].type).toBe('image_url')
@@ -689,8 +755,7 @@ describe('Supplier Vision Worker V1 — funções puras', () => {
       publicKey: 'public-key',
       workerToken: 'worker-token',
       fetchImpl,
-      visionProxyUrl:
-        'https://ignite-webhook.vercel.app/api/system-tools?tool=ocr-openrouter',
+      visionProxyUrl: resolveRenderLabVisionProxyUrl(10000),
     })
 
     expect(out.ok).toBe(true)

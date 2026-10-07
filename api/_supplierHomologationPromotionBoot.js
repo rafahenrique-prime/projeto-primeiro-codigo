@@ -207,6 +207,14 @@ export async function runSupplierHomologationPromotionBoot({
     review: payload?.totals?.review ?? null,
     error_count: payload?.totals?.error ?? null,
     cost_usd: payload?.totals?.cost_usd ?? null,
+    vision_diagnostics: Array.isArray(payload?.vision?.processed)
+      ? payload.vision.processed.map(item => ({
+          drive_file_id:
+            item?.drive_file_id || item?.audit?.drive_file_id || null,
+          status: item?.status || null,
+          audit: item?.audit || null,
+        }))
+      : [],
     duplicate: payload?.duplicate ?? null,
     error:
       transportError ||

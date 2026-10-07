@@ -4,7 +4,9 @@ import {
   DEFAULT_VISION_PROXY,
   fetchDriveImage,
   parseVisionJson,
+  resolveRenderLabVisionProxyUrl,
 } from './_supplierVisionWorker.js'
+import { SCANNER_SCOPES } from './_supplierDriveScanner.js'
 import {
   GABY_OFFICIAL_AGENT_ID,
   LAB_HEADER_VALUE,
@@ -20,7 +22,7 @@ export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
 ]
 
 export const SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY =
-  'https://ignite-prime-render-lab-api.onrender.com/api/supplier-harness-ocr-proxy'
+  DEFAULT_VISION_PROXY
 
 export const SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV =
   'SUPPLIER_HOMOLOGATION_HARNESS_VISION_PROXY_URL'
@@ -31,10 +33,7 @@ function clean(value) {
 }
 
 export function resolveSupplierHomologationVisionProxy(env = process.env) {
-  return (
-    clean(env?.[SUPPLIER_HOMOLOGATION_VISION_PROXY_ENV]) ||
-    SUPPLIER_HOMOLOGATION_DEFAULT_VISION_PROXY
-  )
+  return resolveRenderLabVisionProxyUrl(env?.PORT)
 }
 
 function headerValue(req, name) {
@@ -87,20 +86,61 @@ function normalizeMode(value) {
     : null
 }
 
-function normalizedSample(sample = {}, expected = {}) {
-  return {
-    label: clean(sample.label) || null,
-    supplier_key: clean(sample.supplier_key),
-    drive_file_id: clean(sample.drive_file_id),
-    brand: clean(sample.brand || expected.brand),
-    canonical_family: clean(
-      sample.canonical_family || expected.canonical_family
-    ),
-    detected_model: clean(sample.model || expected.model),
-    category: clean(sample.category || expected.category),
-  }
+function matchingSupplierVisionScopes(supplier, family) {
+  return SCANNER_SCOPES.filter(scope =>
+    clean(scope.supplier).toUpperCase() === clean(supplier).toUpperCase() &&
+    normalizeKey(scope.canonical_family) === normalizeKey(family)
+  )
 }
 
+function isKnownExpectedValue(value) {
+  const normalized = clean(value).toLowerCase()
+  return Boolean(normalized) && !['unknown', 'desconhecido', 'n/a'].includes(normalized)
+}
+
+function normalizedSample(sample = {}, expected = {}) {
+  const supplier = clean(sample.supplier_key || sample.supplier)
+  const family = clean(sample.canonical_family || expected.canonical_family)
+  const explicit = {
+    brand: clean(sample.brand || expected.brand),
+    model: clean(sample.model || sample.detected_model || expected.model || expected.detected_model),
+    category: clean(sample.category || expected.category),
+  }
+  const scopes = matchingSupplierVisionScopes(supplier, family)
+  const profiles = new Set(scopes.map(scope =>
+    JSON.stringify([scope.brand || '', scope.model || '', scope.category || ''])
+  ))
+  const scope = scopes[0] || null
+  let contextError =
+    profiles.size > 1 ? 'HARNESS_VISION_SCOPE_AMBIGUOUS' : null
+
+  if (scope) {
+    const scopeValues = {
+      brand: scope.brand,
+      model: scope.model,
+      category: scope.category,
+    }
+    for (const [key, value] of Object.entries(explicit)) {
+      if (
+        isKnownExpectedValue(value) &&
+        normalizeKey(value) !== normalizeKey(scopeValues[key])
+      ) {
+        contextError = 'HARNESS_VISION_SCOPE_METADATA_MISMATCH'
+      }
+    }
+  }
+
+  return {
+    label: clean(sample.label) || null,
+    supplier_key: scope?.supplier || supplier,
+    drive_file_id: clean(sample.drive_file_id),
+    brand: scope?.brand || explicit.brand,
+    canonical_family: scope?.canonical_family || family,
+    detected_model: scope?.model || explicit.model,
+    category: scope?.category || explicit.category,
+    _context_error: contextError,
+  }
+}
 function normalizeKey(value) {
   return clean(value)
     .normalize('NFD')
@@ -398,8 +438,12 @@ function visionInputError(samples, expected) {
       return 'HARNESS_SUPPLIER_INVALID'
     }
     if (!row.drive_file_id) return 'HARNESS_DRIVE_FILE_ID_REQUIRED'
+    if (row._context_error) return row._context_error
     if (!row.canonical_family) return 'HARNESS_CANONICAL_FAMILY_REQUIRED'
     if (!row.brand) return 'HARNESS_BRAND_REQUIRED'
+    if (!row.detected_model || !row.category) {
+      return 'HARNESS_VISION_CONTEXT_REQUIRED'
+    }
   }
 
   return null
@@ -559,7 +603,22 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
     }
   }
 
-  const selectedVisionModel = requestedVisionModel || deps.visionModel
+  if (
+    wantsVision &&
+    requestedVisionModel &&
+    requestedVisionModel !== DEFAULT_VISION_MODEL
+  ) {
+    return {
+      ok: false,
+      error: 'HARNESS_VISION_MODEL_MUST_MATCH_WORKER_DEFAULT',
+      harness_version: SUPPLIER_HOMOLOGATION_HARNESS_VERSION,
+      required_vision_model: DEFAULT_VISION_MODEL,
+    }
+  }
+
+  const selectedVisionModel = wantsVision
+    ? DEFAULT_VISION_MODEL
+    : requestedVisionModel || deps.visionModel
 
   if (wantsVision) {
     const error = visionInputError(samples, expected)
@@ -609,12 +668,11 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
   if (wantsVision) {
     const results = []
     for (let index = 0; index < samples.length; index += 1) {
-      const row = normalizedSample(samples[index], expected)
+      const normalized = normalizedSample(samples[index], expected)
+      const { _context_error, ...row } = normalized
       const startedAt = Date.now()
       const out = await analyzeFn(row, {
-        visionProxyUrl:
-          deps.visionProxyUrl ||
-          resolveSupplierHomologationVisionProxy(deps.env || process.env),
+        visionProxyUrl: resolveRenderLabVisionProxyUrl(),
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: deps.visionTimeoutMs,
@@ -635,6 +693,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
         validation: out?.validation || null,
         usage: out?.usage || null,
         image: out?.image || null,
+        audit: out?.audit || null,
         duration_ms: Date.now() - startedAt,
       })
     }
@@ -665,9 +724,7 @@ export async function runSupplierHomologationHarness(input = {}, deps = {}) {
       const sample = samples[index]
       const startedAt = Date.now()
       const out = await compareAnalyzeFn(sample, compare, {
-        visionProxyUrl:
-          deps.visionProxyUrl ||
-          resolveSupplierHomologationVisionProxy(deps.env || process.env),
+        visionProxyUrl: resolveRenderLabVisionProxyUrl(),
         visionModel: selectedVisionModel,
         fetchImpl: deps.fetchImpl,
         timeoutMs: visionCompareTimeoutBudget(compare, deps.visionTimeoutMs),
@@ -859,6 +916,21 @@ export async function handleSupplierHomologationHarnessRequest(
     env,
     labApiSecret: expectedSecret,
   })
+
+  const visionDiagnostics = Array.isArray(result?.vision?.results)
+    ? result.vision.results
+        .map(item => item?.audit || null)
+        .filter(Boolean)
+    : []
+  if (visionDiagnostics.length > 0) {
+    const logger = deps.logger || console
+    logger.log(JSON.stringify({
+      event: 'SUPPLIER_HOMOLOGATION_VISION_ANALYSIS',
+      run_key: clean(body.run_key) || null,
+      model: result?.vision_model || DEFAULT_VISION_MODEL,
+      vision_diagnostics: visionDiagnostics,
+    }))
+  }
 
   const badInput = result?.ok === false &&
     String(result?.error || '').startsWith('HARNESS_')
