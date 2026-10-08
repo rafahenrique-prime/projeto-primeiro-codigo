@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest'
 import handler,{
-  equalSecret,permitted,summarizeInbound,responseForObservation,OBSERVER_EVENT
+  equalSecret,permitted,labAgentMatches,summarizeInbound,responseForObservation,OBSERVER_EVENT
 } from '../prime-control-story-hook-observer-v14c.js'
 
 const KEY='LAB_test_key_not_real'
@@ -55,6 +55,19 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   for(const secret of ['17913049392498618','PRIVATE_CHAT_SHOULD_NOT_LEAK',
     'gpt-files.com','DO_NOT_LOG','Qual valor?','3F8F4F4957CAD0DB118EE6F7BEE6FBA9',KEY])
     expect(rendered).not.toContain(secret)
+ })
+ it('rejects explicitly mismatched agent ID',async()=>{
+  process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
+  process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
+  expect(labAgentMatches(simulated)).toBe(true)
+  expect(labAgentMatches({message:{role:'user'}})).toBe(true)
+  expect(labAgentMatches({...simulated,agentId:'WRONG_AGENT'})).toBe(false)
+  const res=mockRes()
+  const logger=vi.spyOn(console,'info').mockImplementation(()=>{})
+  await handler({method:'POST',query:{},headers:{'content-type':'application/json','x-prime-lab-hook-key':KEY},
+    body:{...simulated,agentId:'WRONG_AGENT'}},res)
+  expect(res.code).toBe(403)
+  expect(logger).not.toHaveBeenCalled()
  })
  it('does not mistake an unrelated field for native Story metadata',()=>{
   const r=summarizeInbound({message:{role:'user',text:'TEST PRIME V14C',
