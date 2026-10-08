@@ -337,4 +337,136 @@ describe('Supplier Homologation Harness Boot V1', () => {
     expect(out.event.error).toBe('boom')
     expect(logger.log).toHaveBeenCalledTimes(1)
   })
+
+  it('persiste no Gate Ledger pelo handler real quando o boot usa o caminho padrão', async () => {
+    const driveFileId = 'synthetic-mia-motiva-boot-ledger-test'
+    const imageSha = 'a'.repeat(64)
+    const promptSha = 'b'.repeat(64)
+    const executionSha = 'c'.repeat(64)
+    const visionModel = 'google/gemini-2.5-flash-lite'
+    const proxyRoute =
+      'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy'
+    const analyzeFn = vi.fn(async row => ({
+      ok: true,
+      parsed: {
+        brand: 'Nike',
+        canonical_family: 'NIKE_MOTIVA',
+        model: 'Nike Motiva',
+        category: 'Tênis',
+        color: 'Preto',
+        confidence: 0.99,
+        family_match: true,
+      },
+      validation: {
+        status: 'ready',
+        error_code: null,
+        values: {
+          brand: 'Nike',
+          canonical_family: 'NIKE_MOTIVA',
+          detected_model: 'Nike Motiva',
+          category: 'Tênis',
+          visual_color: 'Preto',
+          vision_confidence: 0.99,
+        },
+      },
+      usage: { cost_usd: 0.0002 },
+      audit: {
+        drive_file_id: row.drive_file_id,
+        context: {
+          supplier: 'MIA',
+          brand: 'Nike',
+          canonical_family: 'NIKE_MOTIVA',
+          model: 'Nike Motiva',
+          category: 'Tênis',
+        },
+        model_requested: visionModel,
+        model_effective: visionModel,
+        proxy_route: proxyRoute,
+        prompt_version: 'supplier-vision-prompt-v1.0.0',
+        prompt_sha256: promptSha,
+        model_json: {
+          brand: 'Nike',
+          canonical_family: 'NIKE_MOTIVA',
+          model: 'Nike Motiva',
+          category: 'Tênis',
+          color: 'Preto',
+          confidence: 0.99,
+          family_match: true,
+        },
+        validation_status: 'ready',
+        confidence: 0.99,
+        cost_usd: 0.0002,
+        image_sha256: imageSha,
+        execution_identity: { sha256: executionSha },
+      },
+    }))
+    const ledgerFetchImpl = vi.fn(async (_url, init) => {
+      const payload = JSON.parse(init.body)
+      expect(payload.p_drive_file_id).toBe(driveFileId)
+      expect(payload.p_token).toBe('test-cycle-token')
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [{
+          inserted: true,
+          validation_status: 'READY',
+          created_at: '2026-10-08T00:00:00.000Z',
+        }],
+      }
+    })
+    const logger = { log: vi.fn() }
+
+    const out = await runSupplierHomologationHarnessBoot({
+      env: {
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED: 'true',
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_INPUT: JSON.stringify({
+          run_key: 'mia-motiva-ledger-boot-test',
+          mode: 'vision',
+          scope_key: 'MIA_NIKE_MOTIVA',
+          vision_model: visionModel,
+          expected: {
+            brand: 'Nike',
+            canonical_family: 'NIKE_MOTIVA',
+            model: 'Nike Motiva',
+            category: 'Tênis',
+          },
+          samples: [{
+            supplier_key: 'MIA',
+            drive_file_id: driveFileId,
+          }],
+        }),
+        LAB_PRODUCT_UNIVERSE_API_SECRET: 'test-lab-secret',
+        SUPABASE_URL: 'https://example.supabase.co',
+        VITE_SUPABASE_KEY: 'test-public-key',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: 'test-cycle-token',
+      },
+      harnessDeps: { analyzeFn, ledgerFetchImpl },
+      logger,
+    })
+
+    expect(out.ok).toBe(true)
+    expect(analyzeFn).toHaveBeenCalledTimes(1)
+    expect(ledgerFetchImpl).toHaveBeenCalledTimes(1)
+    expect(new URL(ledgerFetchImpl.mock.calls[0][0]).pathname)
+      .toBe('/rest/v1/rpc/lab_supplier_gate_ledger_record')
+    expect(out.result.gate_ledger).toMatchObject({
+      ok: true,
+      attempted: 1,
+      inserted: 1,
+      existing: 0,
+      failed: 0,
+    })
+
+    const loggedEvent = JSON.parse(logger.log.mock.calls[0][0])
+    expect(loggedEvent.gate_ledger_persistence).toMatchObject({
+      attempted: 1,
+      inserted: 1,
+      existing: 0,
+      failed: 0,
+      error_code: null,
+    })
+    expect(logger.log.mock.calls[0][0]).not.toContain('test-lab-secret')
+    expect(logger.log.mock.calls[0][0]).not.toContain('test-cycle-token')
+  })
+
 })

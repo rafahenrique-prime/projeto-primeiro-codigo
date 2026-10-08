@@ -1,6 +1,10 @@
 import {
-  runSupplierHomologationHarness,
+  handleSupplierHomologationHarnessRequest,
 } from './supplier-homologation-harness-v1.js'
+import {
+  LAB_HEADER_VALUE,
+  labApiSecret,
+} from './gaby-lab-product-universe-v1.js'
 import {
   resolveRenderLabVisionProxyUrl,
 } from './_supplierVisionWorker.js'
@@ -10,6 +14,30 @@ import {
 
 function clean(value) {
   return String(value ?? '').trim()
+}
+
+function createHarnessBootResponse() {
+  return {
+    statusCode: 200,
+    payload: null,
+    setHeader() {},
+    status(code) {
+      this.statusCode = code
+      return this
+    },
+    json(payload) {
+      this.payload = payload
+      return payload
+    },
+    end(body) {
+      try {
+        this.payload = JSON.parse(body)
+      } catch {
+        this.payload = null
+      }
+      return this.payload
+    },
+  }
 }
 
 export function buildComparisonBootDiagnostics(result = {}) {
@@ -128,7 +156,7 @@ export function parseSupplierHomologationHarnessBootInput(env = process.env) {
 
 export async function runSupplierHomologationHarnessBoot({
   env = process.env,
-  runHarnessFn = runSupplierHomologationHarness,
+  runHarnessFn = null,
   logger = console,
   harnessDeps = {},
   baseUrl = null,
@@ -173,11 +201,34 @@ export async function runSupplierHomologationHarnessBoot({
     const selectedVisionProxyUrl =
       resolveRenderLabVisionProxyUrl(renderLabPort)
 
-    result = await runHarnessFn(parsed.input, {
+    const runDeps = {
       ...harnessDeps,
       visionProxyUrl: selectedVisionProxyUrl,
       env,
-    })
+    }
+
+    if (typeof runHarnessFn === 'function') {
+      result = await runHarnessFn(parsed.input, runDeps)
+    } else {
+      const secret = labApiSecret(env)
+      const response = createHarnessBootResponse()
+      await handleSupplierHomologationHarnessRequest({
+        method: 'POST',
+        headers: {
+          'x-prime-lab': LAB_HEADER_VALUE,
+          'x-prime-lab-secret': secret,
+        },
+        body: parsed.input,
+      }, response, {
+        ...runDeps,
+        labApiSecret: secret,
+      })
+      result = response.payload || {
+        ok: false,
+        verdict: null,
+        error: 'HARNESS_BOOT_HANDLER_NO_RESPONSE',
+      }
+    }
   } catch (error) {
     result = {
       ok: false,
