@@ -7,6 +7,7 @@
  * appear in logs or returned JSON. Disabled unless expressly enabled.
  */
 import crypto from 'node:crypto'
+import {resolveStoryPilot} from './_primeControlStoryCorrelationV14c.js'
 
 export const OBSERVER_EVENT = 'PRIME_CONTROL_STORY_WEBHOOK_OBSERVED_V14C'
 const CONTENT_TYPE = 'application/json'
@@ -105,6 +106,18 @@ export default async function handler(req,res) {
   if(!asObject(req.body))return res.status(400).json({ok:false,error:'INVALID_PAYLOAD'})
   if(!labAgentMatches(req.body))return res.status(403).json({ok:false,error:'WRONG_LAB_AGENT'})
   const record=summarizeInbound(req.body,process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY)
-  console.info('[PrimeControlStoryObserver]',JSON.stringify(record))
-  return res.status(200).json(responseForObservation(record))
+  const ack=responseForObservation(record)
+  console.info('[PrimeControlStoryObserver]',JSON.stringify({...record,correlation_id:ack.correlation_id}))
+  // ACK the GPTMaker event before the optional LAB read-only lookup.
+  res.status(200).json(ack)
+  if(process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED==='true'
+     &&record.source_role==='USER') {
+    void resolveStoryPilot(req.body).catch(()=>{
+      console.info('[PrimeControlStoryCorrelation]',JSON.stringify({
+        event:'PRIME_CONTROL_STORY_CONTEXT_RESOLVED_V14C',status:'UNEXPECTED_ERROR',
+        correlation_id:ack.correlation_id,
+      }))
+    })
+  }
+  return res
 }
