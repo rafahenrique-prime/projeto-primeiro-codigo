@@ -58,6 +58,44 @@ async function boundedBinaryResponse(resp){
  }finally{await reader.cancel().catch(()=>{})}
 }
 
+/**
+ * Reuse the V1.4D verified LAB media transport for a gated consumer.
+ * This function NEVER logs or persists the image and returns bytes only to
+ * trusted server-side code; the caller must guard the respective feature.
+ */
+export async function loadVerifiedStoryMedia({env=process.env,fetchImpl=fetch}={}){
+ const secret=text(env.PRIME_CONTROL_STORY_RESOLVER_KEY)
+ const pilot=text(env.PRIME_CONTROL_STORY_PILOT_CHAT_ID)
+ if(!secret||!pilot||pilot.length>180)return {status:'NOT_CONFIGURED'}
+ try{
+  const r=await fetchImpl(MEDIA_GATE,{
+   method:'POST',
+   headers:{'content-type':'application/json','x-prime-story-resolver-key':secret},
+   body:JSON.stringify({chatId:pilot}),
+   redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(12500),
+  })
+  if(!r.ok){
+   let status='GATE_UNAVAILABLE'
+   const b=await r.json().catch(()=>null)
+   if(r.status===503&&b?.status==='MEDIA_GATE_DISABLED')status='VERCEL_GATE_DISABLED'
+   if(r.status===422&&b?.status==='VIDEO_NOT_ENABLED')status='VIDEO_NOT_ENABLED'
+   if(r.status===422&&b?.status==='MEDIA_UNAVAILABLE')status='MEDIA_UNAVAILABLE'
+   if(r.status===422&&b?.status==='UNSUPPORTED_MEDIA_TYPE')status='UNSUPPORTED_MEDIA_TYPE'
+   if(r.status===422&&b?.status==='NO_VALID_STORY_ON_LATEST_USER')status='NO_STORY_ON_LATEST_USER'
+   return {status,http_status:r.status}
+  }
+  const mime=text(r.headers.get('content-type')).split(';')[0].toLowerCase()
+  if(!ACCEPTED.has(mime))return {status:'MIME_BLOCKED',http_status:r.status}
+  const buffer=await boundedBinaryResponse(r)
+  if(!buffer)return {status:'MEDIA_SIZE_INVALID',http_status:r.status}
+  if(!imageSignatureOkay(buffer,mime))return {status:'MEDIA_SIGNATURE_INVALID',http_status:r.status}
+  const f=text(r.headers.get('x-prime-story-fingerprint'))
+  const fp=/^[0-9a-f]{24}$/.test(f)?f:null
+  return {status:'MEDIA_VERIFIED',http_status:r.status,media_type:mime,
+   story_fingerprint:fp,buffer}
+ }catch{return {status:'RELAY_NETWORK_OR_TIMEOUT'}}
+}
+
 /** Run only when both LAB gates are explicitly enabled. */
 export async function probeStoryMediaOnce({
  env=process.env,fetchImpl=fetch,logger=console.info,
@@ -74,41 +112,9 @@ export async function probeStoryMediaOnce({
  }
  if(env.PRIME_CONTROL_STORY_MEDIA_PROBE_ENABLED!=='true')
   return report('DISABLED')
- const secret=text(env.PRIME_CONTROL_STORY_RESOLVER_KEY)
- const pilot=text(env.PRIME_CONTROL_STORY_PILOT_CHAT_ID)
- if(!secret||!pilot||pilot.length>180)return report('NOT_CONFIGURED')
- try{
-  const r=await fetchImpl(MEDIA_GATE,{
-   method:'POST',
-   headers:{'content-type':'application/json','x-prime-story-resolver-key':secret},
-   body:JSON.stringify({chatId:pilot}),
-   redirect:'manual',
-   cache:'no-store',
-   signal:AbortSignal.timeout(12500),
-  })
-  if(!r.ok){
-   let failure='GATE_UNAVAILABLE'
-   // Only ever copy an explicit allowlisted status enum.
-   const b=await r.json().catch(()=>null)
-   if(r.status===503&&b?.status==='MEDIA_GATE_DISABLED')failure='VERCEL_GATE_DISABLED'
-   if(r.status===422&&b?.status==='VIDEO_NOT_ENABLED')failure='VIDEO_NOT_ENABLED'
-   if(r.status===422&&b?.status==='MEDIA_UNAVAILABLE')failure='MEDIA_UNAVAILABLE'
-   if(r.status===422&&b?.status==='UNSUPPORTED_MEDIA_TYPE')failure='UNSUPPORTED_MEDIA_TYPE'
-   if(r.status===422&&b?.status==='NO_VALID_STORY_ON_LATEST_USER')failure='NO_STORY_ON_LATEST_USER'
-   return report(failure,{http_status:r.status})
-  }
-  const mime=text(r.headers.get('content-type')).split(';')[0].toLowerCase()
-  if(!ACCEPTED.has(mime))return report('MIME_BLOCKED',{http_status:r.status})
-  const raw=await boundedBinaryResponse(r)
-  if(!raw)return report('MEDIA_SIZE_INVALID',{http_status:r.status})
-  if(!imageSignatureOkay(raw,mime))return report('MEDIA_SIGNATURE_INVALID',{http_status:r.status})
-  const f=text(r.headers.get('x-prime-story-fingerprint'))
-  const fp=/^[0-9a-f]{24}$/.test(f)?f:null
-  return report('MEDIA_VERIFIED',{http_status:r.status,
-   media_type:mime,bytes_count:raw.length,story_fingerprint:fp})
- }catch{
-  return report('RELAY_NETWORK_OR_TIMEOUT')
- }
+ const m=await loadVerifiedStoryMedia({env,fetchImpl})
+ return report(m.status,{http_status:m.http_status,media_type:m.media_type,
+  bytes_count:m.buffer?.length,story_fingerprint:m.story_fingerprint})
 }
 
 // No global cache, no media persistence, and never return image bytes.
