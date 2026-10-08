@@ -6,6 +6,7 @@ import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
 import supplierHarnessOcrProxyHandler from './api/_supplierHarnessOcrProxyRoute.js'
 import storyHandoffTraceProbeHandler from './api/story-handoff-trace-probe-v1.js'
+import primeControlGptmakerLabHandler from './api/prime-control-gptmaker-lab-v1.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 
@@ -61,6 +62,10 @@ app.post('/api/supplier-homologation-harness-v1', async (req, res) => {
 
 app.post('/api/story-handoff-trace-probe-v1', async (req, res) => {
   return storyHandoffTraceProbeHandler(req, res)
+})
+
+app.post('/api/prime-control-gptmaker-lab-v1', async (req, res) => {
+  return primeControlGptmakerLabHandler(req, res)
 })
 
 app.use((_req, res) => {
@@ -701,6 +706,63 @@ async function runSupplierCatalogCycleBootSmoke() {
 }
 
 
+async function runPrimeControlGptmakerProofBootSmoke() {
+  const enabled =
+    String(process.env.PRIME_CONTROL_GPTMAKER_PROOF_BOOT_SMOKE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const secret = String(process.env.PRIME_CONTROL_GPTMAKER_LAB_SECRET || '').trim()
+  if (!secret) {
+    console.log(JSON.stringify({
+      event: 'PRIME_CONTROL_GPTMAKER_PROOF_BOOT_SMOKE',
+      ok: false,
+      error: 'PRIME_CONTROL_GPTMAKER_LAB_SECRET_MISSING',
+    }))
+    return
+  }
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/prime-control-gptmaker-lab-v1`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+          'x-prime-control-secret': secret,
+        },
+        body: JSON.stringify({
+          lab_proof: 'HANDOFF_V14B',
+          pergunta: 'teste controlado',
+        }),
+      }
+    )
+
+    const payload = await res.json().catch(() => null)
+
+    console.log(JSON.stringify({
+      event: 'PRIME_CONTROL_GPTMAKER_PROOF_BOOT_SMOKE',
+      ok:
+        res.ok &&
+        payload?.sucesso === true &&
+        payload?.contexto?.proof_code === 'PC14B-GPTMAKER-CONSUMED',
+      http_status: res.status,
+      proof_code: payload?.contexto?.proof_code || null,
+      trace_id_present: Boolean(res.headers.get('x-prime-trace-id')),
+      error: payload?.erro || payload?.error || null,
+    }))
+  } catch (error) {
+    console.log(JSON.stringify({
+      event: 'PRIME_CONTROL_GPTMAKER_PROOF_BOOT_SMOKE',
+      ok: false,
+      error: error?.message || 'PROOF_BOOT_SMOKE_EXCEPTION',
+    }))
+  }
+}
+
 async function runStoryHandoffTraceBootSmoke() {
   const enabled =
     String(process.env.STORY_HANDOFF_TRACE_BOOT_SMOKE || '')
@@ -767,4 +829,5 @@ app.listen(port, '0.0.0.0', async () => {
   await runSupplierDriveScannerBootSmoke()
   await runSupplierCatalogCycleBootSmoke()
   await runStoryHandoffTraceBootSmoke()
+  await runPrimeControlGptmakerProofBootSmoke()
 })
