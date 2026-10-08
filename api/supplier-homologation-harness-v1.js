@@ -979,6 +979,7 @@ export async function handleSupplierHomologationHarnessRequest(
     const logger = deps.logger || console
     logger.log(JSON.stringify({
       event: 'SUPPLIER_HOMOLOGATION_VISION_ANALYSIS',
+      gate_run_key: result?.gate_run_key || null,
       model: result?.vision_model || DEFAULT_VISION_MODEL,
       vision_diagnostics: visionDiagnostics,
     }))

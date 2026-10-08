@@ -678,7 +678,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       },
       body: {
         ...AJ3_INPUT,
-        run_key: 'gate-audit-v1',
+        gate_run_key: expect.stringMatching(/^supplier-gate-[a-f0-9]{64}$/),
         samples: [AJ3_INPUT.samples[0]],
       },
     }, res, {
@@ -701,6 +701,8 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       }],
     })
     expect(logger.log.mock.calls[0][0]).not.toContain('lab-secret')
+    expect(event).not.toHaveProperty('run_key')
+    expect(logger.log.mock.calls[0][0]).not.toContain('gate-audit-v1')
   })
   it('endpoint válido retorna 200 e nunca exige confirmação de write', async () => {
     const res = mockRes()
