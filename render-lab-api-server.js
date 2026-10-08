@@ -1008,6 +1008,44 @@ async function runPrimeControlNativeStorySimBootOnce() {
   }
 }
 
+/**
+ * One-shot loopback proof of webhook observer: fake data ONLY.
+ * No GPTMaker channel, real story, customer, media, Vision or JEV involved.
+ */
+async function runPrimeControlStoryObserverBootOnce() {
+  if(process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_BOOT_ONCE!=='true')return
+  const secret=String(process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY||'').trim()
+  if(!secret)return console.info('[StoryHookObserverBoot]',JSON.stringify({ok:false,reason:'SECRET_MISSING'}))
+  const address=`http://127.0.0.1:${port}/api/prime-control-story-hook-observer-v14c`
+  const headers={'content-type':'application/json','x-prime-lab-hook-key':secret}
+  const cases=[
+    {name:'VALID_STORY',body:{agentId:'3F8F4F4957CAD0DB118EE6F7BEE6FBA9',
+      chatId:'SYNTHETIC_CHAT_NEVER_SENT',message:{role:'user',text:'Synthetic only',
+        metadata:{storyId:'SYNTHETIC_STORY_NEVER_SENT',
+          storyMediaUrl:'https://lab.invalid/synthetic-only.jpg',storyMediaType:'image/jpeg'}}},expected:200},
+    {name:'MISSING_STORY',body:{agentId:'3F8F4F4957CAD0DB118EE6F7BEE6FBA9',
+      chatId:'SYNTHETIC_CHAT_NEVER_SENT',message:{role:'user',text:'No Story'}},expected:200},
+    {name:'WRONG_AGENT',body:{agentId:'WRONG_AGENT',message:{role:'user'}},expected:403},
+  ]
+  const results=[]
+  for(const c of cases){
+    try{
+      const r=await fetch(address,{method:'POST',headers,
+        body:JSON.stringify(c.body),signal:AbortSignal.timeout(3500)})
+      const response=await r.json().catch(()=>null)
+      results.push({name:c.name,pass:r.status===c.expected &&
+        (c.expected!==200||response?.mode==='OBSERVE_ONLY'),http_status:r.status})
+    }catch{results.push({name:c.name,pass:false,error_class:'REQUEST_FAILED'})}
+  }
+  // Return/log ONLY selected test case names, HTTP status and booleans.
+  console.info('[StoryHookObserverBoot]',JSON.stringify({
+    event:'PRIME_CONTROL_STORY_HOOK_OBSERVER_BOOT_V14C',
+    ok:results.every(x=>x.pass),passed:results.filter(x=>x.pass).length,total:results.length,
+    results,external_calls:0,vision_calls:0,jev_calls:0,messages_sent:0,
+    actual_instagram_delivery:false,
+  }))
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -1026,4 +1064,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runPositiveV14CBootOnce().catch(() => {})
   void runVansScreenshotBootOnce().catch(() => {})
   void runPrimeControlNativeStorySimBootOnce().catch(() => {})
+  void runPrimeControlStoryObserverBootOnce().catch(() => {})
 })
