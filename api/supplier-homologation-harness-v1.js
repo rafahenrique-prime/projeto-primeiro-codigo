@@ -8,13 +8,18 @@ import {
 } from './_supplierVisionWorker.js'
 import { SCANNER_SCOPES } from './_supplierDriveScanner.js'
 import {
+  buildGateLedgerRecord,
+  createGateRunKey,
+  persistSupplierGateLedger,
+} from './_supplierGateLedger.js'
+import {
   GABY_OFFICIAL_AGENT_ID,
   LAB_HEADER_VALUE,
   handleProductUniverseRequest,
   labApiSecret,
 } from './gaby-lab-product-universe-v1.js'
 
-export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.3.1'
+export const SUPPLIER_HOMOLOGATION_HARNESS_VERSION = '1.3.2'
 export const SUPPLIER_HOMOLOGATION_MAX_SAMPLES = 6
 export const SUPPLIER_HOMOLOGATION_ALLOWED_VISION_MODELS = [
   'google/gemini-2.5-flash-lite',
@@ -917,6 +922,54 @@ export async function handleSupplierHomologationHarnessRequest(
     labApiSecret: expectedSecret,
   })
 
+  if (
+    ['vision', 'full'].includes(result?.mode) &&
+    Array.isArray(result?.vision?.results)
+  ) {
+    const gateRunKey = createGateRunKey(body.run_key)
+    const sampleInputs = Array.isArray(body.samples) ? body.samples : []
+    const ledgerRecords = result.vision.results.map(gateResult => {
+      const sample = sampleInputs[gateResult.index] || {}
+      const normalized = normalizedSample(sample, body.expected || {})
+      const matchingScopes = matchingSupplierVisionScopes(
+        normalized.supplier_key,
+        normalized.canonical_family,
+      )
+      const requestedScopeKey = clean(body.scope_key)
+      const scope = requestedScopeKey
+        ? matchingScopes.find(item => item.key === requestedScopeKey) || null
+        : matchingScopes.length === 1
+          ? matchingScopes[0]
+          : null
+
+      return buildGateLedgerRecord({
+        gate_run_key: gateRunKey,
+        scope_key: scope?.key || '',
+        supplier: normalized.supplier_key,
+        drive_file_id: gateResult.drive_file_id,
+        canonical_family: normalized.canonical_family,
+        brand: normalized.brand,
+        model: normalized.detected_model,
+        category: normalized.category,
+        result: gateResult,
+      })
+    })
+
+    result.gate_run_key = gateRunKey
+    result.gate_ledger = await persistSupplierGateLedger(ledgerRecords, {
+      supabaseUrl:
+        deps.supabaseUrl ||
+        env.SUPABASE_URL ||
+        env.VITE_SUPABASE_URL,
+      publicKey: deps.publicKey || env.VITE_SUPABASE_KEY,
+      cycleToken:
+        deps.cycleToken ||
+        env.SUPPLIER_CATALOG_CYCLE_TOKEN,
+      fetchImpl: deps.ledgerFetchImpl || deps.fetchImpl,
+      timeoutMs: deps.ledgerTimeoutMs,
+    })
+  }
+
   const visionDiagnostics = Array.isArray(result?.vision?.results)
     ? result.vision.results
         .map(item => item?.audit || null)
@@ -926,7 +979,6 @@ export async function handleSupplierHomologationHarnessRequest(
     const logger = deps.logger || console
     logger.log(JSON.stringify({
       event: 'SUPPLIER_HOMOLOGATION_VISION_ANALYSIS',
-      run_key: clean(body.run_key) || null,
       model: result?.vision_model || DEFAULT_VISION_MODEL,
       vision_diagnostics: visionDiagnostics,
     }))
