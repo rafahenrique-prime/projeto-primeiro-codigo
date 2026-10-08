@@ -15,6 +15,7 @@ import primeControlStoryHookObserver from './api/prime-control-story-hook-observ
 import primeControlStoryMediaProbeHandler from './api/prime-control-story-media-probe-v14d.js'
 import primeControlStoryRealVisionHandler from './api/prime-control-story-real-vision-v14d.js'
 import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-jev-v14d.js'
+import primeControlStoryVisualMatchHandler from './api/prime-control-story-visual-match-v14e.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -96,6 +97,7 @@ app.post('/api/prime-control-story-hook-observer-v14c', (req,res)=>primeControlS
 app.post('/api/prime-control-story-media-probe-v14d', (req,res)=>primeControlStoryMediaProbeHandler(req,res))
 app.post('/api/prime-control-story-real-vision-v14d', (req,res)=>primeControlStoryRealVisionHandler(req,res))
 app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStoryShadowJevHandler(req,res))
+app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlStoryVisualMatchHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -1055,6 +1057,33 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runStoryVisualMatchBootOnce(){
+ if(process.env.PRIME_CONTROL_STORY_VISUAL_MATCH_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ if(!key)return console.info('[PrimeControlStoryVisualMatchBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_STORY_VISUAL_MATCH_BOOT_V14E',status:'LAB_AUTH_NOT_CONFIGURED',
+ }))
+ try{
+  const r=await fetch(`http://127.0.0.1:${port}/api/prime-control-story-visual-match-v14e`,{
+   method:'POST',
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'ONE_SHOT_VISUAL_MATCH_REAL_STORY_V14E'}),
+   signal:AbortSignal.timeout(45000),
+  })
+  const j=await r.json().catch(()=>null)
+  console.info('[PrimeControlStoryVisualMatchBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_VISUAL_MATCH_BOOT_V14E',
+   status:typeof j?.status==='string'?j.status:'UNKNOWN',
+   http_status:r.status,run_id:typeof j?.run_id==='string'?j.run_id:null,
+   comparison_calls:j?.comparison_calls??null,
+   messages_sent:0,jev_calls:0,writes:0,
+  }))
+ }catch{console.info('[PrimeControlStoryVisualMatchBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_STORY_VISUAL_MATCH_BOOT_V14E',status:'RUN_TIMEOUT_OR_NETWORK',
+ }))}
+}
+
 async function runStoryShadowJevBootOnce(){
  if(process.env.PRIME_CONTROL_STORY_SHADOW_JEV_BOOT_ONCE!=='true')return
  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
@@ -1187,4 +1216,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runStoryMediaProbeBootOnce().catch(() => {})
   void runRealStoryVisionBootOnce().catch(() => {})
   void runStoryShadowJevBootOnce().catch(() => {})
+  void runStoryVisualMatchBootOnce().catch(() => {})
 })
