@@ -18,6 +18,7 @@ import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-
 import primeControlStoryVisualMatchHandler from './api/prime-control-story-visual-match-v14e.js'
 import primeControlStoryNativeBridgeHandler from './api/prime-control-story-native-bridge-v14g.js'
 import primeControlGabyToolPreviewHandler from './api/prime-control-gaby-tool-preview-v14h.js'
+import primeControlStoryRoutingV14iHandler from './api/prime-control-story-routing-preview-v14i.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -102,6 +103,7 @@ app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStor
 app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlStoryVisualMatchHandler(req,res))
 app.post('/api/prime-control-story-native-bridge-v14g', (req,res)=>primeControlStoryNativeBridgeHandler(req,res))
 app.post('/api/prime-control-gaby-tool-preview-v14h', (req,res)=>primeControlGabyToolPreviewHandler(req,res))
+app.post('/api/prime-control-story-routing-preview-v14i', (req,res)=>primeControlStoryRoutingV14iHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -1061,6 +1063,34 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runStoryRoutingMatrixV14iBootOnce(){
+ if(process.env.PRIME_CONTROL_STORY_ROUTING_V14I_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ if(!key)return console.info('[PrimeControlStoryRoutingV14I]',JSON.stringify({
+  status:'NO_LAB_SECRET',messages_sent:0,writes:0,
+ }))
+ try{
+  const r=await fetch(`http://127.0.0.1:${port}/api/prime-control-story-routing-preview-v14i`,{
+   method:'POST',signal:AbortSignal.timeout(6000),
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'RUN_SYNTHETIC_STORY_ROUTING_MATRIX_V14I'}),
+  })
+  const j=await r.json().catch(()=>null)
+  console.info('[PrimeControlStoryRoutingV14IBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_ROUTING_V14I_BOOT',status:typeof j?.status==='string'?j.status:'UNKNOWN',
+   passed:j?.passed??null,total:j?.total??null,http_status:r.status,
+   real_story_fetched:false,paid_ai_calls:0,
+   messages_sent:0,writes:0,gptmaker_action_modified:false,
+  }))
+ }catch{
+  console.info('[PrimeControlStoryRoutingV14IBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_ROUTING_V14I_BOOT',status:'ERROR_OR_TIMEOUT',
+   messages_sent:0,writes:0,
+  }))
+ }
+}
+
 async function runGabyToolPreviewBootOnce(){
  if(process.env.PRIME_CONTROL_GABY_TOOL_PREVIEW_BOOT_ONCE!=='true')return
  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
@@ -1279,4 +1309,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runStoryVisualMatchBootOnce().catch(() => {})
   void runNativeStoryBridgeBootOnce().catch(() => {})
   void runGabyToolPreviewBootOnce().catch(() => {})
+  void runStoryRoutingMatrixV14iBootOnce().catch(() => {})
 })
