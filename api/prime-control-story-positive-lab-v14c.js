@@ -44,10 +44,16 @@ export async function positiveReplay({fetchImpl=fetch,jevFn=decideStoryWithJev,e
   try{
     const r=await fetchImpl(PHOTO,{method:'GET',redirect:'manual',signal:AbortSignal.timeout(7000)})
     mime=String(r.headers.get('content-type')||'').split(';')[0].toLowerCase()
-    if(!r.ok||!['image/jpeg','image/png'].includes(mime)||Number(r.headers.get('content-length')||0)>700000)
+    if(!r.ok||!['image/jpeg','image/png','image/webp'].includes(mime)||Number(r.headers.get('content-length')||0)>700000)
       return {ok:false,stage:'MEDIA_GATE',status:'MEDIA_UNAVAILABLE',run_id:run}
     photo=Buffer.from(await r.arrayBuffer())
-    if(photo.length<16||photo.length>700000) return {ok:false,stage:'MEDIA_GATE',status:'MEDIA_INVALID',run_id:run}
+    const signatureOk= mime==='image/jpeg'
+      ? photo[0]===255&&photo[1]===216&&photo[2]===255
+      : mime==='image/png'
+        ? photo.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+        : photo.toString('ascii',0,4)==='RIFF'&&photo.toString('ascii',8,12)==='WEBP'
+    if(photo.length<16||photo.length>700000||!signatureOk)
+      return {ok:false,stage:'MEDIA_GATE',status:'MEDIA_INVALID',run_id:run}
   }catch{return {ok:false,stage:'MEDIA_GATE',status:'MEDIA_NETWORK_ERROR',run_id:run}}
 
   const key=String(env.LAB_PRODUCT_UNIVERSE_API_SECRET||'')
