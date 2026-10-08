@@ -12,6 +12,7 @@ import primeControlPositiveHandler from './api/prime-control-story-positive-lab-
 import primeControlVansScreenshotHandler from './api/prime-control-vans-screenshot-lab-v14c.js'
 import primeControlNativeStoryHandler from './api/prime-control-native-story-lab-v14c.js'
 import primeControlStoryHookObserver from './api/prime-control-story-hook-observer-v14c.js'
+import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
@@ -1046,6 +1047,31 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runStoryContextResolverBootOnce(){
+  if(process.env.PRIME_CONTROL_STORY_RESOLVER_BOOT_ONCE!=='true')return
+  const chatId=String(process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID||'')
+  try{
+    const result=await resolveStoryPilot({chatId,message:{role:'user'}},{dedupe:false})
+    console.info('[StoryResolverBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V14C',
+      status:result.status,
+      story_present:result.story_present===true,
+      agent_verified:result.agent_verified===true,
+      media_available:result.story_media_available===true,
+      story_fingerprint:result.story_fingerprint||null,
+      chat_fingerprint:result.chat_fingerprint||null,
+      http_status:result.http_status??null,
+      run_id:result.run_id,
+      actual_instagram_delivery:false,
+      outbound_messages:0,vision_calls:0,jev_calls:0,media_downloads:0,
+    }))
+  }catch{
+    console.info('[StoryResolverBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V14C',status:'UNEXPECTED_ERROR',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -1065,4 +1091,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runVansScreenshotBootOnce().catch(() => {})
   void runPrimeControlNativeStorySimBootOnce().catch(() => {})
   void runPrimeControlStoryObserverBootOnce().catch(() => {})
+  void runStoryContextResolverBootOnce().catch(() => {})
 })
