@@ -25,6 +25,17 @@ export const SCANNER_SCOPES = Object.freeze([
     drive_path: '/PUMA/Puma 180',
   },
   {
+    key: 'MIA_NIKE_MOTIVA',
+    cycle_enabled: false,
+    supplier: 'MIA',
+    canonical_family: 'NIKE_MOTIVA',
+    brand: 'Nike',
+    model: 'Nike Motiva',
+    category: 'Tênis',
+    folder_id: '1OuV6TofVL7dPeU0ZnjlzCuLRh3tCZ3zO',
+    drive_path: '/NIKE/Nike Motiva',
+  },
+  {
     key: 'VIVIAN_AIR_FORCE_1',
     supplier: 'VIVIAN',
     canonical_family: 'NIKE_AIR_FORCE_1',
