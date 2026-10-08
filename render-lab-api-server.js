@@ -824,6 +824,46 @@ async function runStoryHandoffTraceBootSmoke() {
   }
 }
 
+async function runPrimeControlStoryV14CBootSmoke() {
+  if (String(process.env.PRIME_CONTROL_STORY_LAB_BOOT_SMOKE || '').toLowerCase() !== 'true') return
+  const secret = String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY || '').trim()
+  if (!secret) {
+    console.log(JSON.stringify({event:'PRIME_CONTROL_STORY_LAB_BOOT_SMOKE',ok:false,error:'KEY_MISSING'}))
+    return
+  }
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/prime-control-story-lab-v14c`,{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+        'x-prime-control-story-key':secret,
+      },
+      body:JSON.stringify({case:'PRIME_LOGO_NEGATIVE',confirm:'RUN_STORY_LAB_V14C'}),
+      signal:AbortSignal.timeout(23000),
+    })
+    const b=await r.json().catch(()=>null)
+    console.log(JSON.stringify({
+      event:'PRIME_CONTROL_STORY_LAB_BOOT_SMOKE',
+      ok:r.ok && b?.ok===true,
+      http_status:r.status,
+      stage:b?.stage??null,
+      vision_status:b?.result?.vision?.status??null,
+      catalog_source:b?.result?.catalog?.source??null,
+      jev_executed:b?.result?.jev?.executed??null,
+      story_real:b?.result?.actual_instagram_story??null,
+      correlation_id_present:Boolean(b?.correlation_id),
+      payload_sha256_present:Boolean(b?.trace_sha256),
+      error:b?.error??null,
+    }))
+  } catch(error) {
+    console.log(JSON.stringify({
+      event:'PRIME_CONTROL_STORY_LAB_BOOT_SMOKE',
+      ok:false,error:error?.name==='TimeoutError'?'TIMEOUT':'NETWORK_FAILURE',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -837,4 +877,5 @@ app.listen(port, '0.0.0.0', async () => {
   await runSupplierCatalogCycleBootSmoke()
   await runStoryHandoffTraceBootSmoke()
   await runPrimeControlGptmakerProofBootSmoke()
+  void runPrimeControlStoryV14CBootSmoke().catch(() => {})
 })
