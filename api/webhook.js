@@ -16,6 +16,7 @@ import {
 } from './_visaoProduto.js'
 import { decideStoryWithJev, getJevStoryMode, isExplicitStoryReference } from './_jevStoryDecision.js'
 import { compararStoryComCandidatos, getStoryVisualMatchMode, getStoryVisualMatchMinConfidence } from './_visualMatchProduto.js'
+import { buildStoryHandoffTrace, emitStoryHandoffTrace, getStoryHandoffTraceMode } from './_storyHandoffTrace.js'
 
 // Remove um único `$` residual no início do valor (artefato de substituição de
 // variável do GPT Maker em algumas Ações). Não mexe em `$` no meio da string.
@@ -724,6 +725,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const requestStartedAtMs = Date.now()
     // Nunca logar req.body bruto: campos nomeados e truncados só.
     const perguntaBruta = req.body?.prompt || req.body?.pergunta || req.body?.message ||
       req.body?.text || req.body?.input || req.body?.msg || req.body?.content || req.body?.query || req.body?.body || ''
@@ -802,6 +804,7 @@ export default async function handler(req, res) {
     let fallbackUsed = false
     let storyIdParaTrace = null
     let storyRawQuestionUsed = false
+    let catalogStageReached = false
     // Correção #2 (2026-09-06): true assim que um Story ATUAL com mídia é
     // confirmado (linha abaixo), independente de Vision/parser/matching/fallback
     // terem sucesso depois — nunca revertido. Deliberadamente diferente de
@@ -928,6 +931,7 @@ export default async function handler(req, res) {
       searchKnowledge(buscaTexto, pergunta),
       getMemoryBlock(cliente_id, { suppressProductFields: hasCurrentStory }),
     ])
+    catalogStageReached = true
 
     const isStorySearch = buscaTexto !== pergunta
 
@@ -1364,6 +1368,38 @@ export default async function handler(req, res) {
     }
 
     console.log(`[Webhook] ✅ Encontrados ${respostaGPT.contexto.produtos_encontrados} produtos`)
+
+    // V1.4B — prova técnica do handoff webhook -> GPTMaker.
+    // Só metadados operacionais sanitizados + SHA-256 do payload final.
+    // Nunca grava pergunta, chat_id, cliente_id, telefone, URL de mídia,
+    // nome de produto ou o próprio payload.
+    const storyHandoffTraceMode = getStoryHandoffTraceMode()
+    if (
+      storyHandoffTraceMode !== 'off' &&
+      (hasCurrentStory || explicitStoryReference || storyIdParaTrace)
+    ) {
+      const traceEvent = buildStoryHandoffTrace({
+        correlationId,
+        storyId: storyIdParaTrace,
+        storyContextStatus,
+        visionStatus,
+        catalogStageReached,
+        searchContextUsed,
+        fallbackUsed,
+        candidateCount: candidatos.length,
+        jevMode: jevStoryMode,
+        jevStatus: jevStoryDecision.status,
+        jevAction: jevStoryDecision.action,
+        jevReason: jevStoryDecision.reason,
+        responsePayload: respostaGPT,
+        requestStartedAtMs,
+      })
+
+      if (emitStoryHandoffTrace(traceEvent)) {
+        res.setHeader('X-Prime-Trace-Id', correlationId)
+        res.setHeader('X-Prime-Trace-Version', '1.4B')
+      }
+    }
 
     return res.status(200).json(respostaGPT)
 
