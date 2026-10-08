@@ -69,17 +69,17 @@ function textoDaMensagem(mensagem) {
   return texto.trim().slice(0, 300)
 }
 
-export async function getStoryContext(chatId) {
+export async function getStoryContext(chatId, { token = process.env.VITE_GPTMAKER_TOKEN, fetchImpl = fetch } = {}) {
   if (!chatId || typeof chatId !== 'string') return { status: 'NO_STORY_IN_LATEST_MESSAGE' }
 
-  const token = process.env.VITE_GPTMAKER_TOKEN
+  // Explicit test dependencies preserve the normal production defaults.
   if (!token) return { status: 'GPTMAKER_FETCH_ERROR' }
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), GPTMAKER_MESSAGES_TIMEOUT_MS)
 
   try {
-    const res = await fetch(`https://api.gptmaker.ai/v2/chat/${encodeURIComponent(chatId)}/messages`, {
+    const res = await fetchImpl(`https://api.gptmaker.ai/v2/chat/${encodeURIComponent(chatId)}/messages`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
