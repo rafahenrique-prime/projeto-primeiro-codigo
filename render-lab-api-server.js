@@ -9,6 +9,7 @@ import storyHandoffTraceProbeHandler from './api/story-handoff-trace-probe-v1.js
 import primeControlGptmakerLabHandler from './api/prime-control-gptmaker-lab-v1.js'
 import primeControlStoryReplayHandler from './api/prime-control-story-lab-v14c.js'
 import primeControlPositiveHandler from './api/prime-control-story-positive-lab-v14c.js'
+import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 import { runSupplierGateLedgerSmoke } from './api/_supplierGateLedger.js'
@@ -867,6 +868,26 @@ async function runPrimeControlStoryV14CBootSmoke() {
   }
 }
 
+async function probePositiveLabPhotoOnce() {
+  if(process.env.PRIME_CONTROL_POSITIVE_MEDIA_PROBE!=='true')return
+  try{
+    const res=await fetch(primeControlPositivePhoto,{method:'GET',redirect:'manual',signal:AbortSignal.timeout(7000)})
+    const type=String(res.headers.get('content-type')||'').split(';')[0]
+    const length=Number(res.headers.get('content-length')||0)
+    console.info('[PrimeControlPositiveMediaProbe]',JSON.stringify({
+      event:'PRIME_CONTROL_POSITIVE_MEDIA_PROBE',ok:res.ok,
+      http_status:res.status,type,size_bytes:length,
+      jev_key_present:Boolean(process.env.OPENROUTER_API_KEY),
+    }))
+  }catch(e){
+    console.info('[PrimeControlPositiveMediaProbe]',JSON.stringify({
+      event:'PRIME_CONTROL_POSITIVE_MEDIA_PROBE',
+      ok:false,error_class:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK_ERROR',
+      jev_key_present:Boolean(process.env.OPENROUTER_API_KEY),
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -881,4 +902,5 @@ app.listen(port, '0.0.0.0', async () => {
   await runStoryHandoffTraceBootSmoke()
   await runPrimeControlGptmakerProofBootSmoke()
   void runPrimeControlStoryV14CBootSmoke().catch(() => {})
+  void probePositiveLabPhotoOnce().catch(() => {})
 })
