@@ -15,9 +15,9 @@ function ocr() {
 }
 describe('PRIME CONTROL V1.4C (LAB only)',()=>{
   it('bloqueia acesso sem credencial ou canal LAB',()=>{
-    expect(authorized({headers:{}},{LAB_PRODUCT_UNIVERSE_API_SECRET:secret})).toBe(false)
-    expect(authorized({headers:{'x-prime-lab-secret':secret,'x-prime-lab':'GABY-LAB-COMERCIAL-V1'}},{LAB_PRODUCT_UNIVERSE_API_SECRET:secret})).toBe(true)
-    expect(authorized({headers:{'x-prime-lab-secret':secret,'x-prime-lab':'GABY-OFICIAL'}},{LAB_PRODUCT_UNIVERSE_API_SECRET:secret})).toBe(false)
+    expect(authorized({headers:{}},{PRIME_CONTROL_STORY_LAB_SHARED_KEY:secret})).toBe(false)
+    expect(authorized({headers:{'x-prime-control-story-key':secret,'x-prime-lab':'GABY-LAB-COMERCIAL-V1'}},{PRIME_CONTROL_STORY_LAB_SHARED_KEY:secret})).toBe(true)
+    expect(authorized({headers:{'x-prime-control-story-key':secret,'x-prime-lab':'GABY-OFICIAL'}},{PRIME_CONTROL_STORY_LAB_SHARED_KEY:secret})).toBe(false)
   })
   it('chama apenas fixture em GitHub e proxy interno, sem Supabase e sem GPTMaker',async()=>{
     const urls=[]
@@ -41,7 +41,7 @@ describe('PRIME CONTROL V1.4C (LAB only)',()=>{
   })
   it('não declara Vision bem-sucedida quando provedor falha',async()=>{
     const fetchImpl=vi.fn(async url => url===LAB_STORY_MEDIA?image():new Response('{}',{status:502}))
-    const out=await executeLabStoryReplay({fetchImpl,env:{LAB_PRODUCT_UNIVERSE_API_SECRET:secret}})
+    const out=await executeLabStoryReplay({fetchImpl,env:{PRIME_CONTROL_STORY_LAB_SHARED_KEY:secret}})
     expect(out.ok).toBe(false)
     expect(out.stage).toBe('VISION_FAILED')
     expect(out.result.vision.status).toBe('ERROR')

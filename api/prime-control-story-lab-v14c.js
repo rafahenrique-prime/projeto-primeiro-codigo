@@ -18,8 +18,10 @@ const MODEL = 'google/gemini-2.5-flash-lite'
 const TIMEOUT_MS = 12_000
 
 export function authorized(req, env = process.env) {
-  const expected = String(env.LAB_PRODUCT_UNIVERSE_API_SECRET || '').trim()
-  const actual = String(req?.headers?.['x-prime-lab-secret'] || '').trim()
+  // The V1.4C bridge has its own key; the supplier gate secret must not
+  // grant access here. Only the dedicated GABY LAB MCP holds this key.
+  const expected = String(env.PRIME_CONTROL_STORY_LAB_SHARED_KEY || '').trim()
+  const actual = String(req?.headers?.['x-prime-control-story-key'] || '').trim()
   return Boolean(expected && actual && actual === expected
     && req?.headers?.['x-prime-lab'] === 'GABY-LAB-COMERCIAL-V1')
 }
