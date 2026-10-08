@@ -80,8 +80,9 @@ export async function decideStoryWithJev({
   storyContextStatus,
   visionStatus,
   visualMatch = null,
+  labModeOverride = null,
 }) {
-  const mode = getJevStoryMode()
+  const mode = labModeOverride === 'guard' ? 'guard' : getJevStoryMode()
   if (mode === 'off') {
     return {
       status: 'disabled',
