@@ -10,6 +10,7 @@ import primeControlGptmakerLabHandler from './api/prime-control-gptmaker-lab-v1.
 import primeControlStoryReplayHandler from './api/prime-control-story-lab-v14c.js'
 import primeControlPositiveHandler from './api/prime-control-story-positive-lab-v14c.js'
 import primeControlVansScreenshotHandler from './api/prime-control-vans-screenshot-lab-v14c.js'
+import primeControlNativeStoryHandler from './api/prime-control-native-story-lab-v14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
@@ -80,6 +81,8 @@ app.post('/api/prime-control-story-lab-v14c', async (req, res) => {
 app.post('/api/prime-control-story-positive-lab-v14c', (req,res) => primeControlPositiveHandler(req,res))
 
 app.post('/api/prime-control-vans-screenshot-lab-v14c', (req,res) => primeControlVansScreenshotHandler(req,res))
+
+app.post('/api/prime-control-native-story-lab-v14c', (req,res)=>primeControlNativeStoryHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -959,6 +962,48 @@ async function runVansScreenshotBootOnce(){
   }
 }
 
+async function runPrimeControlNativeStorySimBootOnce() {
+  if(process.env.PRIME_CONTROL_NATIVE_STORY_BOOT_ONCE!=='true')return
+  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+  if(!key){
+    console.info('[PrimeControlNativeStoryBoot]',JSON.stringify({event:'PRIME_CONTROL_NATIVE_STORY_BOOT',ok:false,reason:'KEY_MISSING'}))
+    return
+  }
+  try{
+    const response=await fetch(`http://127.0.0.1:${port}/api/prime-control-native-story-lab-v14c`,{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-prime-control-story-key':key,
+        'x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+      },
+      body:JSON.stringify({case:'NATIVE_METADATA_VANS_V14C',confirm:'RUN_NATIVE_METADATA_SIM_V14C'}),
+      signal:AbortSignal.timeout(5000),
+    })
+    const json=await response.json().catch(()=>null)
+    console.info('[PrimeControlNativeStoryBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_NATIVE_STORY_BOOT',
+      ok:response.ok&&json?.ok===true,http_status:response.status,
+      run_id:json?.run_id||null,case_count:json?.cases?.length??null,
+      all_passed:Array.isArray(json?.cases)&&json.cases.every(x=>x.passed),
+      simulated_fetches:json?.simulated_fetches??null,
+      external_calls:json?.external_calls??null,
+      image_analysis_calls:json?.image_analysis_calls??null,
+      catalog_calls:json?.catalog_calls??null,
+      jev_calls:json?.jev_calls??null,
+      client_messages_sent:json?.client_messages_sent??null,
+      actual_instagram_delivery:false,
+      trace_sha256:json?.trace_sha256||null,
+      error:json?.error||null,
+    }))
+  }catch(e){
+    console.info('[PrimeControlNativeStoryBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_NATIVE_STORY_BOOT',ok:false,
+      error_class:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -976,4 +1021,5 @@ app.listen(port, '0.0.0.0', async () => {
   void probePositiveLabPhotoOnce().catch(() => {})
   void runPositiveV14CBootOnce().catch(() => {})
   void runVansScreenshotBootOnce().catch(() => {})
+  void runPrimeControlNativeStorySimBootOnce().catch(() => {})
 })
