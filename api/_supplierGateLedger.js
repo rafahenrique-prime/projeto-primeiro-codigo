@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 
 const GATE_LEDGER_STATUSES = new Set(['READY', 'REVIEW', 'ERROR'])
 const MODEL_JSON_FIELDS = [
@@ -19,6 +19,7 @@ const VALIDATION_VALUE_FIELDS = [
   'vision_confidence',
 ]
 const SHA256_PATTERN = /^[a-f0-9]{64}$/
+const GATE_LEDGER_CYCLE_TOKEN_SHA256 = 'bd10d0ac064687a589531591e114671fdb37c1a37aa7fa64a506a1af05a8cd13'
 const SECRET_VALUE_PATTERN =
   /Bearer\s+[A-Za-z0-9._~+/-]+=*|\b(?:sk|gh[pousr]|xox[baprs]|github_pat)[_-][A-Za-z0-9._-]{16,}\b|\bAIza[0-9A-Za-z_-]{30,}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/gi
 
@@ -387,7 +388,11 @@ export async function persistSupplierGateLedger(records, {
       results.push({
         drive_file_id: record.drive_file_id,
         outcome: 'failed',
-        error_code: response.error_code || 'GATE_LEDGER_RECORD_REJECTED',
+        error_code: response.error_code || (
+          response.ok
+            ? 'GATE_LEDGER_RPC_EMPTY_RESULT'
+            : 'GATE_LEDGER_RECORD_REJECTED'
+        ),
       })
       continue
     }
@@ -456,5 +461,185 @@ export async function readReusableSupplierGateLedger(identity, {
     ok: true,
     row: isReusableSupplierGateLedgerEntry(row, identity) ? row : null,
     error_code: null,
+  }
+}
+
+
+const SYNTHETIC_GATE_LEDGER_TEST_ID = 'TEST_GATE_LEDGER_SYNTHETIC_SMOKE_V1'
+
+export function getSupplierGateLedgerTokenDiagnostics(cycleToken) {
+  const token = typeof cycleToken === 'string' ? cycleToken : ''
+  const cycleTokenPresent = token.trim().length > 0
+  const tokenDigest = createHash('sha256').update(token, 'utf8').digest()
+  const expectedDigest = Buffer.from(GATE_LEDGER_CYCLE_TOKEN_SHA256, 'hex')
+  const gateLedgerTokenMatch = cycleTokenPresent &&
+    tokenDigest.length === expectedDigest.length &&
+    timingSafeEqual(tokenDigest, expectedDigest)
+
+  return {
+    cycle_token_present: cycleTokenPresent,
+    gate_ledger_token_match: Boolean(gateLedgerTokenMatch),
+  }
+}
+
+function syntheticTestSha256(value) {
+  return createHash('sha256').update(String(value), 'utf8').digest('hex')
+}
+
+export function buildSyntheticSupplierGateLedgerRecord({
+  analyzed_at = new Date().toISOString(),
+} = {}) {
+  const driveFileId = SYNTHETIC_GATE_LEDGER_TEST_ID
+  const context = {
+    supplier: 'MIA',
+    brand: 'TEST',
+    canonical_family: 'TEST_GATE_LEDGER_SYNTHETIC',
+    model: 'Synthetic Ledger Test',
+    category: 'TEST',
+  }
+  const modelJson = {
+    brand: context.brand,
+    canonical_family: context.canonical_family,
+    model: context.model,
+    category: context.category,
+    color: 'TEST_ONLY',
+    confidence: 1,
+    family_match: true,
+  }
+  const validation = {
+    status: 'ready',
+    error_code: null,
+    values: {
+      brand: context.brand,
+      canonical_family: context.canonical_family,
+      detected_model: context.model,
+      category: context.category,
+      visual_color: 'TEST_ONLY',
+      vision_confidence: 1,
+    },
+  }
+
+  return buildGateLedgerRecord({
+    gate_run_key: SYNTHETIC_GATE_LEDGER_TEST_ID,
+    scope_key: 'LAB_GATE_LEDGER_SYNTHETIC_TEST',
+    supplier: context.supplier,
+    drive_file_id: driveFileId,
+    canonical_family: context.canonical_family,
+    brand: context.brand,
+    model: context.model,
+    category: context.category,
+    analyzed_at,
+    result: {
+      status: 'ready',
+      validation,
+      usage: { cost_usd: 0 },
+      audit: {
+        drive_file_id: driveFileId,
+        context,
+        model_effective: 'synthetic-test/no-model',
+        proxy_route: 'http://127.0.0.1:10000/api/supplier-harness-ocr-proxy',
+        prompt_version: 'supplier-gate-ledger-synthetic-test-v1',
+        prompt_sha256: syntheticTestSha256('supplier-gate-ledger-synthetic-prompt-v1'),
+        model_json: modelJson,
+        validation_status: 'ready',
+        validation_error_code: null,
+        confidence: 1,
+        cost_usd: 0,
+        image_sha256: syntheticTestSha256('TEST_ONLY_NO_IMAGE_BYTES'),
+        execution_identity: {
+          sha256: syntheticTestSha256('TEST_ONLY_GATE_LEDGER_EXECUTION_IDENTITY'),
+        },
+      },
+    },
+  })
+}
+
+function safeCount(value) {
+  const count = Number(value)
+  return Number.isInteger(count) && count >= 0 ? count : 0
+}
+
+export function summarizeSupplierGateLedgerPersistence(result = {}) {
+  const primaryErrorCode = safeErrorCode(result.error_code)
+  const itemErrorCodes = [...new Set(
+    (Array.isArray(result.results) ? result.results : [])
+      .map(item => safeErrorCode(item?.error_code))
+      .filter(code => code?.startsWith('GATE_LEDGER_'))
+  )]
+  const errorCode =
+    (primaryErrorCode === 'GATE_LEDGER_PERSISTENCE_INCOMPLETE' || !primaryErrorCode) &&
+    itemErrorCodes.length === 1
+      ? itemErrorCodes[0]
+      : primaryErrorCode
+  return {
+    attempted: safeCount(result.attempted),
+    inserted: safeCount(result.inserted),
+    existing: safeCount(result.existing),
+    failed: safeCount(result.failed),
+    error_code: errorCode?.startsWith('GATE_LEDGER_') ? errorCode : null,
+  }
+}
+
+export async function runSupplierGateLedgerSmoke({
+  env = process.env,
+  logger = console,
+  persistFn = persistSupplierGateLedger,
+  now = () => new Date(),
+  fetchImpl = fetch,
+} = {}) {
+  const enabled =
+    clean(env.SUPPLIER_GATE_LEDGER_SMOKE_BOOT_ENABLED)
+      .toLowerCase() === 'true'
+  if (!enabled) {
+    return { ok: true, skipped: true, reason: 'GATE_LEDGER_SMOKE_DISABLED' }
+  }
+
+  const cycleToken =
+    typeof env.SUPPLIER_CATALOG_CYCLE_TOKEN === 'string'
+      ? env.SUPPLIER_CATALOG_CYCLE_TOKEN
+      : ''
+  const tokenDiagnostics = getSupplierGateLedgerTokenDiagnostics(cycleToken)
+
+  logger.log(JSON.stringify({
+    event: 'SUPPLIER_GATE_LEDGER_TOKEN_SMOKE',
+    ...tokenDiagnostics,
+  }))
+
+  const record = buildSyntheticSupplierGateLedgerRecord({
+    analyzed_at: now().toISOString(),
+  })
+  let persistenceResult
+
+  try {
+    persistenceResult = await persistFn([record], {
+      supabaseUrl: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
+      publicKey: env.VITE_SUPABASE_KEY,
+      cycleToken,
+      fetchImpl,
+      timeoutMs: 5000,
+    })
+  } catch {
+    persistenceResult = {
+      attempted: 1,
+      inserted: 0,
+      existing: 0,
+      failed: 1,
+      error_code: 'GATE_LEDGER_SMOKE_EXCEPTION',
+    }
+  }
+
+  const persistence = summarizeSupplierGateLedgerPersistence(persistenceResult)
+  logger.log(JSON.stringify({
+    event: 'SUPPLIER_GATE_LEDGER_SYNTHETIC_PERSISTENCE',
+    drive_file_id: record.drive_file_id,
+    ...persistence,
+  }))
+
+  return {
+    ok: persistence.failed === 0 &&
+      persistence.inserted + persistence.existing === 1,
+    skipped: false,
+    token_diagnostics: tokenDiagnostics,
+    persistence,
   }
 }

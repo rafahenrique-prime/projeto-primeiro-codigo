@@ -3,11 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildGateLedgerRecord,
+  buildSyntheticSupplierGateLedgerRecord,
   createGateRunKey,
+  getSupplierGateLedgerTokenDiagnostics,
   isReusableSupplierGateLedgerEntry,
   persistSupplierGateLedger,
   readReusableSupplierGateLedger,
+  runSupplierGateLedgerSmoke,
+  summarizeSupplierGateLedgerPersistence,
 } from '../_supplierGateLedger.js'
+import { runSupplierHomologationHarnessBoot } from '../_supplierHomologationHarnessBoot.js'
 import { handleSupplierHomologationHarnessRequest } from '../supplier-homologation-harness-v1.js'
 
 const IMAGE_SHA = 'a'.repeat(64)
@@ -431,4 +436,192 @@ describe('Supplier Shadow Gate Ledger LAB', () => {
     expect(JSON.stringify(logger.log.mock.calls)).not.toContain(CYCLE_TOKEN)
     expect(JSON.stringify(logger.log.mock.calls)).not.toContain('lab-secret')
   })
+
+  it('compara o token sem expor segredo ou hash e retorna apenas os dois booleanos', () => {
+    const token = 'cycle-token-synthetic-secret'
+    const diagnostics = getSupplierGateLedgerTokenDiagnostics(token)
+
+    expect(diagnostics).toEqual({
+      cycle_token_present: true,
+      gate_ledger_token_match: false,
+    })
+    expect(Object.keys(diagnostics).sort()).toEqual([
+      'cycle_token_present',
+      'gate_ledger_token_match',
+    ])
+    expect(JSON.stringify(diagnostics)).not.toContain(token)
+    expect(getSupplierGateLedgerTokenDiagnostics('')).toEqual({
+      cycle_token_present: false,
+      gate_ledger_token_match: false,
+    })
+  })
+
+  it('cria registro sintético TEST apenas pela RPC estreita do Ledger', async () => {
+    const record = buildSyntheticSupplierGateLedgerRecord({
+      analyzed_at: '2026-10-08T12:00:00.000Z',
+    })
+    const calls = []
+    const fetchImpl = vi.fn(async (url, options) => {
+      calls.push({ url: String(url), body: JSON.parse(options.body) })
+      return responseJson([{
+        gate_ledger_id: 'ledger-row-test-only',
+        inserted: true,
+        validation_status: 'READY',
+        created_at: '2026-10-08T12:00:00.000Z',
+      }])
+    })
+    const result = await persistSupplierGateLedger([record], {
+      supabaseUrl: SUPABASE_URL,
+      publicKey: PUBLIC_KEY,
+      cycleToken: CYCLE_TOKEN,
+      fetchImpl,
+    })
+
+    expect(record).toMatchObject({
+      scope_key: 'LAB_GATE_LEDGER_SYNTHETIC_TEST',
+      supplier: 'MIA',
+      drive_file_id: 'TEST_GATE_LEDGER_SYNTHETIC_SMOKE_V1',
+      canonical_family: 'TEST_GATE_LEDGER_SYNTHETIC',
+      vision_model: 'synthetic-test/no-model',
+      validation_status: 'READY',
+      cost_usd: 0,
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      attempted: 1,
+      inserted: 1,
+      existing: 0,
+      failed: 0,
+    })
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(
+      SUPABASE_URL + '/rest/v1/rpc/lab_supplier_gate_ledger_record',
+    )
+    expect(calls[0].body.p_drive_file_id).toBe(
+      'TEST_GATE_LEDGER_SYNTHETIC_SMOKE_V1',
+    )
+    expect(calls.some(call =>
+      /supplier_shadow_products|supplier_catalog_cycle|vision_queue/i.test(call.url)
+    )).toBe(false)
+  })
+
+  it('emite smoke de token só com booleanos e persistência sintética sanitizada', async () => {
+    const token = 'cycle-token-never-log-this'
+    const logger = { log: vi.fn() }
+    const persistFn = vi.fn(async records => {
+      expect(records).toHaveLength(1)
+      expect(records[0].drive_file_id).toBe(
+        'TEST_GATE_LEDGER_SYNTHETIC_SMOKE_V1',
+      )
+      return {
+        ok: false,
+        attempted: 1,
+        inserted: 0,
+        existing: 0,
+        failed: 1,
+        error_code: 'GATE_LEDGER_RPC_EMPTY_RESULT',
+        results: [{
+          drive_file_id: records[0].drive_file_id,
+          outcome: 'failed',
+          token,
+        }],
+      }
+    })
+
+    const result = await runSupplierGateLedgerSmoke({
+      env: {
+        SUPPLIER_GATE_LEDGER_SMOKE_BOOT_ENABLED: 'true',
+        SUPPLIER_CATALOG_CYCLE_TOKEN: token,
+        SUPABASE_URL: SUPABASE_URL,
+        VITE_SUPABASE_KEY: PUBLIC_KEY,
+      },
+      logger,
+      persistFn,
+      now: () => new Date('2026-10-08T12:00:00.000Z'),
+      fetchImpl: vi.fn(),
+    })
+
+    const events = logger.log.mock.calls.map(call => JSON.parse(call[0]))
+    expect(events[0]).toEqual({
+      event: 'SUPPLIER_GATE_LEDGER_TOKEN_SMOKE',
+      cycle_token_present: true,
+      gate_ledger_token_match: false,
+    })
+    expect(events[1]).toMatchObject({
+      event: 'SUPPLIER_GATE_LEDGER_SYNTHETIC_PERSISTENCE',
+      drive_file_id: 'TEST_GATE_LEDGER_SYNTHETIC_SMOKE_V1',
+      attempted: 1,
+      inserted: 0,
+      existing: 0,
+      failed: 1,
+      error_code: 'GATE_LEDGER_RPC_EMPTY_RESULT',
+    })
+    expect(JSON.stringify(events)).not.toContain(token)
+    expect(result.persistence).toMatchObject({
+      attempted: 1,
+      inserted: 0,
+      existing: 0,
+      failed: 1,
+      error_code: 'GATE_LEDGER_RPC_EMPTY_RESULT',
+    })
+    expect(persistFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('reduz a auditoria do Harness a contagens e código seguro', async () => {
+    const secret = 'cycle-token-must-not-appear-in-log'
+    const logger = { log: vi.fn() }
+    const runHarnessFn = vi.fn(async () => ({
+      ok: true,
+      mode: 'vision',
+      verdict: 'PASS',
+      vision: { total: 3, ready: 3, review: 0, errors: 0, cost_usd: 0.0009 },
+      gate_ledger: {
+        attempted: 3,
+        inserted: 2,
+        existing: 0,
+        failed: 1,
+        error_code: 'GATE_LEDGER_RPC_FAILED',
+        results: [{ token: secret }],
+      },
+    }))
+
+    await runSupplierHomologationHarnessBoot({
+      env: {
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_ENABLED: 'true',
+        SUPPLIER_HOMOLOGATION_HARNESS_BOOT_INPUT: JSON.stringify({
+          run_key: 'ledger-log-sanitization-test',
+          mode: 'vision',
+        }),
+      },
+      runHarnessFn,
+      logger,
+    })
+
+    const event = JSON.parse(logger.log.mock.calls[0][0])
+    expect(event.gate_ledger_persistence).toEqual({
+      attempted: 3,
+      inserted: 2,
+      existing: 0,
+      failed: 1,
+      error_code: 'GATE_LEDGER_RPC_FAILED',
+    })
+    expect(JSON.stringify(event)).not.toContain(secret)
+  })
+
+  it('não registra error_code com aparência de segredo', () => {
+    expect(summarizeSupplierGateLedgerPersistence({
+      attempted: 1,
+      inserted: 0,
+      existing: 0,
+      failed: 1,
+      error_code: 'sk-live-abcdefghijklmnopqrstuvwxyz012345',
+    })).toEqual({
+      attempted: 1,
+      inserted: 0,
+      existing: 0,
+      failed: 1,
+      error_code: null,
+    })
+  })
+
 })

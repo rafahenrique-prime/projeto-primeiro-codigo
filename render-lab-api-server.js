@@ -9,6 +9,7 @@ import storyHandoffTraceProbeHandler from './api/story-handoff-trace-probe-v1.js
 import primeControlGptmakerLabHandler from './api/prime-control-gptmaker-lab-v1.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
+import { runSupplierGateLedgerSmoke } from './api/_supplierGateLedger.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -820,6 +821,7 @@ async function runStoryHandoffTraceBootSmoke() {
 
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
+  await runSupplierGateLedgerSmoke()
   await runSupplierHomologationHarnessBoot({
     baseUrl: `http://127.0.0.1:${port}`,
   })

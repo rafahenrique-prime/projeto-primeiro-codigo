@@ -4,6 +4,9 @@ import {
 import {
   resolveRenderLabVisionProxyUrl,
 } from './_supplierVisionWorker.js'
+import {
+  summarizeSupplierGateLedgerPersistence,
+} from './_supplierGateLedger.js'
 
 function clean(value) {
   return String(value ?? '').trim()
@@ -198,6 +201,9 @@ export async function runSupplierHomologationHarnessBoot({
     vision_errors: result?.vision?.errors ?? null,
     vision_cost_usd: result?.vision?.cost_usd ?? null,
     vision_diagnostics: buildVisionBootDiagnostics(result),
+    gate_ledger_persistence: result?.gate_ledger
+      ? summarizeSupplierGateLedgerPersistence(result.gate_ledger)
+      : null,
     comparison_total: result?.comparison?.total ?? null,
     comparison_matched: result?.comparison?.matched ?? null,
     comparison_review: result?.comparison?.review ?? null,
