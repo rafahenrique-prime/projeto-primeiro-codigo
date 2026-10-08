@@ -39,7 +39,7 @@ describe('PRIME CONTROL positive LAB safety gates',()=>{
     expect(jev).toHaveBeenCalledTimes(1)
   })
   it('accepts authenticated WebP content instead of trusting .jpeg URL extension',async()=>{
-    const webp=Buffer.from('RIFFabcdefghWEBP01234567890')
+    const webp=Buffer.from('RIFFabcdWEBP01234567890')
     const f=vi.fn(async(url)=>url===PHOTO?
       new Response(webp,{headers:{'content-type':'image/webp'}}):vision(match))
     const jev=vi.fn(async()=>({status:'ok',action:'ASK_CLARIFY',reason:'JEV_AMBIGUOUS'}))
