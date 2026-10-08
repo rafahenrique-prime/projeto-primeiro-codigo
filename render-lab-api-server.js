@@ -8,6 +8,7 @@ import supplierHarnessOcrProxyHandler from './api/_supplierHarnessOcrProxyRoute.
 import storyHandoffTraceProbeHandler from './api/story-handoff-trace-probe-v1.js'
 import primeControlGptmakerLabHandler from './api/prime-control-gptmaker-lab-v1.js'
 import primeControlStoryReplayHandler from './api/prime-control-story-lab-v14c.js'
+import primeControlPositiveHandler from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 import { runSupplierGateLedgerSmoke } from './api/_supplierGateLedger.js'
@@ -73,6 +74,8 @@ app.post('/api/prime-control-gptmaker-lab-v1', async (req, res) => {
 app.post('/api/prime-control-story-lab-v14c', async (req, res) => {
   return primeControlStoryReplayHandler(req, res)
 })
+
+app.post('/api/prime-control-story-positive-lab-v14c', (req,res) => primeControlPositiveHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
