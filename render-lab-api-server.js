@@ -5,6 +5,7 @@ import supplierDriveScannerHandler from './api/supplier-drive-scanner-v1.js'
 import supplierCatalogCycleHandler from './api/supplier-catalog-cycle-v1.js'
 import supplierHomologationHarnessHandler from './api/supplier-homologation-harness-v1.js'
 import supplierHarnessOcrProxyHandler from './api/_supplierHarnessOcrProxyRoute.js'
+import storyHandoffTraceProbeHandler from './api/story-handoff-trace-probe-v1.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
 
@@ -56,6 +57,10 @@ app.post('/api/supplier-catalog-cycle-v1', async (req, res) => {
 
 app.post('/api/supplier-homologation-harness-v1', async (req, res) => {
   return supplierHomologationHarnessHandler(req, res)
+})
+
+app.post('/api/story-handoff-trace-probe-v1', async (req, res) => {
+  return storyHandoffTraceProbeHandler(req, res)
 })
 
 app.use((_req, res) => {
@@ -695,6 +700,62 @@ async function runSupplierCatalogCycleBootSmoke() {
   }
 }
 
+
+async function runStoryHandoffTraceBootSmoke() {
+  const enabled =
+    String(process.env.STORY_HANDOFF_TRACE_BOOT_SMOKE || '')
+      .trim()
+      .toLowerCase() === 'true'
+
+  if (!enabled) return
+
+  const secret = String(process.env.LAB_PRODUCT_UNIVERSE_API_SECRET || '').trim()
+  if (!secret) {
+    console.log(JSON.stringify({
+      event: 'STORY_HANDOFF_TRACE_BOOT_SMOKE',
+      ok: false,
+      error: 'LAB_API_SECRET_MISSING',
+    }))
+    return
+  }
+
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/story-handoff-trace-probe-v1`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-prime-lab': 'GABY-LAB-COMERCIAL-V1',
+          'x-prime-lab-secret': secret,
+        },
+        body: JSON.stringify({
+          confirm: 'STORY_HANDOFF_TRACE_PROBE_LAB',
+        }),
+      }
+    )
+
+    const payload = await res.json().catch(() => null)
+
+    console.log(JSON.stringify({
+      event: 'STORY_HANDOFF_TRACE_BOOT_SMOKE',
+      ok: res.ok && payload?.ok === true && payload?.emitted === true,
+      http_status: res.status,
+      emitted: payload?.emitted ?? null,
+      trace_event: payload?.trace?.event || null,
+      trace_version: payload?.trace?.version || null,
+      trace_stage: payload?.trace?.stage || null,
+      error: payload?.error || null,
+    }))
+  } catch (error) {
+    console.log(JSON.stringify({
+      event: 'STORY_HANDOFF_TRACE_BOOT_SMOKE',
+      ok: false,
+      error: error?.message || 'TRACE_BOOT_SMOKE_EXCEPTION',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierHomologationHarnessBoot({
@@ -705,4 +766,5 @@ app.listen(port, '0.0.0.0', async () => {
   await runSupplierVisionBootSmoke()
   await runSupplierDriveScannerBootSmoke()
   await runSupplierCatalogCycleBootSmoke()
+  await runStoryHandoffTraceBootSmoke()
 })
