@@ -75,6 +75,16 @@ export function summarizeInbound(body, key) {
   }
 }
 
+// Reject webhooks identifying a different agent. Unknown ID is permitted
+// because the GPTMaker onNewMessage payload schema has not been proven yet.
+export function labAgentMatches(body) {
+  const root=asObject(body)||{}, data=asObject(root.data)||{}
+  const message=asObject(root.message)||asObject(data.message)||{}
+  const found=text(root.agentId)||text(root.agent_id)||text(root.assistantId)||
+    text(data.agentId)||text(data.assistantId)||text(message.agentId)||text(message.assistantId)
+  return found==null || found==='3F8F4F4957CAD0DB118EE6F7BEE6FBA9'
+}
+
 export function responseForObservation(observation) {
   return {
     ok:true,mode:'OBSERVE_ONLY',event:OBSERVER_EVENT,
@@ -93,6 +103,7 @@ export default async function handler(req,res) {
   if(String(req.headers['content-type']||'').split(';')[0].trim().toLowerCase()!==CONTENT_TYPE)
     return res.status(415).json({ok:false,error:'JSON_REQUIRED'})
   if(!asObject(req.body))return res.status(400).json({ok:false,error:'INVALID_PAYLOAD'})
+  if(!labAgentMatches(req.body))return res.status(403).json({ok:false,error:'WRONG_LAB_AGENT'})
   const record=summarizeInbound(req.body,process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY)
   console.info('[PrimeControlStoryObserver]',JSON.stringify(record))
   return res.status(200).json(responseForObservation(record))
