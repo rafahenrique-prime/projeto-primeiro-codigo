@@ -14,6 +14,7 @@ import primeControlNativeStoryHandler from './api/prime-control-native-story-lab
 import primeControlStoryHookObserver from './api/prime-control-story-hook-observer-v14c.js'
 import primeControlStoryMediaProbeHandler from './api/prime-control-story-media-probe-v14d.js'
 import primeControlStoryRealVisionHandler from './api/prime-control-story-real-vision-v14d.js'
+import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-jev-v14d.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -94,6 +95,7 @@ app.post('/api/prime-control-story-hook-observer-v14c', (req,res)=>primeControlS
 // Separate LAB-only, private image bridge. Disabled by default; no AI / writes.
 app.post('/api/prime-control-story-media-probe-v14d', (req,res)=>primeControlStoryMediaProbeHandler(req,res))
 app.post('/api/prime-control-story-real-vision-v14d', (req,res)=>primeControlStoryRealVisionHandler(req,res))
+app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStoryShadowJevHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -1053,6 +1055,33 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runStoryShadowJevBootOnce(){
+ if(process.env.PRIME_CONTROL_STORY_SHADOW_JEV_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ if(!key)return console.info('[PrimeControlStoryShadowJevBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_STORY_SHADOW_JEV_BOOT_V14D',status:'LAB_AUTH_NOT_CONFIGURED'}))
+ try{
+  const r=await fetch(`http://127.0.0.1:${port}/api/prime-control-story-shadow-jev-v14d`,{
+   method:'POST',
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'ONE_SHOT_REAL_QA_SHADOW_JEV_V14D'}),
+   signal:AbortSignal.timeout(18000),
+  })
+  const j=await r.json().catch(()=>null)
+  console.info('[PrimeControlStoryShadowJevBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_SHADOW_JEV_BOOT_V14D',
+   ok:r.ok&&j?.status==='SHADOW_JEV_RECORDED',
+   status:typeof j?.status==='string'?j.status:'UNKNOWN',
+   http_status:r.status,run_id:typeof j?.run_id==='string'?j.run_id:null,
+   catalog_calls:j?.catalog_calls??null,jev_invocations:j?.jev_invocations??null,
+   messages_sent:0,writes:0,
+  }))
+ }catch{console.info('[PrimeControlStoryShadowJevBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_STORY_SHADOW_JEV_BOOT_V14D',status:'RUN_TIMEOUT_OR_NETWORK',
+ }))}
+}
+
 async function runRealStoryVisionBootOnce(){
  if(process.env.PRIME_CONTROL_STORY_REAL_VISION_BOOT_ONCE!=='true')return
  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
@@ -1157,4 +1186,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runStoryContextResolverBootOnce().catch(() => {})
   void runStoryMediaProbeBootOnce().catch(() => {})
   void runRealStoryVisionBootOnce().catch(() => {})
+  void runStoryShadowJevBootOnce().catch(() => {})
 })
