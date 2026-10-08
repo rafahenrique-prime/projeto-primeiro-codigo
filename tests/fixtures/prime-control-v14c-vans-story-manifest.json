@@ -1,0 +1,38 @@
+{
+  "version": "PRIME_CONTROL_V14C_VANS_STORY",
+  "status": "AWAITING_MEDIA_UPLOAD",
+  "environment": "render-lab",
+  "fixture": "prime_vans_story_lab_v14c.jpg",
+  "expected": {
+    "category": "tenis",
+    "brand": "Vans",
+    "possible_family": "UltraRange",
+    "color": "bege/marrom",
+    "model_assertion": "VERIFY_NOT_ASSUME"
+  },
+  "scenario": {
+    "customer_question": "qual o valor?",
+    "catalog_search": "LAB_READ_ONLY",
+    "jev": "guard",
+    "gaby_agent": "GABY_LAB_COMERCIAL",
+    "instagram_delivery": false
+  },
+  "checks": [
+    "media_sha256",
+    "vision_executed",
+    "vision_evidence",
+    "catalog_candidates",
+    "jev_status",
+    "jev_decision",
+    "mcp_tools_call",
+    "gaby_reply_with_run_id"
+  ],
+  "block": [
+    "GABY_OFICIAL",
+    "main",
+    "production_webhook",
+    "Bagy_write",
+    "live_customer_message",
+    "unverified_price"
+  ]
+}
