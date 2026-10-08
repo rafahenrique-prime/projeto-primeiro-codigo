@@ -17,6 +17,7 @@ import primeControlStoryRealVisionHandler from './api/prime-control-story-real-v
 import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-jev-v14d.js'
 import primeControlStoryVisualMatchHandler from './api/prime-control-story-visual-match-v14e.js'
 import primeControlStoryNativeBridgeHandler from './api/prime-control-story-native-bridge-v14g.js'
+import primeControlGabyToolPreviewHandler from './api/prime-control-gaby-tool-preview-v14h.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -100,6 +101,7 @@ app.post('/api/prime-control-story-real-vision-v14d', (req,res)=>primeControlSto
 app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStoryShadowJevHandler(req,res))
 app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlStoryVisualMatchHandler(req,res))
 app.post('/api/prime-control-story-native-bridge-v14g', (req,res)=>primeControlStoryNativeBridgeHandler(req,res))
+app.post('/api/prime-control-gaby-tool-preview-v14h', (req,res)=>primeControlGabyToolPreviewHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -1059,6 +1061,37 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runGabyToolPreviewBootOnce(){
+ if(process.env.PRIME_CONTROL_GABY_TOOL_PREVIEW_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ const client=String(process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID||'').trim()
+ if(!key||!client)return console.info('[GabyToolPreviewBoot]',JSON.stringify({status:'LAB_AUTH_OR_PILOT_MISSING'}))
+ try{
+  const r=await fetch(`http://127.0.0.1:${port}/api/prime-control-gaby-tool-preview-v14h`,{
+   method:'POST',signal:AbortSignal.timeout(16000),
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'ONE_SHOT_GABY_LAB_TOOL_PREVIEW_V14H',
+    pergunta:'Qual o valor?',cliente_id:client}),
+  })
+  const j=await r.json().catch(()=>null)
+  console.info('[GabyToolPreviewBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_GABY_TOOL_PREVIEW_BOOT_V14H',
+   status:typeof j?.status==='string'?j.status:'UNKNOWN',
+   http_status:r.status,
+   preview_compatible:j?.preview_compatible===true,
+   native_training_id:typeof j?.native_training_id==='string'?j.native_training_id:null,
+   resolver_reads:j?.resolver_reads??null,
+   messages_sent:0,writes:0,
+  }))
+ }catch{
+  console.info('[GabyToolPreviewBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_GABY_TOOL_PREVIEW_BOOT_V14H',
+   status:'NETWORK_OR_TIMEOUT',messages_sent:0,writes:0,
+  }))
+ }
+}
+
 async function runNativeStoryBridgeBootOnce(){
  if(process.env.PRIME_CONTROL_STORY_NATIVE_BRIDGE_BOOT_ONCE!=='true')return
  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
@@ -1245,4 +1278,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runStoryShadowJevBootOnce().catch(() => {})
   void runStoryVisualMatchBootOnce().catch(() => {})
   void runNativeStoryBridgeBootOnce().catch(() => {})
+  void runGabyToolPreviewBootOnce().catch(() => {})
 })
