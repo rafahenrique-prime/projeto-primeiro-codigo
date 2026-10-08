@@ -6,6 +6,7 @@
  * Not a webhook event or a real Instagram Story ID.
  */
 import crypto from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { decideStoryWithJev } from './_jevStoryDecision.js'
 import { buildStoryHandoffTrace, emitStoryHandoffTrace } from './_storyHandoffTrace.js'
 
@@ -27,6 +28,23 @@ export function decodeFixture(env=process.env){
   if(bytes.length<2500||bytes.length>280_000||bytes[0]!==0xff||bytes[1]!==0xd8||bytes[2]!==0xff)return null
   return {bytes,mime:'image/jpeg',sha:crypto.createHash('sha256').update(bytes).digest('hex')}
 }
+
+const CHECKED_IN_SHA256='852b1078b431582890065db28f8f093884f1f9af86e0a17e1a40828fb105ca95'
+const CHECKED_IN_FILE=new URL('../tests/fixtures/prime_vans_story_lab_v14c.jpg',import.meta.url)
+/** Load only the audited fixed file from render-lab. Legacy env fixture is
+ * retained for tests and explicit LAB fallback; never accept user URLs. */
+export async function loadVansFixture({env=process.env,readFileImpl=readFile}={}){
+  try{
+    const bytes=await readFileImpl(CHECKED_IN_FILE)
+    if(bytes.length<2500||bytes.length>280000||bytes[0]!==0xff||bytes[1]!==0xd8||bytes[2]!==0xff)return null
+    const sha=crypto.createHash('sha256').update(bytes).digest('hex')
+    if(sha!==CHECKED_IN_SHA256)return null
+    return {bytes,mime:'image/jpeg',sha}
+  }catch{
+    return decodeFixture(env)
+  }
+}
+
 export function parseEvidence(text){
   if(typeof text!=='string'||text.length>5000)return null
   const first=text.indexOf('{'),last=text.lastIndexOf('}')
@@ -67,7 +85,7 @@ export function sanitizeCandidates(raw,evidence){
 }
 export async function runVansStoryLab({env=process.env,fetchImpl=fetch,jevFn=decideStoryWithJev,startedAt=Date.now()}={}){
   const run_id=crypto.randomUUID()
-  const fixture=decodeFixture(env)
+  const fixture=await loadVansFixture({env})
   if(!fixture)return {ok:false,status:'IMAGE_NOT_CONFIGURED',stage:'MEDIA_GATE',run_id}
   const visionSecret=String(env.LAB_PRODUCT_UNIVERSE_API_SECRET||'').trim()
   if(!visionSecret)return {ok:false,status:'VISION_PROXY_NOT_CONFIGURED',stage:'VISION_GATE',run_id}

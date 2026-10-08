@@ -1,5 +1,5 @@
 import {describe,it,expect,vi} from 'vitest'
-import {allowed,parseEvidence,searchTerms,sanitizeCandidates,decodeFixture,runVansStoryLab} from '../prime-control-vans-screenshot-lab-v14c.js'
+import {allowed,parseEvidence,searchTerms,sanitizeCandidates,decodeFixture,loadVansFixture,runVansStoryLab} from '../prime-control-vans-screenshot-lab-v14c.js'
 
 const key='lab-test-secret'
 const fixture=Buffer.concat([Buffer.from([255,216,255]),Buffer.alloc(2700,42)]).toString('base64')
@@ -26,6 +26,11 @@ it('requires validated binary fixture, never public image URL',()=>{
  expect(decodeFixture({})).toBeNull()
  expect(decodeFixture({...env,PRIME_CONTROL_VANS_STORY_IMAGE_B64:'bogus'})).toBeNull()
  expect(decodeFixture(env)?.bytes.length).toBeGreaterThan(2500)
+})
+it('reads exact checked-in Vans screenshot with SHA256, without public URLs',async()=>{
+ const f=await loadVansFixture()
+ expect(f?.sha).toBe('852b1078b431582890065db28f8f093884f1f9af86e0a17e1a40828fb105ca95')
+ expect(f?.bytes.length).toBe(139434)
 })
 it('runs Vision then read-only Shadow then JEV once; no customer price',async()=>{
  const urls=[]

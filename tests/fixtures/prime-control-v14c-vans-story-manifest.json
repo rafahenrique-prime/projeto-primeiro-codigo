@@ -1,6 +1,6 @@
 {
   "version": "PRIME_CONTROL_V14C_VANS_STORY",
-  "status": "AWAITING_MEDIA_UPLOAD",
+  "status": "MEDIA_UPLOADED_WAITING_LAB_TEST",
   "environment": "render-lab",
   "fixture": "prime_vans_story_lab_v14c.jpg",
   "expected": {
@@ -34,5 +34,10 @@
     "Bagy_write",
     "live_customer_message",
     "unverified_price"
-  ]
+  ],
+  "fixture_sha256": "852b1078b431582890065db28f8f093884f1f9af86e0a17e1a40828fb105ca95",
+  "fixture_path": "tests/fixtures/prime_vans_story_lab_v14c.jpg",
+  "fixture_bytes": 139434,
+  "media_source": "FIXED_CHECKED_IN_GITHUB_RENDER_LAB",
+  "instagram_delivery": false
 }
