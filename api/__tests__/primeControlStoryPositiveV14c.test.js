@@ -38,6 +38,16 @@ describe('PRIME CONTROL positive LAB safety gates',()=>{
     expect(calls).toHaveLength(2)
     expect(jev).toHaveBeenCalledTimes(1)
   })
+  it('accepts authenticated WebP content instead of trusting .jpeg URL extension',async()=>{
+    const webp=Buffer.from('RIFFabcdefghWEBP01234567890')
+    const f=vi.fn(async(url)=>url===PHOTO?
+      new Response(webp,{headers:{'content-type':'image/webp'}}):vision(match))
+    const jev=vi.fn(async()=>({status:'ok',action:'ASK_CLARIFY',reason:'JEV_AMBIGUOUS'}))
+    const res=await positiveReplay({fetchImpl:f,jevFn:jev,env})
+    expect(res.ok).toBe(true)
+    expect(res.result.jev.action).toBe('BLOCK_ASSERTION')
+    expect(jev).toHaveBeenCalledTimes(1)
+  })
   it('blocks when model absent, and never calls JEV',async()=>{
     const f=vi.fn(async(url)=>url===PHOTO?image():vision({...match,model:'unknown'}))
     const jev=vi.fn()
