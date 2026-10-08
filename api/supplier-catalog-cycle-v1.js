@@ -127,6 +127,7 @@ export async function handleSupplierCatalogCycleRequest(req, res, deps = {}) {
     max_changes: body.max_changes,
     scope_keys: body.scope_keys,
     drive_file_ids: body.drive_file_ids,
+    reuse_gate_ledger: body.reuse_gate_ledger,
   }, {
     supabaseUrl,
     publicKey,

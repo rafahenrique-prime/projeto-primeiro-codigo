@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto'
+import {
+  isReusableSupplierGateLedgerEntry,
+  readReusableSupplierGateLedger,
+} from './_supplierGateLedger.js'
 
 /**
  * Supplier Vision Worker V1 — LAB only.
@@ -545,12 +549,9 @@ export function buildSupplierVisionPrompt(row = {}) {
     'family_match: true somente se a foto realmente corresponder à família esperada.',
   ].join('\n')
 }
-export async function analyzeSupplierImage(row, {
+export function buildSupplierVisionRequestContext(row = {}, {
   visionProxyUrl = DEFAULT_VISION_PROXY,
   visionModel = DEFAULT_VISION_MODEL,
-  visionProxySecret = '',
-  fetchImpl = fetch,
-  timeoutMs = 12000,
 } = {}) {
   const context = normalizeSupplierVisionContext(row)
   const analysisRow = {
@@ -566,6 +567,34 @@ export async function analyzeSupplierImage(row, {
   const proxyRoute = sanitizeVisionProxyRoute(selectedProxyUrl)
   const prompt = buildSupplierVisionPrompt(analysisRow)
   const promptSha256 = sha256(prompt)
+
+  return {
+    context,
+    analysisRow,
+    selectedProxyUrl,
+    requestedModel,
+    proxyRoute,
+    prompt,
+    promptSha256,
+  }
+}
+
+export async function analyzeSupplierImage(row, {
+  visionProxyUrl = DEFAULT_VISION_PROXY,
+  visionModel = DEFAULT_VISION_MODEL,
+  visionProxySecret = '',
+  fetchImpl = fetch,
+  timeoutMs = 12000,
+} = {}) {
+  const {
+    context,
+    analysisRow,
+    selectedProxyUrl,
+    requestedModel,
+    proxyRoute,
+    prompt,
+    promptSha256,
+  } = buildSupplierVisionRequestContext(row, { visionProxyUrl, visionModel })
 
   const buildAudit = (overrides = {}) => ({
     drive_file_id: clean(analysisRow.drive_file_id) || null,
@@ -777,6 +806,674 @@ export async function applyVisionResult(row, validation, {
     ok: true,
     row: result.json[0] || null,
     error_code: null,
+  }
+}
+
+
+function gateLedgerReuseFailure(driveFileId, errorCode, {
+  imageSha256 = null,
+  executionIdentitySha256 = null,
+  confidence = null,
+  gateLedgerId = null,
+  originalGateCostUsd = null,
+  reused = false,
+  audit = null,
+} = {}) {
+  return {
+    drive_file_id: driveFileId,
+    status: 'error',
+    persisted: false,
+    error_code: errorCode,
+    source: 'gate_ledger',
+    reused,
+    gate_ledger_id: gateLedgerId,
+    image_sha256: imageSha256,
+    execution_identity_sha256: executionIdentitySha256,
+    validation_status: 'ERROR',
+    confidence,
+    original_gate_cost_usd: originalGateCostUsd,
+    current_vision_cost_usd: 0,
+    usage: { cost_usd: 0 },
+    audit: {
+      drive_file_id: driveFileId,
+      image_sha256: imageSha256,
+      execution_identity: executionIdentitySha256
+        ? { sha256: executionIdentitySha256 }
+        : null,
+      validation_status: 'ERROR',
+      validation_error_code: errorCode,
+      confidence,
+      cost_usd: 0,
+      source: 'gate_ledger',
+      reused,
+      gate_ledger_id: gateLedgerId,
+      original_gate_cost_usd: originalGateCostUsd,
+      current_vision_cost_usd: 0,
+      ...(audit || {}),
+    },
+  }
+}
+
+function reusableValidationForExpectedContext(entry, expected) {
+  if (
+    !entry ||
+    String(entry.validation_status || '').toUpperCase() !== 'READY' ||
+    String(entry.validation_result?.status || '').toUpperCase() !== 'READY' ||
+    entry.validation_result?.error_code != null
+  ) return null
+
+  const values = entry.validation_result?.values
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return null
+  const allowedKeys = new Set([
+    'brand',
+    'canonical_family',
+    'detected_model',
+    'category',
+    'visual_color',
+    'vision_confidence',
+  ])
+  if (Object.keys(values).some(key => !allowedKeys.has(key))) return null
+
+  if (values.canonical_family !== expected.canonical_family) return null
+  for (const key of ['brand', 'detected_model', 'category']) {
+    if (values[key] != null && typeof values[key] !== 'string') return null
+  }
+
+  if (typeof values.vision_confidence !== 'number') return null
+  const confidence = values.vision_confidence
+  if (!Number.isFinite(confidence) || confidence < 0.80 || confidence > 1) return null
+  if (typeof values.visual_color !== 'string' || !clean(values.visual_color)) return null
+  if (!clean(entry.gate_ledger_id)) return null
+
+  return {
+    status: 'ready',
+    error_code: null,
+    values: { ...values },
+  }
+}
+
+const REUSE_IDENTITY_FIELDS = [
+  'supplier',
+  'scope_key',
+  'drive_file_id',
+  'image_sha256',
+  'canonical_family',
+  'brand',
+  'model',
+  'category',
+  'vision_model',
+  'vision_proxy_route',
+  'prompt_version',
+  'prompt_sha256',
+  'execution_identity_sha256',
+]
+
+function exactReuseIdentityMatches(left, right) {
+  return REUSE_IDENTITY_FIELDS.every(key =>
+    typeof right?.[key] === 'string' &&
+    right[key].length > 0 &&
+    left?.[key] === right[key]
+  )
+}
+
+/**
+ * Read-only preflight for manual homologation. Every explicit ID is hashed and
+ * looked up against the current scope context before the scanner can write to
+ * Supplier Shadow. Misses are returned as errors and are never scanner inputs.
+ */
+export async function prepareSupplierGateLedgerReuse(input = {}, deps = {}) {
+  const requestedIds = Array.isArray(input.drive_file_ids)
+    ? input.drive_file_ids.map(clean)
+    : []
+  const scopeKey = clean(input.scope_key)
+  const scopeContext = input.scope_context && typeof input.scope_context === 'object'
+    ? input.scope_context
+    : {}
+  const invalidIds =
+    requestedIds.length === 0 ||
+    requestedIds.length > 3 ||
+    new Set(requestedIds).size !== requestedIds.length ||
+    requestedIds.some(id => !/^[A-Za-z0-9_-]{10,}$/.test(id))
+
+  if (invalidIds || !scopeKey) {
+    return {
+      ok: false,
+      prepared: [],
+      processed: [],
+      error_code: invalidIds
+        ? 'GATE_LEDGER_REUSE_IDS_REQUIRED'
+        : 'GATE_LEDGER_REUSE_SCOPE_REQUIRED',
+    }
+  }
+
+  const expectedScopeContext = {
+    supplier: clean(scopeContext.supplier).toUpperCase(),
+    brand: clean(scopeContext.brand),
+    canonical_family: clean(scopeContext.canonical_family),
+    model: clean(scopeContext.model),
+    category: clean(scopeContext.category),
+  }
+  if (Object.values(expectedScopeContext).some(value => !value)) {
+    return {
+      ok: false,
+      prepared: [],
+      processed: requestedIds.map(id =>
+        gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_CONTEXT_MISSING')
+      ),
+      error_code: 'GATE_LEDGER_REUSE_CONTEXT_MISSING',
+    }
+  }
+
+  const fetchImpl = deps.fetchImpl || fetch
+  const proxyUrl = deps.visionProxyUrl || resolveRenderLabVisionProxyUrl()
+  const model = deps.visionModel || DEFAULT_VISION_MODEL
+  const prepared = []
+  const processed = []
+
+  for (const driveFileId of requestedIds) {
+    const row = {
+      drive_file_id: driveFileId,
+      supplier_key: expectedScopeContext.supplier,
+      brand: expectedScopeContext.brand,
+      canonical_family: expectedScopeContext.canonical_family,
+      detected_model: expectedScopeContext.model,
+      category: expectedScopeContext.category,
+    }
+    const requestContext = buildSupplierVisionRequestContext(row, {
+      visionProxyUrl: proxyUrl,
+      visionModel: model,
+    })
+    if (!requestContext.proxyRoute) {
+      processed.push(gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_IDENTITY_UNAVAILABLE'
+      ))
+      continue
+    }
+
+    const image = await fetchDriveImage(driveFileId, {
+      fetchImpl,
+      timeoutMs: Math.min(deps.visionTimeoutMs || 8000, 8000),
+    })
+    if (!image.ok) {
+      processed.push(gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_IMAGE_UNAVAILABLE'
+      ))
+      continue
+    }
+
+    const executionIdentity = buildVisionExecutionIdentity({
+      drive_file_id: driveFileId,
+      context: requestContext.context,
+      model: requestContext.requestedModel,
+      proxy_route: requestContext.proxyRoute,
+      prompt_version: SUPPLIER_VISION_PROMPT_VERSION,
+      prompt_sha256: requestContext.promptSha256,
+      image_sha256: image.sha256,
+    })
+    const expectedIdentity = {
+      supplier: requestContext.context.supplier.toUpperCase(),
+      scope_key: scopeKey,
+      drive_file_id: driveFileId,
+      image_sha256: image.sha256,
+      canonical_family: requestContext.context.canonical_family,
+      brand: requestContext.context.brand,
+      model: requestContext.context.model,
+      category: requestContext.context.category,
+      vision_model: requestContext.requestedModel,
+      vision_proxy_route: requestContext.proxyRoute,
+      prompt_version: SUPPLIER_VISION_PROMPT_VERSION,
+      prompt_sha256: requestContext.promptSha256,
+      execution_identity_sha256: executionIdentity.sha256,
+    }
+
+    const ledgerRead = await (deps.ledgerLookupFn || readReusableSupplierGateLedger)(
+      expectedIdentity,
+      {
+        supabaseUrl: deps.supabaseUrl,
+        publicKey: deps.publicKey,
+        cycleToken: deps.cycleToken,
+        fetchImpl,
+        timeoutMs: deps.rpcTimeoutMs,
+      }
+    )
+    if (!ledgerRead?.ok) {
+      processed.push(gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_LOOKUP_FAILED',
+        {
+          imageSha256: image.sha256,
+          executionIdentitySha256: executionIdentity.sha256,
+        }
+      ))
+      continue
+    }
+
+    const entry = ledgerRead.row || null
+    if (
+      !entry ||
+      !isReusableSupplierGateLedgerEntry(entry, expectedIdentity) ||
+      !exactReuseIdentityMatches(entry, expectedIdentity)
+    ) {
+      processed.push(gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_MISS',
+        {
+          imageSha256: image.sha256,
+          executionIdentitySha256: executionIdentity.sha256,
+        }
+      ))
+      continue
+    }
+
+    const validation = reusableValidationForExpectedContext(entry, expectedIdentity)
+    if (!validation) {
+      processed.push(gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_VALIDATION_INVALID',
+        {
+          imageSha256: image.sha256,
+          executionIdentitySha256: executionIdentity.sha256,
+          gateLedgerId: entry.gate_ledger_id,
+          confidence: entry.confidence ?? null,
+          originalGateCostUsd: entry.cost_usd ?? null,
+        }
+      ))
+      continue
+    }
+
+    prepared.push({
+      drive_file_id: driveFileId,
+      expected_identity: expectedIdentity,
+      entry,
+    })
+  }
+
+  return {
+    ok: processed.length === 0 && prepared.length === requestedIds.length,
+    prepared,
+    processed,
+    error_code: processed.length === 0 ? null : 'GATE_LEDGER_REUSE_INCOMPLETE',
+  }
+}
+
+/**
+ * Manual homologation apply phase. It consumes only preflighted READY ledger
+ * hits and exact selected queue rows, re-hashes the current rendition, then
+ * applies the saved validation result. No proxy call or fallback is possible.
+ */
+export async function runSupplierGateLedgerReuseWorker(input = {}, deps = {}) {
+  const requestedIds = Array.isArray(input.drive_file_ids)
+    ? input.drive_file_ids.map(clean)
+    : []
+  const scopeKey = clean(input.scope_key)
+  const scopeContext = input.scope_context && typeof input.scope_context === 'object'
+    ? input.scope_context
+    : {}
+  const invalidIds =
+    requestedIds.length === 0 ||
+    requestedIds.length > 3 ||
+    new Set(requestedIds).size !== requestedIds.length ||
+    requestedIds.some(id => !/^[A-Za-z0-9_-]{10,}$/.test(id))
+
+  if (invalidIds || !scopeKey) {
+    return {
+      ok: false,
+      queued: 0,
+      processed: [],
+      error_code: invalidIds
+        ? 'GATE_LEDGER_REUSE_IDS_REQUIRED'
+        : 'GATE_LEDGER_REUSE_SCOPE_REQUIRED',
+    }
+  }
+
+  const expectedScopeContext = {
+    supplier: clean(scopeContext.supplier).toUpperCase(),
+    brand: clean(scopeContext.brand),
+    canonical_family: clean(scopeContext.canonical_family),
+    model: clean(scopeContext.model),
+    category: clean(scopeContext.category),
+  }
+  if (Object.values(expectedScopeContext).some(value => !value)) {
+    return {
+      ok: false,
+      queued: 0,
+      processed: requestedIds.map(id =>
+        gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_CONTEXT_MISSING')
+      ),
+      error_code: 'GATE_LEDGER_REUSE_CONTEXT_MISSING',
+    }
+  }
+
+  let preflight
+  if (input.prepared_entries === undefined) {
+    preflight = await prepareSupplierGateLedgerReuse(input, deps)
+  } else if (Array.isArray(input.prepared_entries)) {
+    preflight = { prepared: input.prepared_entries, processed: [] }
+  } else {
+    preflight = {
+      prepared: [],
+      processed: requestedIds.map(id =>
+        gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_INVALID')
+      ),
+    }
+  }
+
+  const preparedById = new Map()
+  let malformedPrepared = false
+  for (const prepared of Array.isArray(preflight.prepared) ? preflight.prepared : []) {
+    const id = clean(prepared?.drive_file_id)
+    if (
+      !requestedIds.includes(id) ||
+      preparedById.has(id) ||
+      !prepared?.expected_identity ||
+      !prepared?.entry
+    ) {
+      malformedPrepared = true
+      continue
+    }
+    preparedById.set(id, prepared)
+  }
+  if (malformedPrepared) {
+    const failures = requestedIds.map(id =>
+      gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_INVALID')
+    )
+    return {
+      ok: false,
+      queued: 0,
+      processed: failures,
+      error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_INVALID',
+    }
+  }
+
+  const preparedIds = requestedIds.filter(id => preparedById.has(id))
+  if (preparedIds.length === 0) {
+    const failuresById = new Map(
+      (preflight.processed || []).map(item => [clean(item.drive_file_id), item])
+    )
+    const processed = requestedIds.map(id =>
+      failuresById.get(id) ||
+      gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_MISS')
+    )
+    return {
+      ok: false,
+      queued: 0,
+      processed,
+      error_code: 'GATE_LEDGER_REUSE_INCOMPLETE',
+      side_effects: {
+        supplier_shadow_write: false,
+        vision_call: false,
+        gate_ledger_read: true,
+        gptmaker_call: false,
+        customer_message: false,
+        gaby_official: false,
+      },
+    }
+  }
+
+  const fetchImpl = deps.fetchImpl || fetch
+  const queue = await fetchVisionQueue({
+    supabaseUrl: deps.supabaseUrl,
+    publicKey: deps.publicKey,
+    workerToken: deps.workerToken,
+    limit: Math.min(preparedIds.length, clampLimit(input.limit ?? preparedIds.length)),
+    driveFileIds: preparedIds,
+    fetchImpl,
+    timeoutMs: deps.rpcTimeoutMs,
+  })
+  if (!queue.ok) {
+    const processed = requestedIds.map(id =>
+      preparedById.has(id)
+        ? gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_QUEUE_UNAVAILABLE')
+        : (preflight.processed || []).find(item => clean(item.drive_file_id) === id) ||
+          gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_MISS')
+    )
+    return {
+      ok: false,
+      queued: 0,
+      processed,
+      error_code: 'GATE_LEDGER_REUSE_QUEUE_UNAVAILABLE',
+      side_effects: {
+        supplier_shadow_write: false,
+        vision_call: false,
+        gate_ledger_read: true,
+        gptmaker_call: false,
+        customer_message: false,
+        gaby_official: false,
+      },
+    }
+  }
+
+  const preparedSet = new Set(preparedIds)
+  const queuedIds = (Array.isArray(queue.rows) ? queue.rows : [])
+    .map(row => clean(row?.drive_file_id))
+  const unexpectedQueueIds = queuedIds.filter(id => !preparedSet.has(id))
+  if (unexpectedQueueIds.length > 0) {
+    const processed = requestedIds.map(id =>
+      preparedById.has(id)
+        ? gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_QUEUE_ID_MISMATCH')
+        : (preflight.processed || []).find(item => clean(item.drive_file_id) === id) ||
+          gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_MISS')
+    )
+    return {
+      ok: false,
+      queued: queue.rows.length,
+      processed,
+      error_code: 'GATE_LEDGER_REUSE_QUEUE_ID_MISMATCH',
+      side_effects: {
+        supplier_shadow_write: false,
+        vision_call: false,
+        gate_ledger_read: true,
+        gptmaker_call: false,
+        customer_message: false,
+        gaby_official: false,
+      },
+    }
+  }
+
+  const rowsById = new Map()
+  for (const row of queue.rows) {
+    const id = clean(row?.drive_file_id)
+    if (!rowsById.has(id)) rowsById.set(id, [])
+    rowsById.get(id).push(row)
+  }
+
+  const appliedById = new Map()
+  for (const driveFileId of preparedIds) {
+    const matchingRows = rowsById.get(driveFileId) || []
+    if (matchingRows.length !== 1) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        matchingRows.length === 0
+          ? 'GATE_LEDGER_REUSE_QUEUE_ITEM_MISSING'
+          : 'GATE_LEDGER_REUSE_QUEUE_ITEM_DUPLICATE'
+      ))
+      continue
+    }
+
+    const row = matchingRows[0]
+    if (!clean(row?.id)) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_SHADOW_ROW_ID_MISSING'
+      ))
+      continue
+    }
+
+    const rowContext = normalizeSupplierVisionContext(row)
+    const rowContextMatchesScope =
+      rowContext.supplier.toUpperCase() === expectedScopeContext.supplier &&
+      rowContext.brand === expectedScopeContext.brand &&
+      rowContext.canonical_family === expectedScopeContext.canonical_family &&
+      rowContext.model === expectedScopeContext.model &&
+      rowContext.category === expectedScopeContext.category
+    if (!rowContextMatchesScope) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_CONTEXT_MISMATCH'
+      ))
+      continue
+    }
+
+    const requestContext = buildSupplierVisionRequestContext(row, {
+      visionProxyUrl: deps.visionProxyUrl || resolveRenderLabVisionProxyUrl(),
+      visionModel: deps.visionModel || DEFAULT_VISION_MODEL,
+    })
+    const image = await fetchDriveImage(driveFileId, {
+      fetchImpl,
+      timeoutMs: Math.min(deps.visionTimeoutMs || 8000, 8000),
+    })
+    if (!image.ok) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_IMAGE_UNAVAILABLE'
+      ))
+      continue
+    }
+
+    const executionIdentity = buildVisionExecutionIdentity({
+      drive_file_id: driveFileId,
+      context: requestContext.context,
+      model: requestContext.requestedModel,
+      proxy_route: requestContext.proxyRoute,
+      prompt_version: SUPPLIER_VISION_PROMPT_VERSION,
+      prompt_sha256: requestContext.promptSha256,
+      image_sha256: image.sha256,
+    })
+    const expectedIdentity = {
+      supplier: requestContext.context.supplier.toUpperCase(),
+      scope_key: scopeKey,
+      drive_file_id: driveFileId,
+      image_sha256: image.sha256,
+      canonical_family: requestContext.context.canonical_family,
+      brand: requestContext.context.brand,
+      model: requestContext.context.model,
+      category: requestContext.context.category,
+      vision_model: requestContext.requestedModel,
+      vision_proxy_route: requestContext.proxyRoute,
+      prompt_version: SUPPLIER_VISION_PROMPT_VERSION,
+      prompt_sha256: requestContext.promptSha256,
+      execution_identity_sha256: executionIdentity.sha256,
+    }
+
+    const prepared = preparedById.get(driveFileId)
+    const entry = prepared?.entry || null
+    if (
+      !exactReuseIdentityMatches(prepared?.expected_identity, expectedIdentity) ||
+      !isReusableSupplierGateLedgerEntry(entry, expectedIdentity) ||
+      !exactReuseIdentityMatches(entry, expectedIdentity)
+    ) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_IDENTITY_CHANGED',
+        {
+          imageSha256: image.sha256,
+          executionIdentitySha256: executionIdentity.sha256,
+        }
+      ))
+      continue
+    }
+
+    const validation = reusableValidationForExpectedContext(entry, expectedIdentity)
+    if (!validation) {
+      appliedById.set(driveFileId, gateLedgerReuseFailure(
+        driveFileId,
+        'GATE_LEDGER_REUSE_VALIDATION_INVALID',
+        {
+          imageSha256: image.sha256,
+          executionIdentitySha256: executionIdentity.sha256,
+          gateLedgerId: entry.gate_ledger_id,
+          confidence: entry.confidence ?? null,
+          originalGateCostUsd: entry.cost_usd ?? null,
+        }
+      ))
+      continue
+    }
+
+    const apply = await (deps.applyFn || applyVisionResult)(row, validation, {
+      supabaseUrl: deps.supabaseUrl,
+      publicKey: deps.publicKey,
+      workerToken: deps.workerToken,
+      fetchImpl,
+      timeoutMs: deps.rpcTimeoutMs,
+    })
+    const applyOkay = apply?.ok === true
+    const confidence = Number(entry.confidence ?? validation.values.vision_confidence)
+    const originalGateCost = entry.cost_usd == null
+      ? null
+      : Number(entry.cost_usd)
+    const gateLedgerId = clean(entry.gate_ledger_id)
+    const audit = {
+      drive_file_id: driveFileId,
+      context: requestContext.context,
+      model_effective: expectedIdentity.vision_model,
+      proxy_route: expectedIdentity.vision_proxy_route,
+      prompt_version: expectedIdentity.prompt_version,
+      prompt_sha256: expectedIdentity.prompt_sha256,
+      image_sha256: expectedIdentity.image_sha256,
+      execution_identity: { sha256: expectedIdentity.execution_identity_sha256 },
+      validation_status: 'READY',
+      confidence: Number.isFinite(confidence) ? confidence : null,
+      cost_usd: 0,
+      source: 'gate_ledger',
+      reused: true,
+      gate_ledger_id: gateLedgerId,
+      original_gate_cost_usd: Number.isFinite(originalGateCost)
+        ? originalGateCost
+        : null,
+      current_vision_cost_usd: 0,
+    }
+    appliedById.set(driveFileId, {
+      id: row.id,
+      drive_file_id: driveFileId,
+      supplier: row.supplier_key || expectedIdentity.supplier,
+      family: row.canonical_family || expectedIdentity.canonical_family,
+      color: validation.values.visual_color ?? null,
+      confidence: audit.confidence,
+      status: applyOkay ? 'ready' : 'error',
+      error_code: applyOkay ? null : apply?.error_code || 'WORKER_APPLY_UNAVAILABLE',
+      persisted: applyOkay,
+      source: 'gate_ledger',
+      reused: true,
+      gate_ledger_id: gateLedgerId,
+      image_sha256: expectedIdentity.image_sha256,
+      execution_identity_sha256: expectedIdentity.execution_identity_sha256,
+      validation_status: 'READY',
+      original_gate_cost_usd: audit.original_gate_cost_usd,
+      current_vision_cost_usd: 0,
+      usage: { cost_usd: 0 },
+      audit,
+    })
+  }
+
+  const preflightErrorsById = new Map(
+    (preflight.processed || []).map(item => [clean(item.drive_file_id), item])
+  )
+  const processed = requestedIds.map(id =>
+    appliedById.get(id) ||
+    preflightErrorsById.get(id) ||
+    gateLedgerReuseFailure(id, 'GATE_LEDGER_REUSE_PREFLIGHT_MISS')
+  )
+  const allOkay = processed.every(item =>
+    item.status === 'ready' && item.persisted === true
+  )
+
+  return {
+    ok: allOkay,
+    worker_version: SUPPLIER_VISION_WORKER_VERSION,
+    dry_run: false,
+    queued: queue.rows.length,
+    processed,
+    error_code: allOkay ? null : 'GATE_LEDGER_REUSE_INCOMPLETE',
+    side_effects: {
+      supplier_shadow_write: processed.some(item => item.persisted === true),
+      vision_call: false,
+      gate_ledger_read: true,
+      gptmaker_call: false,
+      customer_message: false,
+      gaby_official: false,
+    },
   }
 }
 

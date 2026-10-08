@@ -18,6 +18,8 @@ import {
   DEFAULT_VISION_MODEL,
   resolveRenderLabVisionProxyUrl,
   runSupplierVisionWorker,
+  prepareSupplierGateLedgerReuse,
+  runSupplierGateLedgerReuseWorker,
 } from './_supplierVisionWorker.js'
 
 export const SUPPLIER_CATALOG_CYCLE_VERSION = '1.0.0'
@@ -214,6 +216,64 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   const manualSingleScope =
     trigger === 'manual_homologation' &&
     requestedScopes?.length === 1
+  const reuseGateLedger = input.reuse_gate_ledger === true
+  const reuseOptionInvalid =
+    input.reuse_gate_ledger !== undefined &&
+    typeof input.reuse_gate_ledger !== 'boolean'
+  const reuseMaxChangesInvalid =
+    reuseGateLedger &&
+    input.max_changes != null &&
+    (
+      !Number.isInteger(Number(input.max_changes)) ||
+      Number(input.max_changes) < 1 ||
+      Number(input.max_changes) > 3
+    )
+
+  if (reuseMaxChangesInvalid) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_GATE_LEDGER_REUSE_MAX_CHANGES_INVALID',
+    }
+  }
+
+  if (reuseOptionInvalid) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_GATE_LEDGER_REUSE_OPTION_INVALID',
+    }
+  }
+
+  if (
+    reuseGateLedger &&
+    (
+      !manualSingleScope ||
+      requestedDriveFileIds === null ||
+      driveFileIdsInvalid
+    )
+  ) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_GATE_LEDGER_REUSE_REQUIRES_MANUAL_SCOPE_AND_EXPLICIT_IDS',
+    }
+  }
+
+  const gateReuseScope = reuseGateLedger
+    ? SCANNER_SCOPES.find(scope => scope.key === requestedScopes[0]) || null
+    : null
+  if (reuseGateLedger && !gateReuseScope) {
+    return {
+      ok: false,
+      cycle_version: SUPPLIER_CATALOG_CYCLE_VERSION,
+      cycle_key: cycleKey,
+      error_code: 'CYCLE_GATE_LEDGER_REUSE_SCOPE_INVALID',
+    }
+  }
 
   if (
     driveFileIdsProvided &&
@@ -286,6 +346,72 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
     }
   }
 
+  let gateReusePreflight = { prepared: [], processed: [] }
+  let gateReuseDriveFileIds = []
+  if (reuseGateLedger) {
+    const scopeContext = {
+      supplier: gateReuseScope.supplier,
+      brand: gateReuseScope.brand,
+      canonical_family: gateReuseScope.canonical_family,
+      model: gateReuseScope.model,
+      category: gateReuseScope.category,
+    }
+    gateReusePreflight = await (
+      deps.gateLedgerPreflightFn || prepareSupplierGateLedgerReuse
+    )({
+      drive_file_ids: requestedDriveFileIds,
+      scope_key: gateReuseScope.key,
+      scope_context: scopeContext,
+    }, {
+      supabaseUrl: deps.supabaseUrl,
+      publicKey: deps.publicKey,
+      cycleToken: deps.cycleToken,
+      fetchImpl: deps.fetchImpl,
+      rpcTimeoutMs: deps.rpcTimeoutMs,
+      visionTimeoutMs: deps.visionTimeoutMs,
+      visionProxyUrl: resolveRenderLabVisionProxyUrl(),
+      visionModel: DEFAULT_VISION_MODEL,
+    })
+    gateReuseDriveFileIds = Array.isArray(gateReusePreflight?.prepared)
+      ? gateReusePreflight.prepared
+          .map(item => clean(item?.drive_file_id))
+          .filter(Boolean)
+      : []
+    const requestedIdSet = new Set(requestedDriveFileIds)
+    const hasInvalidPreparedSelection =
+      new Set(gateReuseDriveFileIds).size !== gateReuseDriveFileIds.length ||
+      gateReuseDriveFileIds.some(id => !requestedIdSet.has(id))
+    if (hasInvalidPreparedSelection) {
+      gateReuseDriveFileIds = []
+      gateReusePreflight = {
+        prepared: [],
+        processed: requestedDriveFileIds.map(id => ({
+          drive_file_id: id,
+          status: 'error',
+          persisted: false,
+          error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_ID_MISMATCH',
+          source: 'gate_ledger',
+          reused: false,
+          current_vision_cost_usd: 0,
+          usage: { cost_usd: 0 },
+          audit: {
+            drive_file_id: id,
+            validation_status: 'ERROR',
+            validation_error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_ID_MISMATCH',
+            cost_usd: 0,
+            source: 'gate_ledger',
+            reused: false,
+            current_vision_cost_usd: 0,
+          },
+        })),
+        error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_ID_MISMATCH',
+      }
+    }
+  }
+  const scannerDriveFileIds = reuseGateLedger
+    ? gateReuseDriveFileIds
+    : requestedDriveFileIds
+
   const scannerRuns = []
   const selectedDriveFileIds = []
   let selectedTotal = 0
@@ -293,6 +419,7 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
   for (const scopeKey of scopeOrder) {
     if (selectedTotal >= maxChanges) break
+    if (reuseGateLedger && scannerDriveFileIds.length === 0) break
 
     const scan = await scannerFn({
       dry_run: false,
@@ -301,8 +428,8 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
         : 1,
       scope_keys: [scopeKey],
       preserve_ready_same_id: manualSingleScope,
-      ...(requestedDriveFileIds !== null
-        ? { drive_file_ids: requestedDriveFileIds }
+      ...(scannerDriveFileIds !== null
+        ? { drive_file_ids: scannerDriveFileIds }
         : {}),
     }, {
       supabaseUrl: deps.supabaseUrl,
@@ -326,9 +453,9 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
 
     scannerRuns.push({
       key: scopeKey,
-      ...(requestedDriveFileIds !== null
+      ...(scannerDriveFileIds !== null
         ? {
-            requested_drive_file_ids: requestedDriveFileIds,
+            requested_drive_file_ids: scannerDriveFileIds,
             selected_drive_file_ids: selectedIds,
           }
         : {}),
@@ -353,8 +480,8 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
   }
 
   const selectedOutsideRequestedIds =
-    requestedDriveFileIds !== null &&
-    selectedDriveFileIds.some(id => !requestedDriveFileIds.includes(id))
+    scannerDriveFileIds !== null &&
+    selectedDriveFileIds.some(id => !scannerDriveFileIds.includes(id))
   const scopedSelectionMismatch =
     manualScopedBatch &&
     selectedTotal > 0 &&
@@ -362,9 +489,80 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       selectedDriveFileIds.length !== selectedTotal ||
       selectedOutsideRequestedIds
     )
+  const selectedDriveFileIdSet = new Set(selectedDriveFileIds)
+  const gateReuseSelectionMismatch =
+    reuseGateLedger &&
+    gateReuseDriveFileIds.length > 0 &&
+    (
+      scannerFailed ||
+      selectedTotal !== gateReuseDriveFileIds.length ||
+      selectedDriveFileIds.length !== gateReuseDriveFileIds.length ||
+      selectedDriveFileIdSet.size !== gateReuseDriveFileIds.length ||
+      gateReuseDriveFileIds.some(id => !selectedDriveFileIdSet.has(id))
+    )
 
   let vision = null
-  if (manualScopedBatch && selectedTotal === 0) {
+  if (gateReuseSelectionMismatch) {
+    const errorCode = scannerFailed
+      ? 'GATE_LEDGER_REUSE_SCANNER_FAILED'
+      : 'GATE_LEDGER_REUSE_SELECTION_MISMATCH'
+    vision = {
+      ok: false,
+      queued: 0,
+      processed: gateReuseDriveFileIds.map(id => ({
+        drive_file_id: id,
+        status: 'error',
+        persisted: false,
+        error_code: errorCode,
+        source: 'gate_ledger',
+        reused: false,
+        image_sha256: null,
+        execution_identity_sha256: null,
+        validation_status: 'ERROR',
+        confidence: null,
+        original_gate_cost_usd: null,
+        current_vision_cost_usd: 0,
+        usage: { cost_usd: 0 },
+        audit: {
+          drive_file_id: id,
+          validation_status: 'ERROR',
+          validation_error_code: errorCode,
+          cost_usd: 0,
+          source: 'gate_ledger',
+          reused: false,
+          current_vision_cost_usd: 0,
+        },
+      })),
+      error_code: errorCode,
+    }
+  } else if (reuseGateLedger && gateReuseDriveFileIds.length === 0) {
+    vision = {
+      ok: false,
+      queued: 0,
+      processed: Array.isArray(gateReusePreflight?.processed)
+        ? gateReusePreflight.processed
+        : requestedDriveFileIds.map(id => ({
+            drive_file_id: id,
+            status: 'error',
+            persisted: false,
+            error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_FAILED',
+            source: 'gate_ledger',
+            reused: false,
+            current_vision_cost_usd: 0,
+            usage: { cost_usd: 0 },
+            audit: {
+              drive_file_id: id,
+              validation_status: 'ERROR',
+              validation_error_code: 'GATE_LEDGER_REUSE_PREFLIGHT_FAILED',
+              cost_usd: 0,
+              source: 'gate_ledger',
+              reused: false,
+              current_vision_cost_usd: 0,
+            },
+          })),
+      error_code: gateReusePreflight?.error_code || 'GATE_LEDGER_REUSE_INCOMPLETE',
+    }
+  } else if (!reuseGateLedger && manualScopedBatch && selectedTotal === 0) {
     vision = {
       ok: true,
       queued: 0,
@@ -377,6 +575,31 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       processed: [],
       error_code: 'CYCLE_SCOPED_SELECTION_MISMATCH',
     }
+  } else if (reuseGateLedger) {
+    vision = await (deps.gateLedgerReuseFn || runSupplierGateLedgerReuseWorker)({
+      limit: selectedTotal,
+      dry_run: false,
+      drive_file_ids: selectedDriveFileIds,
+      prepared_entries: gateReusePreflight.prepared,
+      scope_key: gateReuseScope.key,
+      scope_context: {
+        supplier: gateReuseScope.supplier,
+        brand: gateReuseScope.brand,
+        canonical_family: gateReuseScope.canonical_family,
+        model: gateReuseScope.model,
+        category: gateReuseScope.category,
+      },
+    }, {
+      supabaseUrl: deps.supabaseUrl,
+      publicKey: deps.publicKey,
+      workerToken: deps.workerToken,
+      cycleToken: deps.cycleToken,
+      fetchImpl: deps.fetchImpl,
+      rpcTimeoutMs: deps.rpcTimeoutMs,
+      visionTimeoutMs: deps.visionTimeoutMs,
+      visionProxyUrl: resolveRenderLabVisionProxyUrl(),
+      visionModel: DEFAULT_VISION_MODEL,
+    })
   } else {
     vision = await visionFn({
       limit: manualScopedBatch ? selectedTotal : maxChanges,
@@ -395,6 +618,50 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
       visionModel: DEFAULT_VISION_MODEL,
       visionProxySecret: deps.visionProxySecret,
     })
+  }
+
+  if (reuseGateLedger && gateReuseDriveFileIds.length > 0) {
+    const processedById = new Map()
+    for (const item of [
+      ...(Array.isArray(gateReusePreflight?.processed)
+        ? gateReusePreflight.processed
+        : []),
+      ...(Array.isArray(vision?.processed) ? vision.processed : []),
+    ]) {
+      const id = clean(item?.drive_file_id || item?.audit?.drive_file_id)
+      if (id) processedById.set(id, item)
+    }
+    const processedForAuthorizedIds = requestedDriveFileIds.map(id =>
+      processedById.get(id) || {
+        drive_file_id: id,
+        status: 'error',
+        persisted: false,
+        error_code: 'GATE_LEDGER_REUSE_RESULT_MISSING',
+        source: 'gate_ledger',
+        reused: false,
+        current_vision_cost_usd: 0,
+        usage: { cost_usd: 0 },
+        audit: {
+          drive_file_id: id,
+          validation_status: 'ERROR',
+          validation_error_code: 'GATE_LEDGER_REUSE_RESULT_MISSING',
+          cost_usd: 0,
+          source: 'gate_ledger',
+          reused: false,
+          current_vision_cost_usd: 0,
+        },
+      }
+    )
+    const allReuseItemsSucceeded = processedForAuthorizedIds.every(item =>
+      item.status === 'ready' && item.persisted === true
+    )
+    vision = {
+      ...vision,
+      ok: vision?.ok === true &&
+        (gateReusePreflight?.processed || []).length === 0 &&
+        allReuseItemsSucceeded,
+      processed: processedForAuthorizedIds,
+    }
   }
 
   const processed = Array.isArray(vision?.processed)
@@ -459,6 +726,30 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
               ? item.audit.cost_usd
               : null,
         audit: item.audit || null,
+        ...(reuseGateLedger
+          ? {
+              source: item.source || 'gate_ledger',
+              reused: item.reused === true,
+              gate_ledger_id:
+                item.gate_ledger_id || item.audit?.gate_ledger_id || null,
+              image_sha256:
+                item.image_sha256 || item.audit?.image_sha256 || null,
+              execution_identity_sha256:
+                item.execution_identity_sha256 ||
+                item.audit?.execution_identity?.sha256 ||
+                null,
+              validation_status:
+                item.validation_status || item.audit?.validation_status || null,
+              original_gate_cost_usd:
+                item.original_gate_cost_usd ??
+                item.audit?.original_gate_cost_usd ??
+                null,
+              current_vision_cost_usd:
+                item.current_vision_cost_usd ??
+                item.audit?.current_vision_cost_usd ??
+                0,
+            }
+          : {}),
       })),
     },
     vision_ready_count: readyCount,
@@ -496,9 +787,12 @@ export async function runSupplierCatalogCycle(input = {}, deps = {}) {
         ? summary.error_code
         : 'CYCLE_FINISH_FAILED',
     side_effects: {
-      supplier_shadow_write: true,
-      vision_call: true,
+      supplier_shadow_write: reuseGateLedger
+        ? processed.some(item => item.persisted === true)
+        : true,
+      vision_call: !reuseGateLedger,
       cycle_ledger_write: true,
+      ...(reuseGateLedger ? { gate_ledger_reuse: true } : {}),
       gptmaker_call: false,
       customer_message: false,
       gaby_official: false,

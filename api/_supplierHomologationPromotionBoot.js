@@ -26,6 +26,18 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
     const driveFileIds = Array.isArray(parsed.drive_file_ids)
       ? parsed.drive_file_ids.map(clean)
       : null
+    const reuseOptionProvided = Object.prototype.hasOwnProperty.call(
+      parsed,
+      'reuse_gate_ledger',
+    )
+    if (reuseOptionProvided && typeof parsed.reuse_gate_ledger !== 'boolean') {
+      return {
+        ok: false,
+        error: 'PROMOTION_BOOT_GATE_LEDGER_REUSE_OPTION_INVALID',
+        input: null,
+      }
+    }
+    const reuseGateLedger = parsed.reuse_gate_ledger === true
 
     if (driveFileIdsProvided && (
       !Array.isArray(parsed.drive_file_ids) ||
@@ -38,6 +50,14 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
       return {
         ok: false,
         error: 'PROMOTION_BOOT_DRIVE_FILE_IDS_INVALID',
+        input: null,
+      }
+    }
+
+    if (reuseGateLedger && !driveFileIdsProvided) {
+      return {
+        ok: false,
+        error: 'PROMOTION_BOOT_GATE_LEDGER_REUSE_IDS_REQUIRED',
         input: null,
       }
     }
@@ -71,6 +91,7 @@ export function parseSupplierHomologationPromotionBootInput(env = process.env) {
         max_changes: requestedMaxChanges,
         cycle_key: `supplier-cycle-homologation:${runKey}`,
         ...(driveFileIdsProvided ? { drive_file_ids: driveFileIds } : {}),
+        ...(reuseGateLedger ? { reuse_gate_ledger: true } : {}),
       },
     }
   } catch {
@@ -160,6 +181,9 @@ export async function runSupplierHomologationPromotionBoot({
           ...(parsed.input.drive_file_ids
             ? { drive_file_ids: parsed.input.drive_file_ids }
             : {}),
+          ...(parsed.input.reuse_gate_ledger === true
+            ? { reuse_gate_ledger: true }
+            : {}),
         }),
       }
     )
@@ -185,6 +209,9 @@ export async function runSupplierHomologationPromotionBoot({
     scope_key: parsed.input.scope_key,
     max_changes: parsed.input.max_changes,
     drive_file_ids: parsed.input.drive_file_ids || null,
+    ...(parsed.input.reuse_gate_ledger === true
+      ? { reuse_gate_ledger: true }
+      : {}),
     ok:
       !transportError &&
       payload?.ok === true &&
