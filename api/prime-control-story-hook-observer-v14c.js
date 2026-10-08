@@ -108,16 +108,20 @@ export default async function handler(req,res) {
   const record=summarizeInbound(req.body,process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY)
   const ack=responseForObservation(record)
   console.info('[PrimeControlStoryObserver]',JSON.stringify({...record,correlation_id:ack.correlation_id}))
-  // ACK the GPTMaker event before the optional LAB read-only lookup.
-  res.status(200).json(ack)
+  // Controlled LAB pilot: await the bounded read-only lookup before ACK.
+  // Do not rely on a detached Promise after HTTP response (worker restart risk).
+  // The lookup has a 7-second cap and never posts to the Instagram customer.
   if(process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED==='true'
      &&record.source_role==='USER') {
-    void resolveStoryPilot(req.body).catch(()=>{
+    try {
+      await resolveStoryPilot(req.body,{traceId:ack.correlation_id})
+    }catch{
       console.info('[PrimeControlStoryCorrelation]',JSON.stringify({
         event:'PRIME_CONTROL_STORY_CONTEXT_RESOLVED_V14C',status:'UNEXPECTED_ERROR',
-        correlation_id:ack.correlation_id,
+        webhook_correlation_id:ack.correlation_id,
       }))
-    })
+    }
   }
+  res.status(200).json(ack)
   return res
 }

@@ -27,11 +27,17 @@ function mockRes(){
 }
 const realEnabled=process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED
 const realKey=process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY
+const corrKeys=['PRIME_CONTROL_STORY_CORRELATION_ENABLED','PRIME_CONTROL_STORY_PILOT_CHAT_ID','PRIME_CONTROL_STORY_RESOLVER_KEY']
+const originalCorr=Object.fromEntries(corrKeys.map(k=>[k,process.env[k]]))
 afterEach(()=>{
  if(realEnabled===undefined)delete process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED
  else process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED=realEnabled
  if(realKey===undefined)delete process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY
  else process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=realKey
+ for(const k of corrKeys) {
+  if(originalCorr[k]===undefined)delete process.env[k]
+  else process.env[k]=originalCorr[k]
+ }
  vi.restoreAllMocks()
 })
 describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
@@ -92,6 +98,28 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   await handler({method:'POST',headers:{'content-type':'application/json',
     'x-prime-lab-hook-key':KEY},body:simulated},res)
   expect(res.code).toBe(503)
+ })
+ it('correlation pilot awaits exactly one protected read before HTTP 200 ACK',async()=>{
+  process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
+  process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
+  process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED='true'
+  process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID='PRIVATE_CHAT_SHOULD_NOT_LEAK'
+  process.env.PRIME_CONTROL_STORY_RESOLVER_KEY='synthetic-relay-secret'
+  const log=vi.spyOn(console,'info').mockImplementation(()=>{})
+  const outgoing=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({
+   status:'FOUND',story_present:true,agent_verified:true,story_media_available:true
+  }))
+  const res=mockRes()
+  const body={...simulated,message:{...simulated.message,id:'QA_EVENT_101'}}
+  await handler({method:'POST',query:{},headers:{
+   'content-type':'application/json','x-prime-lab-hook-key':KEY
+  },body},res)
+  expect(res.code).toBe(200)
+  expect(outgoing).toHaveBeenCalledTimes(1)
+  expect(log.mock.calls.some(c=>String(c[1]).includes('PRIME_CONTROL_STORY_CONTEXT_RESOLVED_V14C'))).toBe(true)
+  const serialized=JSON.stringify(log.mock.calls)+JSON.stringify(res.body)
+  for(const v of ['synthetic-relay-secret','gpt-files.com','PRIVATE_CHAT_SHOULD_NOT_LEAK'])
+   expect(serialized).not.toContain(v)
  })
  it('when enabled ACKs immediately without fetch, reply, Vision, catalog or JEV',async()=>{
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY

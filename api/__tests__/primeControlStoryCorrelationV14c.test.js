@@ -1,10 +1,10 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest'
-import {extractInboundChatId,isUserInbound,resolveStoryPilot,
+import {extractInboundChatId,extractInboundEventIdentity,isUserInbound,resolveStoryPilot,
  clearPilotCorrelationCacheForTests} from '../_primeControlStoryCorrelationV14c.js'
 
 const pilot="only-lab-pilot-chat"
 const env={PRIME_CONTROL_STORY_PILOT_CHAT_ID:pilot,PRIME_CONTROL_STORY_RESOLVER_KEY:'unit-key-do-not-share'}
-const request={chatId:pilot,message:{role:'user',text:'Qual o valor?'}}
+const request={chatId:pilot,message:{role:'user',id:'qa-message-001',text:'Qual o valor?'}}
 
 beforeEach(()=>clearPilotCorrelationCacheForTests())
 describe('V1.4C read-only chat → Story correlation safety',()=>{
@@ -47,6 +47,33 @@ describe('V1.4C read-only chat → Story correlation safety',()=>{
   expect((await resolveStoryPilot(request,cfg)).status).toBe('DUPLICATE_SUPPRESSED')
   expect(fetchImpl).toHaveBeenCalledTimes(1)
   tick+=90001
+  expect((await resolveStoryPilot(request,cfg)).status).toBe('FOUND')
+  expect(fetchImpl).toHaveBeenCalledTimes(2)
+ })
+ it('does not suppress a distinct user message in the same chat within 90 seconds',async()=>{
+  const fetchImpl=vi.fn(async()=>Response.json({status:'FOUND',story_present:true,agent_verified:true}))
+  const cfg={env,fetchImpl,logger:vi.fn(),clock:()=>100000}
+  const second={...request,message:{...request.message,id:'qa-message-002'}}
+  expect(extractInboundEventIdentity(request)).toBe('message:qa-message-001')
+  expect((await resolveStoryPilot(request,cfg)).status).toBe('FOUND')
+  expect((await resolveStoryPilot(second,cfg)).status).toBe('FOUND')
+  expect((await resolveStoryPilot(second,cfg)).status).toBe('DUPLICATE_SUPPRESSED')
+  expect(fetchImpl).toHaveBeenCalledTimes(2)
+ })
+ it('does not dedupe by chat when GPTMaker omits stable message identity',async()=>{
+  const noId={chatId:pilot,message:{role:'user',text:'Qual o valor?'}}
+  const fetchImpl=vi.fn(async()=>Response.json({status:'FOUND',story_present:true}))
+  const cfg={env,fetchImpl,logger:vi.fn(),clock:()=>100000}
+  expect(extractInboundEventIdentity(noId)).toBeNull()
+  expect((await resolveStoryPilot(noId,cfg)).status).toBe('FOUND')
+  expect((await resolveStoryPilot(noId,cfg)).status).toBe('FOUND')
+  expect(fetchImpl).toHaveBeenCalledTimes(2)
+ })
+ it('allows a retry of an identified message after a relay failure',async()=>{
+  const fetchImpl=vi.fn().mockRejectedValueOnce(Error('offline'))
+   .mockResolvedValueOnce(Response.json({status:'FOUND',story_present:true}))
+  const cfg={env,fetchImpl,logger:vi.fn()}
+  expect((await resolveStoryPilot(request,cfg)).status).toBe('RELAY_NETWORK_ERROR')
   expect((await resolveStoryPilot(request,cfg)).status).toBe('FOUND')
   expect(fetchImpl).toHaveBeenCalledTimes(2)
  })
