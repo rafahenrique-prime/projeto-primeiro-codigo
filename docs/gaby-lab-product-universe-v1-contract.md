@@ -21,6 +21,7 @@ Fornecedor encontrado significa **candidato comercial**, não estoque ao vivo.
 - Falha de busca na PRIME nunca equivale automaticamente a "não temos".
 - Pedido explícito do cliente substitui a variante visual do Story. Exemplo: Story branco + "tem preto 42?" => cor pedida = preto.
 - Produtos podem ser EXACT, SAME_FAMILY, SIMILAR ou UNKNOWN.
+- NIKE_MOTIVA é uma família canônica própria com aliases Nike Motiva, Motiva e Nike Motiva feminino; buscas dessa família descartam evidência de outra família, inclusive preços de Nike Dunk.
 - SAME_FAMILY permite continuidade comercial sem exigir SKU/cor idênticos.
 - Tamanho pode ser OFFERABLE por política comercial V1 mesmo sem confirmação física naquele instante.
 - Preço de fornecedor só pode ser usado quando houver regra explícita de família ou um preço PRIME inequívoco para a mesma família.

@@ -1049,6 +1049,102 @@ describe('Product Universe Runtime V1 — universo PRIME + fornecedores controla
   })
 })
 
+describe('Product Universe Runtime V1 — NIKE_MOTIVA isolada', () => {
+  const primeDunk = {
+    id: 'prime-nike-dunk-black',
+    bagy_product_id: 9001,
+    nome: 'Tênis Nike Dunk Low Preto',
+    categoria_nome: 'Tênis',
+    preco: 499,
+    preco_pix: 479,
+    imagem_principal: 'https://prime.example/nike-dunk.jpg',
+    link: 'https://prime.example/nike-dunk',
+    codigo: 'DUNK-BLACK',
+    marca: 'Nike',
+  }
+
+  const miaMotiva = {
+    source: 'MIA',
+    source_item_id: 'mia-nike-motiva-1',
+    name: 'Nike Motiva Preto',
+    brand: 'Nike',
+    model: 'Nike Motiva',
+    color: 'preto',
+    canonical_family: 'NIKE_MOTIVA',
+  }
+
+  it.each(['Nike Motiva', 'Motiva', 'Nike Motiva feminino'])(
+    'usa cobertura MIA da NIKE_MOTIVA para a consulta %s sem misturar Dunk',
+    async (query) => {
+      const fetchImpl = vi.fn(async () => response([primeDunk]))
+      const input = query === 'Nike Motiva'
+        ? { query, requested: { brand: 'Nike', model: 'Nike Motiva' } }
+        : { query }
+
+      const out = await buildProductUniverseRuntime(input, {
+        supabaseConfig: SB,
+        fetchImpl,
+        supplierFixtures: [miaMotiva],
+        pricingRules: [{
+          rule_id: 'dunk-only-price',
+          family_id: 'NIKE_DUNK',
+          price: 499,
+          source: 'PRIME_FAMILY_RULE',
+          active: true,
+        }],
+      })
+
+      expect(out.decision.canonical_family).toBe('NIKE_MOTIVA')
+      expect(out.decision.best_match).toMatchObject({
+        source: 'MIA',
+        canonical_family: 'NIKE_MOTIVA',
+        match_type: 'SAME_FAMILY',
+      })
+      expect(out.decision.coverage.MIA).toBe(true)
+      expect(out.decision.coverage.PRIME).toBe(false)
+      expect(out.decision.coverage.supplier_count).toBe(1)
+      expect(out.decision.price.state).toBe('UNKNOWN')
+      expect(out.decision.price.amount).toBeNull()
+      expect(out.decision.commercial.action).toBe('CONTINUE_SALE')
+      expect(out.source_status.PRIME.candidates).toBe(0)
+      expect(out.source_status.MIA.candidates).toBe(1)
+      expect(out.side_effects).toEqual({
+        supabase_write: false,
+        gptmaker_call: false,
+        customer_message: false,
+        jev_call: false,
+      })
+      expect(fetchImpl).toHaveBeenCalledTimes(1)
+      expect(fetchImpl.mock.calls[0][1].method).toBe('GET')
+    }
+  )
+
+  it('mantém Motiva como não encontrado quando só há evidência Nike Dunk', async () => {
+    const out = await buildProductUniverseRuntime({
+      query: 'Nike Motiva',
+    }, {
+      supabaseConfig: SB,
+      fetchImpl: vi.fn(async () => response([primeDunk])),
+      supplierFixtures: [],
+      pricingRules: [{
+        rule_id: 'dunk-only-price',
+        family_id: 'NIKE_DUNK',
+        price: 499,
+        source: 'PRIME_FAMILY_RULE',
+        active: true,
+      }],
+    })
+
+    expect(out.decision.canonical_family).toBe('NIKE_MOTIVA')
+    expect(out.decision.best_match).toBeNull()
+    expect(out.decision.price.state).toBe('UNKNOWN')
+    expect(out.decision.price.amount).toBeNull()
+    expect(out.decision.coverage.supplier_count).toBe(0)
+    expect(out.decision.commercial.action).toBe('ASK_SMART_QUESTION')
+    expect(out.source_status.PRIME.candidates).toBe(0)
+  })
+})
+
 describe('Endpoint gaby-lab-product-universe-v1 — travas', () => {
   it('fica OFF por padrão e nem consulta Supabase', async () => {
     const fetchImpl = vi.fn()

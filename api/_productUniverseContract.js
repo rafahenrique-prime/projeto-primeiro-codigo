@@ -381,16 +381,36 @@ export function buildProductUniverseDecision(input = {}) {
   }
 
   const requested = canonicalRequested(input)
+  const explicitFamily = String(input.requested?.canonical_family || '').trim()
+  const queryText = String(input.query || '').trim()
+  const queryFamily = queryText
+    ? resolveCanonicalFamily({
+        brand: requested.brand,
+        model: queryText,
+        name: queryText,
+      }, familyRules)
+    : null
+  const queryMatchesStrictFamily = familyRules.some((rule) =>
+    rule?.strict_match === true &&
+    String(rule?.family_id || '').trim() === queryFamily
+  )
+  const requestedModelForFamily =
+    requested.model || (queryMatchesStrictFamily ? queryText : '')
   const requestedFamily = resolveCanonicalFamily({
-    canonical_family: input.requested?.canonical_family,
+    canonical_family: explicitFamily,
     brand: requested.brand,
-    model: requested.model,
-    name: requested.model,
+    model: requestedModelForFamily,
+    name: requestedModelForFamily,
   }, familyRules)
+  const enforceFamily = Boolean(requestedFamily && familyRules.some((rule) =>
+    rule?.strict_match === true &&
+    String(rule?.family_id || '').trim() === requestedFamily
+  ))
 
   const evidence = (Array.isArray(input.evidence) ? input.evidence : [])
     .map((item) => normalizeEvidence(item, familyRules))
     .filter(Boolean)
+    .filter((item) => !enforceFamily || item.canonical_family === requestedFamily)
     .map((item) => ({
       ...item,
       match_type: inferMatchType(item, requestedFamily),

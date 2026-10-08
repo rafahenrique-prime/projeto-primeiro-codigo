@@ -62,6 +62,12 @@ const FAMILY_RULES = [
     aliases: ['Dunk', 'Nike Dunk', 'Dunk Low', 'Nike Dunk Low', 'SB Dunk', 'Nike SB Dunk'],
   },
   {
+    family_id: 'NIKE_MOTIVA',
+    canonical_name: 'Nike Motiva',
+    aliases: ['Nike Motiva', 'Motiva', 'Nike Motiva feminino'],
+    strict_match: true,
+  },
+  {
     family_id: 'NIKE_COURT_VISION',
     canonical_name: 'Nike Court Vision',
     aliases: ['Court Vision', 'Nike Court Vision', 'Court Vision Low', 'Nike Court Vision Low'],
@@ -115,6 +121,79 @@ const BASE = {
 }
 
 describe('GABY LAB Product Universe V1 — contrato comercial puro', () => {
+  it('Nike Motiva e seus aliases resolvem para uma família própria, sem capturar Nike Dunk', () => {
+    const nikeMotiva = buildProductUniverseDecision({
+      ...BASE,
+      requested: { brand: 'Nike', model: 'Nike Motiva' },
+      evidence: [],
+    })
+    const motiva = buildProductUniverseDecision({
+      ...BASE,
+      requested: { brand: 'Nike', model: 'Motiva' },
+      evidence: [],
+    })
+    const feminineMotiva = buildProductUniverseDecision({
+      ...BASE,
+      query: 'Nike Motiva feminino',
+      evidence: [],
+    })
+    const queryMotiva = buildProductUniverseDecision({
+      ...BASE,
+      query: 'Nike Motiva',
+      evidence: [],
+    })
+    const visualMotiva = buildProductUniverseDecision({
+      ...BASE,
+      visual: { brand: 'Nike', model: 'NIKE_MOTIVA' },
+      evidence: [],
+    })
+    const dunk = buildProductUniverseDecision({
+      ...BASE,
+      requested: { brand: 'Nike', model: 'Nike Dunk Low' },
+      evidence: [],
+    })
+
+    expect(nikeMotiva.canonical_family).toBe('NIKE_MOTIVA')
+    expect(motiva.canonical_family).toBe('NIKE_MOTIVA')
+    expect(feminineMotiva.canonical_family).toBe('NIKE_MOTIVA')
+    expect(queryMotiva.canonical_family).toBe('NIKE_MOTIVA')
+    expect(visualMotiva.canonical_family).toBe('NIKE_MOTIVA')
+    expect(dunk.canonical_family).toBe('NIKE_DUNK')
+  })
+
+  it('Motiva ignora evidência e preço de PRIME de outra família', () => {
+    const out = buildProductUniverseDecision({
+      ...BASE,
+      pricing_rules: [{
+        rule_id: 'dunk-only-price',
+        family_id: 'NIKE_DUNK',
+        price: 499,
+        source: 'PRIME_FAMILY_RULE',
+        active: true,
+      }],
+      requested: { brand: 'Nike', model: 'Nike Motiva' },
+      evidence: [{
+        source: 'PRIME',
+        source_item_id: 'prime-dunk',
+        name: 'Nike Dunk Low Preto',
+        brand: 'Nike',
+        model: 'Nike Dunk Low',
+        canonical_family: 'NIKE_DUNK',
+        match_type: 'SIMILAR',
+        price: 499,
+      }],
+    })
+
+    expect(out.canonical_family).toBe('NIKE_MOTIVA')
+    expect(out.best_match).toBeNull()
+    expect(out.coverage.PRIME).toBe(false)
+    expect(out.coverage.supplier_count).toBe(0)
+    expect(out.price.state).toBe('UNKNOWN')
+    expect(out.price.amount).toBeNull()
+    expect(out.commercial.action).toBe('ASK_SMART_QUESTION')
+    expect(out.evidence).toHaveLength(0)
+  })
+
   it('expõe versão estável do contrato', () => {
     const out = buildProductUniverseDecision(BASE)
     expect(out.contract_version).toBe(PRODUCT_UNIVERSE_CONTRACT_VERSION)

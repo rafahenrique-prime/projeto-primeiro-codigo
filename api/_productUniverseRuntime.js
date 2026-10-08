@@ -141,6 +141,12 @@ export const DEFAULT_FAMILY_RULES = [
     ],
   },
   {
+    family_id: 'NIKE_MOTIVA',
+    canonical_name: 'Nike Motiva',
+    aliases: ['Nike Motiva', 'Motiva', 'Nike Motiva feminino'],
+    strict_match: true,
+  },
+  {
     family_id: 'NIKE_COURT_VISION',
     canonical_name: 'Nike Court Vision',
     aliases: [
@@ -336,6 +342,17 @@ function requestShape(input = {}) {
   }
 }
 
+function hasStrictFamilyRule(familyId, familyRules = []) {
+  return (familyRules || []).some((rule) =>
+    String(rule?.family_id || '').trim() === familyId &&
+    rule?.strict_match === true
+  )
+}
+
+function shouldEnforceFamily(familyId, familyRules = []) {
+  return Boolean(familyId && hasStrictFamilyRule(familyId, familyRules))
+}
+
 function tokens(value) {
   return normalizeText(value)
     .split(' ')
@@ -505,13 +522,14 @@ export function selectPrimeEvidence(
     model: requested.model || requested.query,
     name: requested.model || requested.query,
   }, familyRules)
+  const enforceFamily = shouldEnforceFamily(requestedFamily, familyRules)
 
   return (Array.isArray(products) ? products : [])
     .map((row) => {
       const scored = scoreCandidate(row, requested, requestedFamily, familyRules)
       return { row, ...scored }
     })
-    .filter((x) => x.score > 0)
+    .filter((x) => x.score > 0 && (!enforceFamily || x.canonicalFamily === requestedFamily))
     .sort((a, b) => b.score - a.score)
     .slice(0, maxCandidates)
     .map(({ row, score, matchType, canonicalFamily }) => ({
@@ -551,6 +569,7 @@ export function selectSupplierFixtureEvidence(
     model: requested.model || requested.query,
     name: requested.model || requested.query,
   }, familyRules)
+  const enforceFamily = shouldEnforceFamily(requestedFamily, familyRules)
 
   return (Array.isArray(fixtures) ? fixtures : [])
     .filter((x) => ['VIVIAN', 'MIA'].includes(String(x?.source || '').toUpperCase()))
@@ -579,12 +598,15 @@ export function selectSupplierFixtureEvidence(
       }
 
       const lexical = tokenOverlap(requestSearchText(requested), surface)
-      const relevant =
-        sameFamily ||
-        lexical > 0 ||
-        matchType === 'EXACT' ||
-        matchType === 'SAME_FAMILY' ||
-        matchType === 'SIMILAR'
+      const relevant = enforceFamily
+        ? sameFamily
+        : (
+            sameFamily ||
+            lexical > 0 ||
+            matchType === 'EXACT' ||
+            matchType === 'SAME_FAMILY' ||
+            matchType === 'SIMILAR'
+          )
 
       if (!relevant) return null
 
