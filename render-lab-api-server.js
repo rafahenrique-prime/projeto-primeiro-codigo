@@ -11,6 +11,7 @@ import primeControlStoryReplayHandler from './api/prime-control-story-lab-v14c.j
 import primeControlPositiveHandler from './api/prime-control-story-positive-lab-v14c.js'
 import primeControlVansScreenshotHandler from './api/prime-control-vans-screenshot-lab-v14c.js'
 import primeControlNativeStoryHandler from './api/prime-control-native-story-lab-v14c.js'
+import primeControlStoryHookObserver from './api/prime-control-story-hook-observer-v14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
@@ -83,6 +84,9 @@ app.post('/api/prime-control-story-positive-lab-v14c', (req,res) => primeControl
 app.post('/api/prime-control-vans-screenshot-lab-v14c', (req,res) => primeControlVansScreenshotHandler(req,res))
 
 app.post('/api/prime-control-native-story-lab-v14c', (req,res)=>primeControlNativeStoryHandler(req,res))
+
+// LAB-only, no outbound work. Requires dedicated hook token; default disabled.
+app.post('/api/prime-control-story-hook-observer-v14c', (req,res)=>primeControlStoryHookObserver(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
