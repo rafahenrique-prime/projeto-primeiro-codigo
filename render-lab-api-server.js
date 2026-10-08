@@ -12,6 +12,7 @@ import primeControlPositiveHandler from './api/prime-control-story-positive-lab-
 import primeControlVansScreenshotHandler from './api/prime-control-vans-screenshot-lab-v14c.js'
 import primeControlNativeStoryHandler from './api/prime-control-native-story-lab-v14c.js'
 import primeControlStoryHookObserver from './api/prime-control-story-hook-observer-v14c.js'
+import primeControlStoryMediaProbeHandler from './api/prime-control-story-media-probe-v14d.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -88,6 +89,9 @@ app.post('/api/prime-control-native-story-lab-v14c', (req,res)=>primeControlNati
 
 // LAB-only, no outbound work. Requires dedicated hook token; default disabled.
 app.post('/api/prime-control-story-hook-observer-v14c', (req,res)=>primeControlStoryHookObserver(req,res))
+
+// Separate LAB-only, private image bridge. Disabled by default; no AI / writes.
+app.post('/api/prime-control-story-media-probe-v14d', (req,res)=>primeControlStoryMediaProbeHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
@@ -1047,6 +1051,36 @@ async function runPrimeControlStoryObserverBootOnce() {
   }))
 }
 
+async function runStoryMediaProbeBootOnce(){
+ if(process.env.PRIME_CONTROL_STORY_MEDIA_PROBE_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ if(!key) return console.info('[PrimeControlStoryMediaProbeBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_STORY_MEDIA_PROBE_BOOT_V14D',ok:false,status:'BOOT_KEY_MISSING'
+ }))
+ try {
+  const r=await fetch(`http://127.0.0.1:${port}/api/prime-control-story-media-probe-v14d`,{
+   method:'POST',
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'PROBE_QA_STORY_MEDIA_V14D'}),
+   signal:AbortSignal.timeout(14000),
+  })
+  const body=await r.json().catch(()=>null)
+  console.info('[PrimeControlStoryMediaProbeBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_MEDIA_PROBE_BOOT_V14D',
+   ok:r.ok&&body?.status==='MEDIA_VERIFIED',
+   status:typeof body?.status==='string'?body.status:'NO_RESULT',
+   http_status:r.status,media_type:body?.media_type||null,
+   bytes_count:body?.bytes_count??null,
+   vision_calls:0,jev_calls:0,catalog_calls:0,messages_sent:0,writes:0,
+  }))
+ }catch{
+  console.info('[PrimeControlStoryMediaProbeBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_STORY_MEDIA_PROBE_BOOT_V14D',ok:false,status:'BOOT_NETWORK_ERROR'
+  }))
+ }
+}
+
 async function runStoryContextResolverBootOnce(){
   if(process.env.PRIME_CONTROL_STORY_RESOLVER_BOOT_ONCE!=='true')return
   const chatId=String(process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID||'')
@@ -1092,4 +1126,5 @@ app.listen(port, '0.0.0.0', async () => {
   void runPrimeControlNativeStorySimBootOnce().catch(() => {})
   void runPrimeControlStoryObserverBootOnce().catch(() => {})
   void runStoryContextResolverBootOnce().catch(() => {})
+  void runStoryMediaProbeBootOnce().catch(() => {})
 })
