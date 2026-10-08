@@ -678,7 +678,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
       },
       body: {
         ...AJ3_INPUT,
-        gate_run_key: expect.stringMatching(/^supplier-gate-[a-f0-9]{64}$/),
+        run_key: 'gate-audit-v1',
         samples: [AJ3_INPUT.samples[0]],
       },
     }, res, {
@@ -692,7 +692,7 @@ describe('Supplier Homologation Harness V1 — read-only orchestration', () => {
     const event = JSON.parse(logger.log.mock.calls[0][0])
     expect(event).toMatchObject({
       event: 'SUPPLIER_HOMOLOGATION_VISION_ANALYSIS',
-      run_key: 'gate-audit-v1',
+      gate_run_key: expect.stringMatching(/^supplier-gate-[a-f0-9]{64}$/),
       vision_diagnostics: [{
         drive_file_id: 'audit-file-id',
         model_effective: 'google/gemini-2.5-flash-lite',
