@@ -888,6 +888,42 @@ async function probePositiveLabPhotoOnce() {
   }
 }
 
+async function runPositiveV14CBootOnce() {
+  if(process.env.PRIME_CONTROL_POSITIVE_BOOT_ONCE!=='true')return
+  const secret=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'')
+  if(!secret)return console.info('[PrimeControlPositiveBoot]',JSON.stringify({ok:false,error:'SECRET_MISSING'}))
+  try{
+    const response=await fetch(`http://127.0.0.1:${port}/api/prime-control-story-positive-lab-v14c`,{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+        'x-prime-control-story-key':secret,
+      },
+      body:JSON.stringify({case:'NB9060_BRANCO_LAB',confirm:'RUN_POSITIVE_STORY_LAB_V14C'}),
+      signal:AbortSignal.timeout(30000),
+    })
+    const body=await response.json().catch(()=>null)
+    console.info('[PrimeControlPositiveBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_POSITIVE_BOOT',
+      ok:body?.ok===true,http_status:response.status,
+      run_id:body?.run_id||null,stage:body?.stage||null,status:body?.status||null,
+      vision_status:body?.result?.vision?.status||null,
+      vision_model:body?.result?.vision?.model||null,
+      candidate_count:body?.result?.catalog?.candidates??null,
+      jev_status:body?.result?.jev?.status||null,jev_action:body?.result?.jev?.action||null,
+      jev_reason:body?.result?.jev?.reason||null,
+      jev_cost_usd:body?.result?.jev?.cost_usd??null,
+      error:body?.error||null,
+    }))
+  }catch(e){
+    console.info('[PrimeControlPositiveBoot]',JSON.stringify({
+      event:'PRIME_CONTROL_POSITIVE_BOOT',ok:false,
+      error:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK_ERROR',
+    }))
+  }
+}
+
 app.listen(port, '0.0.0.0', async () => {
   console.log(`PRIME LAB API listening on port ${port}`)
   await runSupplierGateLedgerSmoke()
@@ -903,4 +939,5 @@ app.listen(port, '0.0.0.0', async () => {
   await runPrimeControlGptmakerProofBootSmoke()
   void runPrimeControlStoryV14CBootSmoke().catch(() => {})
   void probePositiveLabPhotoOnce().catch(() => {})
+  void runPositiveV14CBootOnce().catch(() => {})
 })
