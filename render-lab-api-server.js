@@ -19,6 +19,7 @@ import primeControlStoryVisualMatchHandler from './api/prime-control-story-visua
 import primeControlStoryNativeBridgeHandler from './api/prime-control-story-native-bridge-v14g.js'
 import primeControlGabyToolPreviewHandler from './api/prime-control-gaby-tool-preview-v14h.js'
 import primeControlStoryRoutingV14iHandler from './api/prime-control-story-routing-preview-v14i.js'
+import primeControlStoryActionAdapterV14kHandler from './api/prime-control-story-action-adapter-v14k.js'
 import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
@@ -104,6 +105,7 @@ app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlSt
 app.post('/api/prime-control-story-native-bridge-v14g', (req,res)=>primeControlStoryNativeBridgeHandler(req,res))
 app.post('/api/prime-control-gaby-tool-preview-v14h', (req,res)=>primeControlGabyToolPreviewHandler(req,res))
 app.post('/api/prime-control-story-routing-preview-v14i', (req,res)=>primeControlStoryRoutingV14iHandler(req,res))
+app.post('/api/prime-control-story-action-adapter-v14k', (req,res)=>primeControlStoryActionAdapterV14kHandler(req,res))
 
 app.use((_req, res) => {
   res.setHeader('Cache-Control', 'no-store')

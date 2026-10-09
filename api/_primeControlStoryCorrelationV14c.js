@@ -98,7 +98,13 @@ export async function resolveStoryPilot(
      story_media_available:ok&&data?.story_media_available===true,
      story_fingerprint:ok&&typeof data?.story_fingerprint==='string'
        &&/^[a-f0-9]{24}$/.test(data.story_fingerprint)?data.story_fingerprint:null,
-     ...common,source:'GPTMAKER_MESSAGES_READ_ONLY',
+     // Authenticated Vercel resolver already returns these. Preserve them for
+    // strict freshness checks on LAB action calls; never log raw chat text.
+    latest_user_time:ok&&Number.isSafeInteger(data?.latest_user_time)?
+      data.latest_user_time:null,
+    story_media_type:ok&&['image/jpeg','video/mp4'].includes(data?.story_media_type)?
+      data.story_media_type:null,
+    ...common,source:'GPTMAKER_MESSAGES_READ_ONLY',
      http_status:resp.status,deduplicated:false,
    }
    if(eventKey&&!ok)recent.delete(eventKey) // allow retry after transient failure
