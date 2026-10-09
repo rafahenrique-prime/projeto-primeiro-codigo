@@ -100,8 +100,8 @@ export function scopeStoryEventV16b(body,{env=process.env,clock=Date.now}={}){
  const senderId=getSenderId(body)
  if(senderId.status!=='OK')return fail(senderId.status)
  const channel=getChannelId(body)
- if(channel.status==='CHANNEL_ID_DIVERGENT')return fail(channel.status)
- if(channel.status==='OK'&&channel.value!==PILOT_CHANNEL_ID)return fail('CHANNEL_OUT_OF_SCOPE')
+ if(channel.status!=='OK')return fail(channel.status)
+ if(channel.value!==PILOT_CHANNEL_ID)return fail('CHANNEL_OUT_OF_SCOPE')
  const message=getMessageId(body)
  if(message.status!=='OK')return fail(message.status)
  const time=getEventTime(body)
@@ -116,8 +116,8 @@ export function scopeStoryEventV16b(body,{env=process.env,clock=Date.now}={}){
   event_id_hmac:hmac(message.value,key,MESSAGE_DOMAIN),
   sender_name_hmac:hmac(senderName.value,key,SENDER_NAME_DOMAIN),
   sender_id_hmac:hmac(senderId.value,key,SENDER_ID_DOMAIN),
-  channel_id_hmac:channel.status==='OK'?hmac(channel.value,key,CHANNEL_DOMAIN):null,
-  channel_id_present:channel.status==='OK',
+  channel_id_hmac:hmac(channel.value,key,CHANNEL_DOMAIN),
+  channel_id_present:true,
   event_age_ms:age,
  }
 }
