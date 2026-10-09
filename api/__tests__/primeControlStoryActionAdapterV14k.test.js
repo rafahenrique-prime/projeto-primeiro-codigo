@@ -1,6 +1,7 @@
-import {describe,it,expect,vi,beforeEach,afterEach} from 'vitest'
+import {describe,it,expect,vi} from 'vitest'
+import {createHmac} from 'node:crypto'
 import handler,{
- dryRunGabyLabActionV14k,normalizeGabyActionPayloadV14k,
+ dryRunGabyLabActionV14k,normalizeGabyActionPayloadV14k,verifyLatestActionTurnV14l,
  V14K_CONFIRM
 } from '../prime-control-story-action-adapter-v14k.js'
 import {resolveStoryPilot} from '../_primeControlStoryCorrelationV14c.js'
@@ -14,10 +15,13 @@ const cfg={
  PRIME_CONTROL_STORY_RESOLVER_KEY:'fixture-resolver-key'
 }
 const action={cliente_id:'$'+CHAT,pergunta:'$Qual o valor dessa?'}
+const hash=(q,key=cfg.PRIME_CONTROL_STORY_RESOLVER_KEY)=>
+ createHmac('sha256',key).update('prime-control:turn:v14l:\0'+q.trim().replace(/\s+/g,' ').toLowerCase()).digest('hex').slice(0,32)
 const found=(media=BASELINE_STORIES_20261008[4])=>({
  status:'FOUND',story_present:true,story_media_available:true,
  agent_verified:true,story_fingerprint:media.fingerprint,
- story_media_type:media.media_type,latest_user_time:NOW-3500
+ story_media_type:media.media_type,latest_user_time:NOW-3500,
+ latest_question_hmac:hash('Qual o valor dessa?'),latest_question_duplicate_count:1
 })
 const run=(overrides={})=>dryRunGabyLabActionV14k({
  env:cfg,body:action,clock:()=>NOW,resolveFn:vi.fn(async()=>found()),
@@ -110,7 +114,8 @@ describe('V1.4K GPTMaker action adapter QA, not active tool',()=>{
  it('preserves time and media type from trusted Vercel response without new media downloads',async()=>{
   const payload={status:'FOUND',story_present:true,agent_verified:true,
    story_media_available:true,story_fingerprint:BASELINE_STORIES_20261008[5].fingerprint,
-   story_media_type:'video/mp4',latest_user_time:NOW-3500}
+   story_media_type:'video/mp4',latest_user_time:NOW-3500,
+   latest_question_hmac:hash('Qual o valor dessa?'),latest_question_duplicate_count:1}
   const fetchImpl=vi.fn(async()=>({ok:true,status:200,json:async()=>payload}))
   const result=await resolveStoryPilot({chatId:CHAT,message:{role:'user'}},{
    env:cfg,clock:()=>NOW,fetchImpl,logger:vi.fn(),dedupe:false
@@ -118,7 +123,29 @@ describe('V1.4K GPTMaker action adapter QA, not active tool',()=>{
   expect(result.status).toBe('FOUND')
   expect(result.latest_user_time).toBe(NOW-3500)
   expect(result.story_media_type).toBe('video/mp4')
+  expect(result.latest_question_hmac).toBe(hash('Qual o valor dessa?'))
+  expect(result.latest_question_duplicate_count).toBe(1)
   expect(fetchImpl).toHaveBeenCalledTimes(1)
+ })
+ it('V1.4L HMAC binds exact question to latest Story and rejects stale product associations',async()=>{
+  expect(verifyLatestActionTurnV14l(found(),'QUAL O VALOR DESSA?',cfg.PRIME_CONTROL_STORY_RESOLVER_KEY)).toBe(true)
+  for(const bad of [
+   {...found(),latest_question_hmac:hash('Qual é o preço da calça?')},
+   {...found(),latest_question_hmac:null},
+   {...found(),latest_question_duplicate_count:2},
+   {...found(),latest_question_duplicate_count:0},
+  ]){
+   const a=await run({resolveFn:async()=>bad})
+   expect(a.status).toMatch(/ACTION_TURN_DUPLICATE_OR_UNPROVEN|ACTION_QUESTION_DOES_NOT_MATCH_LATEST_TURN/)
+   expect(a.original_commercial_tool_called).toBe(false)
+   expect(a.customer_messages_sent).toBe(0)
+  }
+ })
+ it('V1.4L disallows a new Story with identical question in a five-minute window',async()=>{
+  const a=await run({resolveFn:async()=>({...found(BASELINE_STORIES_20261008[5]),
+   latest_question_duplicate_count:2})})
+  expect(a.status).toBe('ACTION_TURN_DUPLICATE_OR_UNPROVEN')
+  expect(a.tool_preview).toBeNull()
  })
  it('private route never accepts an unauthenticated tool request',async()=>{
   const r=response()

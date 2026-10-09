@@ -104,6 +104,12 @@ export async function resolveStoryPilot(
       data.latest_user_time:null,
     story_media_type:ok&&['image/jpeg','video/mp4'].includes(data?.story_media_type)?
       data.story_media_type:null,
+    // HMAC-only latest-question identity verified by Vercel/GPTMaker; do not log.
+    latest_question_hmac:ok&&typeof data?.latest_question_hmac==='string'&&
+      /^[a-f0-9]{32}$/.test(data.latest_question_hmac)?data.latest_question_hmac:null,
+    latest_question_duplicate_count:ok&&Number.isSafeInteger(data?.latest_question_duplicate_count)&&
+      data.latest_question_duplicate_count>=0&&data.latest_question_duplicate_count<=1000?
+      data.latest_question_duplicate_count:null,
     ...common,source:'GPTMAKER_MESSAGES_READ_ONLY',
      http_status:resp.status,deduplicated:false,
    }

@@ -8,7 +8,7 @@
  * handoff and matching an action call to the exact user message need an
  * independently verified contract before any live switch.
  */
-import {randomUUID} from 'node:crypto'
+import {randomUUID,createHmac,timingSafeEqual} from 'node:crypto'
 import {resolveStoryPilot} from './_primeControlStoryCorrelationV14c.js'
 import {decideStoryMemoryBoundaryV14j} from './_primeControlStoryMemoryBoundaryV14j.js'
 import {ALLOWED_SCOPE} from './_primeControlStoryNativePolicyV14f.js'
@@ -33,6 +33,22 @@ export function normalizeGabyActionPayloadV14k(body,pilot){
  if(question.length<2||question.length>300||question.startsWith('$'))return null
  if(/[\r\n\0]/.test(question)||/\$\{/.test(question)||question.includes('{')||question.includes('}')||question.includes('\\'))return null
  return {chatId,question,interpolation_prefix_present:rawId.startsWith('$')||rawQuestion.startsWith('$')}
+}
+
+/** Action has no messageId. Bind by latest question HMAC, fail closed
+ * on repeated identical texts within the five-minute resolver window.
+ */
+export function verifyLatestActionTurnV14l(resolved,question,key){
+ if(!resolved||resolved.latest_question_duplicate_count!==1||
+   typeof resolved.latest_question_hmac!=='string'||
+   !/^[a-f0-9]{32}$/.test(resolved.latest_question_hmac)||
+   typeof key!=='string'||key.length<12)return false
+ const normalized=typeof question==='string'?question.trim().replace(/\s+/g,' ').toLowerCase():''
+ if(!normalized)return false
+ const expected=createHmac('sha256',key)
+   .update('prime-control:turn:v14l:\0'+normalized)
+   .digest('hex').slice(0,32)
+ return timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(resolved.latest_question_hmac,'hex'))
 }
 
 function shapeForUnsafeStory(){
@@ -105,6 +121,11 @@ export async function dryRunGabyLabActionV14k({
  const now=clock()
  if(resolved.latest_user_time>now+3000||now-resolved.latest_user_time>120000)
   return out('STORY_MESSAGE_NOT_FRESH')
+ if(resolved.latest_question_duplicate_count!==1)
+  return out('ACTION_TURN_DUPLICATE_OR_UNPROVEN')
+ if(!verifyLatestActionTurnV14l(resolved,accepted.question,
+   String(env.PRIME_CONTROL_STORY_RESOLVER_KEY||'')))
+  return out('ACTION_QUESTION_DOES_NOT_MATCH_LATEST_TURN')
  const guard=decideStoryMemoryBoundaryV14j({
   scope:ALLOWED_SCOPE,nowMs:now,
   latest:{
