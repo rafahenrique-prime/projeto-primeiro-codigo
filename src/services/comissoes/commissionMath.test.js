@@ -9,5 +9,5 @@ describe('PRIME Comissões — dinheiro e fechamento', () => {
   })
   it('mantém percentual histórico mesmo após alterar taxa da parceira', () => { const order={revenueCents:25000,rateAtSale:10,status:'aprovada'}; const newPartnerRate=15; expect(commissionCents(order.revenueCents,order.rateAtSale)).toBe(2500); expect(newPartnerRate).toBe(15) })
   it('filtra mês e parceira por data do pedido', () => {const items=[{date:'2026-09-03',partnerId:'a'},{date:'2026-10-03',partnerId:'a'},{date:'2026-09-04',partnerId:'b'}]; expect(filterOrders(items,'2026-09','a')).toHaveLength(1)})
-  it('rejeita valores inválidos', () => {expect(()=>commissionCents(1000,-1)).toThrow();expect(()=>commissionCents(-5,10)).toThrow()})
+  it('rejeita valores inválidos', () => {expect(()=>commissionCents(1000,-1)).toThrow();expect(()=>commissionCents(-5,10)).toThrow();expect(()=>commissionCents(1000,'')).toThrow()})
 })
