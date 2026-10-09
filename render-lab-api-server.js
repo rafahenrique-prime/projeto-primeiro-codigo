@@ -17,6 +17,7 @@ import primeControlStoryRealVisionHandler from './api/prime-control-story-real-v
 import primeControlArchivedVisionV15dHandler from './api/prime-control-story-vision-v15d.js'
 import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-jev-v14d.js'
 import primeControlStoryVisualMatchHandler from './api/prime-control-story-visual-match-v14e.js'
+import primeControlStoryVisualMatchSt05Handler from './api/prime-control-story-visual-match-st05-v16a.js'
 import primeControlStoryNativeBridgeHandler from './api/prime-control-story-native-bridge-v14g.js'
 import primeControlGabyToolPreviewHandler from './api/prime-control-gaby-tool-preview-v14h.js'
 import primeControlStoryRoutingV14iHandler from './api/prime-control-story-routing-preview-v14i.js'
@@ -104,6 +105,7 @@ app.post('/api/prime-control-story-real-vision-v14d', (req,res)=>primeControlSto
 app.post('/api/prime-control-story-vision-v15d', (req,res)=>primeControlArchivedVisionV15dHandler(req,res))
 app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStoryShadowJevHandler(req,res))
 app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlStoryVisualMatchHandler(req,res))
+app.post('/api/prime-control-story-visual-match-st05-v16a', (req,res)=>primeControlStoryVisualMatchSt05Handler(req,res))
 app.post('/api/prime-control-story-native-bridge-v14g', (req,res)=>primeControlStoryNativeBridgeHandler(req,res))
 app.post('/api/prime-control-gaby-tool-preview-v14h', (req,res)=>primeControlGabyToolPreviewHandler(req,res))
 app.post('/api/prime-control-story-routing-preview-v14i', (req,res)=>primeControlStoryRoutingV14iHandler(req,res))
@@ -1151,6 +1153,37 @@ async function runNativeStoryBridgeBootOnce(){
   event:'PRIME_CONTROL_STORY_NATIVE_BRIDGE_BOOT_V14G',status:'NETWORK_OR_TIMEOUT'}))}
 }
 
+
+async function runStoryVisualMatchSt05BootOnce(){
+ if(process.env.PRIME_CONTROL_ST05_VISUAL_MATCH_BOOT_ONCE!=='true')return
+ const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
+ if(!key)return console.info('[PrimeControlST05VisualMatchBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_ST05_VISUAL_MATCH_BOOT_V16A',status:'LAB_AUTH_NOT_CONFIGURED',
+ }))
+ try{
+  const r=await fetch('http://127.0.0.1:'+port+'/api/prime-control-story-visual-match-st05-v16a',{
+   method:'POST',
+   headers:{'content-type':'application/json','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+    'x-prime-control-story-key':key},
+   body:JSON.stringify({confirm:'ONE_SHOT_VISUAL_MATCH_ST05_V16A'}),
+   signal:AbortSignal.timeout(45000),
+  })
+  const j=await r.json().catch(()=>null)
+  console.info('[PrimeControlST05VisualMatchBoot]',JSON.stringify({
+   event:'PRIME_CONTROL_ST05_VISUAL_MATCH_BOOT_V16A',
+   status:typeof j?.status==='string'?j.status:'UNKNOWN',
+   http_status:r.status,run_id:typeof j?.run_id==='string'?j.run_id:null,
+   candidate_count:j?.candidate_count??null,catalog_image_calls:j?.catalog_image_calls??null,
+   comparison_calls:j?.comparison_calls??null,choice:j?.choice??null,
+   candidate_bagy_product_id:j?.candidate_bagy_product_id??null,
+   confidence:j?.confidence??null,cost_usd:j?.cost_usd??null,
+   messages_sent:0,jev_calls:0,writes:0,
+  }))
+ }catch{console.info('[PrimeControlST05VisualMatchBoot]',JSON.stringify({
+  event:'PRIME_CONTROL_ST05_VISUAL_MATCH_BOOT_V16A',status:'RUN_TIMEOUT_OR_NETWORK',
+ }))}
+}
+
 async function runStoryVisualMatchBootOnce(){
  if(process.env.PRIME_CONTROL_STORY_VISUAL_MATCH_BOOT_ONCE!=='true')return
  const key=String(process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY||'').trim()
@@ -1311,6 +1344,7 @@ app.listen(port, '0.0.0.0', async () => {
   void runRealStoryVisionBootOnce().catch(() => {})
   void runStoryShadowJevBootOnce().catch(() => {})
   void runStoryVisualMatchBootOnce().catch(() => {})
+  void runStoryVisualMatchSt05BootOnce().catch(() => {})
   void runNativeStoryBridgeBootOnce().catch(() => {})
   void runGabyToolPreviewBootOnce().catch(() => {})
   void runStoryRoutingMatrixV14iBootOnce().catch(() => {})
