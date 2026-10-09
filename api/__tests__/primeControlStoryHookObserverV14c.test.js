@@ -2,12 +2,16 @@ import {describe,it,expect,vi,afterEach} from 'vitest'
 import handler,{
   equalSecret,permitted,labAgentMatches,summarizeInbound,responseForObservation,OBSERVER_EVENT
 } from '../prime-control-story-hook-observer-v14c.js'
+import {scopeStoryEventV16b,resolveStoryPilotV16b,clearStoryIdentityV16bCacheForTests} from '../_primeControlStoryIdentityV16b.js'
 
 const KEY='LAB_test_key_not_real'
 const simulated={
   event:'onNewMessage',
   agentId:'3F8F4F4957CAD0DB118EE6F7BEE6FBA9',
   chatId:'PRIVATE_CHAT_SHOULD_NOT_LEAK',
+  channelId:'3F32CBBAD3BD8028A2F132532B60D052',
+  userName:'@raffahenriquee',
+  userId:'QA_USER_ID_NOT_REAL',
   message:{
     role:'user',
     text:'Qual valor? private TEST',
@@ -66,14 +70,17 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
   process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
   expect(labAgentMatches(simulated)).toBe(true)
-  expect(labAgentMatches({message:{role:'user'}})).toBe(true)
+  expect(labAgentMatches({message:{role:'user'}})).toBe(false)
   expect(labAgentMatches({...simulated,agentId:'WRONG_AGENT'})).toBe(false)
+  expect(labAgentMatches({...simulated,data:{agentId:'OTHER_AGENT'}})).toBe(false)
   const res=mockRes()
   const logger=vi.spyOn(console,'info').mockImplementation(()=>{})
   await handler({method:'POST',query:{},headers:{'content-type':'application/json','x-prime-lab-hook-key':KEY},
     body:{...simulated,agentId:'WRONG_AGENT'}},res)
-  expect(res.code).toBe(403)
-  expect(logger).not.toHaveBeenCalled()
+  expect(res.code).toBe(200)
+  expect(res.body).toMatchObject({ok:true,status:'SCOPE_REJECTED'})
+  expect(logger).toHaveBeenCalledTimes(1)
+  expect(JSON.stringify(logger.mock.calls)).not.toContain('WRONG_AGENT')
  })
  it('does not mistake an unrelated field for native Story metadata',()=>{
   const r=summarizeInbound({message:{role:'user',text:'TEST PRIME V14C',
@@ -106,17 +113,23 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID='PRIVATE_CHAT_SHOULD_NOT_LEAK'
   process.env.PRIME_CONTROL_STORY_RESOLVER_KEY='synthetic-relay-secret'
   const log=vi.spyOn(console,'info').mockImplementation(()=>{})
-  const outgoing=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json({
-   status:'FOUND',story_present:true,agent_verified:true,story_media_available:true
-  }))
+  const outgoing=vi.spyOn(globalThis,'fetch').mockImplementation(async(_url,init)=>{
+   const proof=JSON.parse(init.body).proof
+   return Response.json({
+    status:'EVENT_MESSAGE_MATCH_STORY',story_present:true,agent_verified:true,
+    sender_match:true,channel_verified:true,id_equality:true,match_count:1,
+    event_id_hmac:proof.event_id_hmac,matched_id_hmac:proof.event_id_hmac,
+    story_fingerprint:'b'.repeat(24),ok:true,
+   })
+  })
   const res=mockRes()
-  const body={...simulated,message:{...simulated.message,id:'QA_EVENT_101'}}
+  const body={...simulated,message:{...simulated.message,id:'QA_EVENT_101',time:Date.now()}}
   await handler({method:'POST',query:{},headers:{
    'content-type':'application/json','x-prime-lab-hook-key':KEY
   },body},res)
   expect(res.code).toBe(200)
   expect(outgoing).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls.some(c=>String(c[1]).includes('PRIME_CONTROL_STORY_CONTEXT_RESOLVED_V14C'))).toBe(true)
+  expect(log.mock.calls.some(c=>String(c[1]).includes('PRIME_CONTROL_STORY_EVENT_ID_PROOF_V16B'))).toBe(true)
   const serialized=JSON.stringify(log.mock.calls)+JSON.stringify(res.body)
   for(const v of ['synthetic-relay-secret','gpt-files.com','PRIVATE_CHAT_SHOULD_NOT_LEAK'])
    expect(serialized).not.toContain(v)
@@ -140,3 +153,63 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   expect(logged).not.toContain('17913049392498618')
  })
 })
+
+describe('V1.6B exact event identity scope: synthetic only',()=>{
+ const env={
+  PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PILOT_CHAT_FOR_TEST',
+  PRIME_CONTROL_STORY_RESOLVER_KEY:KEY
+ };
+ const event=(overrides={})=>({
+  event:'onNewMessage',agentId:'3F8F4F4957CAD0DB118EE6F7BEE6FBA9',
+  chatId:'PILOT_CHAT_FOR_TEST',channelId:'3F32CBBAD3BD8028A2F132532B60D052',
+  userName:'@raffahenriquee',userId:'QA_USER_ID_NOT_REAL',
+  message:{id:'QA_EVENT_ID_NOT_REAL',role:'user',time:Date.now()},
+  ...overrides
+ });
+ it('requires exact lab agent, pilot chat, linked Instagram, QA handle and stable sender ID',()=>{
+  const good=scopeStoryEventV16b(event(),{env});
+  expect(good.status).toBe('SCOPED');
+  expect(good.allowed).toBe(true);
+  expect(good.event_id_hmac).toMatch(/^[a-f0-9]{64}$/);
+  expect(good.sender_id_hmac).toMatch(/^[a-f0-9]{64}$/);
+  expect(scopeStoryEventV16b(event({agentId:'3F78AF104664B0D1CB84D23672FCADC5'}),{env}).status).toBe('WRONG_OR_DIVERGENT_AGENT');
+  expect(scopeStoryEventV16b(event({agentId:undefined}),{env}).status).toBe('AGENT_ID_MISSING');
+  expect(scopeStoryEventV16b(event({chatId:'OTHER_CHAT'}),{env}).status).toBe('CHAT_OUT_OF_SCOPE');
+  expect(scopeStoryEventV16b(event({channelId:'OTHER_CHANNEL'}),{env}).status).toBe('CHANNEL_OUT_OF_SCOPE');
+  expect(scopeStoryEventV16b(event({channelId:undefined}),{env}).status).toBe('CHANNEL_ID_MISSING');
+  expect(scopeStoryEventV16b(event({userName:'@other'}),{env}).status).toBe('SENDER_OUT_OF_SCOPE');
+  expect(scopeStoryEventV16b(event({userId:undefined}),{env}).status).toBe('SENDER_IDENTITY_MISSING');
+ });
+ it('fails closed on missing or divergent event ID, missing time and expired events',()=>{
+  expect(scopeStoryEventV16b(event({message:{role:'user',time:Date.now()}}),{env}).status).toBe('EVENT_ID_MISSING');
+  expect(scopeStoryEventV16b(event({message:{id:'A',messageId:'B',role:'user',time:Date.now()}}),{env}).status).toBe('EVENT_ID_DIVERGENT');
+  expect(scopeStoryEventV16b(event({message:{id:'A',role:'user'}}),{env}).status).toBe('EVENT_TIME_MISSING');
+  const now=Date.now();
+  expect(scopeStoryEventV16b(event({message:{id:'A',role:'user',time:now-16*60*1000}}),{env,clock:()=>now}).status).toBe('EVENT_EXPIRED');
+ });
+ it('suppresses a duplicate in this instance and relays only HMAC identity proof',async()=>{
+  clearStoryIdentityV16bCacheForTests();
+  const logger=vi.fn();
+  const outgoing=vi.fn(async(_url,init)=>{
+   const sent=JSON.parse(init.body);
+   expect(sent.chatId).toBe('PILOT_CHAT_FOR_TEST');
+   expect(sent.proof.event_id_hmac).toMatch(/^[a-f0-9]{64}$/);
+   expect(JSON.stringify(sent)).not.toContain('QA_EVENT_ID_NOT_REAL');
+   expect(JSON.stringify(sent)).not.toContain('QA_USER_ID_NOT_REAL');
+   return Response.json({status:'EVENT_MESSAGE_MATCH_STORY',story_present:true,
+    id_equality:true,match_count:1,sender_match:true,channel_verified:true,
+    agent_verified:true,event_id_hmac:sent.proof.event_id_hmac,
+    matched_id_hmac:sent.proof.event_id_hmac,story_fingerprint:'b'.repeat(24)});
+  });
+  const e=event();
+  const first=await resolveStoryPilotV16b(e,{env,fetchImpl:outgoing,logger});
+  const second=await resolveStoryPilotV16b(e,{env,fetchImpl:outgoing,logger});
+  expect(first.status).toBe('EVENT_MESSAGE_MATCH_STORY');
+  expect(first.id_equality).toBe(true);
+  expect(second.status).toBe('DUPLICATE_SUPPRESSED');
+  expect(outgoing).toHaveBeenCalledTimes(1);
+  const logs=JSON.stringify(logger.mock.calls);
+  for(const raw of ['QA_EVENT_ID_NOT_REAL','QA_USER_ID_NOT_REAL','@raffahenriquee',
+   'PRIVATE_CHAT_SHOULD_NOT_LEAK','synthetic-relay-secret'])expect(logs).not.toContain(raw);
+ });
+});

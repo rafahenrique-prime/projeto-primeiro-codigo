@@ -22,7 +22,7 @@ import primeControlStoryNativeBridgeHandler from './api/prime-control-story-nati
 import primeControlGabyToolPreviewHandler from './api/prime-control-gaby-tool-preview-v14h.js'
 import primeControlStoryRoutingV14iHandler from './api/prime-control-story-routing-preview-v14i.js'
 import primeControlStoryActionAdapterV14kHandler from './api/prime-control-story-action-adapter-v14k.js'
-import {resolveStoryPilot} from './api/_primeControlStoryCorrelationV14c.js'
+import {resolveStoryPilotV16b} from './api/_primeControlStoryIdentityV16b.js'
 import { PHOTO as primeControlPositivePhoto } from './api/prime-control-story-positive-lab-v14c.js'
 import { runSupplierHomologationHarnessBoot } from './api/_supplierHomologationHarnessBoot.js'
 import { runSupplierHomologationPromotionBoot } from './api/_supplierHomologationPromotionBoot.js'
@@ -1299,23 +1299,19 @@ async function runStoryContextResolverBootOnce(){
   if(process.env.PRIME_CONTROL_STORY_RESOLVER_BOOT_ONCE!=='true')return
   const chatId=String(process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID||'')
   try{
-    const result=await resolveStoryPilot({chatId,message:{role:'user'}},{dedupe:false})
+    // Synthetic scope check only: missing authenticated agent/sender/message ID
+    // must stop locally and must never query GPTMaker for a latest chat message.
+    const result=await resolveStoryPilotV16b({chatId,message:{role:'user'}},{dedupe:false})
     console.info('[StoryResolverBoot]',JSON.stringify({
-      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V14C',
-      status:result.status,
-      story_present:result.story_present===true,
-      agent_verified:result.agent_verified===true,
-      media_available:result.story_media_available===true,
-      story_fingerprint:result.story_fingerprint||null,
-      chat_fingerprint:result.chat_fingerprint||null,
-      http_status:result.http_status??null,
-      run_id:result.run_id,
-      actual_instagram_delivery:false,
-      outbound_messages:0,vision_calls:0,jev_calls:0,media_downloads:0,
+      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V16B',
+      status:result.status,id_equality:result.id_equality===true,
+      actual_instagram_delivery:false,outbound_messages:0,
+      vision_calls:0,jev_calls:0,media_downloads:0,writes:0,
     }))
   }catch{
     console.info('[StoryResolverBoot]',JSON.stringify({
-      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V14C',status:'UNEXPECTED_ERROR',
+      event:'PRIME_CONTROL_STORY_RESOLVER_BOOT_V16B',status:'UNEXPECTED_ERROR',
+      actual_instagram_delivery:false,outbound_messages:0,writes:0,
     }))
   }
 }
