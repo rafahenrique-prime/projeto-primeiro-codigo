@@ -7,7 +7,7 @@
  * appear in logs or returned JSON. Disabled unless expressly enabled.
  */
 import crypto from 'node:crypto'
-import {resolveStoryPilot} from './_primeControlStoryCorrelationV14c.js'
+import {resolveStoryPilotV16b} from './_primeControlStoryIdentityV16b.js'
 
 export const OBSERVER_EVENT = 'PRIME_CONTROL_STORY_WEBHOOK_OBSERVED_V14C'
 const CONTENT_TYPE = 'application/json'
@@ -81,9 +81,12 @@ export function summarizeInbound(body, key) {
 export function labAgentMatches(body) {
   const root=asObject(body)||{}, data=asObject(root.data)||{}
   const message=asObject(root.message)||asObject(data.message)||{}
-  const found=text(root.agentId)||text(root.agent_id)||text(root.assistantId)||
-    text(data.agentId)||text(data.assistantId)||text(message.agentId)||text(message.assistantId)
-  return found==null || found==='3F8F4F4957CAD0DB118EE6F7BEE6FBA9'
+  const found=[root.agentId,root.agent_id,root.assistantId,root.assistant_id,
+    data.agentId,data.agent_id,data.assistantId,data.assistant_id,
+    message.agentId,message.agent_id,message.assistantId,message.assistant_id]
+    .map(text).filter(Boolean)
+  return found.length>0&&new Set(found).size===1&&
+    found[0]==='3F8F4F4957CAD0DB118EE6F7BEE6FBA9'
 }
 
 export function responseForObservation(observation) {
@@ -104,7 +107,14 @@ export default async function handler(req,res) {
   if(String(req.headers['content-type']||'').split(';')[0].trim().toLowerCase()!==CONTENT_TYPE)
     return res.status(415).json({ok:false,error:'JSON_REQUIRED'})
   if(!asObject(req.body))return res.status(400).json({ok:false,error:'INVALID_PAYLOAD'})
-  if(!labAgentMatches(req.body))return res.status(403).json({ok:false,error:'WRONG_LAB_AGENT'})
+  if(!labAgentMatches(req.body)) {
+    const correlation_id=crypto.randomUUID()
+    console.info('[PrimeControlStoryObserver]',JSON.stringify({
+      event:OBSERVER_EVENT,status:'AGENT_SCOPE_REJECTED',agent_verified:false,correlation_id
+    }))
+    res.status(200).json({ok:true,mode:'OBSERVE_ONLY',status:'SCOPE_REJECTED',correlation_id})
+    return res
+  }
   const record=summarizeInbound(req.body,process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY)
   const ack=responseForObservation(record)
   console.info('[PrimeControlStoryObserver]',JSON.stringify({...record,correlation_id:ack.correlation_id}))
@@ -114,10 +124,10 @@ export default async function handler(req,res) {
   if(process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED==='true'
      &&record.source_role==='USER') {
     try {
-      await resolveStoryPilot(req.body,{traceId:ack.correlation_id})
+      await resolveStoryPilotV16b(req.body,{traceId:ack.correlation_id})
     }catch{
       console.info('[PrimeControlStoryCorrelation]',JSON.stringify({
-        event:'PRIME_CONTROL_STORY_CONTEXT_RESOLVED_V14C',status:'UNEXPECTED_ERROR',
+        event:'PRIME_CONTROL_STORY_EVENT_ID_PROOF_V16B',status:'UNEXPECTED_ERROR',
         webhook_correlation_id:ack.correlation_id,
       }))
     }
