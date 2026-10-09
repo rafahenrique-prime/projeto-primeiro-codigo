@@ -115,3 +115,128 @@ describe('V1.4E private visual image-pair gate',()=>{
    else process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY=oldKey}
  })
 })
+
+
+import {
+  ST05_CANDIDATES,ST05_FINGERPRINT,ST05_VISUAL_MODEL,ST05_MATCH_THRESHOLD,
+  parseSt05VisualOutput,resetSt05VisualAttemptsForTests,runSt05VisualMatchOnce,
+  safeSt05CatalogImage,validSt05CandidateManifest,
+} from '../prime-control-story-visual-match-st05-v16a.js'
+import st05Handler from '../prime-control-story-visual-match-st05-v16a.js'
+
+const st05Env={
+  PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED:'true',
+  PRIME_CONTROL_ST05_VISUAL_MATCH_EXPECTED_FINGERPRINT:ST05_FINGERPRINT,
+  PRIME_CONTROL_STORY_VISION_EXPECTED_FINGERPRINT:ST05_FINGERPRINT,
+  PRIME_CONTROL_STORY_ARCHIVE_SELECT_ENABLED:'true',
+  LAB_PRODUCT_UNIVERSE_API_SECRET:'only-test-model-key',
+  PRIME_CONTROL_STORY_RESOLVER_KEY:'only-test-relay-key',
+  PRIME_CONTROL_STORY_PILOT_CHAT_ID:'qa-fixture-chat',
+  PORT:'10000',
+}
+const st05Jpeg=Buffer.from([255,216,255,224,0,16,...Array(64).fill(9)])
+const st05LoadMedia=vi.fn(async({expectedFingerprint})=>({
+  status:'MEDIA_VERIFIED',story_fingerprint:expectedFingerprint,media_type:'image/jpeg',buffer:st05Jpeg,
+}))
+function st05Fetch(choice='C2',confidence=0.98){
+  return vi.fn(async(url,opts)=>{
+    if(url.startsWith('https://cdn.dooca.store/'))
+      return new Response(Uint8Array.from(st05Jpeg),{headers:{'content-type':'image/jpeg'}})
+    expect(url).toBe('http://127.0.0.1:10000/api/supplier-harness-ocr-proxy')
+    const body=JSON.parse(opts.body)
+    expect(body.model).toBe(ST05_VISUAL_MODEL)
+    expect(body.messages[0].content.filter(x=>x.type==='image_url')).toHaveLength(8)
+    return Response.json({choices:[{message:{content:JSON.stringify({
+      choice,confidence,reason:'lavagem e costuras laterais semelhantes',
+    })}}],usage:{prompt_tokens:4400,completion_tokens:78,cost:0.00041}})
+  })
+}
+describe('V1.6A ST05 read-only visual candidate comparison',()=>{
+  beforeEach(()=>{resetSt05VisualAttemptsForTests();st05LoadMedia.mockClear()})
+  it('pins exactly the seven Diesel candidates returned by the Shadow snapshot',()=>{
+    expect(ST05_CANDIDATES).toHaveLength(7)
+    expect(validSt05CandidateManifest()).toBe(true)
+    expect(new Set(ST05_CANDIDATES.map(x=>x.id)).size).toBe(7)
+    expect(ST05_CANDIDATES.every(x=>x.brand==='Diesel'&&x.category==='Calças Jeans')).toBe(true)
+    expect(ST05_CANDIDATES[3].name).toContain('Azul Clara Destroyed')
+  })
+  it('restricts image sources and model choices to verified candidates',()=>{
+    expect(safeSt05CatalogImage(ST05_CANDIDATES[0].image)).toBe(true)
+    expect(safeSt05CatalogImage('https://evil.invalid/image.jpg')).toBe(false)
+    expect(safeSt05CatalogImage('https://cdn.dooca.store.evil.invalid/161486/products/x.jpg')).toBe(false)
+    expect(parseSt05VisualOutput('{"choice":"C2","confidence":0.98}',ST05_CANDIDATES).candidate.id).toBe(ST05_CANDIDATES[1].id)
+    expect(parseSt05VisualOutput('{"choice":"C9","confidence":0.99}')).toBe(null)
+    expect(parseSt05VisualOutput('{"choice":"C1","confidence":1.2}')).toBe(null)
+  })
+  it('does not call media, product images or the model while disabled or fingerprint-mismatched',async()=>{
+    const fetchImpl=vi.fn()
+    const disabled=await runSt05VisualMatchOnce({env:{...st05Env,PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED:'false'},fetchImpl,loadMedia:st05LoadMedia,logger:vi.fn()})
+    expect(disabled.status).toBe('DISABLED')
+    const mismatch=await runSt05VisualMatchOnce({env:{...st05Env,PRIME_CONTROL_ST05_VISUAL_MATCH_EXPECTED_FINGERPRINT:'wrong'},fetchImpl,loadMedia:st05LoadMedia,logger:vi.fn()})
+    expect(mismatch.status).toBe('STORY_FINGERPRINT_MISMATCH')
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(st05LoadMedia).not.toHaveBeenCalled()
+  })
+  it('rejects an incomplete manifest before media or paid model calls',async()=>{
+    const fetchImpl=vi.fn()
+    const r=await runSt05VisualMatchOnce({env:st05Env,candidates:ST05_CANDIDATES.slice(0,6),fetchImpl,loadMedia:st05LoadMedia,logger:vi.fn()})
+    expect(r.status).toBe('CANDIDATE_MANIFEST_INVALID')
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(st05LoadMedia).not.toHaveBeenCalled()
+  })
+  it('makes one archived Story read, verifies seven catalog images and one model call, then remains non-assertive',async()=>{
+    const fetchImpl=st05Fetch('C2',0.98),logger=vi.fn()
+    const r=await runSt05VisualMatchOnce({env:st05Env,fetchImpl,loadMedia:st05LoadMedia,logger})
+    expect(r.status).toBe('STRONG_VISUAL_CANDIDATE_REVIEW_REQUIRED')
+    expect(r.choice).toBe('C2')
+    expect(r.candidate_name).toBe('Calça Jeans Diesel 02')
+    expect(r.candidate_bagy_product_id).toBe(8673120)
+    expect(r.candidate_ids).toHaveLength(7)
+    expect(r.media_calls).toBe(1)
+    expect(r.catalog_image_calls).toBe(7)
+    expect(r.verified_candidate_images).toBe(7)
+    expect(r.comparison_calls).toBe(1)
+    expect(r.old_story_vision_repeated).toBe(false)
+    expect(r.jev_calls).toBe(0)
+    expect(r.messages_sent).toBe(0)
+    expect(r.writes).toBe(0)
+    expect(r.exact_sku_verified).toBe(false)
+    expect(r.commercial_price_verified).toBe(false)
+    expect(r.physical_stock_verified).toBe(false)
+    const again=await runSt05VisualMatchOnce({env:st05Env,fetchImpl,loadMedia:st05LoadMedia,logger})
+    expect(again.status).toBe('ALREADY_ATTEMPTED')
+    expect(st05LoadMedia).toHaveBeenCalledTimes(1)
+    expect(fetchImpl).toHaveBeenCalledTimes(8)
+    const output=JSON.stringify(logger.mock.calls)
+    for(const secret of ['only-test-model-key','only-test-relay-key','qa-fixture-chat','data:image','cdn.dooca.store'])
+      expect(output).not.toContain(secret)
+  })
+  it('fails closed if the archived Story fingerprint is different',async()=>{
+    const fetchImpl=st05Fetch(),loadMedia=vi.fn(async()=>({...await st05LoadMedia({expectedFingerprint:ST05_FINGERPRINT}),story_fingerprint:'000000000000000000000000'}))
+    const r=await runSt05VisualMatchOnce({env:st05Env,fetchImpl,loadMedia,logger:vi.fn()})
+    expect(r.status).toBe('STORY_MEDIA_NOT_VERIFIED')
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+  it('requires the shared LAB key and one-shot confirmation on the HTTP route',async()=>{
+    const r=res()
+    await st05Handler({method:'POST',headers:{},body:{}},r)
+    expect(r.statusCode).toBe(401)
+    const oldKey=process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY
+    const oldEnabled=process.env.PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED
+    try{
+      process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY='fixture-lab-key'
+      process.env.PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED='false'
+      const disabled=res()
+      await st05Handler({method:'POST',headers:{
+        'x-prime-control-story-key':'fixture-lab-key','x-prime-lab':'GABY-LAB-COMERCIAL-V1',
+        'content-type':'application/json',
+      },body:{confirm:'ONE_SHOT_VISUAL_MATCH_ST05_V16A'}},disabled)
+      expect(disabled.statusCode).toBe(503)
+    }finally{
+      if(oldKey===undefined)delete process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY
+      else process.env.PRIME_CONTROL_STORY_LAB_SHARED_KEY=oldKey
+      if(oldEnabled===undefined)delete process.env.PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED
+      else process.env.PRIME_CONTROL_ST05_VISUAL_MATCH_ENABLED=oldEnabled
+    }
+  })
+})
