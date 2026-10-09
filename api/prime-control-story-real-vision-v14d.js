@@ -52,7 +52,8 @@ export async function runStoryVisionOnce({
  // Consume before making external calls; no retry on failure or timeout.
  consumed.add(expected)
  let media
- try{media=await loadMedia({env,fetchImpl})}
+ try{media=await loadMedia({env,fetchImpl,
+  expectedFingerprint:env.PRIME_CONTROL_STORY_ARCHIVE_SELECT_ENABLED==='true'?expected:null})}
  catch{return report('MEDIA_GATE_UNAVAILABLE')}
  if(media?.status!=='MEDIA_VERIFIED'||!media?.buffer)
   return report(media?.status==='VERCEL_GATE_DISABLED'?'VERCEL_GATE_DISABLED':'MEDIA_GATE_UNAVAILABLE')

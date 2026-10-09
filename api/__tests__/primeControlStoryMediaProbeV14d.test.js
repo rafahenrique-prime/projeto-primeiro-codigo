@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest'
 import handler,{MEDIA_PROBE_EVENT,sameSecret,mediaProbeAuthorized,
- imageSignatureOkay,probeStoryMediaOnce} from '../prime-control-story-media-probe-v14d.js'
+ imageSignatureOkay,probeStoryMediaOnce,loadVerifiedStoryMedia} from '../prime-control-story-media-probe-v14d.js'
 
 const labKey='fixture-story-lab-key'
 const relayKey='fixture-story-relay-key'
@@ -95,3 +95,33 @@ describe('PRIME CONTROL V1.4D Render media bridge / zero AI',()=>{
   expect(res.body.status).toBe('PROBE_DISABLED')
  })
 })
+
+describe("PRIME CONTROL V1.5C: Render archive Story selector",()=>{
+ const selected="5d3d446628685d6c6c0f5b02";
+ it("fails closed when selector flag is OFF, no fetch",async()=>{
+  const fetchImpl=vi.fn();
+  const r=await loadVerifiedStoryMedia({env,fetchImpl,expectedFingerprint:selected});
+  expect(r.status).toBe("ARCHIVE_SELECTOR_DISABLED_OR_INVALID");
+  expect(fetchImpl).not.toHaveBeenCalled();
+ });
+ it("selects older image via private Vercel archive, never latest video",async()=>{
+  const fetchImpl=vi.fn(async(url,init)=>{
+   expect(url).toBe("https://prime-gptmaker-lab.vercel.app/api/prime-control-story-archive-media-v15c");
+   expect(init.method).toBe("POST");
+   expect(JSON.parse(init.body)).toEqual({chatId:qaChat,storyFingerprint:selected});
+   expect(init.headers["x-prime-story-resolver-key"]).toBe(relayKey);
+   return imageResponse(validJpeg,{"x-prime-story-fingerprint":selected});
+  });
+  const r=await loadVerifiedStoryMedia({env:{...env,PRIME_CONTROL_STORY_ARCHIVE_SELECT_ENABLED:"true"},
+   fetchImpl,expectedFingerprint:selected});
+  expect(r.status).toBe("MEDIA_VERIFIED");
+  expect(r.story_fingerprint).toBe(selected);
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+ });
+ it("blocks fingerprint swap even if upstream returns JPEG bytes",async()=>{
+  const fetchImpl=vi.fn(async()=>imageResponse());
+  const r=await loadVerifiedStoryMedia({env:{...env,PRIME_CONTROL_STORY_ARCHIVE_SELECT_ENABLED:"true"},
+   fetchImpl,expectedFingerprint:selected});
+  expect(r.status).toBe("STORY_FINGERPRINT_MISMATCH");
+ });
+});

@@ -9,6 +9,7 @@ import {createHash, timingSafeEqual} from 'node:crypto'
 
 export const MEDIA_PROBE_EVENT='PRIME_CONTROL_STORY_MEDIA_PROBE_V14D'
 const MEDIA_GATE='https://prime-gptmaker-lab.vercel.app/api/prime-control-story-media-v14d'
+const ARCHIVE_GATE='https://prime-gptmaker-lab.vercel.app/api/prime-control-story-archive-media-v15c'
 const MAX_BYTES=3*1024*1024
 const ACCEPTED=new Set(['image/jpeg','image/png','image/webp'])
 const text=v=>typeof v==='string'?v.trim():''
@@ -63,21 +64,26 @@ async function boundedBinaryResponse(resp){
  * This function NEVER logs or persists the image and returns bytes only to
  * trusted server-side code; the caller must guard the respective feature.
  */
-export async function loadVerifiedStoryMedia({env=process.env,fetchImpl=fetch}={}){
+export async function loadVerifiedStoryMedia({env=process.env,fetchImpl=fetch,expectedFingerprint=null}={}){
  const secret=text(env.PRIME_CONTROL_STORY_RESOLVER_KEY)
  const pilot=text(env.PRIME_CONTROL_STORY_PILOT_CHAT_ID)
+ const archived=expectedFingerprint!==null
+ if(archived&&(!/^[a-f0-9]{24}$/.test(expectedFingerprint)||
+  env.PRIME_CONTROL_STORY_ARCHIVE_SELECT_ENABLED!=='true'))
+  return {status:'ARCHIVE_SELECTOR_DISABLED_OR_INVALID'}
  if(!secret||!pilot||pilot.length>180)return {status:'NOT_CONFIGURED'}
  try{
-  const r=await fetchImpl(MEDIA_GATE,{
+  const r=await fetchImpl(archived?ARCHIVE_GATE:MEDIA_GATE,{
    method:'POST',
    headers:{'content-type':'application/json','x-prime-story-resolver-key':secret},
-   body:JSON.stringify({chatId:pilot}),
+   body:JSON.stringify(archived?{chatId:pilot,storyFingerprint:expectedFingerprint}:{chatId:pilot}),
    redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(12500),
   })
   if(!r.ok){
    let status='GATE_UNAVAILABLE'
    const b=await r.json().catch(()=>null)
    if(r.status===503&&b?.status==='MEDIA_GATE_DISABLED')status='VERCEL_GATE_DISABLED'
+   if(r.status===503&&b?.status==='ARCHIVE_GATE_DISABLED')status='ARCHIVE_GATE_DISABLED'
    if(r.status===422&&b?.status==='VIDEO_NOT_ENABLED')status='VIDEO_NOT_ENABLED'
    if(r.status===422&&b?.status==='MEDIA_UNAVAILABLE')status='MEDIA_UNAVAILABLE'
    if(r.status===422&&b?.status==='UNSUPPORTED_MEDIA_TYPE')status='UNSUPPORTED_MEDIA_TYPE'
@@ -91,6 +97,7 @@ export async function loadVerifiedStoryMedia({env=process.env,fetchImpl=fetch}={
   if(!imageSignatureOkay(buffer,mime))return {status:'MEDIA_SIGNATURE_INVALID',http_status:r.status}
   const f=text(r.headers.get('x-prime-story-fingerprint'))
   const fp=/^[0-9a-f]{24}$/.test(f)?f:null
+  if(archived&&fp!==expectedFingerprint)return {status:'STORY_FINGERPRINT_MISMATCH'}
   return {status:'MEDIA_VERIFIED',http_status:r.status,media_type:mime,
    story_fingerprint:fp,buffer}
  }catch{return {status:'RELAY_NETWORK_OR_TIMEOUT'}}
