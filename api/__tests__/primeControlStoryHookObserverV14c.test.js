@@ -176,6 +176,7 @@ describe('V1.6B exact event identity scope: synthetic only',()=>{
   expect(scopeStoryEventV16b(event({agentId:undefined}),{env}).status).toBe('AGENT_ID_MISSING');
   expect(scopeStoryEventV16b(event({chatId:'OTHER_CHAT'}),{env}).status).toBe('CHAT_OUT_OF_SCOPE');
   expect(scopeStoryEventV16b(event({channelId:'OTHER_CHANNEL'}),{env}).status).toBe('CHANNEL_OUT_OF_SCOPE');
+  expect(scopeStoryEventV16b(event({channelId:undefined}),{env}).status).toBe('CHANNEL_ID_MISSING');
   expect(scopeStoryEventV16b(event({userName:'@other'}),{env}).status).toBe('SENDER_OUT_OF_SCOPE');
   expect(scopeStoryEventV16b(event({userId:undefined}),{env}).status).toBe('SENDER_IDENTITY_MISSING');
  });
