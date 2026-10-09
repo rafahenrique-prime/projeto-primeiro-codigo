@@ -110,6 +110,8 @@ export async function resolveStoryPilot(
     latest_question_duplicate_count:ok&&Number.isSafeInteger(data?.latest_question_duplicate_count)&&
       data.latest_question_duplicate_count>=0&&data.latest_question_duplicate_count<=1000?
       data.latest_question_duplicate_count:null,
+    previous_story_within_memory_ttl:ok&&typeof data?.previous_story_within_memory_ttl==='boolean'?
+      data.previous_story_within_memory_ttl:null,
     ...common,source:'GPTMAKER_MESSAGES_READ_ONLY',
      http_status:resp.status,deduplicated:false,
    }

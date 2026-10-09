@@ -147,6 +147,62 @@ describe('V1.4K GPTMaker action adapter QA, not active tool',()=>{
   expect(a.status).toBe('ACTION_TURN_DUPLICATE_OR_UNPROVEN')
   expect(a.tool_preview).toBeNull()
  })
+ it('V1.4M verified ordinary DM retains the native commercial handoff without invoking it in QA',async()=>{
+  const normal={status:'NO_VALID_STORY_ON_LATEST_USER',story_present:false,
+   agent_verified:true,latest_user_time:NOW-3500,
+   latest_question_hmac:hash('Qual o valor dessa?'),
+   latest_question_duplicate_count:1,previous_story_within_memory_ttl:false}
+  const a=await run({resolveFn:async()=>normal})
+  expect(a.status).toBe('NATIVE_SEARCH_HANDOFF_QA_READY')
+  expect(a.tool_shape_compatible).toBe(true)
+  expect(a.story_verified).toBe(false)
+  expect(a.tool_preview).toBeNull()
+  expect(a.original_commercial_tool_called).toBe(false)
+  expect(a.db_writes).toBe(0)
+  expect(a.customer_messages_sent).toBe(0)
+ })
+ it('V1.4M ordinary reply within 15 minutes of Story is NOT safe native search',async()=>{
+  const recent={status:'NO_VALID_STORY_ON_LATEST_USER',
+   story_present:false,agent_verified:true,latest_user_time:NOW-3500,
+   latest_question_hmac:hash('Qual o valor dessa?'),
+   latest_question_duplicate_count:1,previous_story_within_memory_ttl:true}
+  for(const old of [recent,{...recent,previous_story_within_memory_ttl:null},
+   {...recent,previous_story_within_memory_ttl:undefined}]){
+   const a=await run({resolveFn:async()=>old})
+   expect(a.status).toBe('NATIVE_SEARCH_RECENT_STORY_OR_HISTORY_UNPROVEN')
+   expect(a.original_commercial_tool_called).toBe(false)
+  }
+ })
+ it('V1.4M rejects stale, duplicate and non-matching normal messages',async()=>{
+  const normal={status:'NO_VALID_STORY_ON_LATEST_USER',story_present:false,
+   agent_verified:true,latest_user_time:NOW-3500,
+   latest_question_hmac:hash('Qual o valor dessa?'),
+   latest_question_duplicate_count:1,previous_story_within_memory_ttl:false}
+  const variations=[
+   {...normal,latest_user_time:NOW-130000},
+   {...normal,latest_question_duplicate_count:2},
+   {...normal,latest_question_hmac:hash('Tem calça jeans?')},
+   {...normal,agent_verified:false},
+  ]
+  for(const item of variations){
+   const a=await run({resolveFn:async()=>item})
+   expect(a.status).not.toBe('NATIVE_SEARCH_HANDOFF_QA_READY')
+   expect(a.original_commercial_tool_called).toBe(false)
+  }
+ })
+ it('V1.4M correlation carries read-only Story-memory boundary flag from the LAB resolver',async()=>{
+  const payload={status:'NO_VALID_STORY_ON_LATEST_USER',story_present:false,
+   agent_verified:true,latest_user_time:NOW-3500,
+   latest_question_hmac:hash('Qual o valor dessa?'),
+   latest_question_duplicate_count:1,previous_story_within_memory_ttl:true}
+  const r=await resolveStoryPilot({chatId:CHAT,message:{role:'user'}},{
+   env:cfg,clock:()=>NOW,logger:vi.fn(),dedupe:false,
+   fetchImpl:vi.fn(async()=>({ok:true,status:200,json:async()=>payload}))
+  })
+  expect(r.previous_story_within_memory_ttl).toBe(true)
+  expect(r.latest_question_hmac).toBe(hash('Qual o valor dessa?'))
+  expect(r.story_present).toBe(false)
+ })
  it('private route never accepts an unauthenticated tool request',async()=>{
   const r=response()
   await handler({method:'POST',headers:{},body:{...action,confirm:V14K_CONFIRM}},r)

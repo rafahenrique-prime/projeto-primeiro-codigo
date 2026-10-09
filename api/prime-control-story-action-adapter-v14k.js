@@ -108,9 +108,22 @@ export async function dryRunGabyLabActionV14k({
   )
  }catch{return out('RESOLVER_FAILED')}
  if(resolved?.status==='NO_VALID_STORY_ON_LATEST_USER'){
-  // Do NOT route to real commercial tool yet; it writes selected_product.
-  // The Vercel resolver does not currently carry a timestamp on NO_STORY.
-  return out('NATIVE_SEARCH_HANDOFF_UNPROVEN')
+  // QA ONLY: normal commercial action stays unchanged. Do not claim
+  // an isolated ordinary DM when a recent Story could own its context.
+  if(resolved.story_present!==false||resolved.agent_verified!==true)
+   return out('NATIVE_SEARCH_HANDOFF_UNPROVEN')
+  const now=clock()
+  if(!Number.isSafeInteger(resolved.latest_user_time)||
+    resolved.latest_user_time>now+3000||now-resolved.latest_user_time>120000)
+   return out('NATIVE_SEARCH_TURN_STALE_OR_MISSING')
+  if(resolved.previous_story_within_memory_ttl!==false)
+   return out('NATIVE_SEARCH_RECENT_STORY_OR_HISTORY_UNPROVEN')
+  if(resolved.latest_question_duplicate_count!==1)
+   return out('NATIVE_SEARCH_DUPLICATE_OR_UNPROVEN')
+  if(!verifyLatestActionTurnV14l(resolved,accepted.question,
+    String(env.PRIME_CONTROL_STORY_RESOLVER_KEY||'')))
+   return out('NATIVE_SEARCH_ACTION_TURN_MISMATCH')
+  return out('NATIVE_SEARCH_HANDOFF_QA_READY',{tool_shape_compatible:true})
  }
  if(resolved?.status!=='FOUND'||resolved.story_present!==true||
    resolved.story_media_available!==true||resolved.agent_verified!==true||
@@ -157,6 +170,6 @@ export default async function handler(req,res){
   return res.status(415).json({ok:false,status:'JSON_REQUIRED'})
  if(req.body?.confirm!==V14K_CONFIRM)return res.status(400).json({ok:false,status:'CONFIRM_REQUIRED'})
  const result=await dryRunGabyLabActionV14k({body:req.body})
- return res.status(result.status==='STORY_GUARD_QA_PREVIEW_READY'?200:422)
-  .json({ok:result.status==='STORY_GUARD_QA_PREVIEW_READY',...result})
+ return res.status(['STORY_GUARD_QA_PREVIEW_READY','NATIVE_SEARCH_HANDOFF_QA_READY'].includes(result.status)?200:422)
+  .json({ok:['STORY_GUARD_QA_PREVIEW_READY','NATIVE_SEARCH_HANDOFF_QA_READY'].includes(result.status),...result})
 }
