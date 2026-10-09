@@ -14,6 +14,7 @@ import primeControlNativeStoryHandler from './api/prime-control-native-story-lab
 import primeControlStoryHookObserver from './api/prime-control-story-hook-observer-v14c.js'
 import primeControlStoryMediaProbeHandler from './api/prime-control-story-media-probe-v14d.js'
 import primeControlStoryRealVisionHandler from './api/prime-control-story-real-vision-v14d.js'
+import primeControlArchivedVisionV15dHandler from './api/prime-control-story-vision-v15d.js'
 import primeControlStoryShadowJevHandler from './api/prime-control-story-shadow-jev-v14d.js'
 import primeControlStoryVisualMatchHandler from './api/prime-control-story-visual-match-v14e.js'
 import primeControlStoryNativeBridgeHandler from './api/prime-control-story-native-bridge-v14g.js'
@@ -100,6 +101,7 @@ app.post('/api/prime-control-story-hook-observer-v14c', (req,res)=>primeControlS
 // Separate LAB-only, private image bridge. Disabled by default; no AI / writes.
 app.post('/api/prime-control-story-media-probe-v14d', (req,res)=>primeControlStoryMediaProbeHandler(req,res))
 app.post('/api/prime-control-story-real-vision-v14d', (req,res)=>primeControlStoryRealVisionHandler(req,res))
+app.post('/api/prime-control-story-vision-v15d', (req,res)=>primeControlArchivedVisionV15dHandler(req,res))
 app.post('/api/prime-control-story-shadow-jev-v14d', (req,res)=>primeControlStoryShadowJevHandler(req,res))
 app.post('/api/prime-control-story-visual-match-v14e', (req,res)=>primeControlStoryVisualMatchHandler(req,res))
 app.post('/api/prime-control-story-native-bridge-v14g', (req,res)=>primeControlStoryNativeBridgeHandler(req,res))

@@ -71,6 +71,12 @@ describe('Render LAB API server — startup smoke', () => {
         service: 'ignite-prime-render-lab-api',
         mode: 'LAB_ONLY',
       })
+      // V1.5D route must exist and deny unauthenticated requests BEFORE Vision.
+      const archivedVision = await fetch(`http://127.0.0.1:${port}/api/prime-control-story-vision-v15d`,{
+        method:'POST',headers:{'content-type':'application/json'},body:'{}'
+      })
+      expect(archivedVision.status).toBe(401)
+      expect((await archivedVision.json()).status).toBe('QA_AUTH_REQUIRED')
     } finally {
       if (!child.killed) child.kill('SIGTERM')
       await Promise.race([
