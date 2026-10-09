@@ -8,6 +8,7 @@ const workItems = [
   { id: 'catalogo', label: 'Catálogo', badge: false },
   { id: 'catalogo-rascunho', label: 'Catálogo Drive', badge: false },
   { id: 'cobrancas', label: 'Cobranças', badge: false },
+  { id: 'comissoes', label: 'Comissões', badge: false },
 ]
 const toolsItems = [
   { id: 'importar', label: 'Importar', badge: false },
@@ -43,6 +44,7 @@ function getIcon(id, size = 15) {
     case 'catalogo':   return <Cat size={size} />
     case 'catalogo-rascunho': return <Cat size={size} />
     case 'cobrancas':  return <Cbr size={size} />
+    case 'comissoes':   return <Rep size={size} />
     case 'importar':   return <Imp size={size} />
     case 'importar-backup': return <Bak size={size} />
     case 'photo':      return <Pho size={size} />
