@@ -1,6 +1,7 @@
 // PRIME Comissões LAB — valores monetários sempre em centavos.
 export const ORDER_STATUS = Object.freeze({ PENDING: 'a_conferir', APPROVED: 'aprovada', PAID: 'paga', CANCELLED: 'cancelada' })
 export function validRate(rate) {
+  if (rate === '' || rate === null || rate === undefined || typeof rate === 'boolean') return false
   const value = Number(rate)
   return Number.isFinite(value) && value >= 0 && value <= 100
 }
