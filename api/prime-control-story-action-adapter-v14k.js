@@ -31,7 +31,7 @@ export function normalizeGabyActionPayloadV14k(body,pilot){
  const question=rawQuestion.startsWith('$')?rawQuestion.slice(1):rawQuestion
  if(chatId!==pilot||chatId.length<16||chatId.length>180)return null
  if(question.length<2||question.length>300||question.startsWith('$'))return null
- if(/[\r\n\0]/.test(question)||/\$\{/.test(question))return null
+ if(/[\r\n\0]/.test(question)||/\$\{/.test(question)||question.includes('{')||question.includes('}')||question.includes('\\'))return null
  return {chatId,question,interpolation_prefix_present:rawId.startsWith('$')||rawQuestion.startsWith('$')}
 }
 
