@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest'
-import {classifyUnverifiedStoryReferenceV15a,unverifiedStoryHoldResponseV15a} from '../../supabase/functions/gaby-lab-shadow-context-v1/story-identity-gate.ts'
+import {classifyUnverifiedStoryReferenceV15a,unverifiedStoryHoldResponseV15a,decideCommercialMemoryReadV15b} from '../../supabase/functions/gaby-lab-shadow-context-v1/story-identity-gate.ts'
 describe('GABY LAB V1.5A: current Story must never inherit previously selected product',()=>{
  const six=[
   'Qual o valor dessa camiseta?',
@@ -39,4 +39,22 @@ describe('GABY LAB V1.5A: current Story must never inherit previously selected p
   expect(out.dados.produtos).toEqual([])
   expect(out.contexto.tem_produtos).toBe(false)
  });
+});
+
+describe('GABY LAB V1.5B: explicit search never inherits size, color or product',()=>{
+ it.each([
+  'Nike Dunk Low Panda 42',
+  'Quero ver camiseta preta',
+  'New Balance 9060 branco',
+  'Quero um tênis Adidas Samba tamanho 39',
+ ])('starts fresh search for %s',(question)=>{
+  const classification=classifyUnverifiedStoryReferenceV15a(question)
+  expect(classification.hold).toBe(false)
+  expect(decideCommercialMemoryReadV15b(classification)).toEqual({
+   allow_previous:false,reason:"EXPLICIT_TEXT_SEARCH_RESETS_CONTEXT"
+  })
+ })
+ it('does not allow a vague held question to read previous memory either',()=>{
+  expect(decideCommercialMemoryReadV15b(classifyUnverifiedStoryReferenceV15a('Qual o valor dessa?')).allow_previous).toBe(false)
+ })
 });

@@ -47,3 +47,13 @@ export function unverifiedStoryHoldResponseV15a(reason:string) {
   }
  };
 }
+
+
+/** V1.5B: catalog query with its own product identity starts an independent
+ * search. No prior commercial context may supply size/color/model. Never
+ * accept client-supplied "verified" flags to bypass this boundary.
+ */
+export function decideCommercialMemoryReadV15b(state:{hold:boolean;reason:string}){
+ if(state?.hold===true)return {allow_previous:false,reason:"VAGUE_OR_VISUAL_REFERENCE_HELD"};
+ return {allow_previous:false,reason:"EXPLICIT_TEXT_SEARCH_RESETS_CONTEXT"};
+}

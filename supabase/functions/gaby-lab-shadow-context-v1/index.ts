@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import {classifyUnverifiedStoryReferenceV15a,unverifiedStoryHoldResponseV15a} from "./story-identity-gate.ts";
+import {classifyUnverifiedStoryReferenceV15a,unverifiedStoryHoldResponseV15a,decideCommercialMemoryReadV15b} from "./story-identity-gate.ts";
 
 const LAB_HEADER = "GABY-LAB-COMERCIAL-V1";
 const SHADOW_V10_URL = "https://mbbgqasvssueirynnoyk.supabase.co/functions/v1/gaby-lab-shadow-catalog-v10";
@@ -307,7 +307,11 @@ Deno.serve(async (req) => {
     const storyEvidence = classifyUnverifiedStoryReferenceV15a(pergunta);
     if (storyEvidence.hold) return json(unverifiedStoryHoldResponseV15a(storyEvidence.reason));
 
-    const prev = await getContext(contextId);
+    // V1.5B: when the message identifies a new textual product, do NOT
+    // inherit previous size/color/model from another Story or conversation.
+    // V1.5A already held ambiguous followups before this point.
+    const memoryRoute = decideCommercialMemoryReadV15b(storyEvidence);
+    const prev = memoryRoute.allow_previous ? await getContext(contextId) : null;
     const requestedSize = detectSize(pergunta) ?? (prev?.last_requested_size ? String(prev.last_requested_size) : null);
     const requestedColor = detectColor(pergunta);
     const selectedProduct = prev?.selected_product ? String(prev.selected_product) : null;
