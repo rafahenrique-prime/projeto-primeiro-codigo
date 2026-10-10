@@ -195,7 +195,7 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
    event_message_id_present:true,event_message_id_consistent:true,
    channel_matches_pilot:true,story_metadata_same_object:true,
   })
-  const correlation=log.mock.calls.find(c=>c[0]==='[PrimeControlStoryCorrelation]')
+  const correlation=log.mock.calls.find(c=>c[0]==='[PrimeControlStoryCorrelationV16B]')
   expect(JSON.parse(correlation[1]).status).toBe('SENDER_IDENTITY_MISSING')
   const serialized=JSON.stringify(log.mock.calls)+JSON.stringify(res.body)
   for(const secret of ['PRIVATE_CHAT_SHOULD_NOT_LEAK','CONTACT_ID_SHOULD_NOT_LEAK',
