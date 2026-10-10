@@ -121,7 +121,7 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   expect(auditIdentityFieldPresenceV16b({...body,agentId:'OTHER_AGENT'},{env})).toBeNull()
   expect(auditIdentityFieldPresenceV16b({...body,chatId:'OTHER_CHAT'},{env})).toBeNull()
  })
- it('rejects unauthenticated request before processing any content
+ it('rejects unauthenticated request before processing any content',async()=>{
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
   process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
   const logger=vi.spyOn(console,'info').mockImplementation(()=>{})
@@ -203,7 +203,7 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
    'gpt-files.com','DO_NOT_LOG','Qual valor?','synthetic-relay-secret'])
    expect(serialized).not.toContain(secret)
  })
- it('when enabled ACKs immediately without fetch, reply, Vision, catalog or JEV
+ it('when enabled ACKs immediately without fetch, reply, Vision, catalog or JEV',async()=>{
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
   process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
   const log=vi.spyOn(console,'info').mockImplementation(()=>{})
