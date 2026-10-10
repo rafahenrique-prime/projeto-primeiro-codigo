@@ -9,6 +9,8 @@ const MAX_FUTURE_SKEW_MS=2*60*1000
 const DEDUPE_TTL_MS=90_000
 const recent=new Map()
 const MESSAGE_DOMAIN='prime-control:v16b:message-id:\0'
+const CONTACT_ID_DOMAIN='prime-control:v16b:contact-id:\0'
+const RECIPIENT_DOMAIN='prime-control:v16b:recipient:\0'
 const SENDER_NAME_DOMAIN='prime-control:v16b:sender-name:\0'
 const SENDER_ID_DOMAIN='prime-control:v16b:sender-id:\0'
 const CHANNEL_DOMAIN='prime-control:v16b:channel-id:\0'
@@ -85,6 +87,87 @@ function getRole(body){
  const root=obj(body),data=obj(root.data),message=obj(root.message||data.message)
  return (clean(message.role)||clean(root.role)||clean(data.role)).toLowerCase()
 }
+
+const fieldPresence=values=>{
+ const distinct=uniqueValues(values)
+ return {present:distinct.length>0,divergent:distinct.length>1}
+}
+const sameValueHmac=(values,key,domain)=>{
+ const distinct=uniqueValues(values)
+ return distinct.length===1?hmac(distinct[0],key,domain):null
+}
+
+/**
+ * Sanitized, read-only diagnostics for the exact LAB pilot USER event.
+ * Returns booleans and keyed HMACs only; it never returns raw identifiers.
+ * This does not authorize resolution or change the fail-closed identity gate.
+ */
+export function auditIdentityFieldPresenceV16b(body,{env=process.env}={}){
+ const agents=getAgent(body)
+ const chats=getValues(body,['chatId','chat_id','contextId'])
+ const pilot=clean(env.PRIME_CONTROL_STORY_PILOT_CHAT_ID)
+ if(getRole(body)!=='user'||agents.length!==1||agents[0]!==PILOT_AGENT_ID||
+    !pilot||chats.length!==1||chats[0]!==pilot)return null
+
+ const directNames=getValues(body,['userName','user_name','username','user.username','user.userName',
+  'from.username','from.userName','sender.username','sender.userName'])
+ const contactNames=getValues(body,['contact.username','contact.userName'])
+ const allNames=getValues(body,['userName','user_name','username','user.username','user.userName',
+  'from.username','from.userName','sender.username','sender.userName',
+  'contact.username','contact.userName'])
+ const normalizedNames=[...new Set(allNames.map(normalizeHandle).filter(Boolean))]
+ const directUserIds=getValues(body,['userId','user_id','user.id','from.userId','from.id',
+  'sender.userId','sender.id'])
+ const contactUserIds=getValues(body,['contact.userId'])
+ const contactIds=getValues(body,['contactId','contact_id','contact.id'])
+ const recipients=getValues(body,['recipient','contact.recipient','user.recipient'])
+ const channels=getValues(body,['channelId','channel_id','channel.id'])
+ const message=getMessageId(body)
+ const eventTimes=getValues(body,['time','timestamp','messageTime','message_time','createdAt','created_at'])
+ const parsedTimes=[...new Set(eventTimes.map(parseTime).filter(v=>Number.isSafeInteger(v)))]
+ const timeStats={present:eventTimes.length>0,divergent:parsedTimes.length>1}
+ const root=obj(body),data=obj(root.data),messageObject=obj(root.message||data.message)
+ const metadata=[messageObject.metadata,data.metadata,root.metadata].map(obj)
+ const storyIdPresent=metadata.some(m=>Boolean(clean(m.storyId)))
+ const storyMediaUrlPresent=metadata.some(m=>Boolean(clean(m.storyMediaUrl)))
+ const storyTypePresent=metadata.some(m=>Boolean(clean(m.storyMediaType)))
+ const storyMetadataSameObject=metadata.some(m=>Boolean(clean(m.storyId)&&clean(m.storyMediaUrl)))
+ const key=clean(env.PRIME_CONTROL_STORY_RESOLVER_KEY)
+
+ return {
+  role_user:true,
+  agent_id_present:true,agent_id_divergent:false,agent_matches_pilot:true,
+  chat_id_present:true,chat_id_divergent:false,chat_matches_pilot:true,
+  direct_sender_username_present:fieldPresence(directNames).present,
+  direct_sender_username_divergent:fieldPresence(directNames).divergent,
+  contact_username_present:fieldPresence(contactNames).present,
+  contact_username_divergent:fieldPresence(contactNames).divergent,
+  sender_name_candidate_matches_qa:normalizedNames.length===1&&normalizedNames[0]===PILOT_SENDER,
+  direct_sender_user_id_present:fieldPresence(directUserIds).present,
+  direct_sender_user_id_divergent:fieldPresence(directUserIds).divergent,
+  contact_user_id_present:fieldPresence(contactUserIds).present,
+  contact_user_id_divergent:fieldPresence(contactUserIds).divergent,
+  contact_id_present:fieldPresence(contactIds).present,
+  contact_id_divergent:fieldPresence(contactIds).divergent,
+  recipient_present:fieldPresence(recipients).present,
+  recipient_divergent:fieldPresence(recipients).divergent,
+  channel_id_present:fieldPresence(channels).present,
+  channel_id_divergent:fieldPresence(channels).divergent,
+  channel_matches_pilot:channels.length===1&&channels[0]===PILOT_CHANNEL_ID,
+  event_message_id_present:message.status!=='EVENT_ID_MISSING',
+  event_message_id_consistent:message.status==='OK',
+  event_id_hmac:message.status==='OK'?hmac(message.value,key,MESSAGE_DOMAIN):null,
+  event_timestamp_present:timeStats.present,
+  event_timestamp_divergent:timeStats.divergent,
+  story_id_present:storyIdPresent,
+  story_media_url_present:storyMediaUrlPresent,
+  story_media_type_present:storyTypePresent,
+  story_metadata_same_object:storyMetadataSameObject,
+  contact_id_hmac:sameValueHmac(contactIds,key,CONTACT_ID_DOMAIN),
+  recipient_hmac:sameValueHmac(recipients,key,RECIPIENT_DOMAIN),
+ }
+}
+
 export function scopeStoryEventV16b(body,{env=process.env,clock=Date.now}={}){
  const fail=status=>({status,allowed:false})
  if(getRole(body)!=='user')return fail('NOT_USER_EVENT')
