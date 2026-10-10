@@ -2,7 +2,7 @@ import {describe,it,expect,vi,afterEach} from 'vitest'
 import handler,{
   equalSecret,permitted,labAgentMatches,summarizeInbound,responseForObservation,OBSERVER_EVENT
 } from '../prime-control-story-hook-observer-v14c.js'
-import {scopeStoryEventV16b,resolveStoryPilotV16b,clearStoryIdentityV16bCacheForTests} from '../_primeControlStoryIdentityV16b.js'
+import {auditIdentityFieldPresenceV16b,scopeStoryEventV16b,resolveStoryPilotV16b,clearStoryIdentityV16bCacheForTests} from '../_primeControlStoryIdentityV16b.js'
 
 const KEY='LAB_test_key_not_real'
 const simulated={
@@ -89,7 +89,39 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   expect(r.story_fingerprint).toBeNull()
   expect(r.source_role).toBe('USER')
  })
- it('rejects unauthenticated request before processing any content',async()=>{
+
+ it('reports only sanitized field presence for the exact pilot USER event',()=>{
+  const body={
+   ...simulated,chatId:'PRIVATE_CHAT_SHOULD_NOT_LEAK',
+   contactId:'CONTACT_ID_SHOULD_NOT_LEAK',recipient:'RECIPIENT_SHOULD_NOT_LEAK',
+   message:{...simulated.message,id:'EVENT_MESSAGE_ID_SHOULD_NOT_LEAK',time:Date.now()},
+  }
+  const audit=auditIdentityFieldPresenceV16b(body,{env:{
+   PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PRIVATE_CHAT_SHOULD_NOT_LEAK',
+   PRIME_CONTROL_STORY_RESOLVER_KEY:KEY,
+  }})
+  expect(audit).toMatchObject({
+   role_user:true,agent_matches_pilot:true,chat_matches_pilot:true,
+   direct_sender_username_present:true,direct_sender_user_id_present:true,
+   contact_id_present:true,recipient_present:true,channel_matches_pilot:true,
+   event_message_id_present:true,event_message_id_consistent:true,
+   event_timestamp_present:true,story_metadata_same_object:true,
+  })
+  expect(audit.event_id_hmac).toMatch(/^[0-9a-f]{64}$/)
+  expect(audit.contact_id_hmac).toMatch(/^[0-9a-f]{64}$/)
+  expect(audit.recipient_hmac).toMatch(/^[0-9a-f]{64}$/)
+  const rendered=JSON.stringify(audit)
+  for(const secret of ['PRIVATE_CHAT_SHOULD_NOT_LEAK','CONTACT_ID_SHOULD_NOT_LEAK',
+   'RECIPIENT_SHOULD_NOT_LEAK','EVENT_MESSAGE_ID_SHOULD_NOT_LEAK','gpt-files.com',
+   'DO_NOT_LOG','Qual valor?'])expect(rendered).not.toContain(secret)
+ })
+ it('does not audit a different agent or chat even when identifiers are present',()=>{
+  const body={...simulated,message:{...simulated.message,role:'user'}}
+  const env={PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PRIVATE_CHAT_SHOULD_NOT_LEAK'}
+  expect(auditIdentityFieldPresenceV16b({...body,agentId:'OTHER_AGENT'},{env})).toBeNull()
+  expect(auditIdentityFieldPresenceV16b({...body,chatId:'OTHER_CHAT'},{env})).toBeNull()
+ })
+ it('rejects unauthenticated request before processing any content
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
   process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
   const logger=vi.spyOn(console,'info').mockImplementation(()=>{})
@@ -134,7 +166,44 @@ describe('GPTMaker LAB Story webhook observer V1.4C: zero writes',()=>{
   for(const v of ['synthetic-relay-secret','gpt-files.com','PRIVATE_CHAT_SHOULD_NOT_LEAK'])
    expect(serialized).not.toContain(v)
  })
- it('when enabled ACKs immediately without fetch, reply, Vision, catalog or JEV',async()=>{
+
+ it('audits safe field presence before sender failure and never calls the resolver',async()=>{
+  process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
+  process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
+  process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED='true'
+  process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID='PRIVATE_CHAT_SHOULD_NOT_LEAK'
+  process.env.PRIME_CONTROL_STORY_RESOLVER_KEY='synthetic-relay-secret'
+  const log=vi.spyOn(console,'info').mockImplementation(()=>{})
+  const outgoing=vi.spyOn(globalThis,'fetch').mockImplementation(()=>{throw Error('OUTBOUND_FORBIDDEN')})
+  const body={
+   ...simulated,chatId:'PRIVATE_CHAT_SHOULD_NOT_LEAK',
+   userName:undefined,userId:undefined,
+   contactId:'CONTACT_ID_SHOULD_NOT_LEAK',recipient:'RECIPIENT_SHOULD_NOT_LEAK',
+   message:{...simulated.message,id:'EVENT_MESSAGE_ID_SHOULD_NOT_LEAK',time:Date.now()},
+  }
+  const res=mockRes()
+  await handler({method:'POST',headers:{'content-type':'application/json',
+   'x-prime-lab-hook-key':KEY},body},res)
+  expect(res.code).toBe(200)
+  expect(outgoing).not.toHaveBeenCalled()
+  const auditCall=log.mock.calls.find(c=>c[0]==='[PrimeControlStoryFieldAuditV16B]')
+  expect(auditCall).toBeDefined()
+  const audit=JSON.parse(auditCall[1])
+  expect(audit).toMatchObject({
+   sender_name_candidate_matches_qa:false,direct_sender_username_present:false,
+   direct_sender_user_id_present:false,contact_id_present:true,recipient_present:true,
+   event_message_id_present:true,event_message_id_consistent:true,
+   channel_matches_pilot:true,story_metadata_same_object:true,
+  })
+  const correlation=log.mock.calls.find(c=>c[0]==='[PrimeControlStoryCorrelation]')
+  expect(JSON.parse(correlation[1]).status).toBe('SENDER_IDENTITY_MISSING')
+  const serialized=JSON.stringify(log.mock.calls)+JSON.stringify(res.body)
+  for(const secret of ['PRIVATE_CHAT_SHOULD_NOT_LEAK','CONTACT_ID_SHOULD_NOT_LEAK',
+   'RECIPIENT_SHOULD_NOT_LEAK','EVENT_MESSAGE_ID_SHOULD_NOT_LEAK',
+   'gpt-files.com','DO_NOT_LOG','Qual valor?','synthetic-relay-secret'])
+   expect(serialized).not.toContain(secret)
+ })
+ it('when enabled ACKs immediately without fetch, reply, Vision, catalog or JEV
   process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
   process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
   const log=vi.spyOn(console,'info').mockImplementation(()=>{})
