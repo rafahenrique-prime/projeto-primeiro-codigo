@@ -13,7 +13,7 @@
 ## Código novo
 - `api/_primeAlertV24LiteBurstReplay.js`: planejamento puro por rajadas, sem I/O. Nenhum alerta nem observação GPT Maker é executado.
 - `tests/primeAlertV24LiteBurstReplay.test.js`: cinco testes de rajadas, segregação, input inválido, tempestades e limite offline.
-- Testes locais Node v22.16.0, todos os arquivos na pasta LAB: **25/25 PASS**.
+- Testes locais Node v22.16.0, todos os arquivos na pasta LAB: **31/31 PASS**.
 - A função de replay *não* implementa uma fila de produção nem deduplicação atômica entre workers. O limite é ilustrativo: cap transacional real ainda não instalado.
 
 ## Critérios para futuro piloto
@@ -23,3 +23,6 @@
 4. Evitar que um cooldown longo esconda uma transferência depois de um evento não relevante. A janela offline de 1,5s agrupa rajadas sem significar cooldown de 120s.
 5. Ensaiar concorrência de verdade em banco isolado somente quando for seguro, sem reativar projetos Supabase inativos por padrão.
 6. Medir custo real de LAB antes de qualquer ativação de Telegram/produção.
+
+## Compatibilidade de testes
+O teste V0 em `tests/primeAlertV24LitePolicy.test.js` foi atualizado para a interface da política conservadora de V1 (não depende mais de `previousState` implícito). A bateria completa de módulos V2.4 LITE foi executada localmente em Node v22.16.0: **31 testes, 31 aprovados**.
