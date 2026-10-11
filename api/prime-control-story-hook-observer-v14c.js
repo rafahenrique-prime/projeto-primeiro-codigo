@@ -8,6 +8,7 @@
  */
 import crypto from 'node:crypto'
 import {auditIdentityFieldPresenceV16b,resolveStoryPilotV16b} from './_primeControlStoryIdentityV16b.js'
+import { summarizeV24LiteWebhookFields } from './_primeAlertV24LiteWebhookFields.js'
 
 export const OBSERVER_EVENT = 'PRIME_CONTROL_STORY_WEBHOOK_OBSERVED_V14C'
 const CONTENT_TYPE = 'application/json'
@@ -117,7 +118,8 @@ export default async function handler(req,res) {
   }
   const record=summarizeInbound(req.body,process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY)
   const ack=responseForObservation(record)
-  console.info('[PrimeControlStoryObserver]',JSON.stringify({...record,correlation_id:ack.correlation_id}))
+  const v24LiteFields = summarizeV24LiteWebhookFields(req.body)
+  console.info('[PrimeControlStoryObserver]',JSON.stringify({...record,...v24LiteFields,correlation_id:ack.correlation_id}))
   const fieldAudit=auditIdentityFieldPresenceV16b(req.body)
   if(fieldAudit)console.info('[PrimeControlStoryFieldAuditV16B]',JSON.stringify({
     event:'PRIME_CONTROL_STORY_FIELD_PRESENCE_V16B',...fieldAudit,
