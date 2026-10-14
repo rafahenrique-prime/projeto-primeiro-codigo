@@ -80,7 +80,7 @@ function scoreProduct(p: ProductRow, tokens: string[], rawQuery: string): number
   if(tokens.length>=2&&matched<2)return 0; if(tokens.length===1&&matched<1)return 0; if(tokens.length>=2){const phrase=tokens.join(" "); if(phrase.length>=4&&name.includes(phrase))score+=2;} return score;
 }
 function variationMeta(v: VariationRow, sellingOut: boolean | null) { const attrs=v.attributes&&typeof v.attributes==="object"?v.attributes:{}; let tamanho:string|null=null, cor:string|null=null; for(const k of Object.keys(attrs)){const nk=normalize(k); if(!tamanho&&(nk==="tamanho"||nk.includes("34 ao 43")||nk.includes("calca bermudas jeans"))) tamanho=String((attrs as any)[k]??"")||null; if(!cor&&nk==="cor") cor=String((attrs as any)[k]??"")||null;} const stock=v.stock_quantity==null?null:Number(v.stock_quantity); const disponivel=sellingOut===true?true:stock==null?null:stock>0; return {identificador:v.bagy_variation_id==null?null:String(v.bagy_variation_id),tamanho,cor,estoque:stock,disponivel}; }
-function json(body: Record<string, unknown>, status=200){return Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,x-prime-agent-id,x-prime-bia-key"}})}
+function json(body: Record<string, unknown>, status=200){return Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,apikey,x-prime-agent-id,x-prime-bia-key"}})}
 
 
 const BIA_AGENT_ID=String(Deno.env.get("PRIME_CONTROL_BIA_AGENT_ID")??"");
@@ -88,7 +88,7 @@ const BIA_AGENT_ID=String(Deno.env.get("PRIME_CONTROL_BIA_AGENT_ID")??"");
 // Until configured the BIA route always fails closed; GABY LAB behavior is unchanged.
 async function authorizeBia(req:Request):Promise<boolean>{
   if(req.headers.get("x-prime-agent-id")!==BIA_AGENT_ID) return false;
-  const expected=String(Deno.env.get("PRIME_CONTROL_BIA_CATALOG_READ_KEY")??"");
+  const expected=String(Deno.env.get("PRIME_CONTROL_BIA_LAB_READ_KEY")??"");
   const presented=String(req.headers.get("x-prime-bia-key")??"");
   if(expected.length<48||presented.length<48||presented.length>256) return false;
   const bytes=new TextEncoder();
@@ -102,7 +102,7 @@ async function authorizeBia(req:Request):Promise<boolean>{
 }
 
 Deno.serve(async(req)=>{
-  if(req.method==="OPTIONS") return new Response("ok",{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,x-prime-agent-id,x-prime-bia-key"}});
+  if(req.method==="OPTIONS") return new Response("ok",{headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,authorization,apikey,x-prime-agent-id,x-prime-bia-key"}});
   if(req.method!=="POST") return json({sucesso:false,error:"METHOD_NOT_ALLOWED"},405);
   const biaHeadersPresented=req.headers.has("x-prime-bia-key")||req.headers.has("x-prime-agent-id");
   const isBia=biaHeadersPresented&&await authorizeBia(req);
