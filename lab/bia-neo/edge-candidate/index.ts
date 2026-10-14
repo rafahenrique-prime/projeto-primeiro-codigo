@@ -87,6 +87,7 @@ const BIA_AGENT_ID=String(Deno.env.get("PRIME_CONTROL_BIA_AGENT_ID")??"");
 // Secret configured in Supabase Edge Function Secrets (never hard-coded or logged).
 // Until configured the BIA route always fails closed; GABY LAB behavior is unchanged.
 async function authorizeBia(req:Request):Promise<boolean>{
+  if(BIA_AGENT_ID.length<6 || BIA_AGENT_ID.length>200) return false; // LAB-41: fail closed if agent id is not configured.
   if(req.headers.get("x-prime-agent-id")!==BIA_AGENT_ID) return false;
   const expected=String(Deno.env.get("PRIME_CONTROL_BIA_LAB_READ_KEY")??"");
   const presented=String(req.headers.get("x-prime-bia-key")??"");
