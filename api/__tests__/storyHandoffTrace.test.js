@@ -64,6 +64,39 @@ describe('Story handoff trace V1.4B', () => {
     expect(serialized).not.toContain('example.test')
   })
 
+  it('não converte ausência de valores em zero nem cria latência fictícia', () => {
+    for (const missing of [null, undefined, '', '   ']) {
+      const trace = buildStoryHandoffTrace({
+        candidateCount: missing,
+        requestStartedAtMs: missing,
+      })
+      expect(trace.candidate_count).toBeNull()
+      expect(trace.latency_ms).toBeNull()
+    }
+
+    for (const started of [0, '0']) {
+      expect(buildStoryHandoffTrace({ requestStartedAtMs: started }).latency_ms).toBeNull()
+    }
+  })
+
+  it('preserva contagem zero válida e latência para horário informado', () => {
+    const trace = buildStoryHandoffTrace({
+      candidateCount: 0,
+      requestStartedAtMs: Date.now() - 25,
+    })
+    expect(trace.candidate_count).toBe(0)
+    expect(trace.latency_ms).toBeGreaterThanOrEqual(0)
+    expect(trace.latency_ms).toBeLessThan(5000)
+
+    const numericText = buildStoryHandoffTrace({
+      candidateCount: ' 4 ',
+      requestStartedAtMs: Date.now(),
+    })
+    expect(numericText.candidate_count).toBe(4)
+    expect(numericText.latency_ms).toBeGreaterThanOrEqual(0)
+    expect(numericText.latency_ms).toBeLessThan(5000)
+  })
+
   it('não emite log quando está OFF e emite exatamente uma linha quando LOG', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const event = { event: 'STORY_GPTMAKER_HANDOFF_TRACE_V1' }
