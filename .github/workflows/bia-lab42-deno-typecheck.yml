@@ -32,3 +32,6 @@ jobs:
 
       - name: Typecheck BIA-only Edge Function without execution
         run: deno check --node-modules-dir=auto lab/bia-neo/edge-candidate/index.ts
+
+      - name: Exercise actual BIA handler with fake credentials and offline catalogue
+        run: deno test --node-modules-dir=auto --allow-env lab/bia-neo/edge-candidate/index.test.ts
