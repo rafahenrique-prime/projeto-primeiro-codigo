@@ -1,0 +1,58 @@
+--- a/index.ts
++++ b/index.ts
+@@ -26,6 +26,15 @@
+ function surfaceHasColor(v:unknown,color:string): boolean { const words=new Set(normalize(v).split(" ")); return (COLOR_GROUPS[color]??[color]).some(t=>words.has(t)); }
+ function detectQueryCategory(tokens:string[]): string|null { const s=new Set(tokens); if(s.has("tenis")||s.has("sneaker")||s.has("sneakers"))return "tenis"; if(s.has("camiseta")||s.has("camisetas")||s.has("tshirt"))return "camiseta"; if(s.has("bermuda")||s.has("bermudas")||s.has("short")||s.has("shorts"))return "bermuda"; if(s.has("calca")||s.has("calcas"))return "calca"; if(s.has("oculos"))return "oculos"; return null; }
+ function canonCategory(v:unknown): string { const n=normalize(v); if(n.includes("tenis"))return "tenis"; if(n.includes("camiseta"))return "camiseta"; if(n.includes("bermuda")||n.includes("short"))return "bermuda"; if(n.includes("calca"))return "calca"; if(n.includes("oculos"))return "oculos"; return n; }
++/** LAB-39/BIA ONLY: requested size is a search hint, never stock evidence. */
++function detectBiaTrailingSize(q:string):string|null {
++  const n=normalize(q);
++  const explicit=n.match(/\b(?:tamanho|tam|numero|numeracao)\s*(pp|p|m|g|gg|g1|g2|g3|3[4-9]|4[0-9]|5[0-2])\b/);
++  if(explicit)return explicit[1].toUpperCase();
++  const numeric=n.match(/(?:^|\s)(3[4-9]|4[0-9]|5[0-2])\s*$/);if(numeric)return numeric[1];
++  if(/\b(?:camisa|camiseta|camisetas|polo|bermuda|calca|short|jaqueta|blusa)\b/.test(n)){const clothing=n.match(/(?:^|\s)(pp|p|m|g|gg|g1|g2|g3)\s*$/);if(clothing)return clothing[1].toUpperCase();}
++  return null;
++}
+ function detectQuerySize(rawQuery:string,category:string|null): string|null {
+   const n=normalize(rawQuery);
+   const explicit=n.match(/\b(?:tamanho|tam|numero|numeracao)\s*(pp|p|m|g|gg|g1|g2|g3|3[4-9]|4[0-9]|5[0-2])\b/);
+@@ -44,6 +53,11 @@
+   if(surfaceHasColor(p.nome,color)) return true;
+   return vars.some(v=>{ const meta=variationMeta(v,p.selling_out_of_stock); return meta.cor ? surfaceHasColor(meta.cor,color) : false; });
+ }
++/** LAB-39/BIA ONLY: catalogue size membership, regardless of historical stock. */
++function biaSizePresenceRank(vars:VariationRow[],size:string):number {
++  const expected=normalize(size);if(!expected)return 0;
++  return vars.some(v=>{const attrs=v.attributes??{};return Object.keys(attrs).some(k=>{const nk=normalize(k);const isSize=nk==="tamanho"||nk.includes("34 ao 43")||nk.includes("calca bermudas jeans");return isSize&&normalize((attrs as Record<string,unknown>)[k])===expected;});})?1:0;
++}
+ function variationSizeRank(p:ProductRow,vars:VariationRow[],requestedSize:string): number {
+   const target=normalize(requestedSize);
+   let best=0;
+@@ -96,12 +110,13 @@
+   try{
+     const body=await req.json().catch(()=>({})); const pergunta=String(body?.pergunta??body?.prompt??"").trim().slice(0,300); if(pergunta.length<2)return json({sucesso:false,error:"PERGUNTA_REQUIRED"},400);
+     const supabaseUrl=String(Deno.env.get("SUPABASE_URL")??"").replace(/\/$/,""); const anonKey=String(Deno.env.get("SUPABASE_ANON_KEY")??""); if(!supabaseUrl||!anonKey)return json({sucesso:false,error:"SUPABASE_ENV_MISSING"},500);
++  if(isBia && tokensFor(pergunta,parseMaxPrice(pergunta)).length===0) return json({sucesso:true,contexto:{pergunta,source:"PRIME_SHADOW_READ_ONLY",produtos_encontrados:0,produto_exato_confirmado:false,preco_atual_verificado:false,estoque_atual_verificado:false,ultima_sincronizacao_mirror:"NAO_VERIFICADA"},dados:{produtos:[],informacao_adicional:"Consulta sem critérios de produto suficientes. Pergunte pelo modelo ou marca."}});
+     const maxPrice=parseMaxPrice(pergunta), tokens=tokensFor(pergunta,maxPrice); if(tokens.length===0)return json({sucesso:true,contexto:{pergunta,produtos_encontrados:0,tem_produtos:false,total_variacoes:0,variacoes_restantes:0,source:"shadow_v2"},dados:{produtos:[],informacao_adicional:"Busca genérica sem critério de produto suficiente.",totalVariacoes:0,variacoesRestantes:0}});
+     const headers={apikey:anonKey,Authorization:`Bearer ${anonKey}`,Accept:"application/json"}; const select=["id","slug","nome","marca","categoria_nome","descricao","codigo","link","imagem_principal","preco","preco_pix","preco_tabela","parcelamento_padrao_vezes","parcelamento_padrao_valor","parcelamento_padrao_com_juros","parcelamento_max_vezes","parcelamento_max_valor","parcelamento_max_com_juros","selling_out_of_stock","ativo"].join(",");
+     const productRes=await fetch(`${supabaseUrl}/rest/v1/shadow_products?select=${encodeURIComponent(select)}&ativo=eq.true&limit=1000`,{headers}); if(!productRes.ok)return json({sucesso:false,error:`MIRROR_HTTP_${productRes.status}`},502); const rows=await productRes.json() as ProductRow[];
+-    const requestedCategory=detectQueryCategory(tokens), requestedColor=detectQueryColor(tokens), requestedSize=detectQuerySize(pergunta,detectQueryCategory(tokens));
++    const requestedCategory=detectQueryCategory(tokens), requestedColor=detectQueryColor(tokens), requestedSize=(detectQuerySize(pergunta,detectQueryCategory(tokens)) ?? (isBia?detectBiaTrailingSize(pergunta):null));
+     const semanticTokens=requestedSize?tokens.filter(t=>normalize(t)!==normalize(requestedSize)):tokens;
+-    const baseScored=rows.map(p=>({p,score:scoreProduct(p,semanticTokens,pergunta),sizeRank:0})).filter(({p,score})=>score>0&&(!requestedCategory||canonCategory(p.categoria_nome)===requestedCategory)&&(maxPrice==null||p.preco==null||Number(p.preco)<=maxPrice));
++    const baseScored=rows.map(p=>({p,score:scoreProduct(p,semanticTokens,pergunta),sizeRank:0})).filter(({p,score})=>score>0&&(!requestedCategory||canonCategory(p.categoria_nome)===requestedCategory)&&(isBia||maxPrice==null||p.preco==null||Number(p.preco)<=maxPrice));
+     const requestedBrandTokens=brandConstraintTokens(rows,semanticTokens);
+     const strictCategoryBrandColor=Boolean(requestedCategory&&requestedColor&&requestedBrandTokens.length>0);
+     const variationAware=Boolean(requestedSize||requestedColor);
+@@ -126,9 +141,9 @@
+       filtered=filtered.filter(({p})=>matchesStrictCategoryBrandColor(p,allByProduct.get(p.id)??[],requestedCategory!,requestedColor!,requestedBrandTokens));
+     }
+     if(requestedSize){
+-      filtered=filtered.map(({p,score})=>{const sizeRank=variationSizeRank(p,allByProduct.get(p.id)??[],requestedSize);return {p,score:score+(sizeRank===2?12:sizeRank===1?4:0),sizeRank};}).filter(({sizeRank})=>sizeRank>0);
++      filtered=filtered.map(({p,score})=>{const sizeRank=isBia?biaSizePresenceRank(allByProduct.get(p.id)??[],requestedSize):variationSizeRank(p,allByProduct.get(p.id)??[],requestedSize);return {p,score:score+(isBia?(sizeRank>0?4:0):(sizeRank===2?12:sizeRank===1?4:0)),sizeRank};}).filter(({sizeRank})=>isBia||sizeRank>0);
+     }
+-    const scored=filtered.sort((a,b)=>(b.sizeRank??0)-(a.sizeRank??0)||b.score-a.score||priceNumber(a.p.preco)-priceNumber(b.p.preco)||normalize(a.p.nome).localeCompare(normalize(b.p.nome),"pt"));
++    const scored=filtered.sort((a,b)=>(b.sizeRank??0)-(a.sizeRank??0)||b.score-a.score||(isBia?0:priceNumber(a.p.preco)-priceNumber(b.p.preco))||normalize(a.p.nome).localeCompare(normalize(b.p.nome),"pt"));
+     const total=scored.length, top=scored.slice(0,5), ids=top.map(({p})=>p.id).filter(Boolean); let variations:VariationRow[]=[];
+     if(variationAware){
+       for(const id of ids) variations.push(...(allByProduct.get(id)??[]));
