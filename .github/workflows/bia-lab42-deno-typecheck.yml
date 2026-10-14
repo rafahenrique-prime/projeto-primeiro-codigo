@@ -6,6 +6,8 @@ on:
       - 'lab/bia-neo-safe-filters-20261014'
     paths:
       - '.github/workflows/bia-lab42-deno-typecheck.yml'
+      - 'lab/bia-neo/edge-candidate/index.test.ts'
+      - 'lab/bia-neo/LAB43_NATIVE_CONTRACT.md'
 
 permissions:
   contents: read

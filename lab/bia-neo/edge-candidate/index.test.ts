@@ -69,3 +69,93 @@ const r=await call("modelo zx987654ficticio",good);eq(r.status,200,"status");eq(
 Deno.test("Empty message fails closed",async()=>{
 const r=await call("",good);ok(r.status===400||candidates(r.body).length===0,"Empty msg");
 });
+
+
+// LAB-43: contract consumed by the native GPTMaker "Buscar Produtos" intention.
+// These assertions exercise the real Edge handler with synthetic, offline data.
+Deno.test("LAB43: accepts GPTMaker-style prompt alias",async()=>{
+ const req=new Request("https://offline-bia.invalid/test",{
+  method:"POST",headers:good,body:JSON.stringify({prompt:"Tênis Vans bege 40"})
+ });
+ const response=await handler!(req);eq(response.status,200,"prompt alias HTTP");
+ const body=await response.json();ok(candidates(body).some(p=>String(p.nome).includes("Vans")),"prompt alias did not find Vans");safe(body);
+});
+Deno.test("LAB43: native tool payload keys are stable and minimal",async()=>{
+ const {status,body}=await call("Tênis Vans bege 40",good);eq(status,200,"status");
+ const keys=Object.keys(body).sort().join(",");
+ eq(keys,"contexto,dados,sucesso","top-level keys");
+ const ck=Object.keys(body.contexto).sort();
+ eq(ck.join(","),["pergunta","source","produtos_encontrados","produto_exato_confirmado","preco_atual_verificado","estoque_atual_verificado","ultima_sincronizacao_mirror"].sort().join(","),"context keys");
+ const dk=Object.keys(body.dados).sort();
+ eq(dk.join(","),["informacao_adicional","produtos"].join(","),"data keys");
+});
+Deno.test("LAB43: candidate cards are strictly whitelisted",async()=>{
+ const {body}=await call("Tênis",good);
+ const whitelist=["categoria","confirmacao","imagem","link","marca","nome"].sort().join(",");
+ ok(candidates(body).length>0,"no candidates");
+ for(const p of candidates(body))eq(Object.keys(p).sort().join(","),whitelist,"candidate keys");
+ safe(body);
+});
+Deno.test("LAB43: links and images are HTTPS catalogue locations in fixtures",async()=>{
+ const {body}=await call("Tênis Vans bege 40",good);
+ const card=candidates(body).find(p=>String(p.nome).includes("Vans"));
+ ok(card,"missing card");
+ eq(new URL(card.link).hostname,"www.primestoremen.com.br","shop link");
+ eq(new URL(card.imagem).hostname,"cdn.dooca.store","photo host");
+ eq(new URL(card.link).protocol,"https:","link TLS");
+ eq(new URL(card.imagem).protocol,"https:","image TLS");
+});
+Deno.test("LAB43: no old prices or inventory enter native JSON",async()=>{
+ const {body}=await call("Tênis Nike Air Force 1 até 300",good);
+ const cards=candidates(body);
+ ok(cards.length>0,"missing card");
+ for(const card of cards)for(const k of ["preco","precoPix","precoTabela","precoMax","parcelamento","variacoes","disponibilidade","estoque","estoque_confirmado"])ok(!(k in card),"exposed "+k);
+ ok(!JSON.stringify(body).includes("R$ 399"),"historical display price exposed");
+});
+Deno.test("LAB43: no authentication values leak in successful tool responses",async()=>{
+ const {body}=await call("Tênis",good);
+ const serialized=JSON.stringify(body);
+ ok(!serialized.includes(labKey),"key appeared in payload");
+ ok(!serialized.includes("FAKE_ANON_KEY_LAB42"),"anon key appeared in payload");
+ ok(!serialized.includes(labId),"agent id appeared in payload");
+});
+Deno.test("LAB43: unauthenticated native invocation returns no products",async()=>{
+ const {status,body}=await call("Tênis",{"content-type":"application/json"});
+ eq(status,403,"status");
+ eq(body?.sucesso,false,"success forbidden");
+ ok(!Array.isArray(body?.dados?.produtos),"candidate leak to unauthorized client");
+});
+Deno.test("LAB43: still includes candidates for sizes not recorded",async()=>{
+ const {body}=await call("Tênis Vans bege 35",good);
+ ok(candidates(body).some(p=>String(p.nome).includes("Vans")),"historic missing size should not hide candidate");
+ safe(body);
+});
+Deno.test("LAB43: expensive snapshot does not filter shopper's budget",async()=>{
+ const {body}=await call("Tênis Nike Air Force 1 até R$300",good);
+ ok(candidates(body).some(p=>String(p.nome).includes("Air Force")),"budget removed candidate");
+ safe(body);
+});
+Deno.test("LAB43: media suggestions remain candidates, not proof of exact match",async()=>{
+ const {body}=await call("Tênis Vans bege 40",good);
+ eq(body.contexto.produto_exato_confirmado,false,"exact match must remain unconfirmed");
+ eq(body.contexto.ultima_sincronizacao_mirror,"NAO_VERIFICADA","freshness");
+ ok(candidates(body).every(p=>p.confirmacao==="CANDIDATO_NAO_CONFIRMADO"),"candidate marking");
+});
+Deno.test("LAB43: no cross-agent fallback using old GABY LAB header",async()=>{
+ const {status,body}=await call("Tênis",{...good,"x-prime-agent-id":"GABY-LAB-COMERCIAL-V1"});
+ eq(status,403,"status");
+ eq(body?.sucesso,false,"access");
+});
+Deno.test("LAB43: genuine empty search is structurally safe",async()=>{
+ const {status,body}=await call("modelo inexistente ZX99PRODUCTOFAKE",good);
+ eq(status,200,"status");
+ safe(body);
+ eq(candidates(body).length,0,"should be empty");
+});
+Deno.test("LAB43: responses are never cacheable",async()=>{
+ const req=new Request("https://offline-bia.invalid/test",{method:"POST",headers:good,body:JSON.stringify({pergunta:"Tênis"})});
+ const res=await handler!(req);
+ eq(res.headers.get("Cache-Control"),"no-store","cache policy");
+ eq(res.headers.get("X-Content-Type-Options"),"nosniff","MIME policy");
+ ok((res.headers.get("Content-Type")??"").includes("application/json"),"JSON content type");
+});
