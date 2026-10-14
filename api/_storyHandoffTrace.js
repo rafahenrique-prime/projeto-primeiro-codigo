@@ -18,9 +18,15 @@ function cleanEnum(value, fallback = null, max = 100) {
   return out || fallback
 }
 
-function intOrNull(value) {
+function finiteNumberOrNull(value) {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null
   const n = Number(value)
-  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : null
+  return Number.isFinite(n) ? n : null
+}
+
+function intOrNull(value) {
+  const n = finiteNumberOrNull(value)
+  return n == null ? null : Math.max(0, Math.trunc(n))
 }
 
 export function getStoryHandoffTraceMode() {
@@ -68,8 +74,8 @@ export function buildStoryHandoffTrace({
   const decisionLayerAction =
     responsePayload?.contexto?.decision_layer?.action || null
 
-  const started = Number(requestStartedAtMs)
-  const latencyMs = Number.isFinite(started)
+  const started = finiteNumberOrNull(requestStartedAtMs)
+  const latencyMs = started != null && started > 0
     ? Math.max(0, Date.now() - started)
     : null
 
