@@ -31,4 +31,4 @@ jobs:
         run: deno --version
 
       - name: Typecheck BIA-only Edge Function without execution
-        run: deno check lab/bia-neo/edge-candidate/index.ts
+        run: deno check --node-modules-dir=auto lab/bia-neo/edge-candidate/index.ts
