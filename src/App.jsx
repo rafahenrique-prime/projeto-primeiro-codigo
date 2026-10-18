@@ -27,6 +27,7 @@ import ImageExtractorPage from './pages/ImageExtractorPage'
 import BagyAuditPage from './pages/BagyAuditPage'
 import IntelligenceOpsPage from './pages/IntelligenceOpsPage'
 import OperationsCenterPage from './pages/OperationsCenterPage'
+import ComissoesPage from './pages/ComissoesPage'
 import { listChats, assumeChat, releaseChat } from './services/chat/gptmaker'
 import { runFollowUpCheck } from './services/crm/followUpService'
 import { syncCatalogFromSupabase } from './services/catalogo/catalog'
@@ -341,6 +342,7 @@ export default function App() {
           )}
           {page === 'catalogo-rascunho' && <DraftCatalogPage />}
           {page === 'cobrancas' && <CobrancasPage />}
+          {page === 'comissoes' && <ComissoesPage />}
           {page === 'importar' && <ImportCatalogPage />}
           {page === 'importar-backup' && <ImportReviewPage />}
           {page === 'photo' && <PhotoRecognitionPage />}
