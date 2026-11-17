@@ -7,7 +7,7 @@
  * appear in logs or returned JSON. Disabled unless expressly enabled.
  */
 import crypto from 'node:crypto'
-import {auditIdentityFieldPresenceV16b,resolveStoryPilotV16b} from './_primeControlStoryIdentityV16b.js'
+import {auditIdentityFieldPresenceV16b,auditChatContextRelationV16b,resolveStoryPilotV16b} from './_primeControlStoryIdentityV16b.js'
 import { summarizeV24LiteWebhookFields } from './_primeAlertV24LiteWebhookFields.js'
 
 export const OBSERVER_EVENT = 'PRIME_CONTROL_STORY_WEBHOOK_OBSERVED_V14C'
@@ -125,6 +125,21 @@ export default async function handler(req,res) {
     event:'PRIME_CONTROL_STORY_FIELD_PRESENCE_V16B',...fieldAudit,
     correlation_id:ack.correlation_id,
   }))
+  // Passive, local-only diagnostic. Off unless explicitly enabled. No network calls.
+  if(process.env.PRIME_CONTROL_STORY_CONTEXT_AUDIT_ENABLED==='true') {
+    try {
+      const relation=auditChatContextRelationV16b(req.body)
+      if(relation)console.info('[PrimeControlStoryContextAuditV16B]',JSON.stringify({
+        event:'PRIME_CONTROL_STORY_CONTEXT_RELATION_V16B',...relation,
+        correlation_id:ack.correlation_id,
+      }))
+    }catch{
+      console.info('[PrimeControlStoryContextAuditV16B]',JSON.stringify({
+        event:'PRIME_CONTROL_STORY_CONTEXT_RELATION_V16B',status:'AUDIT_ERROR',
+        correlation_id:ack.correlation_id,
+      }))
+    }
+  }
   // Controlled LAB pilot: await the bounded read-only lookup before ACK.
   // Do not rely on a detached Promise after HTTP response (worker restart risk).
   // The lookup has a 7-second cap and never posts to the Instagram customer.

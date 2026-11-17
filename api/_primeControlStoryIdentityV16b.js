@@ -168,6 +168,36 @@ export function auditIdentityFieldPresenceV16b(body,{env=process.env}={}){
  }
 }
 
+/**
+ * V1.6B passive diagnostic: relation between chatId and contextId.
+ * Scoped to the LAB agent + QA channel + QA sender (hardcoded, NOT the Secret).
+ * Returns booleans only: no raw ids, no HMACs, no text, no URLs, no network.
+ * This is NOT authentication, NOT authorization, and must never gate any access.
+ */
+export function auditChatContextRelationV16b(body,{env=process.env}={}){
+ if(getRole(body)!=='user')return null
+ const agents=getAgent(body)
+ if(agents.length!==1||agents[0]!==PILOT_AGENT_ID)return null
+ const channel=getChannelId(body)
+ if(channel.status!=='OK'||channel.value!==PILOT_CHANNEL_ID)return null
+ const sender=getSenderName(body)
+ if(sender.status!=='OK'||sender.value!==PILOT_SENDER)return null
+ const chats=getValues(body,['chatId','chat_id'])
+ const contexts=getValues(body,['contextId'])
+ const pilot=clean(env.PRIME_CONTROL_STORY_PILOT_CHAT_ID)
+ const one=list=>list.length===1
+ return {
+  chat_id_present:chats.length>0,
+  chat_id_divergent:chats.length>1,
+  context_id_present:contexts.length>0,
+  context_id_divergent:contexts.length>1,
+  chat_equals_context:one(chats)&&one(contexts)&&chats[0]===contexts[0],
+  pilot_configured:Boolean(pilot),
+  chat_matches_pilot:Boolean(pilot)&&one(chats)&&chats[0]===pilot,
+  context_matches_pilot:Boolean(pilot)&&one(contexts)&&contexts[0]===pilot,
+ }
+}
+
 export function scopeStoryEventV16b(body,{env=process.env,clock=Date.now}={}){
  const fail=status=>({status,allowed:false})
  if(getRole(body)!=='user')return fail('NOT_USER_EVENT')

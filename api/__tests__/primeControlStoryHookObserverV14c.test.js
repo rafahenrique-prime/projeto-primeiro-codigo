@@ -2,7 +2,17 @@ import {describe,it,expect,vi,afterEach} from 'vitest'
 import handler,{
   equalSecret,permitted,labAgentMatches,summarizeInbound,responseForObservation,OBSERVER_EVENT
 } from '../prime-control-story-hook-observer-v14c.js'
-import {auditIdentityFieldPresenceV16b,scopeStoryEventV16b,resolveStoryPilotV16b,clearStoryIdentityV16bCacheForTests} from '../_primeControlStoryIdentityV16b.js'
+import {auditIdentityFieldPresenceV16b,auditChatContextRelationV16b,scopeStoryEventV16b,resolveStoryPilotV16b,clearStoryIdentityV16bCacheForTests} from '../_primeControlStoryIdentityV16b.js'
+
+// Test-only switch: lets one test force the passive audit to throw. Default = real function.
+const forceAuditThrow=vi.hoisted(()=>({on:false}))
+vi.mock('../_primeControlStoryIdentityV16b.js',async importOriginal=>{
+ const actual=await importOriginal()
+ return {...actual,auditChatContextRelationV16b:(...args)=>{
+  if(forceAuditThrow.on)throw new Error('FORCED_AUDIT_FAILURE_SENTINEL')
+  return actual.auditChatContextRelationV16b(...args)
+ }}
+})
 
 const KEY='LAB_test_key_not_real'
 const simulated={
@@ -282,3 +292,154 @@ describe('V1.6B exact event identity scope: synthetic only',()=>{
    'PRIVATE_CHAT_SHOULD_NOT_LEAK','synthetic-relay-secret'])expect(logs).not.toContain(raw);
  });
 });
+
+describe('V1.6B passive chatId/contextId relation audit: synthetic only, no network',()=>{
+ const AUDIT_FLAG='PRIME_CONTROL_STORY_CONTEXT_AUDIT_ENABLED'
+ const SENTINELS=['CHAT_SENTINEL_X','CONTEXT_SENTINEL_Y','PILOT_SECRET_SENTINEL',
+  'gpt-files.com','DO_NOT_LOG','Qual valor?','@raffahenriquee','QA_USER_ID_NOT_REAL',
+  'EVENT_ID_SENTINEL','audit-test-key']
+ const envOf=(extra={})=>({PRIME_CONTROL_STORY_RESOLVER_KEY:'audit-test-key',...extra})
+ const qa=(overrides={})=>({
+  ...simulated,chatId:'CHAT_SENTINEL_X',contextId:'CHAT_SENTINEL_X',
+  message:{...simulated.message,id:'EVENT_ID_SENTINEL',time:Date.now()},
+  ...overrides,
+ })
+ const savedFlag=process.env[AUDIT_FLAG]
+ afterEach(()=>{
+  forceAuditThrow.on=false
+  if(savedFlag===undefined)delete process.env[AUDIT_FLAG]
+  else process.env[AUDIT_FLAG]=savedFlag
+ })
+ const headers={'content-type':'application/json','x-prime-lab-hook-key':KEY}
+ const run=async body=>{
+  process.env.PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY=KEY
+  process.env.PRIME_CONTROL_STORY_HOOK_OBSERVER_ENABLED='true'
+  delete process.env.PRIME_CONTROL_STORY_CORRELATION_ENABLED
+  const log=vi.spyOn(console,'info').mockImplementation(()=>{})
+  const outgoing=vi.spyOn(globalThis,'fetch').mockImplementation(()=>{throw Error('OUTBOUND_FORBIDDEN')})
+  const res=mockRes()
+  await handler({method:'POST',query:{},headers,body},res)
+  const audits=log.mock.calls.filter(c=>c[0]==='[PrimeControlStoryContextAuditV16B]')
+  return {res,log,outgoing,audits}
+ }
+
+ it('chatId equal to contextId',()=>{
+  const r=auditChatContextRelationV16b(qa(),{env:envOf()})
+  expect(r).toEqual({chat_id_present:true,chat_id_divergent:false,context_id_present:true,
+   context_id_divergent:false,chat_equals_context:true,pilot_configured:false,
+   chat_matches_pilot:false,context_matches_pilot:false})
+ })
+ it('different, chat-only, context-only and both-missing identifiers',()=>{
+  const diff=auditChatContextRelationV16b(qa({contextId:'CONTEXT_SENTINEL_Y'}),{env:envOf()})
+  expect(diff).toMatchObject({chat_id_present:true,context_id_present:true,chat_equals_context:false})
+  const chatOnly=auditChatContextRelationV16b(qa({contextId:undefined}),{env:envOf()})
+  expect(chatOnly).toMatchObject({chat_id_present:true,context_id_present:false,chat_equals_context:false})
+  const ctxOnly=auditChatContextRelationV16b(qa({chatId:undefined}),{env:envOf()})
+  expect(ctxOnly).toMatchObject({chat_id_present:false,context_id_present:true,chat_equals_context:false})
+  const none=auditChatContextRelationV16b(qa({chatId:undefined,contextId:undefined}),{env:envOf()})
+  expect(none).toMatchObject({chat_id_present:false,context_id_present:false,chat_equals_context:false,
+   chat_id_divergent:false,context_id_divergent:false})
+ })
+ it('divergent values inside the same field family',()=>{
+  const chatDiv=auditChatContextRelationV16b(qa({data:{chatId:'CONTEXT_SENTINEL_Y'}}),{env:envOf()})
+  expect(chatDiv).toMatchObject({chat_id_divergent:true,chat_equals_context:false})
+  const ctxDiv=auditChatContextRelationV16b(qa({data:{contextId:'CHAT_SENTINEL_X_2'}}),{env:envOf()})
+  expect(ctxDiv).toMatchObject({context_id_divergent:true,chat_equals_context:false})
+ })
+ it('returns null for wrong/missing agent, channel, sender or role',()=>{
+  const env=envOf()
+  const nulls=[
+   qa({agentId:'OTHER_AGENT'}),qa({agentId:undefined}),
+   qa({channelId:'OTHER_CHANNEL'}),qa({channelId:undefined}),
+   qa({userName:'@someone_else'}),qa({userName:undefined}),
+   qa({message:{...qa().message,role:'assistant'}}),qa({message:{...qa().message,role:undefined}}),
+  ]
+  for(const body of nulls)expect(auditChatContextRelationV16b(body,{env})).toBeNull()
+ })
+ it('Secret absent vs configured; reports which field matches without exposing it',()=>{
+  const none=auditChatContextRelationV16b(qa(),{env:envOf()})
+  expect(none).toMatchObject({pilot_configured:false,chat_matches_pilot:false,context_matches_pilot:false})
+  const ctxOnly=auditChatContextRelationV16b(qa({contextId:'PILOT_SECRET_SENTINEL'}),
+   {env:envOf({PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PILOT_SECRET_SENTINEL'})})
+  expect(ctxOnly).toMatchObject({pilot_configured:true,chat_matches_pilot:false,context_matches_pilot:true})
+  const chatOnly=auditChatContextRelationV16b(qa({chatId:'PILOT_SECRET_SENTINEL',contextId:'CONTEXT_SENTINEL_Y'}),
+   {env:envOf({PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PILOT_SECRET_SENTINEL'})})
+  expect(chatOnly).toMatchObject({chat_matches_pilot:true,context_matches_pilot:false})
+  const neither=auditChatContextRelationV16b(qa(),{env:envOf({PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PILOT_SECRET_SENTINEL'})})
+  expect(neither).toMatchObject({pilot_configured:true,chat_matches_pilot:false,context_matches_pilot:false})
+ })
+ it('returns only booleans: no strings, hashes or identifiers',()=>{
+  const r=auditChatContextRelationV16b(qa(),{env:envOf({PRIME_CONTROL_STORY_PILOT_CHAT_ID:'PILOT_SECRET_SENTINEL'})})
+  for(const v of Object.values(r))expect(typeof v).toBe('boolean')
+  const rendered=JSON.stringify(r)
+  for(const s of SENTINELS)expect(rendered).not.toContain(s)
+ })
+ it('flag absent or not exactly "true": no new log, ACK unchanged',async()=>{
+  delete process.env[AUDIT_FLAG]
+  const off=await run(qa())
+  expect(off.res.code).toBe(200)
+  expect(off.audits).toHaveLength(0)
+  process.env[AUDIT_FLAG]='TRUE'
+  vi.restoreAllMocks()
+  const wrongCase=await run(qa())
+  expect(wrongCase.audits).toHaveLength(0)
+  process.env[AUDIT_FLAG]='false'
+  vi.restoreAllMocks()
+  const falsy=await run(qa())
+  expect(falsy.audits).toHaveLength(0)
+  expect(falsy.res.body).toMatchObject({ok:true,mode:'OBSERVE_ONLY',story_metadata_present:true})
+ })
+ it('flag on: exactly one booleans-only log, no leaks, no network, ACK shape unchanged',async()=>{
+  process.env[AUDIT_FLAG]='true'
+  process.env.PRIME_CONTROL_STORY_PILOT_CHAT_ID='PILOT_SECRET_SENTINEL'
+  process.env.PRIME_CONTROL_STORY_RESOLVER_KEY='audit-test-key'
+  const on=await run(qa())
+  expect(on.res.code).toBe(200)
+  expect(Object.keys(on.res.body).sort()).toEqual(['correlation_id','event','mode','ok','story_metadata_present'])
+  expect(on.audits).toHaveLength(1)
+  const logged=JSON.parse(on.audits[0][1])
+  expect(logged).toMatchObject({event:'PRIME_CONTROL_STORY_CONTEXT_RELATION_V16B',
+   chat_equals_context:true,context_matches_pilot:false,chat_matches_pilot:false,pilot_configured:true})
+  expect(logged.correlation_id).toBe(on.res.body.correlation_id)
+  expect(on.outgoing).not.toHaveBeenCalled()
+  const serialized=JSON.stringify(on.log.mock.calls)+JSON.stringify(on.res.body)
+  for(const s of SENTINELS)expect(serialized).not.toContain(s)
+ })
+ it('flag on but out-of-scope agent, sender or role: no new log',async()=>{
+  process.env[AUDIT_FLAG]='true'
+  const wrongAgent=await run(qa({agentId:'WRONG_AGENT'}))
+  expect(wrongAgent.audits).toHaveLength(0)
+  vi.restoreAllMocks()
+  const wrongSender=await run(qa({userName:'@someone_else'}))
+  expect(wrongSender.audits).toHaveLength(0)
+  expect(wrongSender.res.code).toBe(200)
+  vi.restoreAllMocks()
+  const assistant=await run(qa({message:{...qa().message,role:'assistant'}}))
+  expect(assistant.audits).toHaveLength(0)
+ })
+ it('audit failure keeps HTTP 200 ACK and logs only a fixed status',async()=>{
+  process.env[AUDIT_FLAG]='true'
+  forceAuditThrow.on=true
+  const failed=await run(qa())
+  expect(failed.res.code).toBe(200)
+  expect(failed.res.body).toMatchObject({ok:true,mode:'OBSERVE_ONLY'})
+  expect(failed.audits).toHaveLength(1)
+  expect(JSON.parse(failed.audits[0][1])).toMatchObject({status:'AUDIT_ERROR'})
+  const serialized=JSON.stringify(failed.log.mock.calls)
+  expect(serialized).not.toContain('FORCED_AUDIT_FAILURE_SENTINEL')
+  for(const s of SENTINELS)expect(serialized).not.toContain(s)
+ })
+ it('does not change scope decisions or auth: same scoped result with and without the audit',()=>{
+  const env={PRIME_CONTROL_STORY_PILOT_CHAT_ID:'CHAT_SENTINEL_X',PRIME_CONTROL_STORY_RESOLVER_KEY:'audit-test-key'}
+  const body=qa({userId:'QA_USER_ID_NOT_REAL'})
+  const before=scopeStoryEventV16b(body,{env})
+  auditChatContextRelationV16b(body,{env})
+  expect(scopeStoryEventV16b(body,{env})).toEqual(before)
+  expect(permitted({headers:{},query:{}},{PRIME_CONTROL_GPTMAKER_STORY_HOOK_KEY:KEY})).toBe(false)
+ })
+ it('never touches fetch',()=>{
+  const spy=vi.spyOn(globalThis,'fetch').mockImplementation(()=>{throw Error('OUTBOUND_FORBIDDEN')})
+  auditChatContextRelationV16b(qa(),{env:envOf()})
+  expect(spy).not.toHaveBeenCalled()
+ })
+})
